@@ -9,6 +9,7 @@ build/
 .env
 .env.*
 !.env.example
+kodchi/
 supabase/.temp/
 supabase/.branches/
 
