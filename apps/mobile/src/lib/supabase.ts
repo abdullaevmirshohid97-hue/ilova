@@ -24,3 +24,13 @@ export function phoneToEmail(phone: string): string {
   const digits = phone.replace(/\D/g, '');
   return `${digits}@mijoz.ilova`;
 }
+
+// Storage'dagi mahsulot rasmining to'liq URL manzili
+export function imageUrl(storagePath: string): string {
+  return `${url}/storage/v1/object/public/product-images/${storagePath}`;
+}
+
+export function formatSum(n: number | null | undefined): string {
+  if (n == null) return '—';
+  return `${Number(n).toLocaleString('ru-RU')} so'm`;
+}

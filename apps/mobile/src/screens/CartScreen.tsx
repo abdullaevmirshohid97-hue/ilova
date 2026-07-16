@@ -1,0 +1,190 @@
+import { useState } from 'react';
+import {
+  ActivityIndicator,
+  Alert,
+  FlatList,
+  Image,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import { formatSum, supabase } from '../lib/supabase';
+import { useCart } from '../lib/cart';
+import { C } from '../lib/theme';
+
+export default function CartScreen({ onOrdered }: { onOrdered: () => void }) {
+  const cart = useCart();
+  const [sending, setSending] = useState(false);
+
+  async function placeOrder() {
+    if (cart.items.length === 0) return;
+    setSending(true);
+    const { data, error } = await supabase.rpc('create_order', {
+      p_items: cart.items.map((i) => ({ variant_id: i.variantId, qty: i.qty })),
+    });
+    setSending(false);
+
+    if (error) {
+      const msg = error.message.includes('QOLDIQ_YETARLI_EMAS')
+        ? "Kechirasiz, ba'zi tovarlar qoldig'i yetarli emas. Katalogni yangilab, qaytadan urinib ko'ring."
+        : "Buyurtma yuborilmadi. Internetni tekshirib, qaytadan urinib ko'ring.";
+      Alert.alert('Xatolik', msg);
+      return;
+    }
+
+    cart.clear();
+    Alert.alert(
+      'Buyurtma qabul qilindi! ✅',
+      "Buyurtmangiz do'konga yuborildi. Admin tasdiqlagach, holati «Buyurtmalarim» bo'limida yangilanadi.",
+      [{ text: 'Buyurtmalarim', onPress: onOrdered }]
+    );
+  }
+
+  if (cart.items.length === 0) {
+    return (
+      <View style={[s.container, s.center]}>
+        <Text style={s.emptyIcon}>🛒</Text>
+        <Text style={s.emptyText}>Savat bo'sh</Text>
+        <Text style={s.emptyHint}>Katalogdan tovar tanlang</Text>
+      </View>
+    );
+  }
+
+  return (
+    <View style={s.container}>
+      <Text style={s.title}>Savat</Text>
+      <FlatList
+        data={cart.items}
+        keyExtractor={(i) => i.variantId}
+        contentContainerStyle={{ paddingBottom: 180 }}
+        renderItem={({ item }) => (
+          <View style={s.row}>
+            {item.image ? (
+              <Image source={{ uri: item.image }} style={s.thumb} />
+            ) : (
+              <View style={[s.thumb, s.thumbPlaceholder]}>
+                <Text style={s.thumbLetter}>{item.productName.slice(0, 1)}</Text>
+              </View>
+            )}
+            <View style={{ flex: 1, marginLeft: 12 }}>
+              <Text style={s.name}>{item.productName}</Text>
+              <Text style={s.variant}>
+                {[item.size, item.color].filter(Boolean).join(' · ') || item.sku}
+              </Text>
+              <Text style={s.price}>
+                {formatSum(item.price)} × {item.qty.toLocaleString()} ={' '}
+                {formatSum(item.price * item.qty)}
+              </Text>
+            </View>
+            <View style={s.controls}>
+              <TextInput
+                style={s.qtyInput}
+                value={String(item.qty)}
+                onChangeText={(t) => {
+                  const n = parseInt(t.replace(/\D/g, ''), 10);
+                  if (n) cart.setQty(item.variantId, n);
+                }}
+                keyboardType="number-pad"
+              />
+              <TouchableOpacity onPress={() => cart.remove(item.variantId)}>
+                <Text style={s.removeText}>O'chirish</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+      />
+
+      <View style={s.footer}>
+        <View style={s.totalRow}>
+          <Text style={s.totalLabel}>Jami:</Text>
+          <Text style={s.totalValue}>{formatSum(cart.total)}</Text>
+        </View>
+        <TouchableOpacity
+          style={[s.orderBtn, sending && { opacity: 0.6 }]}
+          onPress={placeOrder}
+          disabled={sending}
+        >
+          {sending ? (
+            <ActivityIndicator color={C.text} />
+          ) : (
+            <Text style={s.orderBtnText}>Buyurtma berish</Text>
+          )}
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+}
+
+const s = StyleSheet.create({
+  container: { flex: 1, backgroundColor: C.bg, paddingTop: 56 },
+  center: { justifyContent: 'center', alignItems: 'center' },
+  emptyIcon: { fontSize: 48 },
+  emptyText: { color: C.text, fontSize: 20, fontWeight: '700', marginTop: 12 },
+  emptyHint: { color: C.faint, marginTop: 4 },
+  title: {
+    color: C.text,
+    fontSize: 24,
+    fontWeight: '800',
+    paddingHorizontal: 16,
+    marginBottom: 12,
+  },
+  row: {
+    flexDirection: 'row',
+    backgroundColor: C.card,
+    borderRadius: 14,
+    padding: 12,
+    marginHorizontal: 16,
+    marginBottom: 10,
+    alignItems: 'center',
+  },
+  thumb: { width: 56, height: 56, borderRadius: 10 },
+  thumbPlaceholder: {
+    backgroundColor: '#1f2430',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  thumbLetter: { color: C.faint, fontSize: 24, fontWeight: '800' },
+  name: { color: C.text, fontSize: 15, fontWeight: '700' },
+  variant: { color: C.muted, fontSize: 13, marginTop: 1 },
+  price: { color: C.green, fontSize: 13, marginTop: 3, fontWeight: '600' },
+  controls: { alignItems: 'flex-end', gap: 6 },
+  qtyInput: {
+    backgroundColor: C.bg,
+    borderWidth: 1,
+    borderColor: C.border,
+    borderRadius: 8,
+    color: C.text,
+    width: 80,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    fontSize: 15,
+    textAlign: 'center',
+  },
+  removeText: { color: C.red, fontSize: 12 },
+  footer: {
+    position: 'absolute',
+    bottom: 80,
+    left: 0,
+    right: 0,
+    backgroundColor: C.card,
+    borderTopWidth: 1,
+    borderTopColor: C.border,
+    padding: 16,
+  },
+  totalRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  totalLabel: { color: C.muted, fontSize: 16 },
+  totalValue: { color: C.text, fontSize: 20, fontWeight: '800' },
+  orderBtn: {
+    backgroundColor: C.primary,
+    borderRadius: 10,
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  orderBtnText: { color: C.text, fontSize: 16, fontWeight: '700' },
+});
