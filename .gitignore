@@ -1,0 +1,17 @@
+node_modules/
+dist/
+build/
+.expo/
+.turbo/
+*.log
+
+# Maxfiy fayllar — hech qachon git'ga tushmasin
+.env
+.env.*
+!.env.example
+supabase/.temp/
+supabase/.branches/
+
+# OS
+.DS_Store
+Thumbs.db

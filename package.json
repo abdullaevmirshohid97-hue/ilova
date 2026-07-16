@@ -1,0 +1,14 @@
+{
+  "name": "ilova-b2b",
+  "version": "0.1.0",
+  "private": true,
+  "description": "B2B ulgurji savdo platformasi: katalog + ombor + buyurtma + mijoz narxlari",
+  "scripts": {
+    "dev:admin": "pnpm --filter @ilova/admin dev",
+    "dev:mobile": "pnpm --filter @ilova/mobile start",
+    "typecheck": "pnpm -r typecheck",
+    "db:push": "supabase db push",
+    "db:new": "supabase migration new"
+  },
+  "packageManager": "pnpm@9.12.0"
+}
