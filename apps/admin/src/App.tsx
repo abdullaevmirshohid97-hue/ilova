@@ -8,6 +8,7 @@ import Dashboard from './pages/Dashboard';
 import Orders from './pages/Orders';
 import Products from './pages/Products';
 import Customers from './pages/Customers';
+import CustomerNew from './pages/CustomerNew';
 import Finance from './pages/Finance';
 
 export default function App() {
@@ -60,6 +61,7 @@ export default function App() {
         <Route path="/orders" element={<Orders />} />
         <Route path="/products" element={<Products />} />
         <Route path="/customers" element={<Customers />} />
+        <Route path="/customers/new" element={<CustomerNew />} />
         <Route path="/finance" element={<Finance />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
