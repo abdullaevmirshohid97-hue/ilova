@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Animated,
+  BackHandler,
   Dimensions,
   Pressable,
   StyleSheet,
@@ -52,14 +53,26 @@ function Drawer({
   onClose: () => void;
 }) {
   const cart = useCart();
+  // Panel DOIM chizilgan turadi — animatsiya shunda ishonchli ishlaydi
   const slide = useRef(new Animated.Value(-DRAWER_W)).current;
-  const [visible, setVisible] = useState(open);
+  const fade = useRef(new Animated.Value(0)).current;
   const [info, setInfo] = useState<{ name: string; phone: string; balance: number } | null>(null);
 
   useEffect(() => {
+    Animated.parallel([
+      Animated.timing(slide, {
+        toValue: open ? 0 : -DRAWER_W,
+        duration: 220,
+        useNativeDriver: true,
+      }),
+      Animated.timing(fade, {
+        toValue: open ? 1 : 0,
+        duration: 220,
+        useNativeDriver: true,
+      }),
+    ]).start();
+
     if (open) {
-      setVisible(true);
-      Animated.timing(slide, { toValue: 0, duration: 220, useNativeDriver: true }).start();
       // Har ochilganda balansni yangilaymiz
       Promise.all([
         supabase.from('customers').select('name, phone').single(),
@@ -73,21 +86,17 @@ function Drawer({
           });
         }
       });
-    } else {
-      Animated.timing(slide, { toValue: -DRAWER_W, duration: 180, useNativeDriver: true }).start(
-        () => setVisible(false)
-      );
     }
-  }, [open, slide]);
-
-  if (!visible) return null;
+  }, [open, slide, fade]);
 
   const debt = info != null && info.balance > 0;
   const credit = info != null && info.balance < 0;
 
   return (
-    <View style={StyleSheet.absoluteFill}>
-      <Pressable style={d.backdrop} onPress={onClose} />
+    <View style={StyleSheet.absoluteFill} pointerEvents={open ? 'auto' : 'none'}>
+      <Animated.View style={[d.backdrop, { opacity: fade }]}>
+        <Pressable style={{ flex: 1 }} onPress={onClose} />
+      </Animated.View>
       <Animated.View style={[d.panel, { transform: [{ translateX: slide }] }]}>
         {/* Mijoz kartasi */}
         <View style={d.profileBox}>
@@ -154,15 +163,45 @@ function MainApp() {
   const cart = useCart();
   const goOrders = useCallback(() => setScreen('orders'), []);
 
+  // Android fizik "orqaga" tugmasi: drawer ochiq bo'lsa yopadi,
+  // ichki ekranda bo'lsa katalogga qaytaradi
+  useEffect(() => {
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (drawerOpen) {
+        setDrawerOpen(false);
+        return true;
+      }
+      if (screen !== 'catalog') {
+        setScreen('catalog');
+        return true;
+      }
+      return false;
+    });
+    return () => sub.remove();
+  }, [drawerOpen, screen]);
+
   return (
     <View style={{ flex: 1, backgroundColor: C.bg }}>
-      {/* Sarlavha paneli: chapda gamburger */}
+      {/* Sarlavha paneli: chapda gamburger + ortga */}
       <View style={h.header}>
-        <TouchableOpacity style={h.burger} onPress={() => setDrawerOpen(true)}>
+        <TouchableOpacity
+          style={h.burger}
+          onPress={() => setDrawerOpen(true)}
+          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+        >
           <View style={h.burgerLine} />
           <View style={h.burgerLine} />
           <View style={h.burgerLine} />
         </TouchableOpacity>
+        {screen !== 'catalog' && (
+          <TouchableOpacity
+            style={h.backBtn}
+            onPress={() => setScreen('catalog')}
+            hitSlop={{ top: 12, bottom: 12, left: 8, right: 8 }}
+          >
+            <Text style={h.backArrow}>←</Text>
+          </TouchableOpacity>
+        )}
         <Text style={h.title}>{TITLES[screen]}</Text>
         <TouchableOpacity style={h.cartBtn} onPress={() => setScreen('cart')}>
           <Text style={h.cartIcon}>🛒</Text>
@@ -228,6 +267,8 @@ const h = StyleSheet.create({
   },
   burger: { width: 26, gap: 5, paddingVertical: 4 },
   burgerLine: { height: 2.5, borderRadius: 2, backgroundColor: C.text },
+  backBtn: { marginLeft: 12 },
+  backArrow: { color: C.text, fontSize: 22, fontWeight: '800' },
   title: { flex: 1, color: C.text, fontSize: 19, fontWeight: '800', marginLeft: 14 },
   cartBtn: { padding: 4 },
   cartIcon: { fontSize: 22 },
