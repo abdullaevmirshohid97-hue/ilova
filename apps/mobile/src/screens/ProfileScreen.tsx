@@ -75,9 +75,7 @@ export default function ProfileScreen() {
         <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.primary} />
       }
     >
-      <Text style={s.title}>Profil</Text>
-
-      <View style={s.card}>
+            <View style={s.card}>
         <View style={s.avatar}>
           <Text style={s.avatarText}>{p.name.slice(0, 1).toUpperCase()}</Text>
         </View>
@@ -121,7 +119,7 @@ export default function ProfileScreen() {
 }
 
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: C.bg, paddingTop: 56 },
+  container: { flex: 1, backgroundColor: C.bg },
   center: { justifyContent: 'center', alignItems: 'center' },
   title: {
     color: C.text,
@@ -132,6 +130,8 @@ const s = StyleSheet.create({
   },
   card: {
     backgroundColor: C.card,
+    borderWidth: 1,
+    borderColor: C.border,
     borderRadius: 14,
     padding: 20,
     marginHorizontal: 16,
@@ -147,13 +147,13 @@ const s = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 10,
   },
-  avatarText: { color: C.text, fontSize: 28, fontWeight: '800' },
+  avatarText: { color: '#fff', fontSize: 28, fontWeight: '800' },
   name: { color: C.text, fontSize: 18, fontWeight: '700' },
   phone: { color: C.muted, fontSize: 14, marginTop: 2 },
   address: { color: C.faint, fontSize: 13, marginTop: 4, textAlign: 'center' },
   balanceCard: { borderWidth: 1 },
-  debtBorder: { borderColor: '#7f1d1d' },
-  okBorder: { borderColor: '#14532d' },
+  debtBorder: { borderColor: '#F8C6CC', backgroundColor: C.redSoft },
+  okBorder: { borderColor: '#BCE9CE', backgroundColor: C.greenSoft },
   balanceLabel: { color: C.muted, fontSize: 13 },
   balanceValue: { fontSize: 28, fontWeight: '800', marginTop: 4 },
   balanceHint: { color: C.faint, fontSize: 12, marginTop: 6, textAlign: 'center' },
@@ -161,6 +161,8 @@ const s = StyleSheet.create({
   statBox: {
     flex: 1,
     backgroundColor: C.card,
+    borderWidth: 1,
+    borderColor: C.border,
     borderRadius: 14,
     padding: 16,
     alignItems: 'center',

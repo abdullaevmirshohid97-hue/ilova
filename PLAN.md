@@ -186,5 +186,66 @@ Hisobotlar, SMS OTP (Eskiz.uz), kam-qoldiq ogohlantirish, Play Market / App Stor
 ## 10. Keyingi qadam
 
 1. ✅ Planni tasdiqlash (yoki savol/o'zgartirishlar)
-2. Supabase loyiha yaratish + baza sxemasi (0-bosqich)
-3. Monorepo skeleti + admin panel boshlash
+2. ✅ Supabase loyiha yaratish + baza sxemasi (0-bosqich)
+3. ✅ Monorepo skeleti + mobil ilova + admin panel boshlash
+
+---
+
+## 11. Rezervatsiya modeli (2026-07-17 da qo'shildi)
+
+WB/Ozon/Uzum kabi: mijoz **"Buyurtma berish"** bosgan zahoti tovar band qilinadi
+(savatga qo'shilganda EMAS). Uch xil son yuritiladi:
+
+| Son | Ma'nosi | Kim ko'radi |
+|---|---|---|
+| `qty` (fizik) | Omborda jismonan yotgan tovar | Admin |
+| `reserved` (band) | Buyurtma berilgan, admin hali tasdiqlamagan | Admin |
+| **mavjud** = qty − reserved | Sotuvga ochiq qism | **Mijozlar** |
+
+Oqim: buyurtma → `reserved += n` (hammada mavjud son darhol kamayadi) →
+admin tasdiqlasa `qty -= n, reserved -= n` + qarz yoziladi → bekor bo'lsa band yechiladi.
+Hammasi atomik RPC ichida, qator qulflari bilan — poyga holati imkonsiz.
+
+Kelajakda: "band muddati" (masalan, 48 soat ichida tasdiqlanmagan buyurtma
+avtomatik bekor bo'lib band yechiladi) — pg_cron bilan qo'shiladi.
+
+---
+
+## 12. SaaS / Multi-tenant arxitektura (super-admin) — KEYINGI KATTA BOSQICH
+
+Maqsad: bitta platformada **ko'plab zavod/do'konlar** (tenant), har biri o'z
+katalogi, mijozlari, narxlari bilan. Siz — super-admin, ular — obunachi mijozlar.
+
+### Chuqur tahlil — to'g'ri yo'l:
+
+**1. Ma'lumot izolyatsiyasi: `org_id` + RLS (shared schema modeli)**
+Har asosiy jadvalga `org_id uuid` qo'shiladi (`organizations` jadvali bilan).
+RLS har so'rovga `org_id = current_org_id()` filtrini majburlaydi — bir tenant
+ikkinchisining ma'lumotini BAZA darajasida ko'ra olmaydi. Bu Stripe, Shopify
+va aksariyat SaaS'lar ishlatadigan model: arzon, boshqarish oson, 1000+ tenant'gacha
+bemalol ko'taradi. (Har tenantga alohida baza — qimmat va operatsion og'ir; bu
+faqat "enterprise" mijozlar uchun keyin qo'shilishi mumkin.)
+
+**2. Rollar ierarxiyasi** (0005-migratsiyada boshlandi):
+- `super_admin` — platforma egasi (siz): tenant yaratadi, obunani boshqaradi, statistika
+- `admin` — tenant egasi (zavod direktori): o'z org'ining hamma narsasi
+- `customer` — tenant'ning ulgurji mijozi
+- Keyin: `manager` (faqat buyurtma), `warehouse` (faqat ombor) rollari
+
+**3. Obuna (billing)**:
+`organizations.subscription_status` + `plan` (free/basic/pro). To'lov O'zbekistonda:
+Payme/Click Business API. Muddati o'tsa — org read-only rejimga tushadi (RLS bilan).
+
+**4. Super-admin panel** (admin paneldagi alohida bo'lim, faqat super_admin ko'radi):
+tenantlar ro'yxati, yaratish, bloklash, obuna holati, platforma statistikasi
+(org'lar soni, jami buyurtmalar, MRR).
+
+**5. Migratsiya yo'li** (hozirgi yakka-tenant → SaaS):
+1. `organizations` jadvali + hozirgi ma'lumotlarga "birinchi org" biriktiriladi
+2. Har jadvalga `org_id` (default = birinchi org) → hech narsa buzilmaydi
+3. RLS'larga org filtri qo'shiladi
+4. RPC'lar org-aware qilinadi
+5. Super-admin UI
+
+Bu bosqich ~1-1.5 hafta ish. Hozirgi sxema bunga TAYYOR qilib qurilgan
+(UUID'lar, RLS, RPC pattern) — qayta yozish talab qilinmaydi.

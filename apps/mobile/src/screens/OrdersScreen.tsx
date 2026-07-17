@@ -120,14 +120,13 @@ export default function OrdersScreen() {
 
   return (
     <View style={s.container}>
-      <Text style={s.title}>Buyurtmalarim</Text>
-      <FlatList
+            <FlatList
         data={orders}
         keyExtractor={(o) => o.id}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.primary} />
         }
-        contentContainerStyle={{ paddingBottom: 90 }}
+        contentContainerStyle={{ paddingTop: 12, paddingBottom: 24 }}
         ListEmptyComponent={
           <View style={s.center}>
             <Text style={s.emptyIcon}>📦</Text>
@@ -136,12 +135,12 @@ export default function OrdersScreen() {
           </View>
         }
         renderItem={({ item }) => {
-          const st = ORDER_STATUS[item.status] ?? { label: item.status, color: C.muted };
+          const st = ORDER_STATUS[item.status] ?? { label: item.status, color: C.muted, bg: C.divider };
           return (
             <View style={s.card}>
               <View style={s.cardHeader}>
                 <Text style={s.orderNo}>№{item.order_number}</Text>
-                <View style={[s.badge, { borderColor: st.color }]}>
+                <View style={[s.badge, { backgroundColor: st.bg }]}>
                   <Text style={[s.badgeText, { color: st.color }]}>{st.label}</Text>
                 </View>
               </View>
@@ -182,7 +181,7 @@ export default function OrdersScreen() {
 }
 
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: C.bg, paddingTop: 56 },
+  container: { flex: 1, backgroundColor: C.bg },
   center: { justifyContent: 'center', alignItems: 'center', marginTop: 60 },
   title: {
     color: C.text,
@@ -196,6 +195,8 @@ const s = StyleSheet.create({
   emptyHint: { color: C.faint, marginTop: 4, textAlign: 'center', paddingHorizontal: 40 },
   card: {
     backgroundColor: C.card,
+    borderWidth: 1,
+    borderColor: C.border,
     borderRadius: 14,
     padding: 16,
     marginHorizontal: 16,
@@ -208,7 +209,6 @@ const s = StyleSheet.create({
   },
   orderNo: { color: C.text, fontSize: 17, fontWeight: '800' },
   badge: {
-    borderWidth: 1,
     borderRadius: 20,
     paddingHorizontal: 10,
     paddingVertical: 3,

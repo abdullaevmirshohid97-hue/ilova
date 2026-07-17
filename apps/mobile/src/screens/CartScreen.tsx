@@ -21,7 +21,7 @@ export default function CartScreen({ onOrdered }: { onOrdered: () => void }) {
   async function placeOrder() {
     if (cart.items.length === 0) return;
     setSending(true);
-    const { data, error } = await supabase.rpc('create_order', {
+    const { error } = await supabase.rpc('create_order', {
       p_items: cart.items.map((i) => ({ variant_id: i.variantId, qty: i.qty })),
     });
     setSending(false);
@@ -37,7 +37,7 @@ export default function CartScreen({ onOrdered }: { onOrdered: () => void }) {
     cart.clear();
     Alert.alert(
       'Buyurtma qabul qilindi! ✅',
-      "Buyurtmangiz do'konga yuborildi. Admin tasdiqlagach, holati «Buyurtmalarim» bo'limida yangilanadi.",
+      "Tovar siz uchun band qilindi. Admin tasdiqlagach, holati «Buyurtmalarim»da yangilanadi.",
       [{ text: 'Buyurtmalarim', onPress: onOrdered }]
     );
   }
@@ -54,17 +54,16 @@ export default function CartScreen({ onOrdered }: { onOrdered: () => void }) {
 
   return (
     <View style={s.container}>
-      <Text style={s.title}>Savat</Text>
       <FlatList
         data={cart.items}
         keyExtractor={(i) => i.variantId}
-        contentContainerStyle={{ paddingBottom: 180 }}
+        contentContainerStyle={{ paddingTop: 12, paddingBottom: 160 }}
         renderItem={({ item }) => (
           <View style={s.row}>
             {item.image ? (
               <Image source={{ uri: item.image }} style={s.thumb} />
             ) : (
-              <View style={[s.thumb, s.thumbPlaceholder]}>
+              <View style={[s.thumb, s.thumbPh]}>
                 <Text style={s.thumbLetter}>{item.productName.slice(0, 1)}</Text>
               </View>
             )}
@@ -107,48 +106,42 @@ export default function CartScreen({ onOrdered }: { onOrdered: () => void }) {
           disabled={sending}
         >
           {sending ? (
-            <ActivityIndicator color={C.text} />
+            <ActivityIndicator color="#fff" />
           ) : (
             <Text style={s.orderBtnText}>Buyurtma berish</Text>
           )}
         </TouchableOpacity>
+        <Text style={s.reserveHint}>
+          Buyurtma berilganda tovar siz uchun darhol band qilinadi
+        </Text>
       </View>
     </View>
   );
 }
 
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: C.bg, paddingTop: 56 },
+  container: { flex: 1, backgroundColor: C.bg },
   center: { justifyContent: 'center', alignItems: 'center' },
   emptyIcon: { fontSize: 48 },
-  emptyText: { color: C.text, fontSize: 20, fontWeight: '700', marginTop: 12 },
-  emptyHint: { color: C.faint, marginTop: 4 },
-  title: {
-    color: C.text,
-    fontSize: 24,
-    fontWeight: '800',
-    paddingHorizontal: 16,
-    marginBottom: 12,
-  },
+  emptyText: { color: C.text, fontSize: 20, fontWeight: '800', marginTop: 12 },
+  emptyHint: { color: C.muted, marginTop: 4 },
   row: {
     flexDirection: 'row',
     backgroundColor: C.card,
     borderRadius: 14,
+    borderWidth: 1,
+    borderColor: C.border,
     padding: 12,
     marginHorizontal: 16,
     marginBottom: 10,
     alignItems: 'center',
   },
-  thumb: { width: 56, height: 56, borderRadius: 10 },
-  thumbPlaceholder: {
-    backgroundColor: '#1f2430',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  thumbLetter: { color: C.faint, fontSize: 24, fontWeight: '800' },
+  thumb: { width: 60, height: 60, borderRadius: 10 },
+  thumbPh: { backgroundColor: C.primarySoft, justifyContent: 'center', alignItems: 'center' },
+  thumbLetter: { color: C.primary, fontSize: 24, fontWeight: '800' },
   name: { color: C.text, fontSize: 15, fontWeight: '700' },
   variant: { color: C.muted, fontSize: 13, marginTop: 1 },
-  price: { color: C.green, fontSize: 13, marginTop: 3, fontWeight: '600' },
+  price: { color: C.text2, fontSize: 13, marginTop: 3, fontWeight: '700' },
   controls: { alignItems: 'flex-end', gap: 6 },
   qtyInput: {
     backgroundColor: C.bg,
@@ -162,29 +155,27 @@ const s = StyleSheet.create({
     fontSize: 15,
     textAlign: 'center',
   },
-  removeText: { color: C.red, fontSize: 12 },
+  removeText: { color: C.red, fontSize: 12, fontWeight: '600' },
   footer: {
     position: 'absolute',
-    bottom: 80,
+    bottom: 0,
     left: 0,
     right: 0,
     backgroundColor: C.card,
     borderTopWidth: 1,
     borderTopColor: C.border,
     padding: 16,
+    paddingBottom: 28,
   },
-  totalRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 12,
-  },
+  totalRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12 },
   totalLabel: { color: C.muted, fontSize: 16 },
   totalValue: { color: C.text, fontSize: 20, fontWeight: '800' },
   orderBtn: {
     backgroundColor: C.primary,
-    borderRadius: 10,
+    borderRadius: 12,
     paddingVertical: 14,
     alignItems: 'center',
   },
-  orderBtnText: { color: C.text, fontSize: 16, fontWeight: '700' },
+  orderBtnText: { color: '#fff', fontSize: 16, fontWeight: '800' },
+  reserveHint: { color: C.faint, fontSize: 11, textAlign: 'center', marginTop: 8 },
 });

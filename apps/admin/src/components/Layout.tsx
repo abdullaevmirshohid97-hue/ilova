@@ -1,0 +1,82 @@
+import { ReactNode } from 'react';
+import { NavLink, useLocation } from 'react-router-dom';
+import { supabase } from '../lib/supabase';
+
+const NAV = [
+  { to: '/', icon: '📊', label: 'Boshqaruv' },
+  { to: '/orders', icon: '🧾', label: 'Buyurtmalar' },
+  { to: '/products', icon: '📦', label: 'Mahsulotlar & Ombor' },
+  { to: '/customers', icon: '👥', label: 'Mijozlar' },
+  { to: '/finance', icon: '💰', label: 'Moliya' },
+];
+
+const TITLES: Record<string, string> = {
+  '/': 'Boshqaruv paneli',
+  '/orders': 'Buyurtmalar',
+  '/products': 'Mahsulotlar va ombor',
+  '/customers': 'Mijozlar',
+  '/finance': 'Moliya',
+};
+
+export default function Layout({ role, children }: { role: string; children: ReactNode }) {
+  const { pathname } = useLocation();
+
+  return (
+    <div className="flex h-screen overflow-hidden">
+      {/* Yon panel — navy, CEO uslubi */}
+      <aside className="flex w-64 shrink-0 flex-col bg-navy text-white">
+        <div className="px-6 py-6">
+          <div className="text-xl font-extrabold tracking-wide">
+            ILOVA <span className="text-brand" style={{ color: '#B388FF' }}>B2B</span>
+          </div>
+          <div className="mt-1 text-xs text-white/40">
+            {role === 'super_admin' ? 'Super administrator' : 'Administrator'}
+          </div>
+        </div>
+
+        <nav className="flex-1 space-y-1 px-3">
+          {NAV.map((n) => (
+            <NavLink
+              key={n.to}
+              to={n.to}
+              end={n.to === '/'}
+              className={({ isActive }) =>
+                `flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition ${
+                  isActive
+                    ? 'bg-white/10 text-white'
+                    : 'text-white/55 hover:bg-white/5 hover:text-white'
+                }`
+              }
+            >
+              <span className="text-base">{n.icon}</span>
+              {n.label}
+            </NavLink>
+          ))}
+        </nav>
+
+        <button
+          onClick={() => supabase.auth.signOut()}
+          className="mx-3 mb-6 flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium text-red-300 hover:bg-white/5"
+        >
+          🚪 Chiqish
+        </button>
+      </aside>
+
+      {/* Kontent */}
+      <div className="flex min-w-0 flex-1 flex-col">
+        <header className="flex h-16 shrink-0 items-center justify-between border-b border-gray-200 bg-white px-8">
+          <h1 className="text-lg font-bold text-gray-900">{TITLES[pathname] ?? ''}</h1>
+          <div className="text-sm text-gray-400">
+            {new Date().toLocaleDateString('uz-UZ', {
+              weekday: 'long',
+              day: 'numeric',
+              month: 'long',
+              year: 'numeric',
+            })}
+          </div>
+        </header>
+        <main className="flex-1 overflow-y-auto p-8">{children}</main>
+      </div>
+    </div>
+  );
+}

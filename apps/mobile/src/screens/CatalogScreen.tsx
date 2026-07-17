@@ -1,9 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
+  Dimensions,
   FlatList,
   Image,
+  Modal,
   RefreshControl,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -20,7 +23,7 @@ type Variant = {
   size: string | null;
   color: string | null;
   price: number | null;
-  qty: number;
+  available: number;
 };
 
 type Product = {
@@ -37,67 +40,124 @@ function first<T>(v: T | T[] | null): T | null {
   return Array.isArray(v) ? (v[0] ?? null) : v;
 }
 
-function VariantRow({ v, productName, image }: { v: Variant; productName: string; image: string | null }) {
+const CARD_W = (Dimensions.get('window').width - 16 * 2 - 12) / 2;
+
+// ---------- Mahsulot sahifasi (WB/Uzum uslubidagi modal) ----------
+function ProductSheet({ product, onClose }: { product: Product; onClose: () => void }) {
   const cart = useCart();
+  const [selected, setSelected] = useState<Variant | null>(
+    product.variants.find((v) => v.available > 0) ?? null
+  );
   const [qtyText, setQtyText] = useState('');
-  const inCart = cart.items.find((i) => i.variantId === v.id);
+  const qty = parseInt(qtyText, 10) || 0;
+  const canAdd = selected != null && selected.price != null && qty > 0 && qty <= selected.available;
 
   function addToCart() {
-    const qty = parseInt(qtyText, 10);
-    if (!qty || qty <= 0 || v.price == null) return;
+    if (!selected || !canAdd) return;
     cart.add({
-      variantId: v.id,
-      productName,
-      sku: v.sku,
-      size: v.size,
-      color: v.color,
-      price: v.price,
-      qty: Math.min(qty, v.qty),
-      image,
-      maxQty: v.qty,
+      variantId: selected.id,
+      productName: product.name,
+      sku: selected.sku,
+      size: selected.size,
+      color: selected.color,
+      price: selected.price!,
+      qty,
+      image: product.image,
+      maxQty: selected.available,
     });
-    setQtyText('');
+    onClose();
   }
 
   return (
-    <View style={s.variantRow}>
-      <View style={{ flex: 1 }}>
-        <Text style={s.variantTitle}>
-          {[v.size, v.color].filter(Boolean).join(' · ') || v.sku}
-        </Text>
-        <Text style={s.price}>{formatSum(v.price)}</Text>
-        <Text style={[s.stock, v.qty === 0 && s.stockOut]}>
-          {v.qty > 0 ? `${v.qty.toLocaleString()} dona bor` : 'Tugagan'}
-        </Text>
-      </View>
-      {v.qty > 0 && v.price != null && (
-        <View style={s.addBox}>
+    <Modal visible animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
+      <View style={ps.container}>
+        <View style={ps.header}>
+          <TouchableOpacity onPress={onClose} style={ps.closeBtn}>
+            <Text style={ps.closeText}>✕</Text>
+          </TouchableOpacity>
+        </View>
+        <ScrollView contentContainerStyle={{ paddingBottom: 140 }}>
+          {product.image ? (
+            <Image source={{ uri: product.image }} style={ps.image} resizeMode="cover" />
+          ) : (
+            <View style={[ps.image, ps.imagePh]}>
+              <Text style={ps.imagePhText}>{product.name.slice(0, 1)}</Text>
+            </View>
+          )}
+          <View style={ps.body}>
+            <Text style={ps.name}>
+              {product.name}
+              {product.model ? `  ·  ${product.model}` : ''}
+            </Text>
+            {product.material && <Text style={ps.material}>{product.material}</Text>}
+
+            <Text style={ps.sectionTitle}>Variantni tanlang</Text>
+            {product.variants.map((v) => {
+              const active = selected?.id === v.id;
+              const out = v.available <= 0;
+              return (
+                <TouchableOpacity
+                  key={v.id}
+                  style={[ps.variant, active && ps.variantActive, out && ps.variantOut]}
+                  onPress={() => !out && setSelected(v)}
+                  disabled={out}
+                >
+                  <View style={{ flex: 1 }}>
+                    <Text style={[ps.variantTitle, out && { color: C.faint }]}>
+                      {[v.size, v.color].filter(Boolean).join(' · ') || v.sku}
+                    </Text>
+                    <Text style={ps.variantSku}>{v.sku}</Text>
+                  </View>
+                  <View style={{ alignItems: 'flex-end' }}>
+                    <Text style={[ps.variantPrice, out && { color: C.faint }]}>
+                      {formatSum(v.price)}
+                    </Text>
+                    <Text style={[ps.variantStock, out && { color: C.red }]}>
+                      {out ? 'Tugagan' : `${v.available.toLocaleString()} dona mavjud`}
+                    </Text>
+                  </View>
+                  <View style={[ps.radio, active && ps.radioActive]}>
+                    {active && <View style={ps.radioDot} />}
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </ScrollView>
+
+        <View style={ps.footer}>
           <TextInput
-            style={s.qtyInput}
+            style={ps.qtyInput}
             value={qtyText}
             onChangeText={(t) => setQtyText(t.replace(/\D/g, ''))}
             keyboardType="number-pad"
-            placeholder="dona"
+            placeholder="Necha dona?"
             placeholderTextColor={C.faint}
           />
           <TouchableOpacity
-            style={[s.addBtn, !qtyText && s.addBtnDisabled]}
+            style={[ps.addBtn, !canAdd && ps.addBtnDisabled]}
             onPress={addToCart}
-            disabled={!qtyText}
+            disabled={!canAdd}
           >
-            <Text style={s.addBtnText}>{inCart ? `+ (${inCart.qty})` : 'Savatga'}</Text>
+            <Text style={ps.addBtnText}>
+              {qty > 0 && selected?.price != null
+                ? `Savatga · ${formatSum(qty * selected.price)}`
+                : 'Savatga qo`shish'}
+            </Text>
           </TouchableOpacity>
         </View>
-      )}
-    </View>
+      </View>
+    </Modal>
   );
 }
 
+// ---------- Katalog (2 ustunli grid) ----------
 export default function CatalogScreen() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [search, setSearch] = useState('');
+  const [openProduct, setOpenProduct] = useState<Product | null>(null);
 
   async function loadCatalog() {
     const { data, error } = await supabase
@@ -107,7 +167,7 @@ export default function CatalogScreen() {
          product_images ( storage_path, is_primary, sort_order ),
          product_variants ( id, sku, size, color,
            prices ( price ),
-           stock_levels ( qty )
+           stock_levels ( qty, reserved )
          )`
       )
       .eq('is_active', true)
@@ -117,7 +177,8 @@ export default function CatalogScreen() {
       setProducts(
         data.map((p: any) => {
           const imgs = (p.product_images ?? []).sort(
-            (a: any, b: any) => Number(b.is_primary) - Number(a.is_primary) || a.sort_order - b.sort_order
+            (a: any, b: any) =>
+              Number(b.is_primary) - Number(a.is_primary) || a.sort_order - b.sort_order
           );
           return {
             id: p.id,
@@ -125,14 +186,17 @@ export default function CatalogScreen() {
             model: p.model,
             material: p.material,
             image: imgs[0] ? imageUrl(imgs[0].storage_path) : null,
-            variants: (p.product_variants ?? []).map((v: any) => ({
-              id: v.id,
-              sku: v.sku,
-              size: v.size,
-              color: v.color,
-              price: first<any>(v.prices)?.price ?? null,
-              qty: first<any>(v.stock_levels)?.qty ?? 0,
-            })),
+            variants: (p.product_variants ?? []).map((v: any) => {
+              const sl = first<any>(v.stock_levels);
+              return {
+                id: v.id,
+                sku: v.sku,
+                size: v.size,
+                color: v.color,
+                price: first<any>(v.prices)?.price ?? null,
+                available: Math.max(0, (sl?.qty ?? 0) - (sl?.reserved ?? 0)),
+              };
+            }),
           };
         })
       );
@@ -142,19 +206,34 @@ export default function CatalogScreen() {
 
   useEffect(() => {
     loadCatalog();
-    // Jonli qoldiq: kimdir olsa — hammada bir zumda yangilanadi
+    // Jonli: kimdir buyurtma bersa — mavjud son hammada darhol kamayadi
     const channel = supabase
       .channel('stock-live')
       .on(
         'postgres_changes',
         { event: 'UPDATE', schema: 'public', table: 'stock_levels' },
         (payload) => {
-          const { variant_id, qty } = payload.new as { variant_id: string; qty: number };
+          const { variant_id, qty, reserved } = payload.new as {
+            variant_id: string;
+            qty: number;
+            reserved: number;
+          };
+          const available = Math.max(0, qty - reserved);
           setProducts((prev) =>
             prev.map((p) => ({
               ...p,
-              variants: p.variants.map((v) => (v.id === variant_id ? { ...v, qty } : v)),
+              variants: p.variants.map((v) => (v.id === variant_id ? { ...v, available } : v)),
             }))
+          );
+          setOpenProduct((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  variants: prev.variants.map((v) =>
+                    v.id === variant_id ? { ...v, available } : v
+                  ),
+                }
+              : prev
           );
         }
       )
@@ -197,119 +276,173 @@ export default function CatalogScreen() {
 
   return (
     <View style={s.container}>
-      <Text style={s.title}>Katalog</Text>
-      <TextInput
-        style={s.search}
-        value={search}
-        onChangeText={setSearch}
-        placeholder="Qidiruv: nomi, model, razmer, rang, SKU..."
-        placeholderTextColor={C.faint}
-      />
+      <View style={s.searchWrap}>
+        <Text style={s.searchIcon}>🔍</Text>
+        <TextInput
+          style={s.search}
+          value={search}
+          onChangeText={setSearch}
+          placeholder="Nomi, model, razmer, rang, SKU..."
+          placeholderTextColor={C.faint}
+        />
+      </View>
+
       <FlatList
         data={filtered}
         keyExtractor={(p) => p.id}
+        numColumns={2}
+        columnWrapperStyle={{ gap: 12, paddingHorizontal: 16 }}
+        contentContainerStyle={{ gap: 12, paddingBottom: 24 }}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.primary} />
         }
         ListEmptyComponent={<Text style={s.empty}>Hech narsa topilmadi</Text>}
-        contentContainerStyle={{ paddingBottom: 90 }}
-        renderItem={({ item }) => (
-          <View style={s.card}>
-            {item.image ? (
-              <Image source={{ uri: item.image }} style={s.image} resizeMode="cover" />
-            ) : (
-              <View style={[s.image, s.imagePlaceholder]}>
-                <Text style={s.imagePlaceholderText}>{item.name.slice(0, 1)}</Text>
+        renderItem={({ item }) => {
+          const prices = item.variants.map((v) => v.price).filter((p): p is number => p != null);
+          const minPrice = prices.length ? Math.min(...prices) : null;
+          const totalAvail = item.variants.reduce((sum, v) => sum + v.available, 0);
+          return (
+            <TouchableOpacity style={s.card} onPress={() => setOpenProduct(item)} activeOpacity={0.8}>
+              {item.image ? (
+                <Image source={{ uri: item.image }} style={s.image} resizeMode="cover" />
+              ) : (
+                <View style={[s.image, s.imagePh]}>
+                  <Text style={s.imagePhText}>{item.name.slice(0, 1)}</Text>
+                </View>
+              )}
+              <View style={s.cardBody}>
+                <Text style={s.price}>{minPrice != null ? formatSum(minPrice) : '—'}</Text>
+                <Text style={s.name} numberOfLines={2}>
+                  {item.name}
+                  {item.model ? ` · ${item.model}` : ''}
+                </Text>
+                <Text style={[s.stock, totalAvail === 0 && { color: C.red }]}>
+                  {totalAvail > 0 ? `${totalAvail.toLocaleString()} dona mavjud` : 'Tugagan'}
+                </Text>
               </View>
-            )}
-            <View style={s.cardBody}>
-              <Text style={s.productName}>
-                {item.name}
-                {item.model ? `  ·  ${item.model}` : ''}
-              </Text>
-              {item.material && <Text style={s.material}>{item.material}</Text>}
-              {item.variants.map((v) => (
-                <VariantRow key={v.id} v={v} productName={item.name} image={item.image} />
-              ))}
-            </View>
-          </View>
-        )}
+            </TouchableOpacity>
+          );
+        }}
       />
+
+      {openProduct && <ProductSheet product={openProduct} onClose={() => setOpenProduct(null)} />}
     </View>
   );
 }
 
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: C.bg, paddingTop: 56 },
+  container: { flex: 1, backgroundColor: C.bg },
   center: { justifyContent: 'center', alignItems: 'center' },
-  title: {
-    color: C.text,
-    fontSize: 24,
-    fontWeight: '800',
-    paddingHorizontal: 16,
-    marginBottom: 12,
-  },
-  search: {
+  searchWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: C.card,
-    borderRadius: 10,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: C.border,
-    color: C.text,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
     marginHorizontal: 16,
+    marginTop: 12,
     marginBottom: 12,
-    fontSize: 15,
+    paddingHorizontal: 12,
   },
-  empty: { color: C.faint, textAlign: 'center', marginTop: 40 },
+  searchIcon: { fontSize: 15, marginRight: 6 },
+  search: { flex: 1, color: C.text, paddingVertical: 10, fontSize: 15 },
+  empty: { color: C.muted, textAlign: 'center', marginTop: 40 },
   card: {
+    width: CARD_W,
     backgroundColor: C.card,
     borderRadius: 14,
-    marginHorizontal: 16,
-    marginBottom: 14,
     overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: C.border,
   },
-  image: { width: '100%', height: 180 },
-  imagePlaceholder: {
-    backgroundColor: '#1f2430',
+  image: { width: '100%', height: CARD_W },
+  imagePh: { backgroundColor: C.primarySoft, justifyContent: 'center', alignItems: 'center' },
+  imagePhText: { color: C.primary, fontSize: 48, fontWeight: '800' },
+  cardBody: { padding: 10 },
+  price: { color: C.text, fontSize: 16, fontWeight: '800' },
+  name: { color: C.text2, fontSize: 13, marginTop: 3, lineHeight: 17 },
+  stock: { color: C.green, fontSize: 12, marginTop: 5, fontWeight: '600' },
+});
+
+const ps = StyleSheet.create({
+  container: { flex: 1, backgroundColor: C.card },
+  header: { position: 'absolute', top: 12, right: 12, zIndex: 10 },
+  closeBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(20,21,26,0.55)',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  imagePlaceholderText: { color: C.faint, fontSize: 64, fontWeight: '800' },
-  cardBody: { padding: 16 },
-  productName: { color: C.text, fontSize: 17, fontWeight: '700' },
-  material: { color: C.muted, fontSize: 13, marginTop: 2 },
-  variantRow: {
+  closeText: { color: '#fff', fontSize: 16, fontWeight: '700' },
+  image: { width: '100%', height: 320 },
+  imagePh: { backgroundColor: C.primarySoft, justifyContent: 'center', alignItems: 'center' },
+  imagePhText: { color: C.primary, fontSize: 80, fontWeight: '800' },
+  body: { padding: 16 },
+  name: { color: C.text, fontSize: 20, fontWeight: '800' },
+  material: { color: C.muted, fontSize: 14, marginTop: 4 },
+  sectionTitle: { color: C.text, fontSize: 15, fontWeight: '700', marginTop: 18, marginBottom: 8 },
+  variant: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 12,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: C.divider,
-  },
-  variantTitle: { color: C.text2, fontSize: 15, fontWeight: '600' },
-  price: { color: C.green, fontSize: 16, fontWeight: '700', marginTop: 2 },
-  stock: { color: C.muted, fontSize: 13, marginTop: 2 },
-  stockOut: { color: C.red },
-  addBox: { alignItems: 'flex-end', gap: 6 },
-  qtyInput: {
-    backgroundColor: C.bg,
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: C.border,
-    borderRadius: 8,
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 8,
+    gap: 10,
+  },
+  variantActive: { borderColor: C.primary, backgroundColor: C.primarySoft },
+  variantOut: { opacity: 0.6 },
+  variantTitle: { color: C.text, fontSize: 15, fontWeight: '600' },
+  variantSku: { color: C.faint, fontSize: 11, marginTop: 2 },
+  variantPrice: { color: C.text, fontSize: 15, fontWeight: '800' },
+  variantStock: { color: C.green, fontSize: 11, marginTop: 2, fontWeight: '600' },
+  radio: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: C.faint,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  radioActive: { borderColor: C.primary },
+  radioDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: C.primary },
+  footer: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    gap: 10,
+    padding: 16,
+    paddingBottom: 32,
+    backgroundColor: C.card,
+    borderTopWidth: 1,
+    borderTopColor: C.border,
+  },
+  qtyInput: {
+    width: 120,
+    borderWidth: 1.5,
+    borderColor: C.border,
+    borderRadius: 12,
     color: C.text,
-    width: 90,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    fontSize: 15,
+    paddingHorizontal: 12,
+    fontSize: 16,
     textAlign: 'center',
+    backgroundColor: C.bg,
   },
   addBtn: {
+    flex: 1,
     backgroundColor: C.primary,
-    borderRadius: 8,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 14,
   },
-  addBtnDisabled: { opacity: 0.4 },
-  addBtnText: { color: C.text, fontWeight: '700', fontSize: 13 },
+  addBtnDisabled: { backgroundColor: C.faint },
+  addBtnText: { color: '#fff', fontSize: 15, fontWeight: '800' },
 });

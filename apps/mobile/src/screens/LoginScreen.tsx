@@ -47,7 +47,7 @@ export default function LoginScreen() {
           keyboardType="phone-pad"
           autoCapitalize="none"
           placeholder="+998 90 123 45 67"
-          placeholderTextColor="#666"
+          placeholderTextColor="#B9BDCC"
         />
 
         <Text style={styles.label}>Parol</Text>
@@ -57,7 +57,7 @@ export default function LoginScreen() {
           onChangeText={setPassword}
           secureTextEntry
           placeholder="Parolingiz"
-          placeholderTextColor="#666"
+          placeholderTextColor="#B9BDCC"
         />
 
         {error && <Text style={styles.error}>{error}</Text>}
@@ -85,40 +85,40 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0f1115',
+    backgroundColor: '#F2F3F7',
     justifyContent: 'center',
     padding: 20,
   },
   card: {
-    backgroundColor: '#171a21',
+    backgroundColor: '#FFFFFF',
     borderRadius: 16,
     padding: 24,
   },
   logo: {
-    color: '#fff',
+    color: '#7000FF',
     fontSize: 28,
     fontWeight: '800',
     textAlign: 'center',
     letterSpacing: 2,
   },
   subtitle: {
-    color: '#8b93a7',
+    color: '#8E92A3',
     textAlign: 'center',
     marginTop: 4,
     marginBottom: 28,
   },
   label: {
-    color: '#8b93a7',
+    color: '#8E92A3',
     fontSize: 13,
     marginBottom: 6,
     marginTop: 12,
   },
   input: {
-    backgroundColor: '#0f1115',
+    backgroundColor: '#F2F3F7',
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#2a2f3a',
-    color: '#fff',
+    borderColor: '#E9EAF2',
+    color: '#14151A',
     paddingHorizontal: 14,
     paddingVertical: 12,
     fontSize: 16,
@@ -129,7 +129,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   button: {
-    backgroundColor: '#2563eb',
+    backgroundColor: '#7000FF',
     borderRadius: 10,
     paddingVertical: 14,
     alignItems: 'center',
@@ -138,7 +138,7 @@ const styles = StyleSheet.create({
   buttonDisabled: { opacity: 0.6 },
   buttonText: { color: '#fff', fontSize: 16, fontWeight: '700' },
   hint: {
-    color: '#5b6272',
+    color: '#B9BDCC',
     fontSize: 12,
     textAlign: 'center',
     marginTop: 16,
