@@ -35,3 +35,18 @@ export const ORDER_STATUS: Record<string, { label: string; cls: string }> = {
   done: { label: 'Yopilgan', cls: 'bg-gray-100 text-gray-500' },
   cancelled: { label: 'Bekor', cls: 'bg-red-100 text-red-600' },
 };
+
+export const LEDGER_KIND_LABEL: Record<string, string> = {
+  order_debt: '📦 Buyurtma (qarz)',
+  payment: "💵 To'lov",
+  discount: '🎁 Chegirma',
+  adjustment: '✏️ Tuzatish',
+  cancel_reversal: '↩️ Bekor qilindi',
+};
+
+export function genPassword(): string {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
+  let p = '';
+  for (let i = 0; i < 8; i++) p += chars[Math.floor(Math.random() * chars.length)];
+  return p + '#' + Math.floor(Math.random() * 90 + 10);
+}

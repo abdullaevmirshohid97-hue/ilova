@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { formatSum, supabase } from '../lib/supabase';
+import PaymentModal from '../components/PaymentModal';
 
 const AVATAR_BASE = `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/avatars/`;
 
@@ -18,6 +19,7 @@ type Row = {
 
 export default function Customers() {
   const [rows, setRows] = useState<Row[]>([]);
+  const [payFor, setPayFor] = useState<Row | null>(null);
   const nav = useNavigate();
 
   const load = useCallback(async () => {
@@ -50,21 +52,6 @@ export default function Customers() {
     load();
   }, [load]);
 
-  async function pay(r: Row) {
-    const v = prompt(`${r.name}\nQancha to'lov qabul qilindi? (so'm)`);
-    const n = parseInt((v ?? '').replace(/\D/g, ''), 10);
-    if (!n || n <= 0) return;
-    const method = confirm('Naqd to`lovmi? (OK = naqd, Cancel = o`tkazma)') ? 'cash' : 'transfer';
-    const { error } = await supabase.rpc('record_payment', {
-      p_customer_id: r.id,
-      p_amount: n,
-      p_method: method,
-      p_note: 'Admin panel orqali',
-    });
-    if (error) alert('Xatolik: ' + error.message);
-    load();
-  }
-
   return (
     <div className="space-y-4">
       <div className="flex justify-end">
@@ -90,7 +77,11 @@ export default function Customers() {
         </thead>
         <tbody>
           {rows.map((r) => (
-            <tr key={r.id} className="border-t border-gray-50 hover:bg-gray-50/60">
+            <tr
+              key={r.id}
+              onClick={() => nav(`/customers/${r.id}`)}
+              className="cursor-pointer border-t border-gray-50 hover:bg-gray-50/60"
+            >
               <td className="px-6 py-3">
                 <div className="flex items-center gap-3">
                   {r.photo ? (
@@ -133,7 +124,10 @@ export default function Customers() {
               </td>
               <td className="px-6 py-3 text-right">
                 <button
-                  onClick={() => pay(r)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setPayFor(r);
+                  }}
                   className="rounded-lg bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-600 hover:bg-emerald-100"
                 >
                   💵 To'lov
@@ -151,6 +145,15 @@ export default function Customers() {
         </tbody>
       </table>
       </div>
+
+      {payFor && (
+        <PaymentModal
+          customerId={payFor.id}
+          customerName={payFor.name}
+          onClose={() => setPayFor(null)}
+          onSaved={load}
+        />
+      )}
     </div>
   );
 }

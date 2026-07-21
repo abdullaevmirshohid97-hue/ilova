@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { formatDate, formatSum, supabase } from '../lib/supabase';
+import { LEDGER_KIND_LABEL, formatDate, formatSum, supabase } from '../lib/supabase';
 
 type Entry = {
   id: number;
@@ -9,14 +9,6 @@ type Entry = {
   created_at: string;
   customer: string;
   order_number: number | null;
-};
-
-const KIND_LABEL: Record<string, string> = {
-  order_debt: '📦 Buyurtma (qarz)',
-  payment: "💵 To'lov",
-  discount: '🎁 Chegirma',
-  adjustment: '✏️ Tuzatish',
-  cancel_reversal: '↩️ Bekor qilindi',
 };
 
 export default function Finance() {
@@ -92,7 +84,7 @@ export default function Finance() {
                 <td className="px-6 py-3 text-gray-400">{formatDate(e.created_at)}</td>
                 <td className="px-6 py-3 font-semibold text-gray-900">{e.customer}</td>
                 <td className="px-6 py-3 text-gray-600">
-                  {KIND_LABEL[e.kind] ?? e.kind}
+                  {LEDGER_KIND_LABEL[e.kind] ?? e.kind}
                   {e.order_number != null && ` №${e.order_number}`}
                 </td>
                 <td className="px-6 py-3 text-gray-400">{e.note ?? '—'}</td>

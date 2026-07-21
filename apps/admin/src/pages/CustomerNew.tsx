@@ -1,15 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { supabase } from '../lib/supabase';
+import { genPassword, supabase } from '../lib/supabase';
 
 type Group = { id: string; name: string };
-
-function genPassword(): string {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
-  let p = '';
-  for (let i = 0; i < 8; i++) p += chars[Math.floor(Math.random() * chars.length)];
-  return p + '#' + Math.floor(Math.random() * 90 + 10);
-}
 
 export default function CustomerNew() {
   const nav = useNavigate();
