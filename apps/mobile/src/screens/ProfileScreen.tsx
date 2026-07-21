@@ -10,6 +10,7 @@ import {
   View,
 } from 'react-native';
 import { formatSum, phoneToEmail, supabase } from '../lib/supabase';
+import { useLanguage } from '../lib/i18n';
 import { C } from '../lib/theme';
 
 type Profile = {
@@ -24,6 +25,7 @@ type Profile = {
 
 // ---------- Parolni o'zgartirish ----------
 function ChangePasswordCard({ phone }: { phone: string }) {
+  const { t } = useLanguage();
   const [open, setOpen] = useState(false);
   const [oldPass, setOldPass] = useState('');
   const [newPass, setNewPass] = useState('');
@@ -34,8 +36,8 @@ function ChangePasswordCard({ phone }: { phone: string }) {
 
   async function save() {
     setError(null);
-    if (newPass.length < 6) return setError("Yangi parol kamida 6 belgi bo'lsin");
-    if (newPass !== confirm) return setError('Yangi parollar mos kelmadi');
+    if (newPass.length < 6) return setError(t('passwordTooShort'));
+    if (newPass !== confirm) return setError(t('passwordMismatch'));
 
     setSaving(true);
     try {
@@ -44,7 +46,7 @@ function ChangePasswordCard({ phone }: { phone: string }) {
         email: phoneToEmail(phone),
         password: oldPass,
       });
-      if (reErr) throw new Error("Eski parol noto'g'ri");
+      if (reErr) throw new Error(t('oldPasswordWrong'));
 
       const { error: upErr } = await supabase.auth.updateUser({ password: newPass });
       if (upErr) throw upErr;
@@ -58,7 +60,7 @@ function ChangePasswordCard({ phone }: { phone: string }) {
         setOpen(false);
       }, 1500);
     } catch (e: any) {
-      setError(e.message ?? 'Xatolik');
+      setError(e.message ?? t('error'));
     } finally {
       setSaving(false);
     }
@@ -67,7 +69,7 @@ function ChangePasswordCard({ phone }: { phone: string }) {
   if (!open) {
     return (
       <TouchableOpacity style={s.linkRow} onPress={() => setOpen(true)}>
-        <Text style={s.linkRowText}>🔑 Parolni o'zgartirish</Text>
+        <Text style={s.linkRowText}>{t('changePasswordLink')}</Text>
         <Text style={s.linkRowArrow}>›</Text>
       </TouchableOpacity>
     );
@@ -75,12 +77,12 @@ function ChangePasswordCard({ phone }: { phone: string }) {
 
   return (
     <View style={s.card}>
-      <Text style={s.pwTitle}>Parolni o'zgartirish</Text>
+      <Text style={s.pwTitle}>{t('changePasswordTitle')}</Text>
       <TextInput
         style={s.pwInput}
         value={oldPass}
         onChangeText={setOldPass}
-        placeholder="Eski parol"
+        placeholder={t('oldPasswordPlaceholder')}
         placeholderTextColor={C.faint}
         secureTextEntry
       />
@@ -88,7 +90,7 @@ function ChangePasswordCard({ phone }: { phone: string }) {
         style={s.pwInput}
         value={newPass}
         onChangeText={setNewPass}
-        placeholder="Yangi parol"
+        placeholder={t('newPasswordPlaceholder')}
         placeholderTextColor={C.faint}
         secureTextEntry
       />
@@ -96,18 +98,18 @@ function ChangePasswordCard({ phone }: { phone: string }) {
         style={s.pwInput}
         value={confirm}
         onChangeText={setConfirm}
-        placeholder="Yangi parol (tasdiqlash)"
+        placeholder={t('confirmPasswordPlaceholder')}
         placeholderTextColor={C.faint}
         secureTextEntry
       />
       {error && <Text style={s.pwError}>{error}</Text>}
-      {done && <Text style={s.pwSuccess}>✅ Parol o'zgartirildi</Text>}
+      {done && <Text style={s.pwSuccess}>{t('passwordChanged')}</Text>}
       <View style={{ flexDirection: 'row', gap: 10, marginTop: 12 }}>
         <TouchableOpacity style={s.pwCancelBtn} onPress={() => setOpen(false)}>
-          <Text style={s.pwCancelText}>Bekor qilish</Text>
+          <Text style={s.pwCancelText}>{t('cancel')}</Text>
         </TouchableOpacity>
         <TouchableOpacity style={[s.pwSaveBtn, saving && { opacity: 0.6 }]} onPress={save} disabled={saving}>
-          {saving ? <ActivityIndicator color="#fff" /> : <Text style={s.pwSaveText}>Saqlash</Text>}
+          {saving ? <ActivityIndicator color="#fff" /> : <Text style={s.pwSaveText}>{t('save')}</Text>}
         </TouchableOpacity>
       </View>
     </View>
@@ -115,6 +117,7 @@ function ChangePasswordCard({ phone }: { phone: string }) {
 }
 
 export default function ProfileScreen() {
+  const { t } = useLanguage();
   const [p, setP] = useState<Profile | null>(null);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -180,32 +183,30 @@ export default function ProfileScreen() {
       </View>
 
       <View style={[s.card, s.balanceCard, hasDebt ? s.debtBorder : s.okBorder]}>
-        <Text style={s.balanceLabel}>{hasDebt ? 'Qarzdorlik' : 'Balans'}</Text>
+        <Text style={s.balanceLabel}>{hasDebt ? t('profileDebtLabel') : t('profileBalanceLabel')}</Text>
         <Text style={[s.balanceValue, hasDebt ? { color: C.red } : { color: C.green }]}>
           {formatSum(Math.abs(p.balance))}
         </Text>
         <Text style={s.balanceHint}>
-          {hasDebt
-            ? "To'lov qilganingizda admin kiritadi va bu yerda kamayadi"
-            : 'Sizda qarzdorlik yo`q'}
+          {hasDebt ? t('profileDebtHint') : t('profileNoDebtHint')}
         </Text>
       </View>
 
       <View style={s.statsRow}>
         <View style={s.statBox}>
           <Text style={s.statValue}>{p.ordersCount}</Text>
-          <Text style={s.statLabel}>Buyurtmalar</Text>
+          <Text style={s.statLabel}>{t('profileOrdersLabel')}</Text>
         </View>
         <View style={s.statBox}>
           <Text style={s.statValue}>{p.groupName ?? '—'}</Text>
-          <Text style={s.statLabel}>Narx tarifi</Text>
+          <Text style={s.statLabel}>{t('profileTariffLabel')}</Text>
         </View>
       </View>
 
       <ChangePasswordCard phone={p.phone} />
 
       <TouchableOpacity style={s.logoutBtn} onPress={() => supabase.auth.signOut()}>
-        <Text style={s.logoutText}>Chiqish</Text>
+        <Text style={s.logoutText}>{t('logout')}</Text>
       </TouchableOpacity>
 
       <View style={{ height: 100 }} />

@@ -12,10 +12,12 @@ import {
 } from 'react-native';
 import { formatSum, supabase } from '../lib/supabase';
 import { useCart } from '../lib/cart';
+import { useLanguage } from '../lib/i18n';
 import { C } from '../lib/theme';
 
 export default function CartScreen({ onOrdered }: { onOrdered: () => void }) {
   const cart = useCart();
+  const { t } = useLanguage();
   const [sending, setSending] = useState(false);
   const [comment, setComment] = useState('');
 
@@ -30,18 +32,18 @@ export default function CartScreen({ onOrdered }: { onOrdered: () => void }) {
 
     if (error) {
       const msg = error.message.includes('QOLDIQ_YETARLI_EMAS')
-        ? "Kechirasiz, ba'zi tovarlar qoldig'i yetarli emas. Katalogni yangilab, qaytadan urinib ko'ring."
-        : "Buyurtma yuborilmadi. Internetni tekshirib, qaytadan urinib ko'ring.";
-      Alert.alert('Xatolik', msg);
+        ? t('stockErrorMsg')
+        : t('orderFailedMsg');
+      Alert.alert(t('error'), msg);
       return;
     }
 
     cart.clear();
     setComment('');
     Alert.alert(
-      'Buyurtma qabul qilindi! ✅',
-      "Tovar siz uchun band qilindi. Admin tasdiqlagach, holati «Buyurtmalarim»da yangilanadi.",
-      [{ text: 'Buyurtmalarim', onPress: onOrdered }]
+      t('orderSuccessTitle'),
+      t('orderSuccessBody'),
+      [{ text: t('goToOrders'), onPress: onOrdered }]
     );
   }
 
@@ -49,8 +51,8 @@ export default function CartScreen({ onOrdered }: { onOrdered: () => void }) {
     return (
       <View style={[s.container, s.center]}>
         <Text style={s.emptyIcon}>🛒</Text>
-        <Text style={s.emptyText}>Savat bo'sh</Text>
-        <Text style={s.emptyHint}>Katalogdan tovar tanlang</Text>
+        <Text style={s.emptyText}>{t('cartEmptyTitle')}</Text>
+        <Text style={s.emptyHint}>{t('cartEmptyHint')}</Text>
       </View>
     );
   }
@@ -84,14 +86,14 @@ export default function CartScreen({ onOrdered }: { onOrdered: () => void }) {
               <TextInput
                 style={s.qtyInput}
                 value={String(item.qty)}
-                onChangeText={(t) => {
-                  const n = parseInt(t.replace(/\D/g, ''), 10);
+                onChangeText={(txt) => {
+                  const n = parseInt(txt.replace(/\D/g, ''), 10);
                   if (n) cart.setQty(item.variantId, n);
                 }}
                 keyboardType="number-pad"
               />
               <TouchableOpacity onPress={() => cart.remove(item.variantId)}>
-                <Text style={s.removeText}>O'chirish</Text>
+                <Text style={s.removeText}>{t('removeItem')}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -103,12 +105,12 @@ export default function CartScreen({ onOrdered }: { onOrdered: () => void }) {
           style={s.commentInput}
           value={comment}
           onChangeText={setComment}
-          placeholder="Buyurtmaga izoh (ixtiyoriy)"
+          placeholder={t('commentPlaceholder')}
           placeholderTextColor={C.faint}
           multiline
         />
         <View style={s.totalRow}>
-          <Text style={s.totalLabel}>Jami:</Text>
+          <Text style={s.totalLabel}>{t('totalLabel')}</Text>
           <Text style={s.totalValue}>{formatSum(cart.total)}</Text>
         </View>
         <TouchableOpacity
@@ -119,12 +121,10 @@ export default function CartScreen({ onOrdered }: { onOrdered: () => void }) {
           {sending ? (
             <ActivityIndicator color="#fff" />
           ) : (
-            <Text style={s.orderBtnText}>Buyurtma berish</Text>
+            <Text style={s.orderBtnText}>{t('placeOrder')}</Text>
           )}
         </TouchableOpacity>
-        <Text style={s.reserveHint}>
-          Buyurtma berilganda tovar siz uchun darhol band qilinadi
-        </Text>
+        <Text style={s.reserveHint}>{t('reserveHint')}</Text>
       </View>
     </View>
   );

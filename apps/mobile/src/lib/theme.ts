@@ -1,3 +1,5 @@
+import type { TranslationKey } from './i18n';
+
 // Uzum/WB/Ozon marketplace uslubidagi yorug' tema
 export const C = {
   bg: '#F2F3F7',
@@ -20,18 +22,19 @@ export const C = {
   yellowSoft: '#FFF4DC',
 } as const;
 
-export const ORDER_STATUS: Record<string, { label: string; color: string; bg: string }> = {
-  new: { label: 'Kutilmoqda', color: '#B7791F', bg: C.yellowSoft },
-  confirmed: { label: 'Qabul qilindi', color: C.green, bg: C.greenSoft },
-  picking: { label: "Yig'ilmoqda", color: C.blue, bg: '#E8F0FF' },
-  done: { label: 'Yopilgan', color: C.muted, bg: '#F0F1F6' },
-  cancelled: { label: 'Bekor qilingan', color: C.red, bg: C.redSoft },
+// label endi tarjima kaliti (i18n.tsx) — matn t(labelKey) orqali olinadi
+export const ORDER_STATUS: Record<string, { labelKey: TranslationKey; color: string; bg: string }> = {
+  new: { labelKey: 'statusNew', color: '#B7791F', bg: C.yellowSoft },
+  confirmed: { labelKey: 'statusConfirmed', color: C.green, bg: C.greenSoft },
+  picking: { labelKey: 'statusPicking', color: C.blue, bg: '#E8F0FF' },
+  done: { labelKey: 'statusDone', color: C.muted, bg: '#F0F1F6' },
+  cancelled: { labelKey: 'statusCancelled', color: C.red, bg: C.redSoft },
 };
 
-export const LEDGER_KIND: Record<string, { label: string; icon: string }> = {
-  order_debt: { label: 'Buyurtma', icon: '📦' },
-  payment: { label: "To'lov", icon: '💵' },
-  discount: { label: 'Chegirma', icon: '🎁' },
-  adjustment: { label: 'Tuzatish', icon: '✏️' },
-  cancel_reversal: { label: 'Bekor qilindi', icon: '↩️' },
+export const LEDGER_KIND: Record<string, { labelKey: TranslationKey; icon: string }> = {
+  order_debt: { labelKey: 'kindOrderDebt', icon: '📦' },
+  payment: { labelKey: 'kindPayment', icon: '💵' },
+  discount: { labelKey: 'kindDiscount', icon: '🎁' },
+  adjustment: { labelKey: 'kindAdjustment', icon: '✏️' },
+  cancel_reversal: { labelKey: 'kindCancelReversal', icon: '↩️' },
 };

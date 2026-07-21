@@ -11,20 +11,19 @@ import {
   View,
 } from 'react-native';
 import { phoneToEmail, supabase } from '../lib/supabase';
+import { useLanguage } from '../lib/i18n';
 
 function ForgotPasswordModal({ onClose }: { onClose: () => void }) {
+  const { t } = useLanguage();
   return (
     <Modal visible animationType="fade" transparent onRequestClose={onClose}>
       <View style={fp.overlay}>
         <View style={fp.card}>
           <Text style={fp.icon}>🔑</Text>
-          <Text style={fp.title}>Parolni unutdingizmi?</Text>
-          <Text style={fp.body}>
-            Parolni tiklash uchun do'kon administratoriga murojaat qiling va telefon
-            raqamingizni ayting. Admin sizga yangi parol beradi.
-          </Text>
+          <Text style={fp.title}>{t('forgotTitle')}</Text>
+          <Text style={fp.body}>{t('forgotBody')}</Text>
           <TouchableOpacity style={fp.closeBtn} onPress={onClose}>
-            <Text style={fp.closeText}>Tushunarli</Text>
+            <Text style={fp.closeText}>{t('forgotClose')}</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -33,6 +32,7 @@ function ForgotPasswordModal({ onClose }: { onClose: () => void }) {
 }
 
 export default function LoginScreen() {
+  const { t } = useLanguage();
   const [phone, setPhone] = useState('+998');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -48,7 +48,7 @@ export default function LoginScreen() {
     });
     setLoading(false);
     if (err) {
-      setError('Telefon yoki parol noto`g`ri');
+      setError(t('loginError'));
     }
   }
 
@@ -59,9 +59,9 @@ export default function LoginScreen() {
     >
       <View style={styles.card}>
         <Text style={styles.logo}>ILOVA B2B</Text>
-        <Text style={styles.subtitle}>Ulgurji savdo tizimi</Text>
+        <Text style={styles.subtitle}>{t('loginSubtitle')}</Text>
 
-        <Text style={styles.label}>Telefon raqam</Text>
+        <Text style={styles.label}>{t('loginPhoneLabel')}</Text>
         <TextInput
           style={styles.input}
           value={phone}
@@ -72,13 +72,13 @@ export default function LoginScreen() {
           placeholderTextColor="#B9BDCC"
         />
 
-        <Text style={styles.label}>Parol</Text>
+        <Text style={styles.label}>{t('loginPasswordLabel')}</Text>
         <TextInput
           style={styles.input}
           value={password}
           onChangeText={setPassword}
           secureTextEntry
-          placeholder="Parolingiz"
+          placeholder={t('loginPasswordPlaceholder')}
           placeholderTextColor="#B9BDCC"
         />
 
@@ -92,17 +92,15 @@ export default function LoginScreen() {
           {loading ? (
             <ActivityIndicator color="#fff" />
           ) : (
-            <Text style={styles.buttonText}>Kirish</Text>
+            <Text style={styles.buttonText}>{t('loginButton')}</Text>
           )}
         </TouchableOpacity>
 
         <TouchableOpacity onPress={() => setShowForgot(true)}>
-          <Text style={styles.forgotLink}>Parolni unutdingizmi?</Text>
+          <Text style={styles.forgotLink}>{t('forgotLink')}</Text>
         </TouchableOpacity>
 
-        <Text style={styles.hint}>
-          Akkaunt olish uchun do`kon administratoriga murojaat qiling
-        </Text>
+        <Text style={styles.hint}>{t('loginHint')}</Text>
       </View>
 
       {showForgot && <ForgotPasswordModal onClose={() => setShowForgot(false)} />}

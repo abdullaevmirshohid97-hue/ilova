@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { formatSum, supabase } from '../lib/supabase';
 import { C, ORDER_STATUS } from '../lib/theme';
+import { useLanguage } from '../lib/i18n';
 
 type OrderItem = {
   qty: number;
@@ -30,6 +31,7 @@ type Order = {
 };
 
 export default function OrdersScreen() {
+  const { t, lang } = useLanguage();
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -85,17 +87,17 @@ export default function OrdersScreen() {
 
   function cancelOrder(order: Order) {
     Alert.alert(
-      'Buyurtmani bekor qilish',
-      `№${order.order_number} buyurtmani bekor qilasizmi?`,
+      t('cancelOrderTitle'),
+      t('cancelOrderBody', { num: order.order_number }),
       [
-        { text: "Yo'q", style: 'cancel' },
+        { text: t('cancelOrderNo'), style: 'cancel' },
         {
-          text: 'Ha, bekor qil',
+          text: t('cancelOrderYes'),
           style: 'destructive',
           onPress: async () => {
             const { error } = await supabase.rpc('cancel_order', { p_order_id: order.id });
             if (error) {
-              Alert.alert('Xatolik', "Bekor qilib bo'lmadi — admin allaqachon qabul qilgan bo'lishi mumkin.");
+              Alert.alert(t('error'), t('cancelOrderFailed'));
             }
             load();
           },
@@ -130,22 +132,23 @@ export default function OrdersScreen() {
         ListEmptyComponent={
           <View style={s.center}>
             <Text style={s.emptyIcon}>📦</Text>
-            <Text style={s.emptyText}>Hali buyurtma yo'q</Text>
-            <Text style={s.emptyHint}>Katalogdan tanlab, savat orqali buyurtma bering</Text>
+            <Text style={s.emptyText}>{t('ordersEmptyTitle')}</Text>
+            <Text style={s.emptyHint}>{t('ordersEmptyHint')}</Text>
           </View>
         }
         renderItem={({ item }) => {
-          const st = ORDER_STATUS[item.status] ?? { label: item.status, color: C.muted, bg: C.divider };
+          const st = ORDER_STATUS[item.status];
+          const statusLabel = st ? t(st.labelKey) : item.status;
           return (
             <View style={s.card}>
               <View style={s.cardHeader}>
                 <Text style={s.orderNo}>№{item.order_number}</Text>
-                <View style={[s.badge, { backgroundColor: st.bg }]}>
-                  <Text style={[s.badgeText, { color: st.color }]}>{st.label}</Text>
+                <View style={[s.badge, { backgroundColor: st?.bg ?? C.divider }]}>
+                  <Text style={[s.badgeText, { color: st?.color ?? C.muted }]}>{statusLabel}</Text>
                 </View>
               </View>
               <Text style={s.date}>
-                {new Date(item.created_at).toLocaleString('uz-UZ', {
+                {new Date(item.created_at).toLocaleString(lang === 'ru' ? 'ru-RU' : 'uz-UZ', {
                   day: '2-digit', month: '2-digit', year: 'numeric',
                   hour: '2-digit', minute: '2-digit',
                 })}
@@ -164,12 +167,12 @@ export default function OrdersScreen() {
                 </View>
               ))}
               <View style={s.totalRow}>
-                <Text style={s.totalLabel}>Jami:</Text>
+                <Text style={s.totalLabel}>{t('totalLabel')}</Text>
                 <Text style={s.totalValue}>{formatSum(item.total)}</Text>
               </View>
               {item.status === 'new' && (
                 <TouchableOpacity style={s.cancelBtn} onPress={() => cancelOrder(item)}>
-                  <Text style={s.cancelBtnText}>Bekor qilish</Text>
+                  <Text style={s.cancelBtnText}>{t('cancel')}</Text>
                 </TouchableOpacity>
               )}
             </View>

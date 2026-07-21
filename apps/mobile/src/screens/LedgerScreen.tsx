@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { formatSum, supabase } from '../lib/supabase';
 import { C, LEDGER_KIND } from '../lib/theme';
+import { useLanguage } from '../lib/i18n';
 
 type Entry = {
   id: number;
@@ -20,6 +21,7 @@ type Entry = {
 };
 
 export default function LedgerScreen() {
+  const { t, lang } = useLanguage();
   const [entries, setEntries] = useState<Entry[]>([]);
   const [balance, setBalance] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -76,21 +78,17 @@ export default function LedgerScreen() {
       {/* Balans kartasi */}
       <View style={[s.balanceCard, isDebt ? s.debtBg : isCredit ? s.creditBg : null]}>
         <Text style={s.balanceLabel}>
-          {isDebt ? 'Sizning qarzingiz' : isCredit ? 'Sizning haqingiz' : 'Hisob-kitob'}
+          {isDebt ? t('ledgerDebtLabel') : isCredit ? t('ledgerCreditLabel') : t('ledgerNeutralLabel')}
         </Text>
         <Text style={[s.balanceValue, isDebt && { color: C.red }, isCredit && { color: C.green }]}>
           {formatSum(Math.abs(balance))}
         </Text>
         <Text style={s.balanceHint}>
-          {isDebt
-            ? "To'lov qilganingizda bu summa kamayadi"
-            : isCredit
-              ? "Do'kon sizga qarzdor — keyingi buyurtmada hisobga olinadi"
-              : 'Qarzdorlik yo`q — hisob toza ✅'}
+          {isDebt ? t('ledgerDebtHint') : isCredit ? t('ledgerCreditHint') : t('ledgerNeutralHint')}
         </Text>
       </View>
 
-      <Text style={s.sectionTitle}>Oldi-berdi tarixi</Text>
+      <Text style={s.sectionTitle}>{t('ledgerHistoryTitle')}</Text>
 
       <FlatList
         data={entries}
@@ -100,23 +98,24 @@ export default function LedgerScreen() {
         }
         contentContainerStyle={{ paddingBottom: 24 }}
         ListEmptyComponent={
-          <Text style={s.empty}>Hozircha yozuvlar yo'q</Text>
+          <Text style={s.empty}>{t('ledgerEmpty')}</Text>
         }
         renderItem={({ item }) => {
-          const meta = LEDGER_KIND[item.kind] ?? { label: item.kind, icon: '•' };
+          const meta = LEDGER_KIND[item.kind];
+          const label = meta ? t(meta.labelKey) : item.kind;
           const positive = item.amount > 0; // + qarz oshdi, - kamaydi
           return (
             <View style={s.row}>
               <View style={s.iconWrap}>
-                <Text style={s.icon}>{meta.icon}</Text>
+                <Text style={s.icon}>{meta?.icon ?? '•'}</Text>
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={s.rowTitle}>
-                  {meta.label}
+                  {label}
                   {item.order_number != null ? ` №${item.order_number}` : ''}
                 </Text>
                 <Text style={s.rowDate}>
-                  {new Date(item.created_at).toLocaleString('uz-UZ', {
+                  {new Date(item.created_at).toLocaleString(lang === 'ru' ? 'ru-RU' : 'uz-UZ', {
                     day: '2-digit', month: '2-digit', year: 'numeric',
                     hour: '2-digit', minute: '2-digit',
                   })}

@@ -13,6 +13,7 @@ import { StatusBar } from 'expo-status-bar';
 import type { Session } from '@supabase/supabase-js';
 import { formatSum, supabase } from './src/lib/supabase';
 import { CartProvider, useCart } from './src/lib/cart';
+import { LanguageProvider, useLanguage } from './src/lib/i18n';
 import { C } from './src/lib/theme';
 import LoginScreen from './src/screens/LoginScreen';
 import CatalogScreen from './src/screens/CatalogScreen';
@@ -23,20 +24,20 @@ import ProfileScreen from './src/screens/ProfileScreen';
 
 type Screen = 'catalog' | 'cart' | 'orders' | 'ledger' | 'profile';
 
-const MENU: { key: Screen; icon: string; label: string }[] = [
-  { key: 'catalog', icon: '🏬', label: 'Katalog' },
-  { key: 'cart', icon: '🛒', label: 'Savat' },
-  { key: 'orders', icon: '📦', label: 'Buyurtmalarim' },
-  { key: 'ledger', icon: '💳', label: 'Hisob-kitob' },
-  { key: 'profile', icon: '👤', label: 'Profil' },
+const MENU: { key: Screen; icon: string; labelKey: 'menuCatalog' | 'menuCart' | 'menuOrders' | 'menuLedger' | 'menuProfile' }[] = [
+  { key: 'catalog', icon: '🏬', labelKey: 'menuCatalog' },
+  { key: 'cart', icon: '🛒', labelKey: 'menuCart' },
+  { key: 'orders', icon: '📦', labelKey: 'menuOrders' },
+  { key: 'ledger', icon: '💳', labelKey: 'menuLedger' },
+  { key: 'profile', icon: '👤', labelKey: 'menuProfile' },
 ];
 
-const TITLES: Record<Screen, string> = {
-  catalog: 'Katalog',
-  cart: 'Savat',
-  orders: 'Buyurtmalarim',
-  ledger: 'Hisob-kitob',
-  profile: 'Profil',
+const TITLE_KEYS: Record<Screen, 'menuCatalog' | 'menuCart' | 'menuOrders' | 'menuLedger' | 'menuProfile'> = {
+  catalog: 'menuCatalog',
+  cart: 'menuCart',
+  orders: 'menuOrders',
+  ledger: 'menuLedger',
+  profile: 'menuProfile',
 };
 
 const DRAWER_W = Math.min(Dimensions.get('window').width * 0.78, 320);
@@ -53,6 +54,7 @@ function Drawer({
   onClose: () => void;
 }) {
   const cart = useCart();
+  const { t, lang, setLang } = useLanguage();
   // Panel DOIM chizilgan turadi — animatsiya shunda ishonchli ishlaydi
   const slide = useRef(new Animated.Value(-DRAWER_W)).current;
   const fade = useRef(new Animated.Value(0)).current;
@@ -116,10 +118,10 @@ function Drawer({
               {info == null
                 ? '...'
                 : debt
-                  ? `Qarz: ${formatSum(info.balance)}`
+                  ? t('debtLabel', { amount: formatSum(info.balance) })
                   : credit
-                    ? `Haqingiz: ${formatSum(Math.abs(info.balance))}`
-                    : 'Hisob toza ✅'}
+                    ? t('creditLabel', { amount: formatSum(Math.abs(info.balance)) })
+                    : t('accountClean')}
             </Text>
           </View>
         </View>
@@ -137,7 +139,7 @@ function Drawer({
               }}
             >
               <Text style={d.itemIcon}>{m.icon}</Text>
-              <Text style={[d.itemLabel, active && d.itemLabelActive]}>{m.label}</Text>
+              <Text style={[d.itemLabel, active && d.itemLabelActive]}>{t(m.labelKey)}</Text>
               {m.key === 'cart' && cart.count > 0 && (
                 <View style={d.badge}>
                   <Text style={d.badgeText}>{cart.count}</Text>
@@ -148,9 +150,26 @@ function Drawer({
         })}
 
         <View style={{ flex: 1 }} />
+
+        {/* Til tanlash */}
+        <View style={d.langRow}>
+          <TouchableOpacity
+            style={[d.langBtn, lang === 'uz' && d.langBtnActive]}
+            onPress={() => setLang('uz')}
+          >
+            <Text style={[d.langBtnText, lang === 'uz' && d.langBtnTextActive]}>O'zbekcha</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[d.langBtn, lang === 'ru' && d.langBtnActive]}
+            onPress={() => setLang('ru')}
+          >
+            <Text style={[d.langBtnText, lang === 'ru' && d.langBtnTextActive]}>Русский</Text>
+          </TouchableOpacity>
+        </View>
+
         <TouchableOpacity style={d.logout} onPress={() => supabase.auth.signOut()}>
           <Text style={d.logoutIcon}>🚪</Text>
-          <Text style={d.logoutText}>Chiqish</Text>
+          <Text style={d.logoutText}>{t('logout')}</Text>
         </TouchableOpacity>
       </Animated.View>
     </View>
@@ -161,6 +180,7 @@ function MainApp() {
   const [screen, setScreen] = useState<Screen>('catalog');
   const [drawerOpen, setDrawerOpen] = useState(false);
   const cart = useCart();
+  const { t } = useLanguage();
   const goOrders = useCallback(() => setScreen('orders'), []);
 
   // Android fizik "orqaga" tugmasi: drawer ochiq bo'lsa yopadi,
@@ -202,7 +222,7 @@ function MainApp() {
             <Text style={h.backArrow}>←</Text>
           </TouchableOpacity>
         )}
-        <Text style={h.title}>{TITLES[screen]}</Text>
+        <Text style={h.title}>{t(TITLE_KEYS[screen])}</Text>
         <TouchableOpacity style={h.cartBtn} onPress={() => setScreen('cart')}>
           <Text style={h.cartIcon}>🛒</Text>
           {cart.count > 0 && (
@@ -247,10 +267,12 @@ export default function App() {
   if (!ready) return null;
 
   return (
-    <CartProvider>
-      <StatusBar style="dark" />
-      {session ? <MainApp /> : <LoginScreen />}
-    </CartProvider>
+    <LanguageProvider>
+      <CartProvider>
+        <StatusBar style="dark" />
+        {session ? <MainApp /> : <LoginScreen />}
+      </CartProvider>
+    </LanguageProvider>
   );
 }
 
@@ -355,6 +377,23 @@ const d = StyleSheet.create({
     paddingHorizontal: 5,
   },
   badgeText: { color: '#fff', fontSize: 11, fontWeight: '800' },
+  langRow: {
+    flexDirection: 'row',
+    gap: 8,
+    paddingHorizontal: 4,
+    marginBottom: 10,
+  },
+  langBtn: {
+    flex: 1,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: C.border,
+    paddingVertical: 9,
+    alignItems: 'center',
+  },
+  langBtnActive: { backgroundColor: C.primarySoft, borderColor: C.primary },
+  langBtnText: { color: C.muted, fontSize: 13, fontWeight: '700' },
+  langBtnTextActive: { color: C.primary },
   logout: {
     flexDirection: 'row',
     alignItems: 'center',

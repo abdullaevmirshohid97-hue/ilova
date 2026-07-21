@@ -16,6 +16,7 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { formatSum, imageUrl, supabase } from '../lib/supabase';
 import { useCart } from '../lib/cart';
+import { useLanguage } from '../lib/i18n';
 import { C } from '../lib/theme';
 
 const PAGE_SIZE = 20;
@@ -69,6 +70,7 @@ const CARD_W = (Dimensions.get('window').width - 16 * 2 - 12) / 2;
 // ---------- Mahsulot sahifasi (WB/Uzum uslubidagi modal) ----------
 function ProductSheet({ product, onClose }: { product: Product; onClose: () => void }) {
   const cart = useCart();
+  const { t } = useLanguage();
   const [selected, setSelected] = useState<Variant | null>(
     product.variants.find((v) => v.available > 0) ?? null
   );
@@ -115,7 +117,7 @@ function ProductSheet({ product, onClose }: { product: Product; onClose: () => v
             </Text>
             {product.material && <Text style={ps.material}>{product.material}</Text>}
 
-            <Text style={ps.sectionTitle}>Variantni tanlang</Text>
+            <Text style={ps.sectionTitle}>{t('variantsSectionTitle')}</Text>
             {product.variants.map((v) => {
               const active = selected?.id === v.id;
               const out = v.available <= 0;
@@ -137,7 +139,7 @@ function ProductSheet({ product, onClose }: { product: Product; onClose: () => v
                       {formatSum(v.price)}
                     </Text>
                     <Text style={[ps.variantStock, out && { color: C.red }]}>
-                      {out ? 'Tugagan' : `${v.available.toLocaleString()} dona mavjud`}
+                      {out ? t('stockOut') : t('stockAvailable', { n: v.available.toLocaleString() })}
                     </Text>
                   </View>
                   <View style={[ps.radio, active && ps.radioActive]}>
@@ -153,9 +155,9 @@ function ProductSheet({ product, onClose }: { product: Product; onClose: () => v
           <TextInput
             style={ps.qtyInput}
             value={qtyText}
-            onChangeText={(t) => setQtyText(t.replace(/\D/g, ''))}
+            onChangeText={(txt) => setQtyText(txt.replace(/\D/g, ''))}
             keyboardType="number-pad"
-            placeholder="Necha dona?"
+            placeholder={t('qtyPlaceholder')}
             placeholderTextColor={C.faint}
           />
           <TouchableOpacity
@@ -165,8 +167,8 @@ function ProductSheet({ product, onClose }: { product: Product; onClose: () => v
           >
             <Text style={ps.addBtnText}>
               {qty > 0 && selected != null
-                ? `Savatga · ${formatSum(qty * selected.price)}`
-                : 'Savatga qo`shish'}
+                ? t('addToCartWithSum', { sum: formatSum(qty * selected.price) })
+                : t('addToCart')}
             </Text>
           </TouchableOpacity>
         </View>
@@ -177,6 +179,7 @@ function ProductSheet({ product, onClose }: { product: Product; onClose: () => v
 
 // ---------- Katalog (2 ustunli grid, server qidiruv + sahifalash) ----------
 export default function CatalogScreen() {
+  const { t } = useLanguage();
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [categoryId, setCategoryId] = useState<string | null>(null);
@@ -358,9 +361,7 @@ export default function CatalogScreen() {
     <View style={s.container}>
       {offline && (
         <View style={s.offlineBanner}>
-          <Text style={s.offlineBannerText}>
-            📡 Oflayn rejim — oxirgi ma'lumotlar ko'rsatilmoqda
-          </Text>
+          <Text style={s.offlineBannerText}>{t('offlineBanner')}</Text>
         </View>
       )}
       <View style={s.searchWrap}>
@@ -369,7 +370,7 @@ export default function CatalogScreen() {
           style={s.search}
           value={search}
           onChangeText={setSearch}
-          placeholder="Nomi yoki model bo'yicha qidirish..."
+          placeholder={t('searchPlaceholder')}
           placeholderTextColor={C.faint}
         />
       </View>
@@ -384,7 +385,7 @@ export default function CatalogScreen() {
             style={[s.chip, categoryId == null && s.chipActive]}
             onPress={() => setCategoryId(null)}
           >
-            <Text style={[s.chipText, categoryId == null && s.chipTextActive]}>Hammasi</Text>
+            <Text style={[s.chipText, categoryId == null && s.chipTextActive]}>{t('categoryAll')}</Text>
           </TouchableOpacity>
           {categories.map((c) => (
             <TouchableOpacity
@@ -409,7 +410,7 @@ export default function CatalogScreen() {
         }
         onEndReachedThreshold={0.4}
         onEndReached={loadMore}
-        ListEmptyComponent={<Text style={s.empty}>Hech narsa topilmadi</Text>}
+        ListEmptyComponent={<Text style={s.empty}>{t('emptyCatalog')}</Text>}
         ListFooterComponent={
           loadingMore ? <ActivityIndicator style={{ marginTop: 12 }} color={C.primary} /> : null
         }
@@ -433,7 +434,7 @@ export default function CatalogScreen() {
                   {item.model ? ` · ${item.model}` : ''}
                 </Text>
                 <Text style={[s.stock, totalAvail === 0 && { color: C.red }]}>
-                  {totalAvail > 0 ? `${totalAvail.toLocaleString()} dona mavjud` : 'Tugagan'}
+                  {totalAvail > 0 ? t('stockAvailable', { n: totalAvail.toLocaleString() }) : t('stockOut')}
                 </Text>
               </View>
             </TouchableOpacity>
