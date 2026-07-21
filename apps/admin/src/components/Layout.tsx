@@ -29,6 +29,8 @@ const NAV = [
   { to: '/inventory', icon: '📋', label: 'Ombor jurnali' },
   { to: '/customers', icon: '👥', label: 'Mijozlar' },
   { to: '/finance', icon: '💰', label: 'Moliya' },
+  { to: '/reports', icon: '📈', label: 'Hisobotlar' },
+  { to: '/settings', icon: '⚙️', label: 'Sozlamalar' },
 ];
 
 const TITLES: Record<string, string> = {
@@ -38,6 +40,8 @@ const TITLES: Record<string, string> = {
   '/inventory': 'Ombor jurnali',
   '/customers': 'Mijozlar',
   '/finance': 'Moliya',
+  '/reports': 'Hisobotlar',
+  '/settings': 'Sozlamalar',
 };
 
 export default function Layout({ role, children }: { role: string; children: ReactNode }) {
