@@ -1,4 +1,7 @@
-import { createContext, useContext, useMemo, useState, ReactNode } from 'react';
+import { createContext, useContext, useEffect, useMemo, useRef, useState, ReactNode } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+const STORAGE_KEY = '@ilova/cart';
 
 export type CartItem = {
   variantId: string;
@@ -26,6 +29,24 @@ const Ctx = createContext<CartCtx | null>(null);
 
 export function CartProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<CartItem[]>([]);
+  const hydrated = useRef(false);
+
+  // Ilova ochilganda saqlangan savatni tiklaymiz
+  useEffect(() => {
+    AsyncStorage.getItem(STORAGE_KEY)
+      .then((raw) => {
+        if (raw) setItems(JSON.parse(raw));
+      })
+      .finally(() => {
+        hydrated.current = true;
+      });
+  }, []);
+
+  // Har o'zgarishda saqlaymiz (birinchi tiklashdan keyin — bo'sh savat bilan ustidan yozib yubormaslik uchun)
+  useEffect(() => {
+    if (!hydrated.current) return;
+    AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(items)).catch(() => {});
+  }, [items]);
 
   const api = useMemo<CartCtx>(() => {
     const total = items.reduce((s, i) => s + i.price * i.qty, 0);

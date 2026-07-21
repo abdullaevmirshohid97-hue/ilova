@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Dimensions,
@@ -17,12 +17,14 @@ import { formatSum, imageUrl, supabase } from '../lib/supabase';
 import { useCart } from '../lib/cart';
 import { C } from '../lib/theme';
 
+const PAGE_SIZE = 20;
+
 type Variant = {
   id: string;
   sku: string;
   size: string | null;
   color: string | null;
-  price: number | null;
+  price: number;
   available: number;
 };
 
@@ -31,9 +33,12 @@ type Product = {
   name: string;
   model: string | null;
   material: string | null;
-  image: string | null;
+  image: string | null; // kichik nusxa — grid uchun
+  fullImage: string | null; // katta nusxa — mahsulot sahifasi uchun
   variants: Variant[];
 };
+
+type Category = { id: string; name: string };
 
 function first<T>(v: T | T[] | null): T | null {
   if (v == null) return null;
@@ -50,7 +55,7 @@ function ProductSheet({ product, onClose }: { product: Product; onClose: () => v
   );
   const [qtyText, setQtyText] = useState('');
   const qty = parseInt(qtyText, 10) || 0;
-  const canAdd = selected != null && selected.price != null && qty > 0 && qty <= selected.available;
+  const canAdd = selected != null && qty > 0 && qty <= selected.available;
 
   function addToCart() {
     if (!selected || !canAdd) return;
@@ -60,7 +65,7 @@ function ProductSheet({ product, onClose }: { product: Product; onClose: () => v
       sku: selected.sku,
       size: selected.size,
       color: selected.color,
-      price: selected.price!,
+      price: selected.price,
       qty,
       image: product.image,
       maxQty: selected.available,
@@ -77,8 +82,8 @@ function ProductSheet({ product, onClose }: { product: Product; onClose: () => v
           </TouchableOpacity>
         </View>
         <ScrollView contentContainerStyle={{ paddingBottom: 140 }}>
-          {product.image ? (
-            <Image source={{ uri: product.image }} style={ps.image} resizeMode="cover" />
+          {product.fullImage ? (
+            <Image source={{ uri: product.fullImage }} style={ps.image} resizeMode="cover" />
           ) : (
             <View style={[ps.image, ps.imagePh]}>
               <Text style={ps.imagePhText}>{product.name.slice(0, 1)}</Text>
@@ -140,7 +145,7 @@ function ProductSheet({ product, onClose }: { product: Product; onClose: () => v
             disabled={!canAdd}
           >
             <Text style={ps.addBtnText}>
-              {qty > 0 && selected?.price != null
+              {qty > 0 && selected != null
                 ? `Savatga · ${formatSum(qty * selected.price)}`
                 : 'Savatga qo`shish'}
             </Text>
@@ -151,61 +156,104 @@ function ProductSheet({ product, onClose }: { product: Product; onClose: () => v
   );
 }
 
-// ---------- Katalog (2 ustunli grid) ----------
+// ---------- Katalog (2 ustunli grid, server qidiruv + sahifalash) ----------
 export default function CatalogScreen() {
   const [products, setProducts] = useState<Product[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [categoryId, setCategoryId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
   const [openProduct, setOpenProduct] = useState<Product | null>(null);
+  const pageRef = useRef(0);
 
-  async function loadCatalog() {
-    const { data, error } = await supabase
+  useEffect(() => {
+    supabase
+      .from('categories')
+      .select('id, name')
+      .order('sort_order')
+      .then(({ data }) => setCategories((data ?? []) as Category[]));
+  }, []);
+
+  // Qidiruvni 350ms kechiktiramiz — har harfda serverga so'rov yubormaslik uchun
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(search.trim()), 350);
+    return () => clearTimeout(t);
+  }, [search]);
+
+  function mapRow(p: any): Product {
+    const imgs = (p.product_images ?? []).sort(
+      (a: any, b: any) => Number(b.is_primary) - Number(a.is_primary) || a.sort_order - b.sort_order
+    );
+    // Narxsiz variant (mijoz guruhida narx yo'q) katalogda ko'rsatilmaydi
+    const variants: Variant[] = (p.product_variants ?? [])
+      .map((v: any): Variant | null => {
+        const price = first<any>(v.prices)?.price;
+        if (price == null) return null;
+        const sl = first<any>(v.stock_levels);
+        return {
+          id: v.id,
+          sku: v.sku,
+          size: v.size,
+          color: v.color,
+          price: Number(price),
+          available: Math.max(0, (sl?.qty ?? 0) - (sl?.reserved ?? 0)),
+        };
+      })
+      .filter((v: Variant | null): v is Variant => v != null);
+    return {
+      id: p.id,
+      name: p.name,
+      model: p.model,
+      material: p.material,
+      image: imgs[0] ? imageUrl(imgs[0].thumb_path || imgs[0].storage_path) : null,
+      fullImage: imgs[0] ? imageUrl(imgs[0].storage_path) : null,
+      variants,
+    };
+  }
+
+  async function fetchPage(page: number): Promise<{ rows: Product[]; full: boolean }> {
+    let q = supabase
       .from('products')
       .select(
         `id, name, model, material,
-         product_images ( storage_path, is_primary, sort_order ),
+         product_images ( storage_path, thumb_path, is_primary, sort_order ),
          product_variants ( id, sku, size, color,
            prices ( price ),
            stock_levels ( qty, reserved )
          )`
       )
       .eq('is_active', true)
-      .order('name');
+      .order('name')
+      .range(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE - 1);
+    if (categoryId) q = q.eq('category_id', categoryId);
+    if (debouncedSearch) q = q.or(`name.ilike.%${debouncedSearch}%,model.ilike.%${debouncedSearch}%`);
 
-    if (!error && data) {
-      setProducts(
-        data.map((p: any) => {
-          const imgs = (p.product_images ?? []).sort(
-            (a: any, b: any) =>
-              Number(b.is_primary) - Number(a.is_primary) || a.sort_order - b.sort_order
-          );
-          return {
-            id: p.id,
-            name: p.name,
-            model: p.model,
-            material: p.material,
-            image: imgs[0] ? imageUrl(imgs[0].storage_path) : null,
-            variants: (p.product_variants ?? []).map((v: any) => {
-              const sl = first<any>(v.stock_levels);
-              return {
-                id: v.id,
-                sku: v.sku,
-                size: v.size,
-                color: v.color,
-                price: first<any>(v.prices)?.price ?? null,
-                available: Math.max(0, (sl?.qty ?? 0) - (sl?.reserved ?? 0)),
-              };
-            }),
-          };
-        })
-      );
-    }
+    const { data, error } = await q;
+    if (error || !data) return { rows: [], full: false };
+    // Mijoz guruhida narxi bo'lmagan mahsulot (barcha variantlari filtrlanib) grid'da chiqmaydi
+    const rows = data.map(mapRow).filter((p) => p.variants.length > 0);
+    return { rows, full: data.length === PAGE_SIZE };
+  }
+
+  async function loadFirstPage() {
+    setLoading(true);
+    pageRef.current = 0;
+    const { rows, full } = await fetchPage(0);
+    setProducts(rows);
+    setHasMore(full);
     setLoading(false);
   }
 
   useEffect(() => {
-    loadCatalog();
+    loadFirstPage();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [categoryId, debouncedSearch]);
+
+  useEffect(() => {
     // Jonli: kimdir buyurtma bersa — mavjud son hammada darhol kamayadi
     const channel = supabase
       .channel('stock-live')
@@ -243,27 +291,21 @@ export default function CatalogScreen() {
     };
   }, []);
 
-  const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    if (!q) return products;
-    return products.filter(
-      (p) =>
-        p.name.toLowerCase().includes(q) ||
-        (p.model ?? '').toLowerCase().includes(q) ||
-        (p.material ?? '').toLowerCase().includes(q) ||
-        p.variants.some(
-          (v) =>
-            v.sku.toLowerCase().includes(q) ||
-            (v.size ?? '').toLowerCase().includes(q) ||
-            (v.color ?? '').toLowerCase().includes(q)
-        )
-    );
-  }, [products, search]);
-
   async function onRefresh() {
     setRefreshing(true);
-    await loadCatalog();
+    await loadFirstPage();
     setRefreshing(false);
+  }
+
+  async function loadMore() {
+    if (loadingMore || !hasMore || loading) return;
+    setLoadingMore(true);
+    const next = pageRef.current + 1;
+    const { rows, full } = await fetchPage(next);
+    pageRef.current = next;
+    setProducts((prev) => [...prev, ...rows]);
+    setHasMore(full);
+    setLoadingMore(false);
   }
 
   if (loading) {
@@ -282,13 +324,37 @@ export default function CatalogScreen() {
           style={s.search}
           value={search}
           onChangeText={setSearch}
-          placeholder="Nomi, model, razmer, rang, SKU..."
+          placeholder="Nomi yoki model bo'yicha qidirish..."
           placeholderTextColor={C.faint}
         />
       </View>
 
+      {categories.length > 0 && (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={s.chipsWrap}
+        >
+          <TouchableOpacity
+            style={[s.chip, categoryId == null && s.chipActive]}
+            onPress={() => setCategoryId(null)}
+          >
+            <Text style={[s.chipText, categoryId == null && s.chipTextActive]}>Hammasi</Text>
+          </TouchableOpacity>
+          {categories.map((c) => (
+            <TouchableOpacity
+              key={c.id}
+              style={[s.chip, categoryId === c.id && s.chipActive]}
+              onPress={() => setCategoryId(c.id === categoryId ? null : c.id)}
+            >
+              <Text style={[s.chipText, categoryId === c.id && s.chipTextActive]}>{c.name}</Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      )}
+
       <FlatList
-        data={filtered}
+        data={products}
         keyExtractor={(p) => p.id}
         numColumns={2}
         columnWrapperStyle={{ gap: 12, paddingHorizontal: 16 }}
@@ -296,9 +362,14 @@ export default function CatalogScreen() {
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.primary} />
         }
+        onEndReachedThreshold={0.4}
+        onEndReached={loadMore}
         ListEmptyComponent={<Text style={s.empty}>Hech narsa topilmadi</Text>}
+        ListFooterComponent={
+          loadingMore ? <ActivityIndicator style={{ marginTop: 12 }} color={C.primary} /> : null
+        }
         renderItem={({ item }) => {
-          const prices = item.variants.map((v) => v.price).filter((p): p is number => p != null);
+          const prices = item.variants.map((v) => v.price);
           const minPrice = prices.length ? Math.min(...prices) : null;
           const totalAvail = item.variants.reduce((sum, v) => sum + v.available, 0);
           return (
@@ -347,6 +418,18 @@ const s = StyleSheet.create({
   },
   searchIcon: { fontSize: 15, marginRight: 6 },
   search: { flex: 1, color: C.text, paddingVertical: 10, fontSize: 15 },
+  chipsWrap: { gap: 8, paddingHorizontal: 16, paddingBottom: 12 },
+  chip: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: C.card,
+    borderWidth: 1,
+    borderColor: C.border,
+  },
+  chipActive: { backgroundColor: C.primary, borderColor: C.primary },
+  chipText: { color: C.text2, fontSize: 13, fontWeight: '600' },
+  chipTextActive: { color: '#fff' },
   empty: { color: C.muted, textAlign: 'center', marginTop: 40 },
   card: {
     width: CARD_W,

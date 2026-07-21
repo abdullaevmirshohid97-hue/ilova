@@ -17,12 +17,14 @@ import { C } from '../lib/theme';
 export default function CartScreen({ onOrdered }: { onOrdered: () => void }) {
   const cart = useCart();
   const [sending, setSending] = useState(false);
+  const [comment, setComment] = useState('');
 
   async function placeOrder() {
     if (cart.items.length === 0) return;
     setSending(true);
     const { error } = await supabase.rpc('create_order', {
       p_items: cart.items.map((i) => ({ variant_id: i.variantId, qty: i.qty })),
+      p_comment: comment.trim() || null,
     });
     setSending(false);
 
@@ -35,6 +37,7 @@ export default function CartScreen({ onOrdered }: { onOrdered: () => void }) {
     }
 
     cart.clear();
+    setComment('');
     Alert.alert(
       'Buyurtma qabul qilindi! ✅',
       "Tovar siz uchun band qilindi. Admin tasdiqlagach, holati «Buyurtmalarim»da yangilanadi.",
@@ -96,6 +99,14 @@ export default function CartScreen({ onOrdered }: { onOrdered: () => void }) {
       />
 
       <View style={s.footer}>
+        <TextInput
+          style={s.commentInput}
+          value={comment}
+          onChangeText={setComment}
+          placeholder="Buyurtmaga izoh (ixtiyoriy)"
+          placeholderTextColor={C.faint}
+          multiline
+        />
         <View style={s.totalRow}>
           <Text style={s.totalLabel}>Jami:</Text>
           <Text style={s.totalValue}>{formatSum(cart.total)}</Text>
@@ -166,6 +177,18 @@ const s = StyleSheet.create({
     borderTopColor: C.border,
     padding: 16,
     paddingBottom: 28,
+  },
+  commentInput: {
+    backgroundColor: C.bg,
+    borderWidth: 1,
+    borderColor: C.border,
+    borderRadius: 10,
+    color: C.text,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    fontSize: 13,
+    marginBottom: 12,
+    maxHeight: 60,
   },
   totalRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12 },
   totalLabel: { color: C.muted, fontSize: 16 },

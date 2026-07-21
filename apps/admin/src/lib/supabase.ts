@@ -50,3 +50,25 @@ export function genPassword(): string {
   for (let i = 0; i < 8; i++) p += chars[Math.floor(Math.random() * chars.length)];
   return p + '#' + Math.floor(Math.random() * 90 + 10);
 }
+
+// Katalog rasmini brauzerda (canvas) kichraytiradi — sekin internetda mobil
+// katalog og'ir asl faylni emas, shu kichik nusxani yuklaydi.
+export async function resizeImage(file: File, maxWidth: number, quality = 0.82): Promise<Blob> {
+  const bitmap = await createImageBitmap(file);
+  const scale = Math.min(1, maxWidth / bitmap.width);
+  const w = Math.round(bitmap.width * scale);
+  const h = Math.round(bitmap.height * scale);
+  const canvas = document.createElement('canvas');
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) throw new Error('Canvas 2D context yaratib bo\'lmadi');
+  ctx.drawImage(bitmap, 0, 0, w, h);
+  return await new Promise<Blob>((resolve, reject) => {
+    canvas.toBlob(
+      (b) => (b ? resolve(b) : reject(new Error("Rasmni siqib bo'lmadi"))),
+      'image/jpeg',
+      quality
+    );
+  });
+}

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { formatSum, imageUrl, supabase } from '../lib/supabase';
+import { formatSum, imageUrl, resizeImage, supabase } from '../lib/supabase';
 import StockModal from '../components/StockModal';
 
 type Group = { id: string; name: string };
@@ -152,17 +152,24 @@ function ProductModal({
         productId = (data as any).id;
       }
 
-      // 2. Rasm
+      // 2. Rasm — kichik (katalog) va katta (mahsulot sahifasi) nusxa
       if (file && productId) {
-        const path = `${productId}/${Date.now()}-${file.name.replace(/[^\w.\-]+/g, '_')}`;
-        const { error: upErr } = await supabase.storage
+        const base = `${productId}/${Date.now()}`;
+        const [thumbBlob, fullBlob] = await Promise.all([resizeImage(file, 300), resizeImage(file, 1200)]);
+        const fullPath = `${base}-full.jpg`;
+        const thumbPath = `${base}-thumb.jpg`;
+        const { error: upErr1 } = await supabase.storage
           .from('product-images')
-          .upload(path, file, { upsert: true });
-        if (upErr) throw upErr;
+          .upload(fullPath, fullBlob, { upsert: true, contentType: 'image/jpeg' });
+        if (upErr1) throw upErr1;
+        const { error: upErr2 } = await supabase.storage
+          .from('product-images')
+          .upload(thumbPath, thumbBlob, { upsert: true, contentType: 'image/jpeg' });
+        if (upErr2) throw upErr2;
         await supabase.from('product_images').delete().eq('product_id', productId);
         const { error: imgErr } = await supabase
           .from('product_images')
-          .insert({ product_id: productId, storage_path: path, is_primary: true, sort_order: 0 });
+          .insert({ product_id: productId, storage_path: fullPath, thumb_path: thumbPath, is_primary: true, sort_order: 0 });
         if (imgErr) throw imgErr;
       }
 
