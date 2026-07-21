@@ -4,6 +4,7 @@ build/
 .expo/
 .turbo/
 *.log
+*.tsbuildinfo
 
 # Maxfiy fayllar — hech qachon git'ga tushmasin
 .env
