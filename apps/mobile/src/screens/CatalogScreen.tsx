@@ -53,8 +53,8 @@ type Product = {
   name: string;
   model: string | null;
   material: string | null;
-  image: string | null; // kichik nusxa — grid uchun
-  fullImage: string | null; // katta nusxa — mahsulot sahifasi uchun
+  image: string | null; // kichik nusxa (birinchi rasm) — grid uchun
+  images: string[]; // katta nusxalar — mahsulot sahifasida swipe galereya
   variants: Variant[];
 };
 
@@ -65,7 +65,46 @@ function first<T>(v: T | T[] | null): T | null {
   return Array.isArray(v) ? (v[0] ?? null) : v;
 }
 
-const CARD_W = (Dimensions.get('window').width - 16 * 2 - 12) / 2;
+const SCREEN_W = Dimensions.get('window').width;
+const CARD_W = (SCREEN_W - 16 * 2 - 12) / 2;
+
+// ---------- Rasm galereyasi (bir nechta rasm — swipe) ----------
+function ImageGallery({ images, placeholderLetter }: { images: string[]; placeholderLetter: string }) {
+  const [index, setIndex] = useState(0);
+
+  if (images.length === 0) {
+    return (
+      <View style={[ps.image, ps.imagePh]}>
+        <Text style={ps.imagePhText}>{placeholderLetter}</Text>
+      </View>
+    );
+  }
+
+  return (
+    <View>
+      <ScrollView
+        horizontal
+        pagingEnabled
+        showsHorizontalScrollIndicator={false}
+        onMomentumScrollEnd={(e) => {
+          const i = Math.round(e.nativeEvent.contentOffset.x / SCREEN_W);
+          setIndex(i);
+        }}
+      >
+        {images.map((uri, i) => (
+          <Image key={i} source={{ uri }} style={[ps.image, { width: SCREEN_W }]} resizeMode="cover" />
+        ))}
+      </ScrollView>
+      {images.length > 1 && (
+        <View style={ps.dotsRow}>
+          {images.map((_, i) => (
+            <View key={i} style={[ps.dot, i === index && ps.dotActive]} />
+          ))}
+        </View>
+      )}
+    </View>
+  );
+}
 
 // ---------- Mahsulot sahifasi (WB/Uzum uslubidagi modal) ----------
 function ProductSheet({ product, onClose }: { product: Product; onClose: () => void }) {
@@ -103,13 +142,7 @@ function ProductSheet({ product, onClose }: { product: Product; onClose: () => v
           </TouchableOpacity>
         </View>
         <ScrollView contentContainerStyle={{ paddingBottom: 140 }}>
-          {product.fullImage ? (
-            <Image source={{ uri: product.fullImage }} style={ps.image} resizeMode="cover" />
-          ) : (
-            <View style={[ps.image, ps.imagePh]}>
-              <Text style={ps.imagePhText}>{product.name.slice(0, 1)}</Text>
-            </View>
-          )}
+          <ImageGallery images={product.images} placeholderLetter={product.name.slice(0, 1)} />
           <View style={ps.body}>
             <Text style={ps.name}>
               {product.name}
@@ -233,7 +266,7 @@ export default function CatalogScreen() {
       model: p.model,
       material: p.material,
       image: imgs[0] ? imageUrl(imgs[0].thumb_path || imgs[0].storage_path) : null,
-      fullImage: imgs[0] ? imageUrl(imgs[0].storage_path) : null,
+      images: imgs.map((im: any) => imageUrl(im.storage_path)),
       variants,
     };
   }
@@ -515,6 +548,17 @@ const ps = StyleSheet.create({
   image: { width: '100%', height: 320 },
   imagePh: { backgroundColor: C.primarySoft, justifyContent: 'center', alignItems: 'center' },
   imagePhText: { color: C.primary, fontSize: 80, fontWeight: '800' },
+  dotsRow: {
+    position: 'absolute',
+    bottom: 12,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  dot: { width: 6, height: 6, borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.5)' },
+  dotActive: { backgroundColor: '#fff', width: 18 },
   body: { padding: 16 },
   name: { color: C.text, fontSize: 20, fontWeight: '800' },
   material: { color: C.muted, fontSize: 14, marginTop: 4 },

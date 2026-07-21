@@ -17,6 +17,14 @@ type Variant = {
   prices: Record<string, number>; // group_id -> narx
 };
 
+type ProductImageRow = {
+  id: string;
+  storagePath: string;
+  thumbPath: string | null;
+  isPrimary: boolean;
+  sortOrder: number;
+};
+
 type Product = {
   id: string;
   name: string;
@@ -24,7 +32,7 @@ type Product = {
   material: string | null;
   description: string | null;
   category_id: string | null;
-  image: string | null;
+  images: ProductImageRow[]; // birinchi = asosiy (galereya tartibida)
   is_active: boolean;
   variants: Variant[];
 };
@@ -63,8 +71,8 @@ function ProductModal({
   const [material, setMaterial] = useState(product?.material ?? '');
   const [description, setDescription] = useState(product?.description ?? '');
   const [categoryId, setCategoryId] = useState(product?.category_id ?? '');
-  const [file, setFile] = useState<File | null>(null);
-  const [preview, setPreview] = useState<string | null>(product?.image ?? null);
+  const [images, setImages] = useState<ProductImageRow[]>(product?.images ?? []);
+  const [newFiles, setNewFiles] = useState<{ file: File; preview: string }[]>([]);
   const [newRows, setNewRows] = useState<NewVariantRow[]>(isEdit ? [] : [emptyRow()]);
   // yangi variantlar uchun guruh narxlari
   const [groupPrices, setGroupPrices] = useState<Record<string, string>>({});
@@ -109,9 +117,38 @@ function ProductModal({
     onSaved();
   }
 
-  function pickFile(f: File | null) {
-    setFile(f);
-    if (f) setPreview(URL.createObjectURL(f));
+  function pickFiles(list: FileList | null) {
+    if (!list) return;
+    const added = Array.from(list).map((f) => ({ file: f, preview: URL.createObjectURL(f) }));
+    setNewFiles((prev) => [...prev, ...added]);
+  }
+
+  function removeNewFile(idx: number) {
+    setNewFiles((prev) => prev.filter((_, i) => i !== idx));
+  }
+
+  async function deleteImage(img: ProductImageRow) {
+    if (!confirm("Bu rasm o'chirilsinmi?")) return;
+    const paths = [img.storagePath, img.thumbPath].filter((p): p is string => !!p);
+    await supabase.storage.from('product-images').remove(paths);
+    const { error: e } = await supabase.from('product_images').delete().eq('id', img.id);
+    if (e) return alert('Xatolik: ' + e.message);
+
+    const wasPrimary = img.isPrimary;
+    const remaining = images.filter((x) => x.id !== img.id);
+    if (wasPrimary && remaining.length > 0) {
+      await supabase.from('product_images').update({ is_primary: true }).eq('id', remaining[0].id);
+      remaining[0] = { ...remaining[0], isPrimary: true };
+    }
+    setImages(remaining);
+    onSaved();
+  }
+
+  async function setPrimaryImage(img: ProductImageRow) {
+    await supabase.from('product_images').update({ is_primary: false }).eq('product_id', product!.id);
+    await supabase.from('product_images').update({ is_primary: true }).eq('id', img.id);
+    setImages((prev) => prev.map((x) => ({ ...x, isPrimary: x.id === img.id })));
+    onSaved();
   }
 
   async function save() {
@@ -152,25 +189,34 @@ function ProductModal({
         productId = (data as any).id;
       }
 
-      // 2. Rasm — kichik (katalog) va katta (mahsulot sahifasi) nusxa
-      if (file && productId) {
-        const base = `${productId}/${Date.now()}`;
-        const [thumbBlob, fullBlob] = await Promise.all([resizeImage(file, 300), resizeImage(file, 1200)]);
-        const fullPath = `${base}-full.jpg`;
-        const thumbPath = `${base}-thumb.jpg`;
-        const { error: upErr1 } = await supabase.storage
-          .from('product-images')
-          .upload(fullPath, fullBlob, { upsert: true, contentType: 'image/jpeg' });
-        if (upErr1) throw upErr1;
-        const { error: upErr2 } = await supabase.storage
-          .from('product-images')
-          .upload(thumbPath, thumbBlob, { upsert: true, contentType: 'image/jpeg' });
-        if (upErr2) throw upErr2;
-        await supabase.from('product_images').delete().eq('product_id', productId);
-        const { error: imgErr } = await supabase
-          .from('product_images')
-          .insert({ product_id: productId, storage_path: fullPath, thumb_path: thumbPath, is_primary: true, sort_order: 0 });
-        if (imgErr) throw imgErr;
+      // 2. Yangi rasmlar — har biri uchun kichik (katalog) va katta (mahsulot sahifasi) nusxa
+      if (newFiles.length > 0 && productId) {
+        let sortOrder = images.length;
+        for (let i = 0; i < newFiles.length; i++) {
+          const base = `${productId}/${Date.now()}-${i}`;
+          const [thumbBlob, fullBlob] = await Promise.all([
+            resizeImage(newFiles[i].file, 300),
+            resizeImage(newFiles[i].file, 1200),
+          ]);
+          const fullPath = `${base}-full.jpg`;
+          const thumbPath = `${base}-thumb.jpg`;
+          const { error: upErr1 } = await supabase.storage
+            .from('product-images')
+            .upload(fullPath, fullBlob, { upsert: true, contentType: 'image/jpeg' });
+          if (upErr1) throw upErr1;
+          const { error: upErr2 } = await supabase.storage
+            .from('product-images')
+            .upload(thumbPath, thumbBlob, { upsert: true, contentType: 'image/jpeg' });
+          if (upErr2) throw upErr2;
+          const { error: imgErr } = await supabase.from('product_images').insert({
+            product_id: productId,
+            storage_path: fullPath,
+            thumb_path: thumbPath,
+            is_primary: images.length === 0 && i === 0,
+            sort_order: sortOrder++,
+          });
+          if (imgErr) throw imgErr;
+        }
       }
 
       // 3. Yangi variantlar (+ narxlar + boshlang'ich kirim)
@@ -268,38 +314,59 @@ function ProductModal({
         </div>
 
         <div className="mt-6 grid grid-cols-1 gap-6 md:grid-cols-[200px_1fr]">
-          {/* Rasm */}
+          {/* Rasm galereyasi */}
           <div>
-            <label className="block cursor-pointer">
-              {preview ? (
-                <img
-                  src={preview}
-                  className="h-48 w-full rounded-xl border border-gray-200 object-cover"
-                />
-              ) : (
-                <div className="flex h-48 w-full flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-300 bg-gray-50 text-gray-400 hover:border-brand hover:text-brand">
-                  <span className="text-3xl">🖼</span>
-                  <span className="mt-2 text-xs font-semibold">Rasm tanlash</span>
+            <div className="grid grid-cols-2 gap-2">
+              {images.map((img) => (
+                <div key={img.id} className="group relative">
+                  <img
+                    src={imageUrl(img.thumbPath || img.storagePath)}
+                    className={`h-20 w-full rounded-lg border object-cover ${img.isPrimary ? 'border-brand' : 'border-gray-200'}`}
+                  />
+                  {img.isPrimary && (
+                    <span className="absolute left-1 top-1 rounded bg-brand px-1.5 py-0.5 text-[10px] font-bold text-white">
+                      asosiy
+                    </span>
+                  )}
+                  <div className="absolute inset-x-0 bottom-0 flex justify-center gap-1 bg-black/50 py-0.5 opacity-0 group-hover:opacity-100">
+                    {!img.isPrimary && (
+                      <button
+                        onClick={() => setPrimaryImage(img)}
+                        title="Asosiy qilish"
+                        className="text-xs text-white"
+                      >
+                        ⭐
+                      </button>
+                    )}
+                    <button onClick={() => deleteImage(img)} title="O'chirish" className="text-xs text-white">
+                      🗑
+                    </button>
+                  </div>
                 </div>
-              )}
+              ))}
+              {newFiles.map((nf, i) => (
+                <div key={i} className="group relative">
+                  <img src={nf.preview} className="h-20 w-full rounded-lg border border-dashed border-brand object-cover" />
+                  <button
+                    onClick={() => removeNewFile(i)}
+                    className="absolute inset-x-0 bottom-0 bg-black/50 py-0.5 text-xs text-white opacity-0 group-hover:opacity-100"
+                  >
+                    🗑
+                  </button>
+                </div>
+              ))}
+            </div>
+            <label className="mt-2 flex h-16 w-full cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-gray-300 bg-gray-50 text-gray-400 hover:border-brand hover:text-brand">
+              <span className="text-lg">🖼</span>
+              <span className="text-xs font-semibold">Rasm qo'shish</span>
               <input
                 type="file"
                 accept="image/*"
+                multiple
                 className="hidden"
-                onChange={(e) => pickFile(e.target.files?.[0] ?? null)}
+                onChange={(e) => pickFiles(e.target.files)}
               />
             </label>
-            {preview && (
-              <label className="mt-2 block cursor-pointer text-center text-xs font-semibold text-brand hover:underline">
-                Rasmni almashtirish
-                <input
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={(e) => pickFile(e.target.files?.[0] ?? null)}
-                />
-              </label>
-            )}
           </div>
 
           {/* Maydonlar */}
@@ -506,7 +573,7 @@ export default function Products() {
         .from('products')
         .select(
           `id, name, model, material, description, category_id, is_active,
-           product_images ( storage_path, is_primary, sort_order ),
+           product_images ( id, storage_path, thumb_path, is_primary, sort_order ),
            product_variants ( id, sku, size, color, is_active,
              stock_levels ( qty, reserved ),
              prices ( price_group_id, price ) )`
@@ -520,9 +587,15 @@ export default function Products() {
     setCategories((cats ?? []) as Category[]);
     setProducts(
       (prods ?? []).map((p: any) => {
-        const imgs = (p.product_images ?? []).sort(
-          (a: any, b: any) => Number(b.is_primary) - Number(a.is_primary) || a.sort_order - b.sort_order
-        );
+        const imgs: ProductImageRow[] = (p.product_images ?? [])
+          .map((im: any) => ({
+            id: im.id,
+            storagePath: im.storage_path,
+            thumbPath: im.thumb_path,
+            isPrimary: im.is_primary,
+            sortOrder: im.sort_order,
+          }))
+          .sort((a: ProductImageRow, b: ProductImageRow) => Number(b.isPrimary) - Number(a.isPrimary) || a.sortOrder - b.sortOrder);
         return {
           id: p.id,
           name: p.name,
@@ -531,7 +604,7 @@ export default function Products() {
           description: p.description,
           category_id: p.category_id,
           is_active: p.is_active,
-          image: imgs[0] ? imageUrl(imgs[0].storage_path) : null,
+          images: imgs,
           variants: (p.product_variants ?? []).map((v: any) => {
             const sl = Array.isArray(v.stock_levels) ? v.stock_levels[0] : v.stock_levels;
             const prices: Record<string, number> = {};
@@ -624,8 +697,11 @@ export default function Products() {
       {filtered.map((p) => (
         <div key={p.id} className={`overflow-hidden rounded-2xl border border-gray-200 bg-white ${!p.is_active ? 'opacity-50' : ''}`}>
           <div className="flex items-center gap-4 border-b border-gray-100 px-6 py-4">
-            {p.image ? (
-              <img src={p.image} className="h-14 w-14 rounded-xl border border-gray-100 object-cover" />
+            {p.images[0] ? (
+              <img
+                src={imageUrl(p.images[0].thumbPath || p.images[0].storagePath)}
+                className="h-14 w-14 rounded-xl border border-gray-100 object-cover"
+              />
             ) : (
               <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-brand-soft text-lg font-extrabold text-brand">
                 {p.name.slice(0, 1)}
