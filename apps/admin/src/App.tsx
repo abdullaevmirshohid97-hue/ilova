@@ -7,6 +7,7 @@ import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Orders from './pages/Orders';
 import Products from './pages/Products';
+import ProductImport from './pages/ProductImport';
 import Inventory from './pages/Inventory';
 import Customers from './pages/Customers';
 import CustomerNew from './pages/CustomerNew';
@@ -62,6 +63,7 @@ export default function App() {
         <Route path="/" element={<Dashboard />} />
         <Route path="/orders" element={<Orders />} />
         <Route path="/products" element={<Products />} />
+        <Route path="/products/import" element={<ProductImport />} />
         <Route path="/inventory" element={<Inventory />} />
         <Route path="/customers" element={<Customers />} />
         <Route path="/customers/new" element={<CustomerNew />} />

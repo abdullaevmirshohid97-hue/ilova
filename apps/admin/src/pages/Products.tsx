@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { formatSum, imageUrl, supabase } from '../lib/supabase';
 import StockModal from '../components/StockModal';
 
@@ -599,9 +600,15 @@ export default function Products() {
           placeholder="🔍  Qidiruv: nomi, SKU, razmer, rang..."
           className="w-full max-w-md rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none focus:border-brand"
         />
+        <Link
+          to="/products/import"
+          className="ml-auto rounded-xl border border-gray-200 px-5 py-3 text-sm font-bold text-gray-600 hover:border-brand hover:text-brand"
+        >
+          📥 Excel import
+        </Link>
         <button
           onClick={() => setModal({ open: true, product: null })}
-          className="ml-auto rounded-xl bg-brand px-6 py-3 text-sm font-bold text-white shadow-lg shadow-brand/25 hover:opacity-90"
+          className="rounded-xl bg-brand px-6 py-3 text-sm font-bold text-white shadow-lg shadow-brand/25 hover:opacity-90"
         >
           ➕ Yangi kirim
         </button>
