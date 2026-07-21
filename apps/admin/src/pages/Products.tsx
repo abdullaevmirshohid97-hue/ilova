@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { formatSum, imageUrl, supabase } from '../lib/supabase';
+import StockModal from '../components/StockModal';
 
 type Group = { id: string; name: string };
 type Category = { id: string; name: string };
@@ -11,6 +12,7 @@ type Variant = {
   color: string | null;
   qty: number;
   reserved: number;
+  is_active: boolean;
   prices: Record<string, number>; // group_id -> narx
 };
 
@@ -22,6 +24,7 @@ type Product = {
   description: string | null;
   category_id: string | null;
   image: string | null;
+  is_active: boolean;
   variants: Variant[];
 };
 
@@ -73,8 +76,37 @@ function ProductModal({
     }
     return m;
   });
+  // mavjud variantlar (size/rang/SKU/faollik tahriri shu yerda, jonli)
+  const [variants, setVariants] = useState<Variant[]>(product?.variants ?? []);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  function patchVariant(id: string, patch: Partial<Variant>) {
+    setVariants((prev) => prev.map((v) => (v.id === id ? { ...v, ...patch } : v)));
+  }
+
+  async function toggleVariantActive(v: Variant) {
+    const { error: e } = await supabase
+      .from('product_variants')
+      .update({ is_active: !v.is_active })
+      .eq('id', v.id);
+    if (e) return alert('Xatolik: ' + e.message);
+    patchVariant(v.id, { is_active: !v.is_active });
+    onSaved();
+  }
+
+  async function deleteVariant(v: Variant) {
+    if (!confirm(`${v.sku} butunlay o'chirilsinmi?\nEslatma: buyurtma yoki ombor tarixida ishlatilgan bo'lsa, o'chirib bo'lmaydi — shunda "yashirish"dan foydalaning.`)) {
+      return;
+    }
+    const { error: e } = await supabase.from('product_variants').delete().eq('id', v.id);
+    if (e) {
+      alert("O'chirib bo'lmadi — bu variant buyurtma yoki ombor tarixida ishlatilgan. Uni yashiring.");
+      return;
+    }
+    setVariants((prev) => prev.filter((x) => x.id !== v.id));
+    onSaved();
+  }
 
   function pickFile(f: File | null) {
     setFile(f);
@@ -191,6 +223,15 @@ function ProductModal({
             .from('prices')
             .upsert(upserts, { onConflict: 'variant_id,price_group_id' });
           if (pErr) throw pErr;
+        }
+
+        // 5. Mavjud variantlarning razmer/rang/SKU tahriri
+        for (const v of variants) {
+          const { error: vErr } = await supabase
+            .from('product_variants')
+            .update({ size: v.size, color: v.color, sku: v.sku })
+            .eq('id', v.id);
+          if (vErr) throw new Error(`Variant ${v.sku}: ` + vErr.message);
         }
       }
 
@@ -340,25 +381,46 @@ function ProductModal({
           )}
         </div>
 
-        {/* Edit: mavjud variantlar narx jadvali */}
-        {isEdit && product!.variants.length > 0 && (
+        {/* Edit: mavjud variantlar — razmer/rang/SKU tahriri, narxlari, yashirish/o'chirish */}
+        {isEdit && variants.length > 0 && (
           <div className="mt-6">
-            <h3 className="font-bold text-gray-900">Mavjud variantlar narxlari</h3>
+            <h3 className="font-bold text-gray-900">Mavjud variantlar</h3>
             <div className="mt-2 overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="text-left text-xs uppercase text-gray-400">
-                    <th className="py-2 pr-3">Variant</th>
+                    <th className="py-2 pr-2">Razmer</th>
+                    <th className="py-2 pr-2">Rang</th>
+                    <th className="py-2 pr-2">SKU</th>
                     {groups.map((g) => (
                       <th key={g.id} className="px-2 py-2">{g.name}</th>
                     ))}
+                    <th className="py-2 pl-2"></th>
                   </tr>
                 </thead>
                 <tbody>
-                  {product!.variants.map((v) => (
-                    <tr key={v.id} className="border-t border-gray-100">
-                      <td className="py-2 pr-3 font-semibold text-gray-700">
-                        {[v.size, v.color].filter(Boolean).join(' · ') || v.sku}
+                  {variants.map((v) => (
+                    <tr key={v.id} className={`border-t border-gray-100 ${!v.is_active ? 'opacity-40' : ''}`}>
+                      <td className="py-2 pr-2">
+                        <input
+                          value={v.size ?? ''}
+                          onChange={(e) => patchVariant(v.id, { size: e.target.value || null })}
+                          className="w-24 rounded-lg border border-gray-200 bg-gray-50 px-2 py-1.5 text-sm outline-none focus:border-brand"
+                        />
+                      </td>
+                      <td className="py-2 pr-2">
+                        <input
+                          value={v.color ?? ''}
+                          onChange={(e) => patchVariant(v.id, { color: e.target.value || null })}
+                          className="w-24 rounded-lg border border-gray-200 bg-gray-50 px-2 py-1.5 text-sm outline-none focus:border-brand"
+                        />
+                      </td>
+                      <td className="py-2 pr-2">
+                        <input
+                          value={v.sku}
+                          onChange={(e) => patchVariant(v.id, { sku: e.target.value })}
+                          className="w-28 rounded-lg border border-gray-200 bg-gray-50 px-2 py-1.5 text-sm font-mono outline-none focus:border-brand"
+                        />
                       </td>
                       {groups.map((g) => (
                         <td key={g.id} className="px-2 py-2">
@@ -374,6 +436,24 @@ function ProductModal({
                           />
                         </td>
                       ))}
+                      <td className="py-2 pl-2">
+                        <div className="flex gap-1">
+                          <button
+                            onClick={() => toggleVariantActive(v)}
+                            title={v.is_active ? 'Yashirish' : "Ko'rsatish"}
+                            className="rounded-lg px-2 py-1.5 text-sm hover:bg-gray-100"
+                          >
+                            {v.is_active ? '👁' : '🚫'}
+                          </button>
+                          <button
+                            onClick={() => deleteVariant(v)}
+                            title="O'chirish"
+                            className="rounded-lg px-2 py-1.5 text-sm text-red-400 hover:bg-red-50"
+                          >
+                            🗑
+                          </button>
+                        </div>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -417,9 +497,9 @@ export default function Products() {
       supabase
         .from('products')
         .select(
-          `id, name, model, material, description, category_id,
+          `id, name, model, material, description, category_id, is_active,
            product_images ( storage_path, is_primary, sort_order ),
-           product_variants ( id, sku, size, color,
+           product_variants ( id, sku, size, color, is_active,
              stock_levels ( qty, reserved ),
              prices ( price_group_id, price ) )`
         )
@@ -442,6 +522,7 @@ export default function Products() {
           material: p.material,
           description: p.description,
           category_id: p.category_id,
+          is_active: p.is_active,
           image: imgs[0] ? imageUrl(imgs[0].storage_path) : null,
           variants: (p.product_variants ?? []).map((v: any) => {
             const sl = Array.isArray(v.stock_levels) ? v.stock_levels[0] : v.stock_levels;
@@ -452,6 +533,7 @@ export default function Products() {
               sku: v.sku,
               size: v.size,
               color: v.color,
+              is_active: v.is_active,
               qty: Number(sl?.qty ?? 0),
               reserved: Number(sl?.reserved ?? 0),
               prices,
@@ -473,16 +555,23 @@ export default function Products() {
     };
   }, [load]);
 
-  async function addStock(v: Variant, productName: string) {
-    const val = prompt(`${productName} (${v.sku})\nOmborga nechta dona KIRIM qilinsin?`);
-    const n = parseInt(val ?? '', 10);
-    if (!n || n <= 0) return;
-    const { error } = await supabase.rpc('add_stock', {
-      p_variant_id: v.id,
-      p_qty: n,
-      p_note: 'Admin panel orqali kirim',
-    });
-    if (error) alert('Xatolik: ' + error.message);
+  const [stockModal, setStockModal] = useState<{ variantId: string; label: string; mode: 'in' | 'out' } | null>(null);
+
+  async function toggleProductActive(p: Product) {
+    const { error } = await supabase.from('products').update({ is_active: !p.is_active }).eq('id', p.id);
+    if (error) return alert('Xatolik: ' + error.message);
+    load();
+  }
+
+  async function deleteProduct(p: Product) {
+    if (!confirm(`"${p.name}" butunlay o'chirilsinmi?\nBuyurtma yoki ombor tarixida ishlatilgan bo'lsa, o'chirib bo'lmaydi — shunda "yashirish"dan foydalaning.`)) {
+      return;
+    }
+    const { error } = await supabase.from('products').delete().eq('id', p.id);
+    if (error) {
+      alert("O'chirib bo'lmadi — bu mahsulot buyurtma yoki ombor tarixida ishlatilgan. Uni yashiring.");
+      return;
+    }
     load();
   }
 
@@ -519,7 +608,7 @@ export default function Products() {
       </div>
 
       {filtered.map((p) => (
-        <div key={p.id} className="overflow-hidden rounded-2xl border border-gray-200 bg-white">
+        <div key={p.id} className={`overflow-hidden rounded-2xl border border-gray-200 bg-white ${!p.is_active ? 'opacity-50' : ''}`}>
           <div className="flex items-center gap-4 border-b border-gray-100 px-6 py-4">
             {p.image ? (
               <img src={p.image} className="h-14 w-14 rounded-xl border border-gray-100 object-cover" />
@@ -532,15 +621,34 @@ export default function Products() {
               <div className="font-extrabold text-gray-900">
                 {p.name}
                 {p.model && <span className="ml-1 font-semibold text-gray-400">· {p.model}</span>}
+                {!p.is_active && (
+                  <span className="ml-2 rounded bg-gray-100 px-2 py-0.5 text-xs font-semibold text-gray-400">yashirilgan</span>
+                )}
               </div>
               <div className="text-xs text-gray-400">{p.material ?? ''}</div>
             </div>
-            <button
-              onClick={() => setModal({ open: true, product: p })}
-              className="ml-auto rounded-lg border border-gray-200 px-4 py-2 text-xs font-bold text-gray-600 hover:border-brand hover:text-brand"
-            >
-              ✏️ Tahrirlash
-            </button>
+            <div className="ml-auto flex gap-2">
+              <button
+                onClick={() => toggleProductActive(p)}
+                title={p.is_active ? 'Katalogdan yashirish' : "Katalogda ko'rsatish"}
+                className="rounded-lg border border-gray-200 px-3 py-2 text-xs font-bold text-gray-600 hover:border-brand hover:text-brand"
+              >
+                {p.is_active ? '👁' : '🚫'}
+              </button>
+              <button
+                onClick={() => deleteProduct(p)}
+                title="O'chirish"
+                className="rounded-lg border border-gray-200 px-3 py-2 text-xs font-bold text-red-400 hover:border-red-300 hover:bg-red-50"
+              >
+                🗑
+              </button>
+              <button
+                onClick={() => setModal({ open: true, product: p })}
+                className="rounded-lg border border-gray-200 px-4 py-2 text-xs font-bold text-gray-600 hover:border-brand hover:text-brand"
+              >
+                ✏️ Tahrirlash
+              </button>
+            </div>
           </div>
 
           <table className="w-full text-sm">
@@ -559,11 +667,13 @@ export default function Products() {
               {p.variants.map((v) => {
                 const avail = v.qty - v.reserved;
                 const stdGroup = groups.find((g) => g.name === 'Standart');
+                const label = `${p.name} (${v.sku})`;
                 return (
-                  <tr key={v.id} className="border-t border-gray-50">
+                  <tr key={v.id} className={`border-t border-gray-50 ${!v.is_active ? 'opacity-40' : ''}`}>
                     <td className="px-6 py-2.5 font-mono text-xs text-gray-500">{v.sku}</td>
                     <td className="px-6 py-2.5 text-gray-700">
                       {[v.size, v.color].filter(Boolean).join(' / ') || '—'}
+                      {!v.is_active && <span className="ml-2 text-xs text-gray-400">(yashirilgan)</span>}
                     </td>
                     <td className="px-6 py-2.5 text-right font-semibold">{v.qty.toLocaleString()}</td>
                     <td className="px-6 py-2.5 text-right text-amber-600">
@@ -576,12 +686,20 @@ export default function Products() {
                       {stdGroup && v.prices[stdGroup.id] != null ? formatSum(v.prices[stdGroup.id]) : '—'}
                     </td>
                     <td className="px-6 py-2.5 text-right">
-                      <button
-                        onClick={() => addStock(v, p.name)}
-                        className="rounded-lg bg-brand-soft px-3 py-1.5 text-xs font-bold text-brand hover:opacity-80"
-                      >
-                        + Kirim
-                      </button>
+                      <div className="flex justify-end gap-1.5">
+                        <button
+                          onClick={() => setStockModal({ variantId: v.id, label, mode: 'in' })}
+                          className="rounded-lg bg-brand-soft px-3 py-1.5 text-xs font-bold text-brand hover:opacity-80"
+                        >
+                          + Kirim
+                        </button>
+                        <button
+                          onClick={() => setStockModal({ variantId: v.id, label, mode: 'out' })}
+                          className="rounded-lg bg-red-50 px-3 py-1.5 text-xs font-bold text-red-500 hover:opacity-80"
+                        >
+                          − Chiqim
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 );
@@ -603,6 +721,16 @@ export default function Products() {
           groups={groups}
           categories={categories}
           onClose={() => setModal({ open: false, product: null })}
+          onSaved={load}
+        />
+      )}
+
+      {stockModal && (
+        <StockModal
+          variantId={stockModal.variantId}
+          label={stockModal.label}
+          mode={stockModal.mode}
+          onClose={() => setStockModal(null)}
           onSaved={load}
         />
       )}

@@ -6,6 +6,7 @@ const NAV = [
   { to: '/', icon: '📊', label: 'Boshqaruv' },
   { to: '/orders', icon: '🧾', label: 'Buyurtmalar' },
   { to: '/products', icon: '📦', label: 'Mahsulotlar & Ombor' },
+  { to: '/inventory', icon: '📋', label: 'Ombor jurnali' },
   { to: '/customers', icon: '👥', label: 'Mijozlar' },
   { to: '/finance', icon: '💰', label: 'Moliya' },
 ];
@@ -14,6 +15,7 @@ const TITLES: Record<string, string> = {
   '/': 'Boshqaruv paneli',
   '/orders': 'Buyurtmalar',
   '/products': 'Mahsulotlar va ombor',
+  '/inventory': 'Ombor jurnali',
   '/customers': 'Mijozlar',
   '/finance': 'Moliya',
 };
