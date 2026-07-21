@@ -1,6 +1,26 @@
-import { ReactNode } from 'react';
+import { ReactNode, useEffect, useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
+
+// Qisqa "bip" ovozi — audio fayl kerak emas, Web Audio API bilan yasaladi
+function beep() {
+  try {
+    const Ctx = window.AudioContext || (window as any).webkitAudioContext;
+    const ctx = new Ctx();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.frequency.value = 880;
+    gain.gain.setValueAtTime(0.0001, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.3, ctx.currentTime + 0.01);
+    gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.4);
+    osc.start();
+    osc.stop(ctx.currentTime + 0.4);
+  } catch {
+    // audio ishlamasa ham signal (notification/badge) davom etadi
+  }
+}
 
 const NAV = [
   { to: '/', icon: '📊', label: 'Boshqaruv' },
@@ -22,6 +42,44 @@ const TITLES: Record<string, string> = {
 
 export default function Layout({ role, children }: { role: string; children: ReactNode }) {
   const { pathname } = useLocation();
+  const [newCount, setNewCount] = useState(0);
+
+  useEffect(() => {
+    let mounted = true;
+    async function refreshCount() {
+      const { count } = await supabase
+        .from('orders')
+        .select('id', { count: 'exact', head: true })
+        .eq('status', 'new');
+      if (mounted) setNewCount(count ?? 0);
+    }
+    refreshCount();
+
+    if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
+      Notification.requestPermission();
+    }
+
+    const ch = supabase
+      .channel('orders-signal')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'orders' }, (payload) => {
+        refreshCount();
+        beep();
+        if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+          const num = (payload.new as any)?.order_number;
+          new Notification('🛎 Yangi buyurtma!', {
+            body: num ? `Buyurtma №${num} tushdi` : 'Yangi buyurtma tushdi',
+          });
+        }
+      })
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'orders' }, refreshCount)
+      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'orders' }, refreshCount)
+      .subscribe();
+
+    return () => {
+      mounted = false;
+      supabase.removeChannel(ch);
+    };
+  }, []);
 
   return (
     <div className="flex h-screen overflow-hidden">
@@ -52,6 +110,11 @@ export default function Layout({ role, children }: { role: string; children: Rea
             >
               <span className="text-base">{n.icon}</span>
               {n.label}
+              {n.to === '/orders' && newCount > 0 && (
+                <span className="ml-auto rounded-full bg-red-500 px-2 py-0.5 text-xs font-bold text-white">
+                  {newCount}
+                </span>
+              )}
             </NavLink>
           ))}
         </nav>

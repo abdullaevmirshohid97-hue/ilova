@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { ORDER_STATUS, formatDate, formatSum, supabase } from '../lib/supabase';
 
+const PAGE_SIZE = 50;
+
 type Item = { qty: number; unit_price: number; name: string; size: string | null; color: string | null; sku: string };
 type Order = {
   id: string;
@@ -17,19 +19,33 @@ export default function Orders() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [filter, setFilter] = useState<string>('new');
   const [busy, setBusy] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+  const [page, setPage] = useState(0);
+  const [hasMore, setHasMore] = useState(false);
 
   const load = useCallback(async () => {
+    const q_ = search.trim();
+    const isNumeric = q_ !== '' && /^\d+$/.test(q_);
+
     let q = supabase
       .from('orders')
       .select(
         `id, order_number, status, total, created_at,
-         customers ( name, phone ),
+         customers!inner ( name, phone ),
          order_items ( qty, unit_price, product_variants ( sku, size, color, products ( name ) ) )`
       )
       .order('created_at', { ascending: false })
-      .limit(100);
+      .range(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE - 1);
     if (filter !== 'all') q = q.eq('status', filter);
+    if (isNumeric) q = q.eq('order_number', parseInt(q_, 10));
+    else if (q_) q = q.or(`name.ilike.%${q_}%,phone.ilike.%${q_}%`, { referencedTable: 'customers' });
+    if (dateFrom) q = q.gte('created_at', dateFrom + 'T00:00:00');
+    if (dateTo) q = q.lte('created_at', dateTo + 'T23:59:59');
+
     const { data } = await q;
+    setHasMore((data ?? []).length === PAGE_SIZE);
     setOrders(
       (data ?? []).map((o: any) => ({
         id: o.id,
@@ -49,7 +65,11 @@ export default function Orders() {
         })),
       }))
     );
-  }, [filter]);
+  }, [filter, search, dateFrom, dateTo, page]);
+
+  useEffect(() => {
+    setPage(0);
+  }, [filter, search, dateFrom, dateTo]);
 
   useEffect(() => {
     load();
@@ -112,9 +132,12 @@ export default function Orders() {
     { key: 'all', label: 'Hammasi' },
   ];
 
+  const inputCls =
+    'rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm outline-none focus:border-brand';
+
   return (
     <div className="space-y-4">
-      <div className="flex gap-2">
+      <div className="flex flex-wrap gap-2">
         {FILTERS.map((f) => (
           <button
             key={f.key}
@@ -128,6 +151,21 @@ export default function Orders() {
             {f.label}
           </button>
         ))}
+      </div>
+
+      <div className="flex flex-wrap items-center gap-3">
+        <input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="🔍 Mijoz nomi, telefon yoki buyurtma №..."
+          className={inputCls + ' w-full max-w-sm'}
+        />
+        <div className="flex items-center gap-2 text-sm text-gray-500">
+          <span>dan</span>
+          <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className={inputCls} />
+          <span>gacha</span>
+          <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className={inputCls} />
+        </div>
       </div>
 
       {orders.length === 0 && (
@@ -217,6 +255,26 @@ export default function Orders() {
           </div>
         );
       })}
+
+      {(page > 0 || hasMore) && (
+        <div className="flex items-center justify-center gap-3 pt-2">
+          <button
+            onClick={() => setPage((p) => Math.max(0, p - 1))}
+            disabled={page === 0}
+            className="rounded-xl border border-gray-200 bg-white px-5 py-2 text-sm font-bold text-gray-600 hover:border-brand disabled:opacity-40"
+          >
+            ← Oldingi
+          </button>
+          <span className="text-sm text-gray-400">{page + 1}-sahifa</span>
+          <button
+            onClick={() => setPage((p) => p + 1)}
+            disabled={!hasMore}
+            className="rounded-xl border border-gray-200 bg-white px-5 py-2 text-sm font-bold text-gray-600 hover:border-brand disabled:opacity-40"
+          >
+            Keyingi →
+          </button>
+        </div>
+      )}
     </div>
   );
 }
