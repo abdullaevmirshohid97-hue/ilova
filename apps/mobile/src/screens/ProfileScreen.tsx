@@ -5,10 +5,11 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
-import { formatSum, supabase } from '../lib/supabase';
+import { formatSum, phoneToEmail, supabase } from '../lib/supabase';
 import { C } from '../lib/theme';
 
 type Profile = {
@@ -20,6 +21,98 @@ type Profile = {
   balance: number;
   ordersCount: number;
 };
+
+// ---------- Parolni o'zgartirish ----------
+function ChangePasswordCard({ phone }: { phone: string }) {
+  const [open, setOpen] = useState(false);
+  const [oldPass, setOldPass] = useState('');
+  const [newPass, setNewPass] = useState('');
+  const [confirm, setConfirm] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [done, setDone] = useState(false);
+
+  async function save() {
+    setError(null);
+    if (newPass.length < 6) return setError("Yangi parol kamida 6 belgi bo'lsin");
+    if (newPass !== confirm) return setError('Yangi parollar mos kelmadi');
+
+    setSaving(true);
+    try {
+      // Eski parolni tekshiramiz (xavfsizlik uchun) — qayta kirish orqali
+      const { error: reErr } = await supabase.auth.signInWithPassword({
+        email: phoneToEmail(phone),
+        password: oldPass,
+      });
+      if (reErr) throw new Error("Eski parol noto'g'ri");
+
+      const { error: upErr } = await supabase.auth.updateUser({ password: newPass });
+      if (upErr) throw upErr;
+
+      setDone(true);
+      setOldPass('');
+      setNewPass('');
+      setConfirm('');
+      setTimeout(() => {
+        setDone(false);
+        setOpen(false);
+      }, 1500);
+    } catch (e: any) {
+      setError(e.message ?? 'Xatolik');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (!open) {
+    return (
+      <TouchableOpacity style={s.linkRow} onPress={() => setOpen(true)}>
+        <Text style={s.linkRowText}>🔑 Parolni o'zgartirish</Text>
+        <Text style={s.linkRowArrow}>›</Text>
+      </TouchableOpacity>
+    );
+  }
+
+  return (
+    <View style={s.card}>
+      <Text style={s.pwTitle}>Parolni o'zgartirish</Text>
+      <TextInput
+        style={s.pwInput}
+        value={oldPass}
+        onChangeText={setOldPass}
+        placeholder="Eski parol"
+        placeholderTextColor={C.faint}
+        secureTextEntry
+      />
+      <TextInput
+        style={s.pwInput}
+        value={newPass}
+        onChangeText={setNewPass}
+        placeholder="Yangi parol"
+        placeholderTextColor={C.faint}
+        secureTextEntry
+      />
+      <TextInput
+        style={s.pwInput}
+        value={confirm}
+        onChangeText={setConfirm}
+        placeholder="Yangi parol (tasdiqlash)"
+        placeholderTextColor={C.faint}
+        secureTextEntry
+      />
+      {error && <Text style={s.pwError}>{error}</Text>}
+      {done && <Text style={s.pwSuccess}>✅ Parol o'zgartirildi</Text>}
+      <View style={{ flexDirection: 'row', gap: 10, marginTop: 12 }}>
+        <TouchableOpacity style={s.pwCancelBtn} onPress={() => setOpen(false)}>
+          <Text style={s.pwCancelText}>Bekor qilish</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={[s.pwSaveBtn, saving && { opacity: 0.6 }]} onPress={save} disabled={saving}>
+          {saving ? <ActivityIndicator color="#fff" /> : <Text style={s.pwSaveText}>Saqlash</Text>}
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+}
 
 export default function ProfileScreen() {
   const [p, setP] = useState<Profile | null>(null);
@@ -109,6 +202,8 @@ export default function ProfileScreen() {
         </View>
       </View>
 
+      <ChangePasswordCard phone={p.phone} />
+
       <TouchableOpacity style={s.logoutBtn} onPress={() => supabase.auth.signOut()}>
         <Text style={s.logoutText}>Chiqish</Text>
       </TouchableOpacity>
@@ -169,6 +264,52 @@ const s = StyleSheet.create({
   },
   statValue: { color: C.text, fontSize: 18, fontWeight: '800' },
   statLabel: { color: C.muted, fontSize: 12, marginTop: 4 },
+  linkRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: C.card,
+    borderWidth: 1,
+    borderColor: C.border,
+    borderRadius: 14,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    marginHorizontal: 16,
+    marginBottom: 12,
+  },
+  linkRowText: { color: C.text, fontSize: 14, fontWeight: '600', flex: 1 },
+  linkRowArrow: { color: C.faint, fontSize: 18 },
+  pwTitle: { color: C.text, fontSize: 15, fontWeight: '700', alignSelf: 'flex-start', marginBottom: 10 },
+  pwInput: {
+    width: '100%',
+    backgroundColor: C.bg,
+    borderWidth: 1,
+    borderColor: C.border,
+    borderRadius: 10,
+    color: C.text,
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+    fontSize: 15,
+    marginBottom: 10,
+  },
+  pwError: { color: C.red, fontSize: 12, alignSelf: 'flex-start', marginTop: 2 },
+  pwSuccess: { color: C.green, fontSize: 13, fontWeight: '700', marginTop: 2 },
+  pwCancelBtn: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: C.border,
+    borderRadius: 10,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  pwCancelText: { color: C.muted, fontWeight: '700' },
+  pwSaveBtn: {
+    flex: 1,
+    backgroundColor: C.primary,
+    borderRadius: 10,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  pwSaveText: { color: '#fff', fontWeight: '700' },
   logoutBtn: {
     marginHorizontal: 16,
     borderWidth: 1,

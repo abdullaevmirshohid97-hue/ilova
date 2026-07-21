@@ -2,6 +2,7 @@ import { useState } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
+  Modal,
   Platform,
   StyleSheet,
   Text,
@@ -11,11 +12,32 @@ import {
 } from 'react-native';
 import { phoneToEmail, supabase } from '../lib/supabase';
 
+function ForgotPasswordModal({ onClose }: { onClose: () => void }) {
+  return (
+    <Modal visible animationType="fade" transparent onRequestClose={onClose}>
+      <View style={fp.overlay}>
+        <View style={fp.card}>
+          <Text style={fp.icon}>🔑</Text>
+          <Text style={fp.title}>Parolni unutdingizmi?</Text>
+          <Text style={fp.body}>
+            Parolni tiklash uchun do'kon administratoriga murojaat qiling va telefon
+            raqamingizni ayting. Admin sizga yangi parol beradi.
+          </Text>
+          <TouchableOpacity style={fp.closeBtn} onPress={onClose}>
+            <Text style={fp.closeText}>Tushunarli</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
 export default function LoginScreen() {
   const [phone, setPhone] = useState('+998');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showForgot, setShowForgot] = useState(false);
 
   async function handleLogin() {
     setError(null);
@@ -74,13 +96,35 @@ export default function LoginScreen() {
           )}
         </TouchableOpacity>
 
+        <TouchableOpacity onPress={() => setShowForgot(true)}>
+          <Text style={styles.forgotLink}>Parolni unutdingizmi?</Text>
+        </TouchableOpacity>
+
         <Text style={styles.hint}>
           Akkaunt olish uchun do`kon administratoriga murojaat qiling
         </Text>
       </View>
+
+      {showForgot && <ForgotPasswordModal onClose={() => setShowForgot(false)} />}
     </KeyboardAvoidingView>
   );
 }
+
+const fp = StyleSheet.create({
+  overlay: { flex: 1, backgroundColor: 'rgba(20,21,26,0.5)', justifyContent: 'center', padding: 24 },
+  card: { backgroundColor: '#FFFFFF', borderRadius: 18, padding: 24, alignItems: 'center' },
+  icon: { fontSize: 36 },
+  title: { color: '#14151A', fontSize: 18, fontWeight: '800', marginTop: 8 },
+  body: { color: '#3B3E48', fontSize: 14, textAlign: 'center', marginTop: 10, lineHeight: 20 },
+  closeBtn: {
+    backgroundColor: '#7000FF',
+    borderRadius: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 32,
+    marginTop: 18,
+  },
+  closeText: { color: '#fff', fontSize: 15, fontWeight: '700' },
+});
 
 const styles = StyleSheet.create({
   container: {
@@ -137,6 +181,13 @@ const styles = StyleSheet.create({
   },
   buttonDisabled: { opacity: 0.6 },
   buttonText: { color: '#fff', fontSize: 16, fontWeight: '700' },
+  forgotLink: {
+    color: '#7000FF',
+    fontSize: 13,
+    fontWeight: '600',
+    textAlign: 'center',
+    marginTop: 16,
+  },
   hint: {
     color: '#B9BDCC',
     fontSize: 12,
