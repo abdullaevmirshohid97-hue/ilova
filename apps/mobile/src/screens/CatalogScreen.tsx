@@ -13,11 +13,30 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { formatSum, imageUrl, supabase } from '../lib/supabase';
 import { useCart } from '../lib/cart';
 import { C } from '../lib/theme';
 
 const PAGE_SIZE = 20;
+const CACHE_KEY = '@ilova/catalog-cache';
+
+async function saveCache(products: Product[]) {
+  try {
+    await AsyncStorage.setItem(CACHE_KEY, JSON.stringify(products));
+  } catch {
+    // kesh yozilmasa ham ilova ishlashda davom etadi
+  }
+}
+
+async function loadCache(): Promise<Product[] | null> {
+  try {
+    const raw = await AsyncStorage.getItem(CACHE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
 
 type Variant = {
   id: string;
@@ -167,6 +186,7 @@ export default function CatalogScreen() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [hasMore, setHasMore] = useState(true);
+  const [offline, setOffline] = useState(false);
   const [openProduct, setOpenProduct] = useState<Product | null>(null);
   const pageRef = useRef(0);
 
@@ -215,7 +235,7 @@ export default function CatalogScreen() {
     };
   }
 
-  async function fetchPage(page: number): Promise<{ rows: Product[]; full: boolean }> {
+  async function fetchPage(page: number): Promise<{ rows: Product[]; full: boolean; failed: boolean }> {
     let q = supabase
       .from('products')
       .select(
@@ -233,18 +253,31 @@ export default function CatalogScreen() {
     if (debouncedSearch) q = q.or(`name.ilike.%${debouncedSearch}%,model.ilike.%${debouncedSearch}%`);
 
     const { data, error } = await q;
-    if (error || !data) return { rows: [], full: false };
+    if (error || !data) return { rows: [], full: false, failed: true };
     // Mijoz guruhida narxi bo'lmagan mahsulot (barcha variantlari filtrlanib) grid'da chiqmaydi
     const rows = data.map(mapRow).filter((p) => p.variants.length > 0);
-    return { rows, full: data.length === PAGE_SIZE };
+    return { rows, full: data.length === PAGE_SIZE, failed: false };
   }
 
   async function loadFirstPage() {
     setLoading(true);
     pageRef.current = 0;
-    const { rows, full } = await fetchPage(0);
-    setProducts(rows);
-    setHasMore(full);
+    const { rows, full, failed } = await fetchPage(0);
+    const isDefaultView = !categoryId && !debouncedSearch;
+
+    if (failed) {
+      // Internet yo'q (yoki server javob bermadi) — faqat filtrsiz asosiy
+      // ko'rinish uchun oxirgi keshni ko'rsatamiz
+      const cached = isDefaultView ? await loadCache() : null;
+      setProducts(cached ?? []);
+      setHasMore(false);
+      setOffline(true);
+    } else {
+      setOffline(false);
+      setProducts(rows);
+      setHasMore(full);
+      if (isDefaultView) saveCache(rows);
+    }
     setLoading(false);
   }
 
@@ -301,7 +334,12 @@ export default function CatalogScreen() {
     if (loadingMore || !hasMore || loading) return;
     setLoadingMore(true);
     const next = pageRef.current + 1;
-    const { rows, full } = await fetchPage(next);
+    const { rows, full, failed } = await fetchPage(next);
+    if (failed) {
+      setHasMore(false);
+      setLoadingMore(false);
+      return;
+    }
     pageRef.current = next;
     setProducts((prev) => [...prev, ...rows]);
     setHasMore(full);
@@ -318,6 +356,13 @@ export default function CatalogScreen() {
 
   return (
     <View style={s.container}>
+      {offline && (
+        <View style={s.offlineBanner}>
+          <Text style={s.offlineBannerText}>
+            📡 Oflayn rejim — oxirgi ma'lumotlar ko'rsatilmoqda
+          </Text>
+        </View>
+      )}
       <View style={s.searchWrap}>
         <Text style={s.searchIcon}>🔍</Text>
         <TextInput
@@ -404,6 +449,12 @@ export default function CatalogScreen() {
 const s = StyleSheet.create({
   container: { flex: 1, backgroundColor: C.bg },
   center: { justifyContent: 'center', alignItems: 'center' },
+  offlineBanner: {
+    backgroundColor: C.yellowSoft,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+  },
+  offlineBannerText: { color: '#8A6D1F', fontSize: 12, fontWeight: '700', textAlign: 'center' },
   searchWrap: {
     flexDirection: 'row',
     alignItems: 'center',
