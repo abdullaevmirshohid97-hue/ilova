@@ -228,12 +228,12 @@ function StaffPanel() {
   );
 }
 
-export default function Settings({ role }: { role: string }) {
+export default function Settings() {
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       <CategoriesPanel />
       <PriceGroupsPanel />
-      {role === 'super_admin' && <StaffPanel />}
+      <StaffPanel />
     </div>
   );
 }

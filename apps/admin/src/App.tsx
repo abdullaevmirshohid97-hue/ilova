@@ -15,6 +15,7 @@ import CustomerDetail from './pages/CustomerDetail';
 import Finance from './pages/Finance';
 import Reports from './pages/Reports';
 import Settings from './pages/Settings';
+import SuperAdminPanel from './pages/SuperAdminPanel';
 
 export default function App() {
   const [session, setSession] = useState<Session | null>(null);
@@ -59,6 +60,10 @@ export default function App() {
     );
   }
 
+  if (role === 'super_admin') {
+    return <SuperAdminPanel />;
+  }
+
   return (
     <Layout role={role}>
       <Routes>
@@ -72,7 +77,7 @@ export default function App() {
         <Route path="/customers/:id" element={<CustomerDetail />} />
         <Route path="/finance" element={<Finance />} />
         <Route path="/reports" element={<Reports />} />
-        <Route path="/settings" element={<Settings role={role} />} />
+        <Route path="/settings" element={<Settings />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Layout>
