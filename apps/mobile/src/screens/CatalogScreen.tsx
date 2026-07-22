@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Dimensions,
   FlatList,
   Image,
   Modal,
+  Pressable,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -12,6 +12,7 @@ import {
   TextInput,
   TouchableOpacity,
   View,
+  useWindowDimensions,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { formatSum, imageUrl, supabase } from '../lib/supabase';
@@ -65,11 +66,16 @@ function first<T>(v: T | T[] | null): T | null {
   return Array.isArray(v) ? (v[0] ?? null) : v;
 }
 
-const SCREEN_W = Dimensions.get('window').width;
-const CARD_W = (SCREEN_W - 16 * 2 - 12) / 2;
-
 // ---------- Rasm galereyasi (bir nechta rasm — swipe) ----------
-function ImageGallery({ images, placeholderLetter }: { images: string[]; placeholderLetter: string }) {
+function ImageGallery({
+  images,
+  placeholderLetter,
+  width,
+}: {
+  images: string[];
+  placeholderLetter: string;
+  width: number;
+}) {
   const [index, setIndex] = useState(0);
 
   if (images.length === 0) {
@@ -87,12 +93,12 @@ function ImageGallery({ images, placeholderLetter }: { images: string[]; placeho
         pagingEnabled
         showsHorizontalScrollIndicator={false}
         onMomentumScrollEnd={(e) => {
-          const i = Math.round(e.nativeEvent.contentOffset.x / SCREEN_W);
+          const i = Math.round(e.nativeEvent.contentOffset.x / width);
           setIndex(i);
         }}
       >
         {images.map((uri, i) => (
-          <Image key={i} source={{ uri }} style={[ps.image, { width: SCREEN_W }]} resizeMode="cover" />
+          <Image key={i} source={{ uri }} style={[ps.image, { width }]} resizeMode="cover" />
         ))}
       </ScrollView>
       {images.length > 1 && (
@@ -107,9 +113,14 @@ function ImageGallery({ images, placeholderLetter }: { images: string[]; placeho
 }
 
 // ---------- Mahsulot sahifasi (WB/Uzum uslubidagi modal) ----------
+// Telefonda: pastdan chiqadigan to'liq ekran sheet. Kompyuter/planshetda (>=700px):
+// ekran o'rtasida cho'zilmagan, o'lchami cheklangan dialog.
 function ProductSheet({ product, onClose }: { product: Product; onClose: () => void }) {
   const cart = useCart();
   const { t } = useLanguage();
+  const { width } = useWindowDimensions();
+  const isWide = width >= 700;
+  const galleryWidth = isWide ? 560 : width;
   const [selected, setSelected] = useState<Variant | null>(
     product.variants.find((v) => v.available > 0) ?? null
   );
@@ -133,6 +144,92 @@ function ProductSheet({ product, onClose }: { product: Product; onClose: () => v
     onClose();
   }
 
+  const body = (
+    <ScrollView contentContainerStyle={{ paddingBottom: isWide ? 8 : 140 }}>
+      <ImageGallery images={product.images} placeholderLetter={product.name.slice(0, 1)} width={galleryWidth} />
+      <View style={ps.body}>
+        <Text style={ps.name}>
+          {product.name}
+          {product.model ? `  ·  ${product.model}` : ''}
+        </Text>
+        {product.material && <Text style={ps.material}>{product.material}</Text>}
+
+        <Text style={ps.sectionTitle}>{t('variantsSectionTitle')}</Text>
+        {product.variants.map((v) => {
+          const active = selected?.id === v.id;
+          const out = v.available <= 0;
+          return (
+            <TouchableOpacity
+              key={v.id}
+              style={[ps.variant, active && ps.variantActive, out && ps.variantOut]}
+              onPress={() => !out && setSelected(v)}
+              disabled={out}
+            >
+              <View style={{ flex: 1 }}>
+                <Text style={[ps.variantTitle, out && { color: C.faint }]}>
+                  {[v.size, v.color].filter(Boolean).join(' · ') || v.sku}
+                </Text>
+                <Text style={ps.variantSku}>{v.sku}</Text>
+              </View>
+              <View style={{ alignItems: 'flex-end' }}>
+                <Text style={[ps.variantPrice, out && { color: C.faint }]}>
+                  {formatSum(v.price)}
+                </Text>
+                <Text style={[ps.variantStock, out && { color: C.red }]}>
+                  {out ? t('stockOut') : t('stockAvailable', { n: v.available.toLocaleString() })}
+                </Text>
+              </View>
+              <View style={[ps.radio, active && ps.radioActive]}>
+                {active && <View style={ps.radioDot} />}
+              </View>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+    </ScrollView>
+  );
+
+  const footer = (
+    <>
+      <TextInput
+        style={ps.qtyInput}
+        value={qtyText}
+        onChangeText={(txt) => setQtyText(txt.replace(/\D/g, ''))}
+        keyboardType="number-pad"
+        placeholder={t('qtyPlaceholder')}
+        placeholderTextColor={C.faint}
+      />
+      <TouchableOpacity
+        style={[ps.addBtn, !canAdd && ps.addBtnDisabled]}
+        onPress={addToCart}
+        disabled={!canAdd}
+      >
+        <Text style={ps.addBtnText}>
+          {qty > 0 && selected != null
+            ? t('addToCartWithSum', { sum: formatSum(qty * selected.price) })
+            : t('addToCart')}
+        </Text>
+      </TouchableOpacity>
+    </>
+  );
+
+  if (isWide) {
+    return (
+      <Modal visible transparent animationType="fade" onRequestClose={onClose}>
+        <View style={ps.wideOverlay}>
+          <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
+          <View style={ps.wideCard}>
+            <TouchableOpacity onPress={onClose} style={[ps.closeBtn, ps.wideCloseBtn]}>
+              <Text style={ps.closeText}>✕</Text>
+            </TouchableOpacity>
+            <View style={{ flex: 1 }}>{body}</View>
+            <View style={ps.footerWide}>{footer}</View>
+          </View>
+        </View>
+      </Modal>
+    );
+  }
+
   return (
     <Modal visible animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
       <View style={ps.container}>
@@ -141,70 +238,8 @@ function ProductSheet({ product, onClose }: { product: Product; onClose: () => v
             <Text style={ps.closeText}>✕</Text>
           </TouchableOpacity>
         </View>
-        <ScrollView contentContainerStyle={{ paddingBottom: 140 }}>
-          <ImageGallery images={product.images} placeholderLetter={product.name.slice(0, 1)} />
-          <View style={ps.body}>
-            <Text style={ps.name}>
-              {product.name}
-              {product.model ? `  ·  ${product.model}` : ''}
-            </Text>
-            {product.material && <Text style={ps.material}>{product.material}</Text>}
-
-            <Text style={ps.sectionTitle}>{t('variantsSectionTitle')}</Text>
-            {product.variants.map((v) => {
-              const active = selected?.id === v.id;
-              const out = v.available <= 0;
-              return (
-                <TouchableOpacity
-                  key={v.id}
-                  style={[ps.variant, active && ps.variantActive, out && ps.variantOut]}
-                  onPress={() => !out && setSelected(v)}
-                  disabled={out}
-                >
-                  <View style={{ flex: 1 }}>
-                    <Text style={[ps.variantTitle, out && { color: C.faint }]}>
-                      {[v.size, v.color].filter(Boolean).join(' · ') || v.sku}
-                    </Text>
-                    <Text style={ps.variantSku}>{v.sku}</Text>
-                  </View>
-                  <View style={{ alignItems: 'flex-end' }}>
-                    <Text style={[ps.variantPrice, out && { color: C.faint }]}>
-                      {formatSum(v.price)}
-                    </Text>
-                    <Text style={[ps.variantStock, out && { color: C.red }]}>
-                      {out ? t('stockOut') : t('stockAvailable', { n: v.available.toLocaleString() })}
-                    </Text>
-                  </View>
-                  <View style={[ps.radio, active && ps.radioActive]}>
-                    {active && <View style={ps.radioDot} />}
-                  </View>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-        </ScrollView>
-
-        <View style={ps.footer}>
-          <TextInput
-            style={ps.qtyInput}
-            value={qtyText}
-            onChangeText={(txt) => setQtyText(txt.replace(/\D/g, ''))}
-            keyboardType="number-pad"
-            placeholder={t('qtyPlaceholder')}
-            placeholderTextColor={C.faint}
-          />
-          <TouchableOpacity
-            style={[ps.addBtn, !canAdd && ps.addBtnDisabled]}
-            onPress={addToCart}
-            disabled={!canAdd}
-          >
-            <Text style={ps.addBtnText}>
-              {qty > 0 && selected != null
-                ? t('addToCartWithSum', { sum: formatSum(qty * selected.price) })
-                : t('addToCart')}
-            </Text>
-          </TouchableOpacity>
-        </View>
+        {body}
+        <View style={ps.footer}>{footer}</View>
       </View>
     </Modal>
   );
@@ -225,6 +260,14 @@ export default function CatalogScreen() {
   const [offline, setOffline] = useState(false);
   const [openProduct, setOpenProduct] = useState<Product | null>(null);
   const pageRef = useRef(0);
+  // Grid ustunlari qurilma eniga qarab moslashadi (telefon 2, planshet 3,
+  // kompyuter 4) — App.tsx allaqachon katalog uchun kengni cheklaydi (max 1200)
+  const [gridWidth, setGridWidth] = useState(0);
+  const GRID_PADDING = 16;
+  const GRID_GAP = 12;
+  const columns = gridWidth >= 1000 ? 4 : gridWidth >= 640 ? 3 : 2;
+  const cardWidth =
+    gridWidth > 0 ? (gridWidth - GRID_PADDING * 2 - GRID_GAP * (columns - 1)) / columns : 160;
 
   useEffect(() => {
     supabase
@@ -391,7 +434,7 @@ export default function CatalogScreen() {
   }
 
   return (
-    <View style={s.container}>
+    <View style={s.container} onLayout={(e) => setGridWidth(e.nativeEvent.layout.width)}>
       {offline && (
         <View style={s.offlineBanner}>
           <Text style={s.offlineBannerText}>{t('offlineBanner')}</Text>
@@ -433,11 +476,12 @@ export default function CatalogScreen() {
       )}
 
       <FlatList
+        key={columns}
         data={products}
         keyExtractor={(p) => p.id}
-        numColumns={2}
-        columnWrapperStyle={{ gap: 12, paddingHorizontal: 16 }}
-        contentContainerStyle={{ gap: 12, paddingBottom: 24 }}
+        numColumns={columns}
+        columnWrapperStyle={{ gap: GRID_GAP, paddingHorizontal: GRID_PADDING }}
+        contentContainerStyle={{ gap: GRID_GAP, paddingBottom: 24 }}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.primary} />
         }
@@ -452,11 +496,15 @@ export default function CatalogScreen() {
           const minPrice = prices.length ? Math.min(...prices) : null;
           const totalAvail = item.variants.reduce((sum, v) => sum + v.available, 0);
           return (
-            <TouchableOpacity style={s.card} onPress={() => setOpenProduct(item)} activeOpacity={0.8}>
+            <TouchableOpacity
+              style={[s.card, { width: cardWidth }]}
+              onPress={() => setOpenProduct(item)}
+              activeOpacity={0.8}
+            >
               {item.image ? (
-                <Image source={{ uri: item.image }} style={s.image} resizeMode="cover" />
+                <Image source={{ uri: item.image }} style={[s.image, { height: cardWidth }]} resizeMode="cover" />
               ) : (
-                <View style={[s.image, s.imagePh]}>
+                <View style={[s.image, s.imagePh, { height: cardWidth }]}>
                   <Text style={s.imagePhText}>{item.name.slice(0, 1)}</Text>
                 </View>
               )}
@@ -517,14 +565,13 @@ const s = StyleSheet.create({
   chipTextActive: { color: '#fff' },
   empty: { color: C.muted, textAlign: 'center', marginTop: 40 },
   card: {
-    width: CARD_W,
     backgroundColor: C.card,
     borderRadius: 14,
     overflow: 'hidden',
     borderWidth: 1,
     borderColor: C.border,
   },
-  image: { width: '100%', height: CARD_W },
+  image: { width: '100%' },
   imagePh: { backgroundColor: C.primarySoft, justifyContent: 'center', alignItems: 'center' },
   imagePhText: { color: C.primary, fontSize: 48, fontWeight: '800' },
   cardBody: { padding: 10 },
@@ -545,6 +592,30 @@ const ps = StyleSheet.create({
     alignItems: 'center',
   },
   closeText: { color: '#fff', fontSize: 16, fontWeight: '700' },
+  wideOverlay: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(20,21,26,0.5)',
+    padding: 24,
+  },
+  wideCard: {
+    width: '100%',
+    maxWidth: 560,
+    maxHeight: '85%',
+    backgroundColor: C.card,
+    borderRadius: 20,
+    overflow: 'hidden',
+  },
+  wideCloseBtn: { position: 'absolute', top: 12, right: 12 },
+  footerWide: {
+    flexDirection: 'row',
+    gap: 10,
+    padding: 16,
+    backgroundColor: C.card,
+    borderTopWidth: 1,
+    borderTopColor: C.border,
+  },
   image: { width: '100%', height: 320 },
   imagePh: { backgroundColor: C.primarySoft, justifyContent: 'center', alignItems: 'center' },
   imagePhText: { color: C.primary, fontSize: 80, fontWeight: '800' },

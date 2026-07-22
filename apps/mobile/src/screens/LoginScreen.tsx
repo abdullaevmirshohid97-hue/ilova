@@ -101,6 +101,17 @@ export default function LoginScreen() {
         </TouchableOpacity>
 
         <Text style={styles.hint}>{t('loginHint')}</Text>
+
+        {Platform.OS === 'web' && (
+          <TouchableOpacity
+            style={styles.apkBtn}
+            onPress={() => {
+              window.location.href = '/ilova-b2b.apk';
+            }}
+          >
+            <Text style={styles.apkBtnText}>📱 {t('downloadApk')}</Text>
+          </TouchableOpacity>
+        )}
       </View>
 
       {showForgot && <ForgotPasswordModal onClose={() => setShowForgot(false)} />}
@@ -110,7 +121,15 @@ export default function LoginScreen() {
 
 const fp = StyleSheet.create({
   overlay: { flex: 1, backgroundColor: 'rgba(20,21,26,0.5)', justifyContent: 'center', padding: 24 },
-  card: { backgroundColor: '#FFFFFF', borderRadius: 18, padding: 24, alignItems: 'center' },
+  card: {
+    width: '100%',
+    maxWidth: 380,
+    alignSelf: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 18,
+    padding: 24,
+    alignItems: 'center',
+  },
   icon: { fontSize: 36 },
   title: { color: '#14151A', fontSize: 18, fontWeight: '800', marginTop: 8 },
   body: { color: '#3B3E48', fontSize: 14, textAlign: 'center', marginTop: 10, lineHeight: 20 },
@@ -132,6 +151,9 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   card: {
+    width: '100%',
+    maxWidth: 420,
+    alignSelf: 'center',
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
     padding: 24,
@@ -191,5 +213,18 @@ const styles = StyleSheet.create({
     fontSize: 12,
     textAlign: 'center',
     marginTop: 16,
+  },
+  apkBtn: {
+    marginTop: 20,
+    borderWidth: 1.5,
+    borderColor: '#7000FF',
+    borderRadius: 10,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  apkBtnText: {
+    color: '#7000FF',
+    fontSize: 14,
+    fontWeight: '700',
   },
 });

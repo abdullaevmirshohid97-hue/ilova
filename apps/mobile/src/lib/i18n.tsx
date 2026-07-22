@@ -34,6 +34,7 @@ const uz = {
   forgotBody:
     "Parolni tiklash uchun do'kon administratoriga murojaat qiling va telefon raqamingizni ayting. Admin sizga yangi parol beradi.",
   forgotClose: 'Tushunarli',
+  downloadApk: 'Android ilovasini yuklab olish',
 
   searchPlaceholder: "Nomi yoki model bo'yicha qidirish...",
   categoryAll: 'Hammasi',
@@ -150,6 +151,7 @@ const ru: Record<keyof typeof uz, string> = {
   forgotBody:
     'Для восстановления пароля обратитесь к администратору магазина и назовите свой номер телефона. Администратор выдаст вам новый пароль.',
   forgotClose: 'Понятно',
+  downloadApk: 'Скачать приложение для Android',
 
   searchPlaceholder: 'Поиск по названию или модели...',
   categoryAll: 'Все',

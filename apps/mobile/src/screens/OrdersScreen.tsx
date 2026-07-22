@@ -3,6 +3,7 @@ import {
   ActivityIndicator,
   Alert,
   FlatList,
+  Platform,
   RefreshControl,
   StyleSheet,
   Text,
@@ -175,9 +176,23 @@ export default function OrdersScreen() {
   async function downloadInvoice(order: Order) {
     setInvoiceBusy(order.id);
     try {
-      const { uri } = await Print.printToFileAsync({ html: buildInvoiceHtml(order) });
-      if (await Sharing.isAvailableAsync()) {
-        await Sharing.shareAsync(uri, { mimeType: 'application/pdf', dialogTitle: t('invoiceShareTitle') });
+      const html = buildInvoiceHtml(order);
+      if (Platform.OS === 'web') {
+        // expo-print/expo-sharing faylga yozib bo'lmaydi (brauzerda fayl
+        // tizimi yo'q) — o'rniga yangi oynada ochib, brauzer "Saqlash PDF"
+        // dialogini chiqaramiz
+        const win = window.open('', '_blank');
+        if (win) {
+          win.document.write(html);
+          win.document.close();
+          win.focus();
+          win.print();
+        }
+      } else {
+        const { uri } = await Print.printToFileAsync({ html });
+        if (await Sharing.isAvailableAsync()) {
+          await Sharing.shareAsync(uri, { mimeType: 'application/pdf', dialogTitle: t('invoiceShareTitle') });
+        }
       }
     } catch {
       Alert.alert(t('error'), t('invoiceFailed'));
