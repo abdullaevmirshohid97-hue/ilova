@@ -556,6 +556,84 @@ function ProductModal({
   );
 }
 
+// Katalogni bitta A4/PDF hujjat sifatida chop etish (brauzer "Saqlash PDF")
+// — Orders.tsx dagi yig'ish varaqasi bilan bir xil usul (window.print()).
+function printCatalog(products: Product[], groups: Group[]) {
+  const stdGroup = groups.find((g) => g.name === 'Standart');
+  const withVariants = products.filter((p) => p.variants.length > 0);
+  const dateStr = new Date().toLocaleDateString('uz-UZ', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  });
+
+  const productsHtml = withVariants
+    .map((p) => {
+      const img = p.images[0];
+      const thumbHtml = img
+        ? `<img class="thumb" src="${imageUrl(img.thumbPath || img.storagePath)}" />`
+        : `<div class="thumb thumb-ph">${p.name.slice(0, 1).toUpperCase()}</div>`;
+      const variantRows = p.variants
+        .map((v) => {
+          const avail = v.qty - v.reserved;
+          const price =
+            stdGroup && v.prices[stdGroup.id] != null ? formatSum(v.prices[stdGroup.id]) : '—';
+          return `<tr>
+            <td>${v.sku}</td>
+            <td>${[v.size, v.color].filter(Boolean).join(' / ') || '—'}</td>
+            <td class="num">${price}</td>
+            <td class="num ${avail === 0 ? 'out' : ''}">${avail.toLocaleString()}</td>
+          </tr>`;
+        })
+        .join('');
+      return `
+        <div class="product">
+          ${thumbHtml}
+          <div class="info">
+            <div class="name">${p.name}${p.model ? ` · ${p.model}` : ''}</div>
+            <div class="sub">${p.material ?? ''}</div>
+            <table>
+              <thead>
+                <tr><th>SKU</th><th>Razmer / Rang</th><th class="num">Narx</th><th class="num">Mavjud</th></tr>
+              </thead>
+              <tbody>${variantRows}</tbody>
+            </table>
+          </div>
+        </div>`;
+    })
+    .join('');
+
+  const w = window.open('', '_blank');
+  if (!w) return;
+  w.document.write(`
+    <html><head><title>Mahsulotlar katalogi</title>
+    <style>
+      @page { size: A4; margin: 14mm; }
+      body { font-family: -apple-system, Arial, sans-serif; color: #14151A; }
+      h1 { font-size: 20px; margin: 0 0 4px; }
+      .meta { color: #8E92A3; font-size: 12px; margin-bottom: 20px; }
+      .product { display: flex; gap: 14px; padding: 14px 0; border-bottom: 1px solid #E9EAF2; break-inside: avoid; }
+      .thumb { width: 84px; height: 84px; border-radius: 10px; object-fit: cover; border: 1px solid #E9EAF2; flex-shrink: 0; }
+      .thumb-ph { background: #F3EBFF; color: #7000FF; display: flex; align-items: center; justify-content: center; font-size: 26px; font-weight: 800; }
+      .info { flex: 1; min-width: 0; }
+      .name { font-size: 14px; font-weight: 800; }
+      .sub { color: #8E92A3; font-size: 11px; margin-top: 2px; }
+      table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+      th, td { text-align: left; padding: 3px 10px 3px 0; font-size: 11px; }
+      th { color: #8E92A3; font-weight: 700; text-transform: uppercase; font-size: 9px; }
+      td.num, th.num { text-align: right; }
+      td.out { color: #F0384A; font-weight: 700; }
+    </style></head>
+    <body>
+      <h1>ILOVA B2B — Mahsulotlar katalogi</h1>
+      <div class="meta">${dateStr} · Jami ${withVariants.length} mahsulot</div>
+      ${productsHtml}
+      <script>window.onload = function() { window.print(); };</script>
+    </body></html>
+  `);
+  w.document.close();
+}
+
 // ---------------- Asosiy sahifa ----------------
 export default function Products() {
   const [products, setProducts] = useState<Product[]>([]);
@@ -680,9 +758,15 @@ export default function Products() {
           placeholder="🔍  Qidiruv: nomi, SKU, razmer, rang..."
           className="w-full max-w-md rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none focus:border-brand"
         />
+        <button
+          onClick={() => printCatalog(filtered, groups)}
+          className="ml-auto rounded-xl border border-gray-200 px-5 py-3 text-sm font-bold text-gray-600 hover:border-brand hover:text-brand"
+        >
+          🖨 Katalog PDF
+        </button>
         <Link
           to="/products/import"
-          className="ml-auto rounded-xl border border-gray-200 px-5 py-3 text-sm font-bold text-gray-600 hover:border-brand hover:text-brand"
+          className="rounded-xl border border-gray-200 px-5 py-3 text-sm font-bold text-gray-600 hover:border-brand hover:text-brand"
         >
           📥 Excel import
         </Link>
