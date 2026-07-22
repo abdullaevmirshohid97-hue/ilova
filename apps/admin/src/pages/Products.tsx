@@ -37,9 +37,25 @@ type Product = {
   variants: Variant[];
 };
 
-type NewVariantRow = { size: string; color: string; sku: string; initQty: string };
+type NewVariantRow = { height: string; width: string; length: string; color: string; sku: string; initQty: string };
 
-const emptyRow = (): NewVariantRow => ({ size: '', color: '', sku: '', initQty: '' });
+const emptyRow = (): NewVariantRow => ({ height: '', width: '', length: '', color: '', sku: '', initQty: '' });
+
+// Razmer mijozga har doim "balandligi×eni×bo'yi" tartibida ko'rinadi (masalan
+// 8×26×36) — admin uchun esa uchta alohida maydonga bo'lib kiritiladi, shunda
+// keyinchalik o'lchamlar bo'yicha qidiruv/filtr qo'shish osonlashadi.
+function combineSize(height: string, width: string, length: string): string | null {
+  const parts = [height, width, length].map((s) => s.trim()).filter(Boolean);
+  return parts.length > 0 ? parts.join('×') : null;
+}
+
+// Eski/qo'lda yozilgan razmerlarni (masalan "170x200" yoki "8×26×36") tahrir
+// oynasidagi uchta maydonga imkon qadar qayta bo'lib beradi
+function splitSize(size: string | null): { height: string; width: string; length: string } {
+  if (!size) return { height: '', width: '', length: '' };
+  const parts = size.split(/[×xX]/).map((s) => s.trim());
+  return { height: parts[0] ?? '', width: parts[1] ?? '', length: parts[2] ?? '' };
+}
 
 function makeSku(name: string, model: string, size: string, color: string): string {
   const part = (s: string) =>
@@ -87,11 +103,27 @@ function ProductModal({
   });
   // mavjud variantlar (size/rang/SKU/faollik tahriri shu yerda, jonli)
   const [variants, setVariants] = useState<Variant[]>(product?.variants ?? []);
+  // mavjud variantlarning razmeri uchta alohida maydonga bo'lib ko'rsatiladi
+  const [existingDims, setExistingDims] = useState<Record<string, { height: string; width: string; length: string }>>(
+    () => {
+      const m: Record<string, { height: string; width: string; length: string }> = {};
+      for (const v of product?.variants ?? []) m[v.id] = splitSize(v.size);
+      return m;
+    }
+  );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   function patchVariant(id: string, patch: Partial<Variant>) {
     setVariants((prev) => prev.map((v) => (v.id === id ? { ...v, ...patch } : v)));
+  }
+
+  function updateExistingDim(id: string, key: 'height' | 'width' | 'length', value: string) {
+    setExistingDims((prev) => {
+      const dims = { ...(prev[id] ?? { height: '', width: '', length: '' }), [key]: value };
+      patchVariant(id, { size: combineSize(dims.height, dims.width, dims.length) });
+      return { ...prev, [id]: dims };
+    });
   }
 
   async function toggleVariantActive(v: Variant) {
@@ -154,7 +186,9 @@ function ProductModal({
   async function save() {
     setError(null);
     if (!name.trim()) return setError('Mahsulot nomi majburiy');
-    const rows = newRows.filter((r) => r.size.trim() || r.color.trim() || r.sku.trim());
+    const rows = newRows.filter(
+      (r) => r.height.trim() || r.width.trim() || r.length.trim() || r.color.trim() || r.sku.trim()
+    );
     if (!isEdit && rows.length === 0) return setError('Kamida bitta variant kiriting');
 
     setSaving(true);
@@ -221,15 +255,16 @@ function ProductModal({
 
       // 3. Yangi variantlar (+ narxlar + boshlang'ich kirim)
       for (const r of rows) {
+        const size = combineSize(r.height, r.width, r.length);
         const sku =
           r.sku.trim() ||
-          makeSku(name, model, r.size, r.color) + '-' + Math.random().toString(36).slice(2, 5).toUpperCase();
+          makeSku(name, model, size ?? '', r.color) + '-' + Math.random().toString(36).slice(2, 5).toUpperCase();
         const { data: v, error: vErr } = await supabase
           .from('product_variants')
           .insert({
             product_id: productId,
             sku,
-            size: r.size.trim() || null,
+            size,
             color: r.color.trim() || null,
           })
           .select('id')
@@ -410,7 +445,7 @@ function ProductModal({
         <div className="mt-6">
           <div className="flex items-center justify-between">
             <h3 className="font-bold text-gray-900">
-              {isEdit ? 'Yangi variant qo`shish (ixtiyoriy)' : 'Variantlar (razmer × rang)'}
+              {isEdit ? 'Yangi variant qo`shish (ixtiyoriy)' : "Variantlar (o'lcham × rang)"}
             </h3>
             <button
               onClick={() => setNewRows((p) => [...p, emptyRow()])}
@@ -419,10 +454,19 @@ function ProductModal({
               + Variant qatori
             </button>
           </div>
+          {newRows.length > 0 && (
+            <p className="mt-2 text-xs text-gray-400">
+              O'lcham uchta maydonga alohida kiritiladi, mijozga "Balandligi×Eni×Bo'yi" ko'rinishida chiqadi (masalan 8×26×36)
+            </p>
+          )}
           {newRows.map((r, i) => (
-            <div key={i} className="mt-2 grid grid-cols-[1fr_1fr_1.2fr_100px_32px] items-center gap-2">
-              <input value={r.size} placeholder="Razmer (170x200)" className={inputCls}
-                onChange={(e) => setNewRows((p) => p.map((x, j) => (j === i ? { ...x, size: e.target.value } : x)))} />
+            <div key={i} className="mt-2 grid grid-cols-[70px_70px_70px_1fr_1.2fr_90px_32px] items-center gap-2">
+              <input value={r.height} placeholder="Balandligi" className={inputCls}
+                onChange={(e) => setNewRows((p) => p.map((x, j) => (j === i ? { ...x, height: e.target.value.replace(/\D/g, '') } : x)))} />
+              <input value={r.width} placeholder="Eni" className={inputCls}
+                onChange={(e) => setNewRows((p) => p.map((x, j) => (j === i ? { ...x, width: e.target.value.replace(/\D/g, '') } : x)))} />
+              <input value={r.length} placeholder="Bo'yi" className={inputCls}
+                onChange={(e) => setNewRows((p) => p.map((x, j) => (j === i ? { ...x, length: e.target.value.replace(/\D/g, '') } : x)))} />
               <input value={r.color} placeholder="Rang (Ko'k)" className={inputCls}
                 onChange={(e) => setNewRows((p) => p.map((x, j) => (j === i ? { ...x, color: e.target.value } : x)))} />
               <input value={r.sku} placeholder="SKU (bo'sh = avto)" className={inputCls}
@@ -464,7 +508,9 @@ function ProductModal({
               <table className="w-full text-sm">
                 <thead>
                   <tr className="text-left text-xs uppercase text-gray-400">
-                    <th className="py-2 pr-2">Razmer</th>
+                    <th className="py-2 pr-2">Balandligi</th>
+                    <th className="py-2 pr-2">Eni</th>
+                    <th className="py-2 pr-2">Bo'yi</th>
                     <th className="py-2 pr-2">Rang</th>
                     <th className="py-2 pr-2">SKU</th>
                     {groups.map((g) => (
@@ -474,13 +520,29 @@ function ProductModal({
                   </tr>
                 </thead>
                 <tbody>
-                  {variants.map((v) => (
+                  {variants.map((v) => {
+                    const dims = existingDims[v.id] ?? { height: '', width: '', length: '' };
+                    return (
                     <tr key={v.id} className={`border-t border-gray-100 ${!v.is_active ? 'opacity-40' : ''}`}>
                       <td className="py-2 pr-2">
                         <input
-                          value={v.size ?? ''}
-                          onChange={(e) => patchVariant(v.id, { size: e.target.value || null })}
-                          className="w-24 rounded-lg border border-gray-200 bg-gray-50 px-2 py-1.5 text-sm outline-none focus:border-brand"
+                          value={dims.height}
+                          onChange={(e) => updateExistingDim(v.id, 'height', e.target.value.replace(/\D/g, ''))}
+                          className="w-16 rounded-lg border border-gray-200 bg-gray-50 px-2 py-1.5 text-sm outline-none focus:border-brand"
+                        />
+                      </td>
+                      <td className="py-2 pr-2">
+                        <input
+                          value={dims.width}
+                          onChange={(e) => updateExistingDim(v.id, 'width', e.target.value.replace(/\D/g, ''))}
+                          className="w-16 rounded-lg border border-gray-200 bg-gray-50 px-2 py-1.5 text-sm outline-none focus:border-brand"
+                        />
+                      </td>
+                      <td className="py-2 pr-2">
+                        <input
+                          value={dims.length}
+                          onChange={(e) => updateExistingDim(v.id, 'length', e.target.value.replace(/\D/g, ''))}
+                          className="w-16 rounded-lg border border-gray-200 bg-gray-50 px-2 py-1.5 text-sm outline-none focus:border-brand"
                         />
                       </td>
                       <td className="py-2 pr-2">
@@ -530,7 +592,8 @@ function ProductModal({
                         </div>
                       </td>
                     </tr>
-                  ))}
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
