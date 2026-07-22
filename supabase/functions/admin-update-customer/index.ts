@@ -57,7 +57,7 @@ Deno.serve(async (req) => {
     // tegishli ekanini bu yerda qo'lda tekshiramiz.
     const { data: targetCust, error: targetErr } = await admin
       .from('customers')
-      .select('org_id')
+      .select('org_id, phone, name')
       .eq('id', customer_id)
       .maybeSingle();
     if (targetErr) return json({ error: 'MIJOZ: ' + targetErr.message }, 400);
@@ -65,14 +65,30 @@ Deno.serve(async (req) => {
       return json({ error: 'RUXSAT_YOQ' }, 403);
     }
 
-    // Mijozga bog'langan auth foydalanuvchisini topamiz (profiles orqali)
-    const { data: linkProf, error: linkErr } = await admin
+    // Mijozga bog'langan auth foydalanuvchini(lar)ni topamiz (profiles orqali).
+    // Gmail kiritilgan bo'lsa, mijoz uchun IKKINCHI, alohida auth hisob ham bor
+    // (taklif havolasi uchun) — ikkalasi ham SHU customer_id'ga bog'langan.
+    // Shuning uchun bir nechta topilsa, aynan TELEFON orqali kiradigan
+    // (haqiqiy mobil login) hisobni ajratib olamiz.
+    const { data: linkProfs, error: linkErr } = await admin
       .from('profiles')
       .select('id')
-      .eq('customer_id', customer_id)
-      .maybeSingle();
+      .eq('customer_id', customer_id);
     if (linkErr) return json({ error: 'PROFIL: ' + linkErr.message }, 400);
-    const authUserId: string | null = (linkProf as any)?.id ?? null;
+
+    let authUserId: string | null = null;
+    if (linkProfs && linkProfs.length === 1) {
+      authUserId = (linkProfs[0] as any).id;
+    } else if (linkProfs && linkProfs.length > 1) {
+      const phoneLoginEmail = (targetCust as any).phone.replace(/\D/g, '') + '@mijoz.ilova';
+      for (const p of linkProfs) {
+        const { data: u } = await admin.auth.admin.getUserById((p as any).id);
+        if (u?.user?.email === phoneLoginEmail) {
+          authUserId = (p as any).id;
+          break;
+        }
+      }
+    }
 
     if (action === 'change_phone') {
       const newPhone = String(body.phone ?? '').trim();
@@ -132,7 +148,20 @@ Deno.serve(async (req) => {
     if (action === 'reset_password') {
       const newPassword = String(body.new_password ?? '');
       if (newPassword.length < 6) return json({ error: "Parol kamida 6 belgi bo'lsin" }, 400);
-      if (!authUserId) return json({ error: 'MIJOZNING LOGIN AKKAUNTI TOPILMADI' }, 400);
+
+      if (!authUserId) {
+        // Mijozning umuman login hisobi yo'q (masalan eski, qo'lda kiritilgan
+        // yozuv) — telefon-login hisobini shu parol bilan hoziroq yaratamiz
+        const loginEmail = (targetCust as any).phone.replace(/\D/g, '') + '@mijoz.ilova';
+        const { error: cErr } = await admin.auth.admin.createUser({
+          email: loginEmail,
+          password: newPassword,
+          email_confirm: true,
+          user_metadata: { full_name: (targetCust as any).name ?? '', customer_id, org_id: callerOrgId },
+        });
+        if (cErr) return json({ error: 'LOGIN: ' + cErr.message }, 400);
+        return json({ ok: true, created: true });
+      }
 
       const { error: uErr } = await admin.auth.admin.updateUserById(authUserId, {
         password: newPassword,
