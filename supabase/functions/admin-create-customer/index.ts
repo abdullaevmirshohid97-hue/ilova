@@ -36,12 +36,14 @@ Deno.serve(async (req) => {
 
     const { data: prof } = await caller
       .from('profiles')
-      .select('role')
+      .select('role, org_id')
       .eq('id', user.id)
       .single();
     if (!prof || !['admin', 'super_admin'].includes((prof as any).role)) {
       return json({ error: 'RUXSAT_YOQ' }, 403);
     }
+    const orgId = (prof as any).org_id;
+    if (!orgId) return json({ error: 'ORG_TOPILMADI' }, 400);
 
     const body = await req.json();
     const { name, phone, email, address, region, price_group_id, password, photo_path } = body;
@@ -51,10 +53,11 @@ Deno.serve(async (req) => {
 
     const admin = createClient(supabaseUrl, serviceKey);
 
-    // 1. Mijoz kartochkasi
+    // 1. Mijoz kartochkasi (chaqiruvchi adminning o'z org'iga)
     const { data: cust, error: cErr } = await admin
       .from('customers')
       .insert({
+        org_id: orgId,
         name: name.trim(),
         phone: phone.trim(),
         email: email?.trim() || null,
@@ -73,7 +76,7 @@ Deno.serve(async (req) => {
       email: loginEmail,
       password,
       email_confirm: true,
-      user_metadata: { full_name: name.trim(), customer_id: cust.id },
+      user_metadata: { full_name: name.trim(), customer_id: cust.id, org_id: orgId },
     });
     if (uErr) {
       await admin.from('customers').delete().eq('id', cust.id);

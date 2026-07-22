@@ -1,4 +1,6 @@
-// Ikkinchi admin (xodim) hisobini yaratish — faqat super_admin chaqira oladi.
+// Ikkinchi admin (xodim) hisobini yaratish — tenant o'z ichida qo'shadi.
+// Faqat 'admin' chaqira oladi (super_admin emas — u tenant'ga tegishli emas,
+// yangi tenant ochish uchun super-admin-create-org bor).
 import { createClient } from 'npm:@supabase/supabase-js@2';
 
 const cors = {
@@ -32,10 +34,12 @@ Deno.serve(async (req) => {
     } = await caller.auth.getUser();
     if (!user) return json({ error: 'UNAUTHENTICATED' }, 401);
 
-    const { data: prof } = await caller.from('profiles').select('role').eq('id', user.id).single();
-    if (!prof || (prof as any).role !== 'super_admin') {
-      return json({ error: 'RUXSAT_YOQ: faqat super_admin xodim qo\'sha oladi' }, 403);
+    const { data: prof } = await caller.from('profiles').select('role, org_id').eq('id', user.id).single();
+    if (!prof || (prof as any).role !== 'admin') {
+      return json({ error: "RUXSAT_YOQ: faqat tenant admin xodim qo'sha oladi" }, 403);
     }
+    const orgId = (prof as any).org_id;
+    if (!orgId) return json({ error: 'ORG_TOPILMADI' }, 400);
 
     const body = await req.json();
     const { email, password, full_name } = body;
@@ -44,19 +48,14 @@ Deno.serve(async (req) => {
     }
 
     const admin = createClient(supabaseUrl, serviceKey);
-    const { data: created, error: uErr } = await admin.auth.admin.createUser({
+    // role va org_id metadata orqali darhol o'rnatiladi — follow-up UPDATE shart emas
+    const { error: uErr } = await admin.auth.admin.createUser({
       email: email.trim(),
       password,
       email_confirm: true,
-      user_metadata: { full_name: full_name?.trim() || '' },
+      user_metadata: { full_name: full_name?.trim() || '', role: 'admin', org_id: orgId },
     });
     if (uErr) return json({ error: 'LOGIN: ' + uErr.message }, 400);
-
-    const { error: profErr } = await admin
-      .from('profiles')
-      .update({ role: 'admin', full_name: full_name?.trim() || '' })
-      .eq('id', created.user.id);
-    if (profErr) return json({ error: 'ROL: ' + profErr.message }, 400);
 
     return json({ ok: true, email: email.trim() });
   } catch (e) {

@@ -38,18 +38,32 @@ Deno.serve(async (req) => {
 
     const { data: prof } = await caller
       .from('profiles')
-      .select('role')
+      .select('role, org_id')
       .eq('id', user.id)
       .single();
     if (!prof || !['admin', 'super_admin'].includes((prof as any).role)) {
       return json({ error: 'RUXSAT_YOQ' }, 403);
     }
+    const callerOrgId = (prof as any).org_id;
 
     const body = await req.json();
     const { customer_id, action } = body;
     if (!customer_id || !action) return json({ error: 'customer_id va action majburiy' }, 400);
 
     const admin = createClient(supabaseUrl, serviceKey);
+
+    // Bu edge function service-role bilan ishlaydi (RLS'ni chetlab o'tadi) —
+    // shuning uchun nishon mijoz haqiqatan ham chaqiruvchining o'z org'iga
+    // tegishli ekanini bu yerda qo'lda tekshiramiz.
+    const { data: targetCust, error: targetErr } = await admin
+      .from('customers')
+      .select('org_id')
+      .eq('id', customer_id)
+      .maybeSingle();
+    if (targetErr) return json({ error: 'MIJOZ: ' + targetErr.message }, 400);
+    if (!targetCust || !callerOrgId || (targetCust as any).org_id !== callerOrgId) {
+      return json({ error: 'RUXSAT_YOQ' }, 403);
+    }
 
     // Mijozga bog'langan auth foydalanuvchisini topamiz (profiles orqali)
     const { data: linkProf, error: linkErr } = await admin
