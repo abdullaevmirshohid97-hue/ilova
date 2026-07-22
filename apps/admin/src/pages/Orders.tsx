@@ -1,9 +1,17 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ORDER_STATUS, formatDate, formatSum, supabase } from '../lib/supabase';
+import { ORDER_STATUS, formatDate, formatSum, imageUrl, supabase } from '../lib/supabase';
 
 const PAGE_SIZE = 50;
 
-type Item = { qty: number; unit_price: number; name: string; size: string | null; color: string | null; sku: string };
+type Item = {
+  qty: number;
+  unit_price: number;
+  name: string;
+  size: string | null;
+  color: string | null;
+  sku: string;
+  image: string | null;
+};
 type Order = {
   id: string;
   order_number: number;
@@ -34,7 +42,8 @@ export default function Orders() {
       .select(
         `id, order_number, status, total, created_at,
          customers!inner ( name, phone ),
-         order_items ( qty, unit_price, product_variants ( sku, size, color, products ( name ) ) )`
+         order_items ( qty, unit_price, product_variants ( sku, size, color,
+           products ( name, product_images ( storage_path, thumb_path, is_primary, sort_order ) ) ) )`
       )
       .order('created_at', { ascending: false })
       .range(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE - 1);
@@ -55,14 +64,20 @@ export default function Orders() {
         created_at: o.created_at,
         customer: o.customers?.name ?? '—',
         phone: o.customers?.phone ?? '',
-        items: (o.order_items ?? []).map((it: any) => ({
-          qty: it.qty,
-          unit_price: Number(it.unit_price),
-          sku: it.product_variants?.sku ?? '',
-          name: it.product_variants?.products?.name ?? '—',
-          size: it.product_variants?.size ?? null,
-          color: it.product_variants?.color ?? null,
-        })),
+        items: (o.order_items ?? []).map((it: any) => {
+          const imgs = (it.product_variants?.products?.product_images ?? []).sort(
+            (a: any, b: any) => Number(b.is_primary) - Number(a.is_primary) || a.sort_order - b.sort_order
+          );
+          return {
+            qty: it.qty,
+            unit_price: Number(it.unit_price),
+            sku: it.product_variants?.sku ?? '',
+            name: it.product_variants?.products?.name ?? '—',
+            size: it.product_variants?.size ?? null,
+            color: it.product_variants?.color ?? null,
+            image: imgs[0] ? imageUrl(imgs[0].thumb_path || imgs[0].storage_path) : null,
+          };
+        }),
       }))
     );
   }, [filter, search, dateFrom, dateTo, page]);
@@ -100,24 +115,29 @@ export default function Orders() {
       <style>
         body { font-family: sans-serif; padding: 24px; }
         h1 { font-size: 20px; } table { width: 100%; border-collapse: collapse; margin-top: 16px; }
-        th, td { border: 1px solid #999; padding: 8px 10px; text-align: left; font-size: 14px; }
+        th, td { border: 1px solid #999; padding: 8px 10px; text-align: left; font-size: 14px; vertical-align: middle; }
+        td img { display: block; }
         .meta { color: #444; font-size: 14px; margin-top: 4px; }
       </style></head><body>
       <h1>YIG'ISH VARAQASI — Buyurtma №${o.order_number}</h1>
       <div class="meta">Mijoz: <b>${o.customer}</b> · ${o.phone}</div>
       <div class="meta">Sana: ${formatDate(o.created_at)}</div>
-      <table><thead><tr><th>SKU</th><th>Mahsulot</th><th>Razmer/Rang</th><th>Miqdor</th></tr></thead><tbody>
+      <table><thead><tr><th>Rasm</th><th>SKU</th><th>Mahsulot</th><th>Razmer/Rang</th><th>Miqdor</th></tr></thead><tbody>
       ${o.items
         .map(
           (it) =>
-            `<tr><td>${it.sku}</td><td>${it.name}</td><td>${[it.size, it.color]
+            `<tr><td>${
+              it.image
+                ? `<img src="${it.image}" style="width:50px;height:50px;object-fit:cover;border-radius:4px" />`
+                : ''
+            }</td><td>${it.sku}</td><td>${it.name}</td><td>${[it.size, it.color]
               .filter(Boolean)
               .join(' / ')}</td><td><b>${it.qty.toLocaleString()} dona</b></td></tr>`
         )
         .join('')}
       </tbody></table>
       <p style="margin-top:24px">Jami: <b>${formatSum(o.total)}</b></p>
-      <script>window.print()</script>
+      <script>window.onload = function() { window.print(); };</script>
       </body></html>
     `);
     w.document.close();
