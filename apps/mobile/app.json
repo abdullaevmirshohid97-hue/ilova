@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "Ilova B2B",
-    "slug": "ilova-b2b",
+    "name": "Yukchibolla",
+    "slug": "yukchibolla",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -14,14 +14,14 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "uz.ilova.b2b"
+      "bundleIdentifier": "uz.yukchibolla.app"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#0f1115"
       },
-      "package": "uz.ilova.b2b",
+      "package": "uz.yukchibolla.app",
       "versionCode": 1,
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false

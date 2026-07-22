@@ -58,7 +58,7 @@ export default function LoginScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <View style={styles.card}>
-        <Text style={styles.logo}>ILOVA B2B</Text>
+        <Text style={styles.logo}>YUKCHIBOLLA</Text>
         <Text style={styles.subtitle}>{t('loginSubtitle')}</Text>
 
         <Text style={styles.label}>{t('loginPhoneLabel')}</Text>
@@ -106,7 +106,7 @@ export default function LoginScreen() {
           <TouchableOpacity
             style={styles.apkBtn}
             onPress={() => {
-              window.location.href = '/ilova-b2b.apk';
+              window.location.href = '/yukchibolla.apk';
             }}
           >
             <Text style={styles.apkBtnText}>📱 {t('downloadApk')}</Text>

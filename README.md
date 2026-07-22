@@ -1,4 +1,4 @@
-# Ilova B2B — Ulgurji savdo platformasi
+# Yukchibolla — Ulgurji savdo platformasi
 
 To'qimachilik zavodi uchun: katalog + real-vaqt ombor + buyurtma + mijoz-narxlari + qarzdorlik.
 To'liq texnik reja: [PLAN.md](PLAN.md)

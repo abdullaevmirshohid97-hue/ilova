@@ -1,5 +1,5 @@
 #!/bin/bash
-# Ilova B2B — admin panel + mijoz web-ilovasini VPS'ga joylashtirish.
+# Yukchibolla — admin panel + mijoz web-ilovasini VPS'ga joylashtirish.
 #
 # MUHIM: bu VPS Clary bilan BIRGA ishlaydi (/opt/clary, pm2 clary-api) va
 # Luxury Textile bilan ham (/opt/luxury, pm2 luxury). Bu skript FAQAT
@@ -11,8 +11,8 @@
 #
 # app.yukchibolla.com — mijoz mobil ilovasining (apps/mobile) AYNAN o'zi,
 # Expo'ning web-eksporti orqali brauzerda ishlaydi (1/1 bir xil kod).
-# ilova-b2b.apk fayli bu skript tomonidan O'CHIRILMAYDI/YARATILMAYDI —
-# EAS build orqali olingach, $LANDING_WWW/ilova-b2b.apk ga bir marta qo'lda
+# yukchibolla.apk fayli bu skript tomonidan O'CHIRILMAYDI/YARATILMAYDI —
+# EAS build orqali olingach, $LANDING_WWW/yukchibolla.apk ga bir marta qo'lda
 # qo'yiladi (apps/mobile/EAS-QOLLANMA.md ga qarang).
 #
 # Ishlatish: ssh orqali serverga kirib -> bash /opt/ilova/infra/deploy.sh
@@ -61,7 +61,7 @@ cp -r apps/admin/dist "$ADMIN_WWW/dist"
 
 pnpm --filter @ilova/mobile build:web
 mkdir -p "$LANDING_WWW"
-# rm -rf QILINMAYDI — ilova-b2b.apk shu papkada qo'lda qo'yilgan bo'lishi
+# rm -rf QILINMAYDI — yukchibolla.apk shu papkada qo'lda qo'yilgan bo'lishi
 # mumkin, uni o'chirib yubormaslik uchun faqat ustidan ko'chiramiz
 cp -r apps/mobile/dist/. "$LANDING_WWW/"
 
@@ -69,9 +69,9 @@ echo ""
 echo "✅ Statik fayllar joylashtirildi:"
 echo "   $ADMIN_WWW/dist        (admin.yukchibolla.com, 4020.yukchibolla.com)"
 echo "   $LANDING_WWW           (app.yukchibolla.com — mijoz web-ilovasi)"
-if [ ! -f "$LANDING_WWW/ilova-b2b.apk" ]; then
+if [ ! -f "$LANDING_WWW/yukchibolla.apk" ]; then
   echo ""
-  echo "⚠️  $LANDING_WWW/ilova-b2b.apk hali yo'q — 'APK yuklab olish' tugmasi"
+  echo "⚠️  $LANDING_WWW/yukchibolla.apk hali yo'q — 'APK yuklab olish' tugmasi"
   echo "   404 beradi. EAS build tugagach APK'ni shu yerga qo'ying."
 fi
 echo ""

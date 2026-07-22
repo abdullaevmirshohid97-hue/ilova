@@ -625,7 +625,7 @@ function printCatalog(products: Product[], groups: Group[]) {
       td.out { color: #F0384A; font-weight: 700; }
     </style></head>
     <body>
-      <h1>ILOVA B2B — Mahsulotlar katalogi</h1>
+      <h1>YUKCHIBOLLA — Mahsulotlar katalogi</h1>
       <div class="meta">${dateStr} · Jami ${withVariants.length} mahsulot</div>
       ${productsHtml}
       <script>window.onload = function() { window.print(); };</script>

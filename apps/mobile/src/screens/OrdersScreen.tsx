@@ -51,7 +51,7 @@ export default function OrdersScreen() {
       supabase.from('customers').select('name, phone').maybeSingle(),
     ]).then(([{ data: org }, { data: cust }]) => {
       setSeller({
-        orgName: (org as any)?.name ?? 'ILOVA B2B',
+        orgName: (org as any)?.name ?? 'YUKCHIBOLLA',
         customerName: (cust as any)?.name ?? '',
         customerPhone: (cust as any)?.phone ?? '',
       });
@@ -154,7 +154,7 @@ export default function OrdersScreen() {
         th { background: #F2F3F7; }
         .total { margin-top: 20px; font-size: 16px; text-align: right; }
       </style></head><body>
-      <h1>${seller?.orgName ?? 'ILOVA B2B'}</h1>
+      <h1>${seller?.orgName ?? 'YUKCHIBOLLA'}</h1>
       <div class="meta">${t('invoiceTitle')} — ${t('invoiceOrderLabel')} №${order.order_number}</div>
       <div class="meta">${t('invoiceDateLabel')}: ${dateStr}</div>
       <div class="meta">${t('invoiceCustomerLabel')}: ${seller?.customerName ?? ''} · ${seller?.customerPhone ?? ''}</div>

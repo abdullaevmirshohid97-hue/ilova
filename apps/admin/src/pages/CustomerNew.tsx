@@ -83,7 +83,7 @@ export default function CustomerNew() {
 
   // ---------- Muvaffaqiyat ekrani ----------
   if (done) {
-    const msg = `Assalomu alaykum! Ilova B2B ilovasiga kirish ma'lumotlaringiz:\nTelefon: ${done.phone}\nParol: ${done.password}\nIlovani oching va shu ma'lumotlar bilan kiring.`;
+    const msg = `Assalomu alaykum! Yukchibolla ilovasiga kirish ma'lumotlaringiz:\nTelefon: ${done.phone}\nParol: ${done.password}\nIlovani oching va shu ma'lumotlar bilan kiring.`;
     return (
       <div className="mx-auto max-w-lg">
         <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-8 text-center">
