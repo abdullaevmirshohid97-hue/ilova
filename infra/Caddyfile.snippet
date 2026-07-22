@@ -1,0 +1,26 @@
+# Ilova B2B — bu VPS'dagi UMUMIY /etc/caddy/Caddyfile'ga QO'LDA qo'shiladigan
+# bloklar (Clary va Luxury Textile bloklarini o'chirmang/o'zgartirmang!).
+#
+# Qo'shishdan oldin: cp /etc/caddy/Caddyfile /etc/caddy/Caddyfile.bak-$(date +%F)
+# Qo'shgandan keyin:  caddy validate --config /etc/caddy/Caddyfile
+#                      systemctl restart caddy   (reload emas!)
+#
+# Caddy avtomatik Let's Encrypt SSL oladi — certbot kerak emas, faqat DNS
+# A-record uchta subdomen uchun shu VPS IP'siga to'g'ri kelishi kifoya.
+
+admin.yukchibolla.com, 4020.yukchibolla.com {
+	root * /var/www/ilova-admin/dist
+	encode gzip
+
+	@assets path /assets/*
+	header @assets Cache-Control "public, max-age=31536000, immutable"
+
+	try_files {path} /index.html
+	file_server
+}
+
+app.yukchibolla.com {
+	root * /var/www/ilova-app-landing
+	encode gzip
+	file_server
+}
