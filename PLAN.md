@@ -249,3 +249,39 @@ tenantlar ro'yxati, yaratish, bloklash, obuna holati, platforma statistikasi
 
 Bu bosqich ~1-1.5 hafta ish. Hozirgi sxema bunga TAYYOR qilib qurilgan
 (UUID'lar, RLS, RPC pattern) — qayta yozish talab qilinmaydi.
+
+### ✅ BAJARILDI (2026-07-22)
+
+Migratsiyalar 0011-0014 orqali amalga oshirildi: `organizations` jadvali,
+root jadvallarga (`profiles/customers/categories/products/price_groups`)
+`org_id`, bola jadvallarga (`product_variants/prices/stock_*/orders/
+order_items/payments/ledger_entries`) ota jadval orqali EXISTS-subquery RLS,
+barcha biznes-RPC'larga qo'lda org tekshiruvi (RPC'lar SECURITY DEFINER
+bo'lgani uchun RLS'ni chetlab o'tadi). Edge Function'lar (`admin-create-
+customer`, `admin-update-customer`, `admin-create-staff`) org-aware qilindi;
+yangi `super-admin-create-org` (yangi tenant + birinchi admin bir vaqtda) va
+`super_admin_org_stats()` (faqat jamlangan sonlar — super_admin tenant
+biznes-ma'lumotini to'g'ridan-to'g'ri ko'rmaydi) qo'shildi. Admin panelda
+`SuperAdminPanel.tsx` — tenantlar ro'yxati/yaratish/holat almashtirish.
+
+Mavjud yakka-tenant ma'lumot "Birinchi tenant" nomi bilan avtomatik
+ko'chirildi. Alohida `super_admin` login yaratildi (kodchi/ da saqlangan).
+
+**Sinovdan o'tkazilgan (haqiqiy loyihada, ikkinchi vaqtinchalik tenant bilan,
+keyin to'liq tozalangan):** ikkinchi tenant mijozi birinchi tenant katalogini
+ko'ra olmaydi; ikkinchi tenant admin birinchi tenant buyurtmasini tasdiqlash/
+bekor qilish/holat o'zgartirishga urinsa RUXSAT_YOQ; to'g'ridan-to'g'ri jadval
+so'rovlari ham boshqa tenant qatorlarini qaytarmaydi; `super_admin` ikkala
+tenantni ro'yxatda ko'radi, lekin ularning mahsulot/mijoz jadvaliga
+to'g'ridan-to'g'ri kirolmaydi (faqat jamlangan statistika).
+
+**Bilingan V1 cheklovlar** (keyinroq, real ehtiyoj chiqsa hal qilinadi):
+- `customers.phone` hali ham BUTUN PLATFORMADA yagona (mijoz login-emaili
+  `{raqam}@mijoz.ilova` bo'lgani uchun) — bitta telefon raqam faqat bitta
+  tenant'ga mijoz bo'la oladi. Hal qilish uchun login-emailga tenant
+  diskriminatori qo'shish + mijoz "qaysi tenant" tanlash ekrani kerak bo'ladi.
+- `product_variants.sku` ham hali BUTUN PLATFORMADA yagona (bola jadval —
+  o'z `org_id`siga ega emas). Ikki tenant bir xil SKU ishlatmoqchi bo'lsa
+  to'qnashishi mumkin.
+- Billing (Payme/Click) yo'q — `organizations.subscription_status` hozircha
+  faqat super-admin panelda qo'lda o'zgartiriladi.
