@@ -9,9 +9,15 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import * as Print from 'expo-print';
+import * as Sharing from 'expo-sharing';
 import { formatSum, supabase } from '../lib/supabase';
 import { C, ORDER_STATUS } from '../lib/theme';
 import { useLanguage } from '../lib/i18n';
+
+// Faktura yuklab olish faqat "qabul qilingan" bosqichdan boshlab (yangi/bekor
+// qilingan buyurtmada narx/miqdor hali yakunlanmagan hisoblanadi)
+const INVOICE_STATUSES = ['confirmed', 'picking', 'done'];
 
 type OrderItem = {
   qty: number;
@@ -35,6 +41,21 @@ export default function OrdersScreen() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [invoiceBusy, setInvoiceBusy] = useState<string | null>(null);
+  const [seller, setSeller] = useState<{ orgName: string; customerName: string; customerPhone: string } | null>(null);
+
+  useEffect(() => {
+    Promise.all([
+      supabase.from('organizations').select('name').maybeSingle(),
+      supabase.from('customers').select('name, phone').maybeSingle(),
+    ]).then(([{ data: org }, { data: cust }]) => {
+      setSeller({
+        orgName: (org as any)?.name ?? 'ILOVA B2B',
+        customerName: (cust as any)?.name ?? '',
+        customerPhone: (cust as any)?.phone ?? '',
+      });
+    });
+  }, []);
 
   const load = useCallback(async () => {
     const { data, error } = await supabase
@@ -106,6 +127,65 @@ export default function OrdersScreen() {
     );
   }
 
+  function buildInvoiceHtml(order: Order): string {
+    const dateStr = new Date(order.created_at).toLocaleString(lang === 'ru' ? 'ru-RU' : 'uz-UZ', {
+      day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit',
+    });
+    const rows = order.items
+      .map(
+        (it) => `<tr>
+          <td>${it.name}</td>
+          <td>${[it.size, it.color].filter(Boolean).join(' / ') || '—'}</td>
+          <td style="text-align:right">${it.qty.toLocaleString()}</td>
+          <td style="text-align:right">${formatSum(it.unit_price)}</td>
+          <td style="text-align:right"><b>${formatSum(it.qty * it.unit_price)}</b></td>
+        </tr>`
+      )
+      .join('');
+    return `
+      <html><head><meta charset="utf-8" />
+      <style>
+        body { font-family: sans-serif; padding: 24px; color: #14151A; }
+        h1 { font-size: 20px; margin-bottom: 4px; }
+        .meta { color: #444; font-size: 14px; margin-top: 2px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 16px; }
+        th, td { border: 1px solid #999; padding: 8px 10px; text-align: left; font-size: 13px; }
+        th { background: #F2F3F7; }
+        .total { margin-top: 20px; font-size: 16px; text-align: right; }
+      </style></head><body>
+      <h1>${seller?.orgName ?? 'ILOVA B2B'}</h1>
+      <div class="meta">${t('invoiceTitle')} — ${t('invoiceOrderLabel')} №${order.order_number}</div>
+      <div class="meta">${t('invoiceDateLabel')}: ${dateStr}</div>
+      <div class="meta">${t('invoiceCustomerLabel')}: ${seller?.customerName ?? ''} · ${seller?.customerPhone ?? ''}</div>
+      <table>
+        <thead><tr>
+          <th>${t('invoiceItemName')}</th>
+          <th>${t('invoiceItemVariant')}</th>
+          <th style="text-align:right">${t('invoiceItemQty')}</th>
+          <th style="text-align:right">${t('invoiceItemPrice')}</th>
+          <th style="text-align:right">${t('invoiceItemTotal')}</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+      <p class="total">${t('invoiceGrandTotal')}: <b>${formatSum(order.total)}</b></p>
+      </body></html>
+    `;
+  }
+
+  async function downloadInvoice(order: Order) {
+    setInvoiceBusy(order.id);
+    try {
+      const { uri } = await Print.printToFileAsync({ html: buildInvoiceHtml(order) });
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(uri, { mimeType: 'application/pdf', dialogTitle: t('invoiceShareTitle') });
+      }
+    } catch {
+      Alert.alert(t('error'), t('invoiceFailed'));
+    } finally {
+      setInvoiceBusy(null);
+    }
+  }
+
   async function onRefresh() {
     setRefreshing(true);
     await load();
@@ -173,6 +253,19 @@ export default function OrdersScreen() {
               {item.status === 'new' && (
                 <TouchableOpacity style={s.cancelBtn} onPress={() => cancelOrder(item)}>
                   <Text style={s.cancelBtnText}>{t('cancel')}</Text>
+                </TouchableOpacity>
+              )}
+              {INVOICE_STATUSES.includes(item.status) && (
+                <TouchableOpacity
+                  style={[s.invoiceBtn, invoiceBusy === item.id && { opacity: 0.6 }]}
+                  onPress={() => downloadInvoice(item)}
+                  disabled={invoiceBusy === item.id}
+                >
+                  {invoiceBusy === item.id ? (
+                    <ActivityIndicator size="small" color={C.primary} />
+                  ) : (
+                    <Text style={s.invoiceBtnText}>{t('downloadInvoice')}</Text>
+                  )}
                 </TouchableOpacity>
               )}
             </View>
@@ -246,4 +339,13 @@ const s = StyleSheet.create({
     alignItems: 'center',
   },
   cancelBtnText: { color: C.red, fontWeight: '700', fontSize: 13 },
+  invoiceBtn: {
+    marginTop: 12,
+    borderWidth: 1,
+    borderColor: C.primary,
+    borderRadius: 8,
+    paddingVertical: 8,
+    alignItems: 'center',
+  },
+  invoiceBtnText: { color: C.primary, fontWeight: '700', fontSize: 13 },
 });
