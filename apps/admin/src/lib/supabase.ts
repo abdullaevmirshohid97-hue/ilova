@@ -36,6 +36,14 @@ export const ORDER_STATUS: Record<string, { label: string; cls: string }> = {
   cancelled: { label: 'Bekor', cls: 'bg-red-100 text-red-600' },
 };
 
+export const DESIGN_STATUS: Record<string, { label: string; cls: string }> = {
+  new: { label: 'Yangi', cls: 'bg-amber-100 text-amber-700' },
+  in_production: { label: 'Ishlab chiqarilmoqda', cls: 'bg-blue-100 text-blue-700' },
+  ready: { label: 'Tayyor', cls: 'bg-emerald-100 text-emerald-700' },
+  delivered: { label: 'Topshirildi', cls: 'bg-gray-100 text-gray-500' },
+  cancelled: { label: 'Bekor', cls: 'bg-red-100 text-red-600' },
+};
+
 export const LEDGER_KIND_LABEL: Record<string, string> = {
   order_debt: '📦 Buyurtma (qarz)',
   payment: "💵 To'lov",

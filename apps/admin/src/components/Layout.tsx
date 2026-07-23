@@ -25,6 +25,7 @@ function beep() {
 const NAV = [
   { to: '/', icon: '📊', label: 'Boshqaruv' },
   { to: '/orders', icon: '🧾', label: 'Buyurtmalar' },
+  { to: '/design-orders', icon: '🎨', label: 'Dizayn buyurtmalari' },
   { to: '/products', icon: '📦', label: 'Mahsulotlar & Ombor' },
   { to: '/inventory', icon: '📋', label: 'Ombor jurnali' },
   { to: '/customers', icon: '👥', label: 'Mijozlar' },
@@ -36,6 +37,7 @@ const NAV = [
 const TITLES: Record<string, string> = {
   '/': 'Boshqaruv paneli',
   '/orders': 'Buyurtmalar',
+  '/design-orders': 'Dizayn buyurtmalari',
   '/products': 'Mahsulotlar va ombor',
   '/inventory': 'Ombor jurnali',
   '/customers': 'Mijozlar',
@@ -90,9 +92,7 @@ export default function Layout({ role, children }: { role: string; children: Rea
       {/* Yon panel — navy, CEO uslubi */}
       <aside className="flex w-64 shrink-0 flex-col bg-navy text-white">
         <div className="px-6 py-6">
-          <div className="text-xl font-extrabold tracking-wide">
-            ILOVA <span className="text-brand" style={{ color: '#B388FF' }}>B2B</span>
-          </div>
+          <div className="text-xl font-extrabold tracking-wide">YUKCHIBOLLA</div>
           <div className="mt-1 text-xs text-white/40">
             {role === 'super_admin' ? 'Super administrator' : 'Administrator'}
           </div>

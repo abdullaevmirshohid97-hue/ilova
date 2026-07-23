@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { ORDER_STATUS, formatDate, formatSum, imageUrl, supabase } from '../lib/supabase';
+import AdminOrderModal from '../components/AdminOrderModal';
+import DesignOrderModal from '../components/DesignOrderModal';
 
 const PAGE_SIZE = 50;
 
@@ -32,6 +34,8 @@ export default function Orders() {
   const [dateTo, setDateTo] = useState('');
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(false);
+  const [showNewOrder, setShowNewOrder] = useState(false);
+  const [showDesignOrder, setShowDesignOrder] = useState(false);
 
   const load = useCallback(async () => {
     const q_ = search.trim();
@@ -186,6 +190,18 @@ export default function Orders() {
           <span>gacha</span>
           <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className={inputCls} />
         </div>
+        <button
+          onClick={() => setShowDesignOrder(true)}
+          className="ml-auto rounded-xl border border-gray-200 px-5 py-3 text-sm font-bold text-gray-600 hover:border-brand hover:text-brand"
+        >
+          🎨 Dizayn buyurtma
+        </button>
+        <button
+          onClick={() => setShowNewOrder(true)}
+          className="rounded-xl bg-brand px-6 py-3 text-sm font-bold text-white shadow-lg shadow-brand/25 hover:opacity-90"
+        >
+          ➕ Buyurtma yaratish
+        </button>
       </div>
 
       {orders.length === 0 && (
@@ -294,6 +310,13 @@ export default function Orders() {
             Keyingi →
           </button>
         </div>
+      )}
+
+      {showNewOrder && (
+        <AdminOrderModal onClose={() => setShowNewOrder(false)} onCreated={load} />
+      )}
+      {showDesignOrder && (
+        <DesignOrderModal onClose={() => setShowDesignOrder(false)} onCreated={() => {}} />
       )}
     </div>
   );

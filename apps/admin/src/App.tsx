@@ -6,6 +6,7 @@ import Layout from './components/Layout';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Orders from './pages/Orders';
+import DesignOrders from './pages/DesignOrders';
 import Products from './pages/Products';
 import ProductImport from './pages/ProductImport';
 import Inventory from './pages/Inventory';
@@ -69,6 +70,7 @@ export default function App() {
       <Routes>
         <Route path="/" element={<Dashboard />} />
         <Route path="/orders" element={<Orders />} />
+        <Route path="/design-orders" element={<DesignOrders />} />
         <Route path="/products" element={<Products />} />
         <Route path="/products/import" element={<ProductImport />} />
         <Route path="/inventory" element={<Inventory />} />
