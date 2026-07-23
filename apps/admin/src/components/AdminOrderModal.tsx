@@ -26,6 +26,7 @@ type CartLine = {
   color: string | null;
   price: number;
   qty: number;
+  discount: number;
 };
 
 export default function AdminOrderModal({
@@ -40,6 +41,8 @@ export default function AdminOrderModal({
   const [search, setSearch] = useState('');
   const [qtyInputs, setQtyInputs] = useState<Record<string, string>>({});
   const [cart, setCart] = useState<CartLine[]>([]);
+  const [discountOpen, setDiscountOpen] = useState<Record<string, boolean>>({});
+  const [discountInputs, setDiscountInputs] = useState<Record<string, string>>({});
   const [comment, setComment] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -102,7 +105,7 @@ export default function AdminOrderModal({
       }
       return [
         ...prev,
-        { variantId: v.id, productName: p.name, size: v.size, color: v.color, price: v.price, qty: capped },
+        { variantId: v.id, productName: p.name, size: v.size, color: v.color, price: v.price, qty: capped, discount: 0 },
       ];
     });
     setQtyInputs((prev) => ({ ...prev, [v.id]: '1' }));
@@ -112,7 +115,23 @@ export default function AdminOrderModal({
     setCart((prev) => prev.filter((l) => l.variantId !== variantId));
   }
 
-  const total = cart.reduce((sum, l) => sum + l.price * l.qty, 0);
+  function toggleDiscount(variantId: string) {
+    setDiscountOpen((prev) => ({ ...prev, [variantId]: !prev[variantId] }));
+  }
+
+  function setLineDiscount(variantId: string, raw: string) {
+    const digits = raw.replace(/\D/g, '');
+    setDiscountInputs((prev) => ({ ...prev, [variantId]: digits }));
+    setCart((prev) =>
+      prev.map((l) =>
+        l.variantId === variantId
+          ? { ...l, discount: Math.min(parseInt(digits || '0', 10) || 0, l.price) }
+          : l
+      )
+    );
+  }
+
+  const total = cart.reduce((sum, l) => sum + (l.price - l.discount) * l.qty, 0);
 
   const q = search.trim().toLowerCase();
   const filteredProducts = q
@@ -132,7 +151,7 @@ export default function AdminOrderModal({
     try {
       const { error: e } = await supabase.rpc('admin_create_order', {
         p_customer_id: customer.id,
-        p_items: cart.map((l) => ({ variant_id: l.variantId, qty: l.qty })),
+        p_items: cart.map((l) => ({ variant_id: l.variantId, qty: l.qty, discount: l.discount })),
         p_comment: comment.trim() || null,
       });
       if (e) throw e;
@@ -170,7 +189,15 @@ export default function AdminOrderModal({
                 <span className="font-bold text-gray-900">{customer.name}</span>
                 <span className="ml-2 text-sm text-gray-500">{customer.phone}</span>
               </div>
-              <button onClick={() => { setCustomer(null); setCart([]); }} className="text-xs font-bold text-brand hover:underline">
+              <button
+                onClick={() => {
+                  setCustomer(null);
+                  setCart([]);
+                  setDiscountOpen({});
+                  setDiscountInputs({});
+                }}
+                className="text-xs font-bold text-brand hover:underline"
+              >
                 O'zgartirish
               </button>
             </div>
@@ -236,18 +263,45 @@ export default function AdminOrderModal({
               <div className="rounded-xl border border-gray-200 p-4">
                 <h3 className="font-bold text-gray-900">Savat</h3>
                 {cart.length === 0 && <p className="mt-3 text-sm text-gray-400">Hali mahsulot qo'shilmagan</p>}
-                <div className="mt-2 space-y-2">
+                <div className="mt-2 space-y-3">
                   {cart.map((l) => (
-                    <div key={l.variantId} className="flex items-center justify-between text-sm">
-                      <div className="min-w-0">
-                        <div className="truncate font-semibold text-gray-800">{l.productName}</div>
-                        <div className="text-xs text-gray-400">
-                          {[l.size, l.color].filter(Boolean).join(' / ')} · {l.qty} × {formatSum(l.price)}
+                    <div key={l.variantId} className="border-b border-gray-50 pb-2 text-sm last:border-0">
+                      <div className="flex items-center justify-between">
+                        <div className="min-w-0">
+                          <div className="truncate font-semibold text-gray-800">{l.productName}</div>
+                          <div className="text-xs text-gray-400">
+                            {[l.size, l.color].filter(Boolean).join(' / ')} · {l.qty} ×{' '}
+                            {l.discount > 0 ? (
+                              <>
+                                <span className="text-gray-300 line-through">{formatSum(l.price)}</span>{' '}
+                                <span className="font-bold text-green-600">{formatSum(l.price - l.discount)}</span>
+                              </>
+                            ) : (
+                              formatSum(l.price)
+                            )}
+                          </div>
                         </div>
+                        <button onClick={() => removeFromCart(l.variantId)} className="ml-2 text-gray-300 hover:text-red-400">
+                          ✕
+                        </button>
                       </div>
-                      <button onClick={() => removeFromCart(l.variantId)} className="ml-2 text-gray-300 hover:text-red-400">
-                        ✕
-                      </button>
+                      <div className="mt-1 flex items-center gap-2">
+                        <button
+                          onClick={() => toggleDiscount(l.variantId)}
+                          className="text-xs font-bold text-brand hover:underline"
+                        >
+                          🏷️ {l.discount > 0 ? 'Skidkani tahrirlash' : 'Skidka bilan'}
+                        </button>
+                        {discountOpen[l.variantId] && (
+                          <input
+                            autoFocus
+                            value={discountInputs[l.variantId] ?? (l.discount ? String(l.discount) : '')}
+                            onChange={(e) => setLineDiscount(l.variantId, e.target.value)}
+                            placeholder="Dona uchun skidka, so'm"
+                            className="w-40 rounded-lg border border-gray-200 bg-white px-2 py-1 text-xs outline-none focus:border-brand"
+                          />
+                        )}
+                      </div>
                     </div>
                   ))}
                 </div>
