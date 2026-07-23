@@ -20,24 +20,27 @@ import LoginScreen from './src/screens/LoginScreen';
 import CatalogScreen from './src/screens/CatalogScreen';
 import CartScreen from './src/screens/CartScreen';
 import OrdersScreen from './src/screens/OrdersScreen';
+import DesignOrdersScreen from './src/screens/DesignOrdersScreen';
 import LedgerScreen from './src/screens/LedgerScreen';
 import ProfileScreen from './src/screens/ProfileScreen';
 
-type Screen = 'catalog' | 'cart' | 'orders' | 'ledger' | 'profile';
+type Screen = 'catalog' | 'cart' | 'orders' | 'designOrders' | 'ledger' | 'profile';
 type CustomerInfo = { name: string; phone: string; balance: number };
 
-const MENU: { key: Screen; icon: string; labelKey: 'menuCatalog' | 'menuCart' | 'menuOrders' | 'menuLedger' | 'menuProfile' }[] = [
+const MENU: { key: Screen; icon: string; labelKey: 'menuCatalog' | 'menuCart' | 'menuOrders' | 'menuDesignOrders' | 'menuLedger' | 'menuProfile' }[] = [
   { key: 'catalog', icon: '🏬', labelKey: 'menuCatalog' },
   { key: 'cart', icon: '🛒', labelKey: 'menuCart' },
   { key: 'orders', icon: '📦', labelKey: 'menuOrders' },
+  { key: 'designOrders', icon: '🎨', labelKey: 'menuDesignOrders' },
   { key: 'ledger', icon: '💳', labelKey: 'menuLedger' },
   { key: 'profile', icon: '👤', labelKey: 'menuProfile' },
 ];
 
-const TITLE_KEYS: Record<Screen, 'menuCatalog' | 'menuCart' | 'menuOrders' | 'menuLedger' | 'menuProfile'> = {
+const TITLE_KEYS: Record<Screen, 'menuCatalog' | 'menuCart' | 'menuOrders' | 'menuDesignOrders' | 'menuLedger' | 'menuProfile'> = {
   catalog: 'menuCatalog',
   cart: 'menuCart',
   orders: 'menuOrders',
+  designOrders: 'menuDesignOrders',
   ledger: 'menuLedger',
   profile: 'menuProfile',
 };
@@ -48,6 +51,7 @@ const WIDE_MAX_WIDTH: Record<Screen, number> = {
   catalog: 1200,
   cart: 760,
   orders: 760,
+  designOrders: 760,
   ledger: 760,
   profile: 640,
 };
@@ -309,6 +313,7 @@ function MainApp() {
             {screen === 'catalog' && <CatalogScreen />}
             {screen === 'cart' && <CartScreen onOrdered={goOrders} />}
             {screen === 'orders' && <OrdersScreen />}
+            {screen === 'designOrders' && <DesignOrdersScreen />}
             {screen === 'ledger' && <LedgerScreen />}
             {screen === 'profile' && <ProfileScreen />}
           </View>

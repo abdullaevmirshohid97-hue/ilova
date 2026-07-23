@@ -31,6 +31,14 @@ export const ORDER_STATUS: Record<string, { labelKey: TranslationKey; color: str
   cancelled: { labelKey: 'statusCancelled', color: C.red, bg: C.redSoft },
 };
 
+export const DESIGN_ORDER_STATUS: Record<string, { labelKey: TranslationKey; color: string; bg: string }> = {
+  new: { labelKey: 'statusNew', color: '#B7791F', bg: C.yellowSoft },
+  in_production: { labelKey: 'statusInProduction', color: C.blue, bg: '#E8F0FF' },
+  ready: { labelKey: 'statusReady', color: C.green, bg: C.greenSoft },
+  delivered: { labelKey: 'statusDelivered', color: C.muted, bg: '#F0F1F6' },
+  cancelled: { labelKey: 'statusCancelled', color: C.red, bg: C.redSoft },
+};
+
 export const LEDGER_KIND: Record<string, { labelKey: TranslationKey; icon: string }> = {
   order_debt: { labelKey: 'kindOrderDebt', icon: '📦' },
   payment: { labelKey: 'kindPayment', icon: '💵' },
