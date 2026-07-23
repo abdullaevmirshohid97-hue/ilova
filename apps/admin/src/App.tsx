@@ -17,6 +17,8 @@ import Finance from './pages/Finance';
 import Reports from './pages/Reports';
 import Settings from './pages/Settings';
 import SuperAdminPanel from './pages/SuperAdminPanel';
+import Managers from './pages/Managers';
+import ManagerApp from './components/ManagerApp';
 
 export default function App() {
   const [session, setSession] = useState<Session | null>(null);
@@ -46,7 +48,7 @@ export default function App() {
         const r = (data as any)?.role ?? null;
         setRole(r);
         // Mijoz admin panelga kira olmaydi
-        if (r !== 'admin' && r !== 'super_admin') supabase.auth.signOut();
+        if (r !== 'admin' && r !== 'super_admin' && r !== 'manager') supabase.auth.signOut();
       });
   }, [session]);
 
@@ -65,6 +67,12 @@ export default function App() {
     return <SuperAdminPanel />;
   }
 
+  // Menejer — to'liq admin panelga emas, faqat o'z narxlarini
+  // ko'radigan/qo'yadigan cheklangan sahifaga kiradi
+  if (role === 'manager') {
+    return <ManagerApp />;
+  }
+
   return (
     <Layout role={role}>
       <Routes>
@@ -77,6 +85,7 @@ export default function App() {
         <Route path="/customers" element={<Customers />} />
         <Route path="/customers/new" element={<CustomerNew />} />
         <Route path="/customers/:id" element={<CustomerDetail />} />
+        <Route path="/managers" element={<Managers />} />
         <Route path="/finance" element={<Finance />} />
         <Route path="/reports" element={<Reports />} />
         <Route path="/settings" element={<Settings />} />

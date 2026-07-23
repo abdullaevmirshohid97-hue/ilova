@@ -1,5 +1,5 @@
-// Admin tomonidan mijoz + login yaratish.
-// Faqat admin roli chaqira oladi; parol server tomonida o'rnatiladi.
+// Admin tomonidan menejer + login yaratish.
+// Faqat admin/super_admin chaqira oladi; parol server tomonida o'rnatiladi.
 import { createClient } from 'npm:@supabase/supabase-js@2';
 
 const cors = {
@@ -46,54 +46,35 @@ Deno.serve(async (req) => {
     if (!orgId) return json({ error: 'ORG_TOPILMADI' }, 400);
 
     const body = await req.json();
-    const { name, phone, email, address, region, price_group_id, password, photo_path, manager_id } = body;
-    if (!name?.trim() || !phone?.trim() || !price_group_id || !password || password.length < 6) {
-      return json({ error: 'MAJBURIY_MAYDONLAR: ism, telefon, tarif, parol(6+)' }, 400);
+    const { name, phone, password } = body;
+    if (!name?.trim() || !phone?.trim() || !password || password.length < 6) {
+      return json({ error: 'MAJBURIY_MAYDONLAR: ism, telefon, parol(6+)' }, 400);
     }
 
     const admin = createClient(supabaseUrl, serviceKey);
 
-    // 1. Mijoz kartochkasi (chaqiruvchi adminning o'z org'iga)
-    const { data: cust, error: cErr } = await admin
-      .from('customers')
-      .insert({
-        org_id: orgId,
-        name: name.trim(),
-        phone: phone.trim(),
-        email: email?.trim() || null,
-        address: address?.trim() || null,
-        region: region?.trim() || null,
-        price_group_id,
-        photo_path: photo_path || null,
-        manager_id: manager_id || null,
-      })
+    // 1. Menejer kartochkasi
+    const { data: mgr, error: mErr } = await admin
+      .from('managers')
+      .insert({ org_id: orgId, name: name.trim(), phone: phone.trim() })
       .select('id')
       .single();
-    if (cErr) return json({ error: 'MIJOZ: ' + cErr.message }, 400);
+    if (mErr) return json({ error: 'MENEJER: ' + mErr.message }, 400);
 
-    // 2. Telefon-login auth akkaunti (ilova shu bilan kiradi)
-    const loginEmail = phone.replace(/\D/g, '') + '@mijoz.ilova';
+    // 2. Telefon-login auth akkaunti (menejer ilovaga shu bilan kiradi)
+    const loginEmail = phone.replace(/\D/g, '') + '@menejer.ilova';
     const { error: uErr } = await admin.auth.admin.createUser({
       email: loginEmail,
       password,
       email_confirm: true,
-      user_metadata: { full_name: name.trim(), customer_id: cust.id, org_id: orgId },
+      user_metadata: { full_name: name.trim(), manager_id: mgr.id, org_id: orgId, role: 'manager' },
     });
     if (uErr) {
-      await admin.from('customers').delete().eq('id', cust.id);
+      await admin.from('managers').delete().eq('id', mgr.id);
       return json({ error: 'LOGIN: ' + uErr.message }, 400);
     }
 
-    // 3. Gmail berilgan bo'lsa — taklif havolasini yuboramiz
-    let invite: string = 'gmail_kiritilmagan';
-    if (email?.trim()) {
-      const { error: iErr } = await admin.auth.admin.inviteUserByEmail(email.trim(), {
-        data: { full_name: name.trim(), customer_id: cust.id },
-      });
-      invite = iErr ? 'xato: ' + iErr.message : 'yuborildi';
-    }
-
-    return json({ ok: true, customer_id: cust.id, login_phone: phone, invite });
+    return json({ ok: true, manager_id: mgr.id, login_phone: phone });
   } catch (e) {
     return json({ error: String((e as any)?.message ?? e) }, 500);
   }

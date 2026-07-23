@@ -52,21 +52,21 @@ export default function Dashboard() {
         supabase.from('orders').select('id', { count: 'exact', head: true }).eq('status', 'new'),
         supabase
           .from('orders')
-          .select('total')
+          .select('base_total')
           .in('status', ['confirmed', 'picking', 'done'])
           .gte('confirmed_at', today.toISOString()),
         supabase.from('customer_balances').select('balance'),
         supabase.from('stock_levels').select('qty, reserved'),
         supabase
           .from('orders')
-          .select('id, order_number, status, total, created_at, customers ( name )')
+          .select('id, order_number, status, base_total, created_at, customers ( name )')
           .order('created_at', { ascending: false })
           .limit(6),
       ]);
 
       setStats({
         newOrders: newCount.count ?? 0,
-        todaySales: (todayOrders.data ?? []).reduce((s, o: any) => s + Number(o.total), 0),
+        todaySales: (todayOrders.data ?? []).reduce((s, o: any) => s + Number(o.base_total), 0),
         totalDebt: (balances.data ?? []).reduce(
           (s, b: any) => s + Math.max(0, Number(b.balance)),
           0
@@ -79,7 +79,7 @@ export default function Dashboard() {
           id: o.id,
           order_number: o.order_number,
           status: o.status,
-          total: Number(o.total),
+          total: Number(o.base_total),
           created_at: o.created_at,
           customer: o.customers?.name ?? '—',
         }))

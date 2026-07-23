@@ -13,6 +13,7 @@ import PaymentModal from '../components/PaymentModal';
 const AVATAR_BASE = `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/avatars/`;
 
 type Group = { id: string; name: string };
+type Manager = { id: string; name: string };
 
 type Customer = {
   id: string;
@@ -22,6 +23,7 @@ type Customer = {
   address: string | null;
   region: string | null;
   price_group_id: string;
+  manager_id: string | null;
   photo_path: string | null;
   is_active: boolean;
   notes: string | null;
@@ -120,6 +122,7 @@ export default function CustomerDetail() {
 
   const [customer, setCustomer] = useState<Customer | null>(null);
   const [groups, setGroups] = useState<Group[]>([]);
+  const [managers, setManagers] = useState<Manager[]>([]);
   const [balance, setBalance] = useState(0);
   const [orders, setOrders] = useState<OrderRow[]>([]);
   const [ledger, setLedger] = useState<LedgerRow[]>([]);
@@ -139,18 +142,19 @@ export default function CustomerDetail() {
 
   const load = useCallback(async () => {
     if (!id) return;
-    const [{ data: cust }, { data: grps }, { data: bal }, { data: ords }, { data: led }] =
+    const [{ data: cust }, { data: grps }, { data: mgrs }, { data: bal }, { data: ords }, { data: led }] =
       await Promise.all([
         supabase
           .from('customers')
-          .select('id, name, phone, email, address, region, price_group_id, photo_path, is_active, notes')
+          .select('id, name, phone, email, address, region, price_group_id, manager_id, photo_path, is_active, notes')
           .eq('id', id)
           .single(),
         supabase.from('price_groups').select('id, name').order('name'),
+        supabase.from('managers').select('id, name').eq('is_active', true).order('name'),
         supabase.from('customer_balances').select('balance').eq('customer_id', id).maybeSingle(),
         supabase
           .from('orders')
-          .select('id, order_number, status, total, created_at')
+          .select('id, order_number, status, base_total, created_at')
           .eq('customer_id', id)
           .order('created_at', { ascending: false })
           .limit(50),
@@ -167,8 +171,17 @@ export default function CustomerDetail() {
       setNewPhone((cust as any).phone);
     }
     setGroups((grps ?? []) as Group[]);
+    setManagers((mgrs ?? []) as Manager[]);
     setBalance(bal ? Number((bal as any).balance) : 0);
-    setOrders((ords ?? []) as OrderRow[]);
+    setOrders(
+      (ords ?? []).map((o: any) => ({
+        id: o.id,
+        order_number: o.order_number,
+        status: o.status,
+        total: Number(o.base_total),
+        created_at: o.created_at,
+      }))
+    );
     setLedger(
       (led ?? []).map((r: any) => ({
         id: r.id,
@@ -210,6 +223,7 @@ export default function CustomerDetail() {
           region: customer.region?.trim() || null,
           email: customer.email?.trim() || null,
           price_group_id: customer.price_group_id,
+          manager_id: customer.manager_id || null,
           notes: customer.notes?.trim() || null,
           photo_path: photoPath,
         })
@@ -398,6 +412,19 @@ export default function CustomerDetail() {
                 >
                   {groups.map((g) => (
                     <option key={g.id} value={g.id}>{g.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-gray-500">MENEJER</label>
+                <select
+                  value={customer.manager_id ?? ''}
+                  onChange={(e) => setCustomer({ ...customer, manager_id: e.target.value || null })}
+                  className={inputCls}
+                >
+                  <option value="">— Yo'q —</option>
+                  {managers.map((m) => (
+                    <option key={m.id} value={m.id}>{m.name}</option>
                   ))}
                 </select>
               </div>

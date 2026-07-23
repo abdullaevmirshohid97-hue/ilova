@@ -3,10 +3,12 @@ import { Link, useNavigate } from 'react-router-dom';
 import { genPassword, supabase } from '../lib/supabase';
 
 type Group = { id: string; name: string };
+type Manager = { id: string; name: string };
 
 export default function CustomerNew() {
   const nav = useNavigate();
   const [groups, setGroups] = useState<Group[]>([]);
+  const [managers, setManagers] = useState<Manager[]>([]);
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [phone, setPhone] = useState('+998');
@@ -14,6 +16,7 @@ export default function CustomerNew() {
   const [address, setAddress] = useState('');
   const [region, setRegion] = useState('');
   const [groupId, setGroupId] = useState('');
+  const [managerId, setManagerId] = useState('');
   const [password, setPassword] = useState(genPassword());
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
@@ -30,6 +33,12 @@ export default function CustomerNew() {
         setGroups((data ?? []) as Group[]);
         if (data?.[0]) setGroupId((data as any)[0].id);
       });
+    supabase
+      .from('managers')
+      .select('id, name')
+      .eq('is_active', true)
+      .order('name')
+      .then(({ data }) => setManagers((data ?? []) as Manager[]));
   }, []);
 
   function pickFile(f: File | null) {
@@ -65,6 +74,7 @@ export default function CustomerNew() {
           price_group_id: groupId,
           password,
           photo_path: photoPath,
+          manager_id: managerId || null,
         },
       });
       if (fnErr) throw new Error(fnErr.message);
@@ -122,7 +132,7 @@ export default function CustomerNew() {
                 setDone(null);
                 setFirstName(''); setLastName(''); setPhone('+998'); setEmail('');
                 setAddress(''); setRegion(''); setPassword(genPassword());
-                setFile(null); setPreview(null);
+                setFile(null); setPreview(null); setManagerId('');
               }}
               className="flex-1 rounded-xl border border-gray-200 bg-white py-3 text-sm font-bold text-gray-600 hover:bg-gray-50"
             >
@@ -201,6 +211,15 @@ export default function CustomerNew() {
               <select value={groupId} onChange={(e) => setGroupId(e.target.value)} className={inputCls}>
                 {groups.map((g) => (
                   <option key={g.id} value={g.id}>{g.name}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-gray-500">MENEJER (ixtiyoriy)</label>
+              <select value={managerId} onChange={(e) => setManagerId(e.target.value)} className={inputCls}>
+                <option value="">— Yo'q —</option>
+                {managers.map((m) => (
+                  <option key={m.id} value={m.id}>{m.name}</option>
                 ))}
               </select>
             </div>

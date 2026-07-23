@@ -107,8 +107,8 @@ export default function Reports() {
       supabase
         .from('orders')
         .select(
-          `id, status, total, created_at,
-           order_items ( qty, unit_price, product_variants ( products ( name ) ) )`
+          `id, status, base_total, created_at,
+           order_items ( qty, base_price, product_variants ( products ( name ) ) )`
         )
         .in('status', SOLD_STATUSES)
         .gte('created_at', from.toISOString()),
@@ -135,14 +135,14 @@ export default function Reports() {
     const productAgg = new Map<string, { qty: number; revenue: number }>();
     for (const o of ordersRes.data ?? []) {
       const day = (o as any).created_at.slice(0, 10);
-      const amt = Number((o as any).total);
+      const amt = Number((o as any).base_total);
       byDay.set(day, (byDay.get(day) ?? 0) + amt);
       total += amt;
       for (const it of (o as any).order_items ?? []) {
         const name = it.product_variants?.products?.name ?? "Noma'lum";
         const cur = productAgg.get(name) ?? { qty: 0, revenue: 0 };
         cur.qty += it.qty;
-        cur.revenue += it.qty * Number(it.unit_price);
+        cur.revenue += it.qty * Number(it.base_price);
         productAgg.set(name, cur);
       }
     }

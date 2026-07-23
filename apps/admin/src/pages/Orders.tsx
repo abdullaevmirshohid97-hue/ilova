@@ -25,6 +25,11 @@ type Order = {
   items: Item[];
 };
 
+// Admin panelida FAQAT rasmiy (baza) narx ko'rsatiladi — menejerga
+// biriktirilgan mijozning haqiqiy (ustama bilan) narxi order.total/
+// order_items.unit_price'da saqlanadi, lekin bu yerda hech qachon
+// chiqarilmaydi.
+
 export default function Orders() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [filter, setFilter] = useState<string>('new');
@@ -44,9 +49,9 @@ export default function Orders() {
     let q = supabase
       .from('orders')
       .select(
-        `id, order_number, status, total, created_at,
+        `id, order_number, status, base_total, created_at,
          customers!inner ( name, phone ),
-         order_items ( qty, unit_price, product_variants ( sku, size, color,
+         order_items ( qty, base_price, product_variants ( sku, size, color,
            products ( name, product_images ( storage_path, thumb_path, is_primary, sort_order ) ) ) )`
       )
       .order('created_at', { ascending: false })
@@ -64,7 +69,7 @@ export default function Orders() {
         id: o.id,
         order_number: o.order_number,
         status: o.status,
-        total: Number(o.total),
+        total: Number(o.base_total),
         created_at: o.created_at,
         customer: o.customers?.name ?? '—',
         phone: o.customers?.phone ?? '',
@@ -74,7 +79,7 @@ export default function Orders() {
           );
           return {
             qty: it.qty,
-            unit_price: Number(it.unit_price),
+            unit_price: Number(it.base_price),
             sku: it.product_variants?.sku ?? '',
             name: it.product_variants?.products?.name ?? '—',
             size: it.product_variants?.size ?? null,
