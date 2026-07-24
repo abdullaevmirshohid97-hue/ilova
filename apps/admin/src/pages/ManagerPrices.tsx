@@ -41,6 +41,8 @@ function fmtCurrency(n: number, currency: Currency): string {
 export default function ManagerPrices() {
   const [managerId, setManagerId] = useState<string | null>(null);
   const [usdRate, setUsdRate] = useState<number>(0);
+  const [defaultCurrency, setDefaultCurrency] = useState<Currency>('UZS');
+  const [switchingCurrency, setSwitchingCurrency] = useState(false);
   const [products, setProducts] = useState<Product[]>([]);
   const [groups, setGroups] = useState<Group[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
@@ -80,7 +82,7 @@ export default function ManagerPrices() {
       supabase.from('manager_prices').select('variant_id, price, currency'),
       supabase.from('customers').select('id, name, phone, price_group_id').order('name'),
       supabase.from('price_groups').select('id, name').order('name'),
-      supabase.from('managers').select('usd_rate').eq('id', managerId).single(),
+      supabase.from('managers').select('usd_rate, default_currency').eq('id', managerId).single(),
     ]).then(([{ data: prodData }, { data: priceData }, { data: custData }, { data: groupData }, { data: mgrData }]) => {
       const priceMap: Record<string, PriceEntry> = {};
       for (const p of priceData ?? []) {
@@ -90,6 +92,9 @@ export default function ManagerPrices() {
       setCustomers((custData ?? []) as Customer[]);
       setGroups((groupData ?? []) as Group[]);
       setUsdRate(mgrData ? Number((mgrData as any).usd_rate) : 0);
+      const dc = ((mgrData as any)?.default_currency as Currency) ?? 'UZS';
+      setDefaultCurrency(dc);
+      setBulkCurrency(dc);
 
       setProducts(
         (prodData ?? [])
@@ -139,6 +144,19 @@ export default function ManagerPrices() {
     loadCustomerPrices(selectedCustomer);
   }, [selectedCustomer, loadCustomerPrices]);
 
+  async function switchDefaultCurrency(currency: Currency) {
+    if (currency === defaultCurrency) return;
+    setSwitchingCurrency(true);
+    const { error } = await supabase.rpc('set_my_default_currency', { p_currency: currency });
+    if (!error) {
+      setDefaultCurrency(currency);
+      setBulkCurrency(currency);
+      // Hali qo'lda tanlanmagan qatorlarni ham yangi standartga o'tkazamiz
+      setInputCurrency({});
+    }
+    setSwitchingCurrency(false);
+  }
+
   const activePrices = selectedCustomer ? customerPrices : generalPrices;
   const stdGroupId = groups.find((g) => g.name === 'Standart')?.id;
   const selectedCustomerObj = customers.find((c) => c.id === selectedCustomer);
@@ -149,7 +167,7 @@ export default function ManagerPrices() {
     const raw = inputs[variantId];
     const markup = parseFloat(raw ?? '');
     if (!raw || Number.isNaN(markup)) return;
-    const currency = inputCurrency[variantId] ?? 'UZS';
+    const currency = inputCurrency[variantId] ?? defaultCurrency;
     const base = baseSom != null ? baseInCurrency(baseSom, currency, usdRate) : null;
     if (base == null) return; // dollar kursi hali kiritilmagan yoki baza narx yo'q
     const finalPrice = currency === 'USD' ? round2(base + markup) : Math.round(base + markup);
@@ -288,7 +306,35 @@ export default function ManagerPrices() {
         o'sha ustiga qo'shiladi. Bu narxlarni faqat siz ko'rasiz.
       </p>
 
-      <div className="mt-4 flex flex-wrap items-center gap-3">
+      <div className="mt-4 flex flex-wrap items-center gap-3 rounded-xl bg-brand-soft px-4 py-3">
+        <span className="text-sm font-bold text-gray-700">💱 Men savdo qiladigan valyuta:</span>
+        <div className="flex overflow-hidden rounded-lg border border-gray-200">
+          <button
+            onClick={() => switchDefaultCurrency('UZS')}
+            disabled={switchingCurrency}
+            className={`px-4 py-1.5 text-sm font-bold transition disabled:opacity-50 ${
+              defaultCurrency === 'UZS' ? 'bg-brand text-white' : 'bg-white text-gray-500 hover:bg-gray-50'
+            }`}
+          >
+            So'm
+          </button>
+          <button
+            onClick={() => switchDefaultCurrency('USD')}
+            disabled={switchingCurrency}
+            className={`px-4 py-1.5 text-sm font-bold transition disabled:opacity-50 ${
+              defaultCurrency === 'USD' ? 'bg-brand text-white' : 'bg-white text-gray-500 hover:bg-gray-50'
+            }`}
+          >
+            $ Dollar
+          </button>
+        </div>
+        <span className="text-xs text-gray-500">
+          Tanlangan valyuta pastdagi barcha maydonlarda standart bo'ladi — har birida alohida
+          tanlash shart emas.
+        </span>
+      </div>
+
+      <div className="mt-3 flex flex-wrap items-center gap-3">
         <select
           value={selectedCustomer}
           onChange={(e) => setSelectedCustomer(e.target.value)}
@@ -364,7 +410,7 @@ export default function ManagerPrices() {
                 {p.variants.map((v) => {
                   const mine = activePrices[v.id];
                   const baseSom = refGroupId != null ? v.basePrices[refGroupId] : null;
-                  const currency = inputCurrency[v.id] ?? 'UZS';
+                  const currency = inputCurrency[v.id] ?? defaultCurrency;
                   const baseInCur = baseSom != null ? baseInCurrency(baseSom, currency, usdRate) : null;
                   return (
                     <div key={v.id} className="flex flex-wrap items-center gap-2 rounded-lg bg-gray-50 px-3 py-2 text-sm">
