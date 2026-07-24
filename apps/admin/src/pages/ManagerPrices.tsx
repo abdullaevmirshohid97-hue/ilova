@@ -38,6 +38,15 @@ function fmtCurrency(n: number, currency: Currency): string {
   return currency === 'USD' ? formatUsd(n) : formatSum(n);
 }
 
+type MarkupMode = 'amount' | 'percent';
+
+// mode='amount' — baza ustiga qo'shiladigan summa; mode='percent' — baza
+// ustiga qo'shiladigan foiz (masalan 15 => baza*1.15)
+function computeFinal(base: number, markup: number, mode: MarkupMode, currency: Currency): number {
+  const result = mode === 'percent' ? base * (1 + markup / 100) : base + markup;
+  return currency === 'USD' ? round2(result) : Math.round(result);
+}
+
 export default function ManagerPrices() {
   const [managerId, setManagerId] = useState<string | null>(null);
   const [usdRate, setUsdRate] = useState<number>(0);
@@ -52,6 +61,7 @@ export default function ManagerPrices() {
   const [customerPrices, setCustomerPrices] = useState<Record<string, PriceEntry>>({});
   const [inputs, setInputs] = useState<Record<string, string>>({});
   const [inputCurrency, setInputCurrency] = useState<Record<string, Currency>>({});
+  const [markupMode, setMarkupMode] = useState<MarkupMode>('amount');
   const [bulkMarkup, setBulkMarkup] = useState('');
   const [bulkCurrency, setBulkCurrency] = useState<Currency>('UZS');
   const [bulkBusy, setBulkBusy] = useState(false);
@@ -170,7 +180,7 @@ export default function ManagerPrices() {
     const currency = inputCurrency[variantId] ?? defaultCurrency;
     const base = baseSom != null ? baseInCurrency(baseSom, currency, usdRate) : null;
     if (base == null) return; // dollar kursi hali kiritilmagan yoki baza narx yo'q
-    const finalPrice = currency === 'USD' ? round2(base + markup) : Math.round(base + markup);
+    const finalPrice = computeFinal(base, markup, markupMode, currency);
 
     setSaving(variantId);
     const { error } = selectedCustomer
@@ -237,10 +247,11 @@ export default function ManagerPrices() {
     if (!managerId || !refGroupId) return;
     const markup = parseFloat(bulkMarkup);
     if (Number.isNaN(markup) || visibleVariants.length === 0) return;
-    const unit = bulkCurrency === 'USD' ? '$' : "so'm";
+    const unit = markupMode === 'percent' ? '%' : bulkCurrency === 'USD' ? '$' : "so'm";
+    const verb = markupMode === 'percent' ? 'foiz qo`shilsinmi' : "qo'shilsinmi";
     if (
       !confirm(
-        `Ko'rinayotgan ${visibleVariants.length} ta mahsulotning bazasi ustiga ${markup.toLocaleString()} ${unit} qo'shilsinmi?`
+        `Ko'rinayotgan ${visibleVariants.length} ta mahsulotning bazasi ustiga ${markup.toLocaleString()}${unit} ${verb}?`
       )
     )
       return;
@@ -252,7 +263,7 @@ export default function ManagerPrices() {
         if (baseSom == null) return null;
         const base = baseInCurrency(baseSom, bulkCurrency, usdRate);
         if (base == null) return null;
-        const finalPrice = bulkCurrency === 'USD' ? round2(base + markup) : Math.round(base + markup);
+        const finalPrice = computeFinal(base, markup, markupMode, bulkCurrency);
         return { variant_id: v.id, price: finalPrice };
       })
       .filter((r): r is { variant_id: string; price: number } => r != null);
@@ -300,10 +311,9 @@ export default function ManagerPrices() {
       <h1 className="text-xl font-extrabold text-gray-900">🏷️ Narxlarim</h1>
       <p className="mt-1 text-sm text-gray-400">
         Har bir qatorda kompaniya baza narxi ko'rinadi — tanlagan valyutangizda (so'm yoki $).
-        Siz kiritgan son shu BAZA USTIGA QO'SHILADIGAN summa (ustama) — masalan bazasi 3000 so'm
-        bo'lgan mahsulotga "500" desangiz, yakuniy narx 3500 so'm bo'ladi. Dollarda ishlasangiz,
-        baza avtomatik dollarga o'giriladi (Sozlamalardagi kursingiz bo'yicha) va ustamangiz
-        o'sha ustiga qo'shiladi. Bu narxlarni faqat siz ko'rasiz.
+        Siz kiritgan son shu BAZA USTIGA QO'SHILADI — summa yoki foiz sifatida (pastda tanlang).
+        Dollarda ishlasangiz, baza avtomatik dollarga o'giriladi (Sozlamalardagi kursingiz
+        bo'yicha) va ustamangiz o'sha ustiga qo'shiladi. Bu narxlarni faqat siz ko'rasiz.
       </p>
 
       <div className="mt-4 flex flex-wrap items-center gap-3 rounded-xl bg-brand-soft px-4 py-3">
@@ -334,6 +344,33 @@ export default function ManagerPrices() {
         </span>
       </div>
 
+      <div className="mt-3 flex flex-wrap items-center gap-3 rounded-xl bg-gray-50 px-4 py-3">
+        <span className="text-sm font-bold text-gray-700">➕ Ustama turi:</span>
+        <div className="flex overflow-hidden rounded-lg border border-gray-200">
+          <button
+            onClick={() => setMarkupMode('amount')}
+            className={`px-4 py-1.5 text-sm font-bold transition ${
+              markupMode === 'amount' ? 'bg-gray-900 text-white' : 'bg-white text-gray-500 hover:bg-gray-100'
+            }`}
+          >
+            + Summa
+          </button>
+          <button
+            onClick={() => setMarkupMode('percent')}
+            className={`px-4 py-1.5 text-sm font-bold transition ${
+              markupMode === 'percent' ? 'bg-gray-900 text-white' : 'bg-white text-gray-500 hover:bg-gray-100'
+            }`}
+          >
+            % Foiz
+          </button>
+        </div>
+        <span className="text-xs text-gray-500">
+          {markupMode === 'percent'
+            ? "Masalan bazasi 3000 bo'lgan mahsulotga \"15\" desangiz, yakuniy narx 3450 (baza + 15%) bo'ladi."
+            : "Masalan bazasi 3000 bo'lgan mahsulotga \"500\" desangiz, yakuniy narx 3500 bo'ladi."}
+        </span>
+      </div>
+
       <div className="mt-3 flex flex-wrap items-center gap-3">
         <select
           value={selectedCustomer}
@@ -361,7 +398,7 @@ export default function ManagerPrices() {
         <input
           value={bulkMarkup}
           onChange={(e) => setBulkMarkup(e.target.value.replace(/[^\d.]/g, ''))}
-          placeholder="Masalan: 500"
+          placeholder={markupMode === 'percent' ? 'Masalan: 15' : 'Masalan: 500'}
           className="w-32 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm outline-none focus:border-brand"
         />
         <select value={bulkCurrency} onChange={(e) => setBulkCurrency(e.target.value as Currency)} className={currencySelectCls}>
@@ -428,7 +465,7 @@ export default function ManagerPrices() {
                       <input
                         value={inputs[v.id] ?? ''}
                         onChange={(e) => setInputs((p) => ({ ...p, [v.id]: e.target.value.replace(/[^\d.]/g, '') }))}
-                        placeholder="+ustama"
+                        placeholder={markupMode === 'percent' ? '%' : '+ustama'}
                         disabled={baseInCur == null}
                         className="w-24 min-w-0 flex-1 rounded-lg border border-gray-200 bg-white px-2 py-1 text-sm outline-none focus:border-brand disabled:bg-gray-100 sm:w-28 sm:flex-none"
                       />

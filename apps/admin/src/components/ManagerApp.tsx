@@ -3,14 +3,16 @@ import { supabase } from '../lib/supabase';
 import ManagerCustomers from '../pages/ManagerCustomers';
 import ManagerPrices from '../pages/ManagerPrices';
 import ManagerOrders from '../pages/ManagerOrders';
+import ManagerAnalytics from '../pages/ManagerAnalytics';
 import ManagerSettings from '../pages/ManagerSettings';
 
-type Tab = 'customers' | 'prices' | 'orders' | 'settings';
+type Tab = 'customers' | 'prices' | 'orders' | 'analytics' | 'settings';
 
 const TABS: { key: Tab; icon: string; label: string }[] = [
   { key: 'customers', icon: '👥', label: 'Mijozlarim' },
   { key: 'prices', icon: '🏷️', label: 'Narxlarim' },
   { key: 'orders', icon: '🧾', label: 'Buyurtmalarim' },
+  { key: 'analytics', icon: '📊', label: 'Tahlil' },
   { key: 'settings', icon: '⚙️', label: 'Sozlamalar' },
 ];
 
@@ -108,6 +110,7 @@ export default function ManagerApp() {
           {tab === 'customers' && <ManagerCustomers />}
           {tab === 'prices' && <ManagerPrices />}
           {tab === 'orders' && <ManagerOrders />}
+          {tab === 'analytics' && <ManagerAnalytics />}
           {tab === 'settings' && <ManagerSettings />}
         </main>
       </div>
