@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { formatSum, imageUrl, supabase } from '../lib/supabase';
+import { formatSum, formatUsd, imageUrl, supabase } from '../lib/supabase';
 
 type Currency = 'UZS' | 'USD';
 type PriceEntry = { price: number; currency: Currency };
@@ -23,8 +23,19 @@ type Product = {
 type Customer = { id: string; name: string; phone: string; price_group_id: string };
 type Group = { id: string; name: string };
 
-function somValue(entry: PriceEntry, usdRate: number): number {
-  return entry.currency === 'USD' ? Math.round(entry.price * usdRate) : entry.price;
+function round2(n: number): number {
+  return Math.round(n * 100) / 100;
+}
+
+// Baza narxni (har doim so'mda saqlanadi) tanlangan valyutaga o'giradi
+function baseInCurrency(baseSom: number, currency: Currency, usdRate: number): number | null {
+  if (currency === 'UZS') return baseSom;
+  if (usdRate <= 0) return null;
+  return round2(baseSom / usdRate);
+}
+
+function fmtCurrency(n: number, currency: Currency): string {
+  return currency === 'USD' ? formatUsd(n) : formatSum(n);
 }
 
 export default function ManagerPrices() {
@@ -39,7 +50,7 @@ export default function ManagerPrices() {
   const [customerPrices, setCustomerPrices] = useState<Record<string, PriceEntry>>({});
   const [inputs, setInputs] = useState<Record<string, string>>({});
   const [inputCurrency, setInputCurrency] = useState<Record<string, Currency>>({});
-  const [bulkPrice, setBulkPrice] = useState('');
+  const [bulkMarkup, setBulkMarkup] = useState('');
   const [bulkCurrency, setBulkCurrency] = useState<Currency>('UZS');
   const [bulkBusy, setBulkBusy] = useState(false);
 
@@ -133,25 +144,29 @@ export default function ManagerPrices() {
   const selectedCustomerObj = customers.find((c) => c.id === selectedCustomer);
   const refGroupId = selectedCustomer ? selectedCustomerObj?.price_group_id : stdGroupId;
 
-  async function savePrice(variantId: string) {
+  async function savePrice(variantId: string, baseSom: number | null) {
     if (!managerId) return;
     const raw = inputs[variantId];
-    const n = parseInt((raw ?? '').replace(/\D/g, ''), 10);
-    if (!raw || Number.isNaN(n)) return;
+    const markup = parseFloat(raw ?? '');
+    if (!raw || Number.isNaN(markup)) return;
     const currency = inputCurrency[variantId] ?? 'UZS';
+    const base = baseSom != null ? baseInCurrency(baseSom, currency, usdRate) : null;
+    if (base == null) return; // dollar kursi hali kiritilmagan yoki baza narx yo'q
+    const finalPrice = currency === 'USD' ? round2(base + markup) : Math.round(base + markup);
+
     setSaving(variantId);
     const { error } = selectedCustomer
       ? await supabase
           .from('manager_customer_prices')
           .upsert(
-            { manager_id: managerId, customer_id: selectedCustomer, variant_id: variantId, price: n, currency },
+            { manager_id: managerId, customer_id: selectedCustomer, variant_id: variantId, price: finalPrice, currency },
             { onConflict: 'manager_id,customer_id,variant_id' }
           )
       : await supabase
           .from('manager_prices')
-          .upsert({ manager_id: managerId, variant_id: variantId, price: n, currency }, { onConflict: 'manager_id,variant_id' });
+          .upsert({ manager_id: managerId, variant_id: variantId, price: finalPrice, currency }, { onConflict: 'manager_id,variant_id' });
     if (!error) {
-      const entry = { price: n, currency };
+      const entry = { price: finalPrice, currency };
       if (selectedCustomer) setCustomerPrices((p) => ({ ...p, [variantId]: entry }));
       else setGeneralPrices((p) => ({ ...p, [variantId]: entry }));
       setInputs((p) => {
@@ -198,55 +213,62 @@ export default function ManagerPrices() {
           p.variants.some((v) => v.sku.toLowerCase().includes(q))
       )
     : products;
-  const visibleVariantIds = filtered.flatMap((p) => p.variants.map((v) => v.id));
+  const visibleVariants = filtered.flatMap((p) => p.variants);
 
   async function applyBulk() {
-    if (!managerId) return;
-    const n = parseInt(bulkPrice.replace(/\D/g, ''), 10);
-    if (Number.isNaN(n) || visibleVariantIds.length === 0) return;
+    if (!managerId || !refGroupId) return;
+    const markup = parseFloat(bulkMarkup);
+    if (Number.isNaN(markup) || visibleVariants.length === 0) return;
     const unit = bulkCurrency === 'USD' ? '$' : "so'm";
     if (
       !confirm(
-        `Ko'rinayotgan ${visibleVariantIds.length} ta mahsulotga ${n.toLocaleString()} ${unit}dan narx qo'yilsinmi?`
+        `Ko'rinayotgan ${visibleVariants.length} ta mahsulotning bazasi ustiga ${markup.toLocaleString()} ${unit} qo'shilsinmi?`
       )
     )
       return;
     setBulkBusy(true);
+
+    const rows = visibleVariants
+      .map((v) => {
+        const baseSom = v.basePrices[refGroupId];
+        if (baseSom == null) return null;
+        const base = baseInCurrency(baseSom, bulkCurrency, usdRate);
+        if (base == null) return null;
+        const finalPrice = bulkCurrency === 'USD' ? round2(base + markup) : Math.round(base + markup);
+        return { variant_id: v.id, price: finalPrice };
+      })
+      .filter((r): r is { variant_id: string; price: number } => r != null);
+
     if (selectedCustomer) {
-      const rows = visibleVariantIds.map((variant_id) => ({
+      const payload = rows.map((r) => ({
         manager_id: managerId,
         customer_id: selectedCustomer,
-        variant_id,
-        price: n,
+        variant_id: r.variant_id,
+        price: r.price,
         currency: bulkCurrency,
       }));
       const { error } = await supabase
         .from('manager_customer_prices')
-        .upsert(rows, { onConflict: 'manager_id,customer_id,variant_id' });
+        .upsert(payload, { onConflict: 'manager_id,customer_id,variant_id' });
       if (!error) {
         setCustomerPrices((p) => {
           const next = { ...p };
-          for (const id of visibleVariantIds) next[id] = { price: n, currency: bulkCurrency };
+          for (const r of rows) next[r.variant_id] = { price: r.price, currency: bulkCurrency };
           return next;
         });
       }
     } else {
-      const rows = visibleVariantIds.map((variant_id) => ({
-        manager_id: managerId,
-        variant_id,
-        price: n,
-        currency: bulkCurrency,
-      }));
-      const { error } = await supabase.from('manager_prices').upsert(rows, { onConflict: 'manager_id,variant_id' });
+      const payload = rows.map((r) => ({ manager_id: managerId, variant_id: r.variant_id, price: r.price, currency: bulkCurrency }));
+      const { error } = await supabase.from('manager_prices').upsert(payload, { onConflict: 'manager_id,variant_id' });
       if (!error) {
         setGeneralPrices((p) => {
           const next = { ...p };
-          for (const id of visibleVariantIds) next[id] = { price: n, currency: bulkCurrency };
+          for (const r of rows) next[r.variant_id] = { price: r.price, currency: bulkCurrency };
           return next;
         });
       }
     }
-    setBulkPrice('');
+    setBulkMarkup('');
     setBulkBusy(false);
   }
 
@@ -255,21 +277,15 @@ export default function ManagerPrices() {
   const currencySelectCls =
     'rounded-lg border border-gray-200 bg-white px-2 py-1 text-xs outline-none focus:border-brand';
 
-  function fmtEntry(entry: PriceEntry): string {
-    if (entry.currency === 'USD') {
-      const som = usdRate > 0 ? ` (≈ ${formatSum(somValue(entry, usdRate))})` : '';
-      return `$${entry.price.toLocaleString()}${som}`;
-    }
-    return formatSum(entry.price);
-  }
-
   return (
     <div>
       <h1 className="text-xl font-extrabold text-gray-900">🏷️ Narxlarim</h1>
       <p className="mt-1 text-sm text-gray-400">
-        Kompaniya narxi ("baza") har bir qatorda ko'rsatiladi — ustiga qancha qo'shayotganingiz
-        shu yerda aniq ko'rinadi. Narxni so'mda yoki dollarda ($) qo'yishingiz mumkin — dollar
-        kursini Sozlamalarda o'zgartirasiz. Bu narxlarni faqat siz ko'rasiz.
+        Har bir qatorda kompaniya baza narxi ko'rinadi — tanlagan valyutangizda (so'm yoki $).
+        Siz kiritgan son shu BAZA USTIGA QO'SHILADIGAN summa (ustama) — masalan bazasi 3000 so'm
+        bo'lgan mahsulotga "500" desangiz, yakuniy narx 3500 so'm bo'ladi. Dollarda ishlasangiz,
+        baza avtomatik dollarga o'giriladi (Sozlamalardagi kursingiz bo'yicha) va ustamangiz
+        o'sha ustiga qo'shiladi. Bu narxlarni faqat siz ko'rasiz.
       </p>
 
       <div className="mt-4 flex flex-wrap items-center gap-3">
@@ -285,16 +301,21 @@ export default function ManagerPrices() {
             </option>
           ))}
         </select>
+        {usdRate <= 0 && (
+          <span className="text-xs font-semibold text-amber-600">
+            ⚠️ Dollar kursi kiritilmagan — Sozlamalarda kiriting, aks holda dollarda narx qo'ya olmaysiz
+          </span>
+        )}
       </div>
 
       <div className="mt-3 flex flex-wrap items-center gap-2 rounded-xl border border-dashed border-gray-300 bg-gray-50 p-3">
         <span className="text-xs font-semibold text-gray-500">
-          Ko'rinayotgan {visibleVariantIds.length} ta mahsulotga bir xil narx qo'yish:
+          Ko'rinayotgan {visibleVariants.length} ta mahsulotning bazasi ustiga bir xil ustama qo'shish:
         </span>
         <input
-          value={bulkPrice}
-          onChange={(e) => setBulkPrice(e.target.value.replace(/\D/g, ''))}
-          placeholder="Masalan: 4000"
+          value={bulkMarkup}
+          onChange={(e) => setBulkMarkup(e.target.value.replace(/[^\d.]/g, ''))}
+          placeholder="Masalan: 500"
           className="w-32 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm outline-none focus:border-brand"
         />
         <select value={bulkCurrency} onChange={(e) => setBulkCurrency(e.target.value as Currency)} className={currencySelectCls}>
@@ -303,7 +324,7 @@ export default function ManagerPrices() {
         </select>
         <button
           onClick={applyBulk}
-          disabled={bulkBusy || !bulkPrice || visibleVariantIds.length === 0}
+          disabled={bulkBusy || !bulkMarkup || visibleVariants.length === 0}
           className="rounded-lg bg-gray-900 px-4 py-1.5 text-xs font-bold text-white hover:opacity-90 disabled:opacity-50"
         >
           {bulkBusy ? 'Qollanmoqda...' : 'Barchasiga qo`llash'}
@@ -342,26 +363,31 @@ export default function ManagerPrices() {
               <div className="mt-2 space-y-1.5">
                 {p.variants.map((v) => {
                   const mine = activePrices[v.id];
-                  const base = refGroupId != null ? v.basePrices[refGroupId] : null;
+                  const baseSom = refGroupId != null ? v.basePrices[refGroupId] : null;
+                  const currency = inputCurrency[v.id] ?? 'UZS';
+                  const baseInCur = baseSom != null ? baseInCurrency(baseSom, currency, usdRate) : null;
                   return (
                     <div key={v.id} className="flex flex-wrap items-center gap-2 rounded-lg bg-gray-50 px-3 py-2 text-sm">
                       <span className="min-w-0 flex-1 text-gray-600">
                         {[v.size, v.color].filter(Boolean).join(' / ') || v.sku}
-                        {base != null && (
-                          <span className="ml-2 text-xs text-gray-400">(baza: {formatSum(base)})</span>
+                        {baseInCur != null && (
+                          <span className="ml-2 text-xs text-gray-400">(baza: {fmtCurrency(baseInCur, currency)})</span>
                         )}
                       </span>
                       {mine != null && (
-                        <span className="text-xs font-bold text-emerald-600">{fmtEntry(mine)}</span>
+                        <span className="text-xs font-bold text-emerald-600">
+                          = {fmtCurrency(mine.price, mine.currency)}
+                        </span>
                       )}
                       <input
                         value={inputs[v.id] ?? ''}
-                        onChange={(e) => setInputs((p) => ({ ...p, [v.id]: e.target.value.replace(/\D/g, '') }))}
-                        placeholder={mine != null ? "O'zgartirish" : "Narx qo'yish"}
-                        className="w-24 min-w-0 flex-1 rounded-lg border border-gray-200 bg-white px-2 py-1 text-sm outline-none focus:border-brand sm:w-28 sm:flex-none"
+                        onChange={(e) => setInputs((p) => ({ ...p, [v.id]: e.target.value.replace(/[^\d.]/g, '') }))}
+                        placeholder="+ustama"
+                        disabled={baseInCur == null}
+                        className="w-24 min-w-0 flex-1 rounded-lg border border-gray-200 bg-white px-2 py-1 text-sm outline-none focus:border-brand disabled:bg-gray-100 sm:w-28 sm:flex-none"
                       />
                       <select
-                        value={inputCurrency[v.id] ?? 'UZS'}
+                        value={currency}
                         onChange={(e) => setInputCurrency((p) => ({ ...p, [v.id]: e.target.value as Currency }))}
                         className={currencySelectCls}
                       >
@@ -369,8 +395,8 @@ export default function ManagerPrices() {
                         <option value="USD">$</option>
                       </select>
                       <button
-                        onClick={() => savePrice(v.id)}
-                        disabled={saving === v.id || !inputs[v.id]}
+                        onClick={() => savePrice(v.id, baseSom ?? null)}
+                        disabled={saving === v.id || !inputs[v.id] || baseInCur == null}
                         className="shrink-0 rounded-lg bg-brand px-3 py-1.5 text-xs font-bold text-white hover:opacity-90 disabled:opacity-50"
                       >
                         Saqlash
