@@ -51,18 +51,21 @@ export default function OrdersScreen() {
     customerName: string;
     customerPhone: string;
     displayCurrency: string;
+    managerName: string | null;
   } | null>(null);
 
   useEffect(() => {
     Promise.all([
       supabase.from('organizations').select('name').maybeSingle(),
       supabase.from('customers').select('name, phone, display_currency').maybeSingle(),
-    ]).then(([{ data: org }, { data: cust }]) => {
+      supabase.rpc('my_manager_name'),
+    ]).then(([{ data: org }, { data: cust }, { data: managerName }]) => {
       setSeller({
         orgName: (org as any)?.name ?? 'YUKCHIBOLLA',
         customerName: (cust as any)?.name ?? '',
         customerPhone: (cust as any)?.phone ?? '',
         displayCurrency: (cust as any)?.display_currency ?? 'UZS',
+        managerName: (managerName as string) ?? null,
       });
     });
   }, []);
@@ -193,6 +196,7 @@ export default function OrdersScreen() {
       <div class="meta">${t('invoiceTitle')} — ${t('invoiceOrderLabel')} №${order.order_number}</div>
       <div class="meta">${t('invoiceDateLabel')}: ${dateStr}</div>
       <div class="meta">${t('invoiceCustomerLabel')}: ${seller?.customerName ?? ''} · ${seller?.customerPhone ?? ''}</div>
+      ${seller?.managerName ? `<div class="meta">${t('invoiceManagerLabel')}: ${seller.managerName}</div>` : ''}
       <table>
         <thead><tr>
           <th>${t('invoiceItemImage')}</th>
