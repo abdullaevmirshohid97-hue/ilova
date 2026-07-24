@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import ManagerPrices from '../pages/ManagerPrices';
+import ChangePasswordPanel from './ChangePasswordPanel';
 
 // Menejerning cheklangan paneli — to'liq admin Layout/sidebar'dan alohida,
 // chunki menejer faqat o'z narxini ko'radi/qo'yadi, boshqa hech narsaga
@@ -28,7 +29,8 @@ export default function ManagerApp() {
           🚪 Chiqish
         </button>
       </header>
-      <main className="mx-auto max-w-5xl p-8">
+      <main className="mx-auto max-w-5xl space-y-6 p-8">
+        <ChangePasswordPanel />
         <ManagerPrices />
       </main>
     </div>

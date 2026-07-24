@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { genPassword, supabase } from '../lib/supabase';
+import ChangePasswordPanel from '../components/ChangePasswordPanel';
 
 type Category = { id: string; name: string; sort_order: number };
 type Group = { id: string; name: string };
@@ -231,6 +232,7 @@ function StaffPanel() {
 export default function Settings() {
   return (
     <div className="mx-auto max-w-3xl space-y-6">
+      <ChangePasswordPanel />
       <CategoriesPanel />
       <PriceGroupsPanel />
       <StaffPanel />
