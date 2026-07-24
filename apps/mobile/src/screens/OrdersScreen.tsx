@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
-import { formatSum, formatUsd, supabase } from '../lib/supabase';
+import { formatSum, formatUsd, imageUrl, supabase } from '../lib/supabase';
 import { C, ORDER_STATUS } from '../lib/theme';
 import { useLanguage } from '../lib/i18n';
 
@@ -28,6 +28,7 @@ type OrderItem = {
   name: string;
   size: string | null;
   color: string | null;
+  image: string | null;
 };
 
 type Order = {
@@ -72,7 +73,9 @@ export default function OrdersScreen() {
       .select(
         `id, order_number, status, total, created_at,
          order_items ( qty, unit_price, currency, orig_price,
-           product_variants ( size, color, products ( name ) )
+           product_variants ( size, color, products ( name,
+             product_images ( storage_path, thumb_path, is_primary, sort_order )
+           ) )
          )`
       )
       .order('created_at', { ascending: false })
@@ -86,15 +89,21 @@ export default function OrdersScreen() {
           status: o.status,
           total: o.total,
           created_at: o.created_at,
-          items: (o.order_items ?? []).map((it: any) => ({
-            qty: it.qty,
-            unit_price: it.unit_price,
-            currency: it.currency ?? 'UZS',
-            orig_price: it.orig_price != null ? Number(it.orig_price) : null,
-            name: it.product_variants?.products?.name ?? '—',
-            size: it.product_variants?.size ?? null,
-            color: it.product_variants?.color ?? null,
-          })),
+          items: (o.order_items ?? []).map((it: any) => {
+            const imgs = (it.product_variants?.products?.product_images ?? []).sort(
+              (a: any, b: any) => Number(b.is_primary) - Number(a.is_primary) || a.sort_order - b.sort_order
+            );
+            return {
+              qty: it.qty,
+              unit_price: it.unit_price,
+              currency: it.currency ?? 'UZS',
+              orig_price: it.orig_price != null ? Number(it.orig_price) : null,
+              name: it.product_variants?.products?.name ?? '—',
+              size: it.product_variants?.size ?? null,
+              color: it.product_variants?.color ?? null,
+              image: imgs[0] ? imageUrl(imgs[0].thumb_path || imgs[0].storage_path) : null,
+            };
+          }),
         }))
       );
     }
@@ -160,6 +169,7 @@ export default function OrdersScreen() {
         const unit = showUsd ? formatUsd(it.orig_price) : formatSum(it.unit_price);
         const lineTotal = showUsd ? formatUsd((it.orig_price as number) * it.qty) : formatSum(it.qty * it.unit_price);
         return `<tr>
+          <td>${it.image ? `<img src="${it.image}" style="width:40px;height:40px;object-fit:cover;border-radius:4px" />` : ''}</td>
           <td>${it.name}</td>
           <td>${[it.size, it.color].filter(Boolean).join(' / ') || '—'}</td>
           <td style="text-align:right">${it.qty.toLocaleString()}</td>
@@ -185,6 +195,7 @@ export default function OrdersScreen() {
       <div class="meta">${t('invoiceCustomerLabel')}: ${seller?.customerName ?? ''} · ${seller?.customerPhone ?? ''}</div>
       <table>
         <thead><tr>
+          <th>${t('invoiceItemImage')}</th>
           <th>${t('invoiceItemName')}</th>
           <th>${t('invoiceItemVariant')}</th>
           <th style="text-align:right">${t('invoiceItemQty')}</th>
