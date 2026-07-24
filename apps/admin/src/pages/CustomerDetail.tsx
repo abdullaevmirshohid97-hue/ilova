@@ -24,6 +24,7 @@ type Customer = {
   region: string | null;
   price_group_id: string;
   manager_id: string | null;
+  display_currency: string;
   photo_path: string | null;
   is_active: boolean;
   notes: string | null;
@@ -146,7 +147,7 @@ export default function CustomerDetail() {
       await Promise.all([
         supabase
           .from('customers')
-          .select('id, name, phone, email, address, region, price_group_id, manager_id, photo_path, is_active, notes')
+          .select('id, name, phone, email, address, region, price_group_id, manager_id, display_currency, photo_path, is_active, notes')
           .eq('id', id)
           .single(),
         supabase.from('price_groups').select('id, name').order('name'),
@@ -224,6 +225,7 @@ export default function CustomerDetail() {
           email: customer.email?.trim() || null,
           price_group_id: customer.price_group_id,
           manager_id: customer.manager_id || null,
+          display_currency: customer.display_currency,
           notes: customer.notes?.trim() || null,
           photo_path: photoPath,
         })
@@ -426,6 +428,17 @@ export default function CustomerDetail() {
                   {managers.map((m) => (
                     <option key={m.id} value={m.id}>{m.name}</option>
                   ))}
+                </select>
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-gray-500">MIJOZ NARXNI QANDAY KO'RADI</label>
+                <select
+                  value={customer.display_currency}
+                  onChange={(e) => setCustomer({ ...customer, display_currency: e.target.value })}
+                  className={inputCls}
+                >
+                  <option value="UZS">So'mda</option>
+                  <option value="USD">Dollarda ($)</option>
                 </select>
               </div>
             </div>

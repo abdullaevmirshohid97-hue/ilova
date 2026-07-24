@@ -46,7 +46,7 @@ Deno.serve(async (req) => {
     if (!orgId) return json({ error: 'ORG_TOPILMADI' }, 400);
 
     const body = await req.json();
-    const { name, phone, email, address, region, price_group_id, password, photo_path, manager_id } = body;
+    const { name, phone, email, address, region, price_group_id, password, photo_path, manager_id, display_currency } = body;
     if (!name?.trim() || !phone?.trim() || !price_group_id || !password || password.length < 6) {
       return json({ error: 'MAJBURIY_MAYDONLAR: ism, telefon, tarif, parol(6+)' }, 400);
     }
@@ -66,6 +66,7 @@ Deno.serve(async (req) => {
         price_group_id,
         photo_path: photo_path || null,
         manager_id: manager_id || null,
+        display_currency: display_currency === 'USD' ? 'USD' : 'UZS',
       })
       .select('id')
       .single();

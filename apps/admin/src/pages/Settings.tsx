@@ -1,9 +1,17 @@
 import { useCallback, useEffect, useState } from 'react';
-import { genPassword, supabase } from '../lib/supabase';
+import { formatDate, formatSum, genPassword, supabase } from '../lib/supabase';
 import ChangePasswordPanel from '../components/ChangePasswordPanel';
 
 type Category = { id: string; name: string; sort_order: number };
 type Group = { id: string; name: string };
+type CancelledDesignOrder = {
+  id: string;
+  customer: string;
+  phone: string;
+  qty: number;
+  total: number;
+  createdAt: string;
+};
 
 const rowInputCls =
   'flex-1 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm outline-none focus:border-brand';
@@ -229,6 +237,79 @@ function StaffPanel() {
   );
 }
 
+function DangerZonePanel() {
+  const [rows, setRows] = useState<CancelledDesignOrder[]>([]);
+  const [busy, setBusy] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    const { data } = await supabase
+      .from('design_orders')
+      .select('id, qty, unit_price, created_at, customers ( name, phone )')
+      .eq('status', 'cancelled')
+      .order('created_at', { ascending: false });
+    setRows(
+      (data ?? []).map((d: any) => ({
+        id: d.id,
+        customer: d.customers?.name ?? '—',
+        phone: d.customers?.phone ?? '',
+        qty: d.qty,
+        total: Number(d.qty) * Number(d.unit_price),
+        createdAt: d.created_at,
+      }))
+    );
+  }, []);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  async function permanentlyDelete(row: CancelledDesignOrder) {
+    if (
+      !confirm(
+        `DIQQAT: "${row.customer}" ning bekor qilingan dizayn buyurtmasi BUTUNLAY o'chiriladi — bu amalni qaytarib bo'lmaydi. Davom etilsinmi?`
+      )
+    )
+      return;
+    setBusy(row.id);
+    const { error } = await supabase.from('design_orders').delete().eq('id', row.id);
+    if (error) alert('Xatolik: ' + error.message);
+    setBusy(null);
+    load();
+  }
+
+  return (
+    <div className="rounded-2xl border border-red-200 bg-red-50/40 p-6">
+      <h3 className="font-bold text-red-600">⚠️ Xavfli zona</h3>
+      <p className="mt-1 text-sm text-gray-500">
+        Bekor qilingan dizayn buyurtmalari — asosiy ro'yxatda ko'rinmaydi. Bu yerdan butunlay,
+        qaytarib bo'lmaydigan tarzda o'chirish mumkin.
+      </p>
+      <div className="mt-4 space-y-2">
+        {rows.length === 0 && <p className="text-sm text-gray-400">Bekor qilingan buyurtma yo'q</p>}
+        {rows.map((r) => (
+          <div key={r.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-white px-4 py-3 text-sm">
+            <div>
+              <div className="font-semibold text-gray-800">
+                {r.customer} <span className="font-normal text-gray-400">· {r.phone}</span>
+              </div>
+              <div className="text-xs text-gray-400">
+                {r.qty.toLocaleString()} dona · {formatSum(r.total)} · {formatDate(r.createdAt)}
+              </div>
+            </div>
+            <button
+              onClick={() => permanentlyDelete(r)}
+              disabled={busy === r.id}
+              className="rounded-lg border border-red-300 px-3 py-1.5 text-xs font-bold text-red-600 hover:bg-red-100 disabled:opacity-50"
+            >
+              🗑 Butunlay o'chirish
+            </button>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function Settings() {
   return (
     <div className="mx-auto max-w-3xl space-y-6">
@@ -236,6 +317,7 @@ export default function Settings() {
       <CategoriesPanel />
       <PriceGroupsPanel />
       <StaffPanel />
+      <DangerZonePanel />
     </div>
   );
 }

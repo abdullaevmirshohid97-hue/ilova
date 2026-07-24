@@ -34,3 +34,8 @@ export function formatSum(n: number | null | undefined): string {
   if (n == null) return '—';
   return `${Number(n).toLocaleString('ru-RU')} so'm`;
 }
+
+export function formatUsd(n: number | null | undefined): string {
+  if (n == null) return '—';
+  return `$${Number(n).toLocaleString('en-US')}`;
+}

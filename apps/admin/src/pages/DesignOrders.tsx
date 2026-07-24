@@ -38,6 +38,8 @@ export default function DesignOrders() {
   const [busy, setBusy] = useState<string | null>(null);
 
   const load = useCallback(async () => {
+    // Bekor qilinganlar bu asosiy ro'yxatda ko'rsatilmaydi — ular
+    // Sozlamalar > Xavfli zonada, alohida butunlay o'chirish uchun turadi
     const { data } = await supabase
       .from('design_orders')
       .select(
@@ -46,6 +48,7 @@ export default function DesignOrders() {
          notes, status, created_at,
          customers ( name, phone )`
       )
+      .neq('status', 'cancelled')
       .order('created_at', { ascending: false });
     setRows(
       (data ?? []).map((d: any) => ({

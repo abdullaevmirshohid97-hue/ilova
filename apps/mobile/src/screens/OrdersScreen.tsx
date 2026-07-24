@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
-import { formatSum, supabase } from '../lib/supabase';
+import { formatSum, formatUsd, supabase } from '../lib/supabase';
 import { C, ORDER_STATUS } from '../lib/theme';
 import { useLanguage } from '../lib/i18n';
 
@@ -23,6 +23,8 @@ const INVOICE_STATUSES = ['confirmed', 'picking', 'done'];
 type OrderItem = {
   qty: number;
   unit_price: number;
+  currency: string;
+  orig_price: number | null;
   name: string;
   size: string | null;
   color: string | null;
@@ -43,17 +45,23 @@ export default function OrdersScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [invoiceBusy, setInvoiceBusy] = useState<string | null>(null);
-  const [seller, setSeller] = useState<{ orgName: string; customerName: string; customerPhone: string } | null>(null);
+  const [seller, setSeller] = useState<{
+    orgName: string;
+    customerName: string;
+    customerPhone: string;
+    displayCurrency: string;
+  } | null>(null);
 
   useEffect(() => {
     Promise.all([
       supabase.from('organizations').select('name').maybeSingle(),
-      supabase.from('customers').select('name, phone').maybeSingle(),
+      supabase.from('customers').select('name, phone, display_currency').maybeSingle(),
     ]).then(([{ data: org }, { data: cust }]) => {
       setSeller({
         orgName: (org as any)?.name ?? 'YUKCHIBOLLA',
         customerName: (cust as any)?.name ?? '',
         customerPhone: (cust as any)?.phone ?? '',
+        displayCurrency: (cust as any)?.display_currency ?? 'UZS',
       });
     });
   }, []);
@@ -63,7 +71,7 @@ export default function OrdersScreen() {
       .from('orders')
       .select(
         `id, order_number, status, total, created_at,
-         order_items ( qty, unit_price,
+         order_items ( qty, unit_price, currency, orig_price,
            product_variants ( size, color, products ( name ) )
          )`
       )
@@ -81,6 +89,8 @@ export default function OrdersScreen() {
           items: (o.order_items ?? []).map((it: any) => ({
             qty: it.qty,
             unit_price: it.unit_price,
+            currency: it.currency ?? 'UZS',
+            orig_price: it.orig_price != null ? Number(it.orig_price) : null,
             name: it.product_variants?.products?.name ?? '—',
             size: it.product_variants?.size ?? null,
             color: it.product_variants?.color ?? null,
@@ -107,6 +117,17 @@ export default function OrdersScreen() {
     };
   }, [load]);
 
+  // Mijoz "faqat dollarda" ko'rsatiladigan bo'lsa VA buyurtmadagi barcha
+  // qatorlar aynan dollarda narxlangan bo'lsa — asl (muzlatilgan) dollar
+  // summasi ko'rsatiladi, so'mdan qayta hisoblanmaydi (yaxlitlash farqi
+  // bo'lmasligi uchun). Aralash (ba'zi qatori so'mda) bo'lsa — so'mda
+  // ko'rsatiladi, chalkash bo'lmasin uchun.
+  function usdTotalOf(order: Order): number | null {
+    if (seller?.displayCurrency !== 'USD' || order.items.length === 0) return null;
+    if (!order.items.every((it) => it.currency === 'USD' && it.orig_price != null)) return null;
+    return order.items.reduce((s, it) => s + (it.orig_price as number) * it.qty, 0);
+  }
+
   function cancelOrder(order: Order) {
     Alert.alert(
       t('cancelOrderTitle'),
@@ -129,19 +150,23 @@ export default function OrdersScreen() {
   }
 
   function buildInvoiceHtml(order: Order): string {
+    const usdTotal = usdTotalOf(order);
     const dateStr = new Date(order.created_at).toLocaleString(lang === 'ru' ? 'ru-RU' : 'uz-UZ', {
       day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit',
     });
     const rows = order.items
-      .map(
-        (it) => `<tr>
+      .map((it) => {
+        const showUsd = usdTotal != null && it.orig_price != null;
+        const unit = showUsd ? formatUsd(it.orig_price) : formatSum(it.unit_price);
+        const lineTotal = showUsd ? formatUsd((it.orig_price as number) * it.qty) : formatSum(it.qty * it.unit_price);
+        return `<tr>
           <td>${it.name}</td>
           <td>${[it.size, it.color].filter(Boolean).join(' / ') || '—'}</td>
           <td style="text-align:right">${it.qty.toLocaleString()}</td>
-          <td style="text-align:right">${formatSum(it.unit_price)}</td>
-          <td style="text-align:right"><b>${formatSum(it.qty * it.unit_price)}</b></td>
-        </tr>`
-      )
+          <td style="text-align:right">${unit}</td>
+          <td style="text-align:right"><b>${lineTotal}</b></td>
+        </tr>`;
+      })
       .join('');
     return `
       <html><head><meta charset="utf-8" />
@@ -168,7 +193,7 @@ export default function OrdersScreen() {
         </tr></thead>
         <tbody>${rows}</tbody>
       </table>
-      <p class="total">${t('invoiceGrandTotal')}: <b>${formatSum(order.total)}</b></p>
+      <p class="total">${t('invoiceGrandTotal')}: <b>${usdTotal != null ? formatUsd(usdTotal) : formatSum(order.total)}</b></p>
       </body></html>
     `;
   }
@@ -234,6 +259,7 @@ export default function OrdersScreen() {
         renderItem={({ item }) => {
           const st = ORDER_STATUS[item.status];
           const statusLabel = st ? t(st.labelKey) : item.status;
+          const usdTotal = usdTotalOf(item);
           return (
             <View style={s.card}>
               <View style={s.cardHeader}>
@@ -248,22 +274,25 @@ export default function OrdersScreen() {
                   hour: '2-digit', minute: '2-digit',
                 })}
               </Text>
-              {item.items.map((it, idx) => (
-                <View key={idx} style={s.itemRow}>
-                  <Text style={s.itemName} numberOfLines={1}>
-                    {it.name}
-                    {[it.size, it.color].filter(Boolean).length > 0
-                      ? ` (${[it.size, it.color].filter(Boolean).join(', ')})`
-                      : ''}
-                  </Text>
-                  <Text style={s.itemQty}>
-                    {it.qty.toLocaleString()} × {formatSum(it.unit_price)}
-                  </Text>
-                </View>
-              ))}
+              {item.items.map((it, idx) => {
+                const showUsd = usdTotal != null && it.orig_price != null;
+                return (
+                  <View key={idx} style={s.itemRow}>
+                    <Text style={s.itemName} numberOfLines={1}>
+                      {it.name}
+                      {[it.size, it.color].filter(Boolean).length > 0
+                        ? ` (${[it.size, it.color].filter(Boolean).join(', ')})`
+                        : ''}
+                    </Text>
+                    <Text style={s.itemQty}>
+                      {it.qty.toLocaleString()} × {showUsd ? formatUsd(it.orig_price) : formatSum(it.unit_price)}
+                    </Text>
+                  </View>
+                );
+              })}
               <View style={s.totalRow}>
                 <Text style={s.totalLabel}>{t('totalLabel')}</Text>
-                <Text style={s.totalValue}>{formatSum(item.total)}</Text>
+                <Text style={s.totalValue}>{usdTotal != null ? formatUsd(usdTotal) : formatSum(item.total)}</Text>
               </View>
               {item.status === 'new' && (
                 <TouchableOpacity style={s.cancelBtn} onPress={() => cancelOrder(item)}>

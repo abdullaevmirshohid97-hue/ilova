@@ -17,6 +17,7 @@ export default function CustomerNew() {
   const [region, setRegion] = useState('');
   const [groupId, setGroupId] = useState('');
   const [managerId, setManagerId] = useState('');
+  const [displayCurrency, setDisplayCurrency] = useState<'UZS' | 'USD'>('UZS');
   const [password, setPassword] = useState(genPassword());
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
@@ -75,6 +76,7 @@ export default function CustomerNew() {
           password,
           photo_path: photoPath,
           manager_id: managerId || null,
+          display_currency: displayCurrency,
         },
       });
       if (fnErr) throw new Error(fnErr.message);
@@ -132,7 +134,7 @@ export default function CustomerNew() {
                 setDone(null);
                 setFirstName(''); setLastName(''); setPhone('+998'); setEmail('');
                 setAddress(''); setRegion(''); setPassword(genPassword());
-                setFile(null); setPreview(null); setManagerId('');
+                setFile(null); setPreview(null); setManagerId(''); setDisplayCurrency('UZS');
               }}
               className="flex-1 rounded-xl border border-gray-200 bg-white py-3 text-sm font-bold text-gray-600 hover:bg-gray-50"
             >
@@ -221,6 +223,17 @@ export default function CustomerNew() {
                 {managers.map((m) => (
                   <option key={m.id} value={m.id}>{m.name}</option>
                 ))}
+              </select>
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-gray-500">MIJOZ NARXNI QANDAY KO'RADI</label>
+              <select
+                value={displayCurrency}
+                onChange={(e) => setDisplayCurrency(e.target.value as 'UZS' | 'USD')}
+                className={inputCls}
+              >
+                <option value="UZS">So'mda</option>
+                <option value="USD">Dollarda ($)</option>
               </select>
             </div>
             <div>
