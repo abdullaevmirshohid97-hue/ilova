@@ -15,7 +15,7 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { formatSum, imageUrl, supabase } from '../lib/supabase';
+import { formatSum, formatUsd, imageUrl, supabase } from '../lib/supabase';
 import { useCart } from '../lib/cart';
 import { useLanguage } from '../lib/i18n';
 import { C } from '../lib/theme';
@@ -46,8 +46,20 @@ type Variant = {
   size: string | null;
   color: string | null;
   price: number;
+  currency: string; // 'UZS' | 'USD' — my_effective_prices()'dan
+  origPrice: number | null;
   available: number;
 };
+
+// Mijozning display_currency='USD' bo'lib, shu variant HAM dollarda
+// narxlangan bo'lsagina asl dollar summasi ko'rsatiladi — aks holda
+// har doim so'm (chalkash bo'lmasin uchun).
+function fmtVariantPrice(v: Variant, displayCurrency: string): string {
+  if (displayCurrency === 'USD' && v.currency === 'USD' && v.origPrice != null) {
+    return formatUsd(v.origPrice);
+  }
+  return formatSum(v.price);
+}
 
 type Product = {
   id: string;
@@ -118,6 +130,7 @@ function ImageGallery({
 function ProductSheet({ product, onClose }: { product: Product; onClose: () => void }) {
   const cart = useCart();
   const { t } = useLanguage();
+  const { displayCurrency } = cart;
   const { width } = useWindowDimensions();
   const isWide = width >= 700;
   const galleryWidth = isWide ? 560 : width;
@@ -137,6 +150,8 @@ function ProductSheet({ product, onClose }: { product: Product; onClose: () => v
       size: selected.size,
       color: selected.color,
       price: selected.price,
+      currency: selected.currency,
+      origPrice: selected.origPrice,
       qty,
       image: product.image,
       maxQty: selected.available,
@@ -173,7 +188,7 @@ function ProductSheet({ product, onClose }: { product: Product; onClose: () => v
               </View>
               <View style={{ alignItems: 'flex-end' }}>
                 <Text style={[ps.variantPrice, out && { color: C.faint }]}>
-                  {formatSum(v.price)}
+                  {fmtVariantPrice(v, displayCurrency)}
                 </Text>
                 <Text style={[ps.variantStock, out && { color: C.red }]}>
                   {out ? t('stockOut') : t('stockAvailable', { n: v.available.toLocaleString() })}
@@ -206,7 +221,12 @@ function ProductSheet({ product, onClose }: { product: Product; onClose: () => v
       >
         <Text style={ps.addBtnText}>
           {qty > 0 && selected != null
-            ? t('addToCartWithSum', { sum: formatSum(qty * selected.price) })
+            ? t('addToCartWithSum', {
+                sum:
+                  displayCurrency === 'USD' && selected.currency === 'USD' && selected.origPrice != null
+                    ? formatUsd(qty * selected.origPrice)
+                    : formatSum(qty * selected.price),
+              })
             : t('addToCart')}
         </Text>
       </TouchableOpacity>
@@ -248,6 +268,7 @@ function ProductSheet({ product, onClose }: { product: Product; onClose: () => v
 // ---------- Katalog (2 ustunli grid, server qidiruv + sahifalash) ----------
 export default function CatalogScreen() {
   const { t } = useLanguage();
+  const { displayCurrency } = useCart();
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [categoryId, setCategoryId] = useState<string | null>(null);
@@ -288,22 +309,26 @@ export default function CatalogScreen() {
   // yakuniy narxni qaytaradigan my_effective_prices() RPC orqali olinadi.
   // Aks holda mijoz katalogda hali buyurtma bermay turib ham noto'g'ri
   // (baza) narxni ko'rib, chalkashib qolardi.
-  function mapRow(p: any, priceMap: Map<string, number>): Product {
+  type EffPrice = { price: number; currency: string; origPrice: number | null };
+
+  function mapRow(p: any, priceMap: Map<string, EffPrice>): Product {
     const imgs = (p.product_images ?? []).sort(
       (a: any, b: any) => Number(b.is_primary) - Number(a.is_primary) || a.sort_order - b.sort_order
     );
     // Narxsiz variant (mijoz guruhida narx yo'q) katalogda ko'rsatilmaydi
     const variants: Variant[] = (p.product_variants ?? [])
       .map((v: any): Variant | null => {
-        const price = priceMap.get(v.id);
-        if (price == null) return null;
+        const eff = priceMap.get(v.id);
+        if (eff == null) return null;
         const sl = first<any>(v.stock_levels);
         return {
           id: v.id,
           sku: v.sku,
           size: v.size,
           color: v.color,
-          price,
+          price: eff.price,
+          currency: eff.currency,
+          origPrice: eff.origPrice,
           available: Math.max(0, (sl?.qty ?? 0) - (sl?.reserved ?? 0)),
         };
       })
@@ -340,8 +365,11 @@ export default function CatalogScreen() {
       supabase.rpc('my_effective_prices'),
     ]);
     if (error || !data) return { rows: [], full: false, failed: true };
-    const priceMap = new Map<string, number>(
-      (priceRows ?? []).map((r: any) => [r.variant_id, Number(r.price)])
+    const priceMap = new Map<string, EffPrice>(
+      (priceRows ?? []).map((r: any) => [
+        r.variant_id,
+        { price: Number(r.price), currency: r.currency ?? 'UZS', origPrice: r.orig_price != null ? Number(r.orig_price) : null },
+      ])
     );
     // Mijoz guruhida narxi bo'lmagan mahsulot (barcha variantlari filtrlanib) grid'da chiqmaydi
     const rows = data.map((p: any) => mapRow(p, priceMap)).filter((p) => p.variants.length > 0);
@@ -502,8 +530,10 @@ export default function CatalogScreen() {
           loadingMore ? <ActivityIndicator style={{ marginTop: 12 }} color={C.primary} /> : null
         }
         renderItem={({ item }) => {
-          const prices = item.variants.map((v) => v.price);
-          const minPrice = prices.length ? Math.min(...prices) : null;
+          const minVariant = item.variants.reduce<Variant | null>(
+            (min, v) => (min == null || v.price < min.price ? v : min),
+            null
+          );
           const totalAvail = item.variants.reduce((sum, v) => sum + v.available, 0);
           return (
             <TouchableOpacity
@@ -519,7 +549,7 @@ export default function CatalogScreen() {
                 </View>
               )}
               <View style={s.cardBody}>
-                <Text style={s.price}>{minPrice != null ? formatSum(minPrice) : '—'}</Text>
+                <Text style={s.price}>{minVariant != null ? fmtVariantPrice(minVariant, displayCurrency) : '—'}</Text>
                 <Text style={s.name} numberOfLines={2}>
                   {item.name}
                   {item.model ? ` · ${item.model}` : ''}

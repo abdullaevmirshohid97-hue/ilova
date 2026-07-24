@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState, ReactNode } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { supabase } from './supabase';
 
 const STORAGE_KEY = '@ilova/cart';
 
@@ -10,6 +11,8 @@ export type CartItem = {
   size: string | null;
   color: string | null;
   price: number;
+  currency: string; // 'UZS' | 'USD' — my_effective_prices()'dan
+  origPrice: number | null; // valyuta='USD' bo'lsa asl dollar summasi
   qty: number;
   image: string | null;
   maxQty: number; // joriy qoldiq — undan ko'p qo'shib bo'lmaydi
@@ -23,12 +26,15 @@ type CartCtx = {
   clear: () => void;
   total: number;
   count: number;
+  // Mijoz narxlarni qanday ko'rishni xohlaydi ('UZS' | 'USD') — customers.display_currency
+  displayCurrency: string;
 };
 
 const Ctx = createContext<CartCtx | null>(null);
 
 export function CartProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<CartItem[]>([]);
+  const [displayCurrency, setDisplayCurrency] = useState('UZS');
   const hydrated = useRef(false);
 
   // Ilova ochilganda saqlangan savatni tiklaymiz
@@ -39,6 +45,13 @@ export function CartProvider({ children }: { children: ReactNode }) {
       })
       .finally(() => {
         hydrated.current = true;
+      });
+    supabase
+      .from('customers')
+      .select('display_currency')
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data) setDisplayCurrency((data as any).display_currency ?? 'UZS');
       });
   }, []);
 
@@ -54,6 +67,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       items,
       total,
       count: items.length,
+      displayCurrency,
       add: (item) =>
         setItems((prev) => {
           const ex = prev.find((i) => i.variantId === item.variantId);
@@ -78,7 +92,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
         setItems((prev) => prev.filter((i) => i.variantId !== variantId)),
       clear: () => setItems([]),
     };
-  }, [items]);
+  }, [items, displayCurrency]);
 
   return <Ctx.Provider value={api}>{children}</Ctx.Provider>;
 }

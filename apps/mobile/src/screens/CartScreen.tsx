@@ -10,7 +10,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { formatSum, supabase } from '../lib/supabase';
+import { formatSum, formatUsd, supabase } from '../lib/supabase';
 import { useCart } from '../lib/cart';
 import { useLanguage } from '../lib/i18n';
 import { C } from '../lib/theme';
@@ -20,6 +20,27 @@ export default function CartScreen({ onOrdered }: { onOrdered: () => void }) {
   const { t } = useLanguage();
   const [sending, setSending] = useState(false);
   const [comment, setComment] = useState('');
+
+  // Faqat SAVATDAGI BARCHA qatorlar dollarda narxlangan bo'lsagina jami
+  // dollarda ko'rsatiladi (mijoz display_currency='USD' bo'lsa ham) —
+  // aralash (ba'zisi so'mda) bo'lsa chalkash bo'lmasin uchun so'mda qoladi.
+  const allUsd =
+    cart.displayCurrency === 'USD' &&
+    cart.items.length > 0 &&
+    cart.items.every((i) => i.currency === 'USD' && i.origPrice != null);
+  const usdTotal = allUsd ? cart.items.reduce((s, i) => s + (i.origPrice as number) * i.qty, 0) : null;
+  function fmtItemPrice(i: (typeof cart.items)[number]): string {
+    if (cart.displayCurrency === 'USD' && i.currency === 'USD' && i.origPrice != null) {
+      return formatUsd(i.origPrice);
+    }
+    return formatSum(i.price);
+  }
+  function fmtItemLineTotal(i: (typeof cart.items)[number]): string {
+    if (cart.displayCurrency === 'USD' && i.currency === 'USD' && i.origPrice != null) {
+      return formatUsd(i.origPrice * i.qty);
+    }
+    return formatSum(i.price * i.qty);
+  }
 
   async function placeOrder() {
     if (cart.items.length === 0) return;
@@ -78,8 +99,7 @@ export default function CartScreen({ onOrdered }: { onOrdered: () => void }) {
                 {[item.size, item.color].filter(Boolean).join(' · ') || item.sku}
               </Text>
               <Text style={s.price}>
-                {formatSum(item.price)} × {item.qty.toLocaleString()} ={' '}
-                {formatSum(item.price * item.qty)}
+                {fmtItemPrice(item)} × {item.qty.toLocaleString()} = {fmtItemLineTotal(item)}
               </Text>
             </View>
             <View style={s.controls}>
@@ -111,7 +131,7 @@ export default function CartScreen({ onOrdered }: { onOrdered: () => void }) {
         />
         <View style={s.totalRow}>
           <Text style={s.totalLabel}>{t('totalLabel')}</Text>
-          <Text style={s.totalValue}>{formatSum(cart.total)}</Text>
+          <Text style={s.totalValue}>{usdTotal != null ? formatUsd(usdTotal) : formatSum(cart.total)}</Text>
         </View>
         <TouchableOpacity
           style={[s.orderBtn, sending && { opacity: 0.6 }]}
