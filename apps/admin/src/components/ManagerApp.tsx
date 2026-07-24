@@ -1,13 +1,63 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import ManagerPrices from '../pages/ManagerPrices';
-import ChangePasswordPanel from './ChangePasswordPanel';
+import ManagerOrders from '../pages/ManagerOrders';
+import ManagerSettings from '../pages/ManagerSettings';
+
+type Tab = 'prices' | 'orders' | 'settings';
+
+const TABS: { key: Tab; icon: string; label: string }[] = [
+  { key: 'prices', icon: '🏷️', label: 'Narxlarim' },
+  { key: 'orders', icon: '🧾', label: 'Buyurtmalarim' },
+  { key: 'settings', icon: '⚙️', label: 'Sozlamalar' },
+];
+
+function SidebarNav({
+  name,
+  tab,
+  onSelect,
+}: {
+  name: string;
+  tab: Tab;
+  onSelect: (t: Tab) => void;
+}) {
+  return (
+    <>
+      <div className="px-6 py-6">
+        <div className="text-xl font-extrabold tracking-wide">YUKCHIBOLLA</div>
+        <div className="mt-1 text-xs text-white/40">Menejer{name ? ` — ${name}` : ''}</div>
+      </div>
+      <nav className="flex-1 space-y-1 px-3">
+        {TABS.map((t) => (
+          <button
+            key={t.key}
+            onClick={() => onSelect(t.key)}
+            className={`flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-sm font-medium transition ${
+              tab === t.key ? 'bg-white/10 text-white' : 'text-white/55 hover:bg-white/5 hover:text-white'
+            }`}
+          >
+            <span className="text-base">{t.icon}</span>
+            {t.label}
+          </button>
+        ))}
+      </nav>
+      <button
+        onClick={() => supabase.auth.signOut()}
+        className="mx-3 mb-6 flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium text-red-300 hover:bg-white/5"
+      >
+        🚪 Chiqish
+      </button>
+    </>
+  );
+}
 
 // Menejerning cheklangan paneli — to'liq admin Layout/sidebar'dan alohida,
-// chunki menejer faqat o'z narxini ko'radi/qo'yadi, boshqa hech narsaga
-// (buyurtmalar, mijozlar, boshqa menejerlar) kirish huquqi yo'q.
+// chunki menejer faqat o'z narxi, o'z mijozlarining buyurtmalari va o'z
+// sozlamalariga kirish huquqiga ega — boshqa hech narsa yo'q.
 export default function ManagerApp() {
   const [name, setName] = useState('');
+  const [tab, setTab] = useState<Tab>('prices');
+  const [drawerOpen, setDrawerOpen] = useState(false);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
@@ -16,23 +66,48 @@ export default function ManagerApp() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 bg-white px-4 py-3 sm:px-8 sm:py-0 sm:h-16">
-        <div className="min-w-0">
-          <div className="text-base font-extrabold text-gray-900 sm:text-lg">YUKCHIBOLLA</div>
-          <div className="truncate text-xs text-gray-400">Menejer paneli{name ? ` — ${name}` : ''}</div>
+    <div className="flex h-screen overflow-hidden bg-gray-50">
+      {/* Planshet/kompyuter — doimiy sidebar */}
+      <aside className="hidden w-60 shrink-0 flex-col bg-navy text-white md:flex">
+        <SidebarNav name={name} tab={tab} onSelect={setTab} />
+      </aside>
+
+      {/* Telefon — gamburger bilan ochiladigan drawer */}
+      {drawerOpen && (
+        <div className="fixed inset-0 z-50 md:hidden">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setDrawerOpen(false)} />
+          <aside className="absolute left-0 top-0 flex h-full w-72 max-w-[80vw] flex-col bg-navy text-white shadow-2xl">
+            <SidebarNav
+              name={name}
+              tab={tab}
+              onSelect={(t) => {
+                setTab(t);
+                setDrawerOpen(false);
+              }}
+            />
+          </aside>
         </div>
-        <button
-          onClick={() => supabase.auth.signOut()}
-          className="shrink-0 rounded-xl border border-gray-200 px-4 py-2 text-sm font-bold text-red-500 hover:bg-red-50"
-        >
-          🚪 Chiqish
-        </button>
-      </header>
-      <main className="mx-auto max-w-5xl space-y-6 p-4 sm:p-8">
-        <ChangePasswordPanel />
-        <ManagerPrices />
-      </main>
+      )}
+
+      <div className="flex min-w-0 flex-1 flex-col">
+        <header className="flex h-14 shrink-0 items-center gap-3 border-b border-gray-200 bg-white px-4 md:h-16 md:px-8">
+          <button
+            onClick={() => setDrawerOpen(true)}
+            className="-ml-1 shrink-0 rounded-lg p-2 text-xl text-gray-500 hover:bg-gray-100 md:hidden"
+            aria-label="Menyu"
+          >
+            ☰
+          </button>
+          <h1 className="flex-1 truncate text-base font-bold text-gray-900 md:text-lg">
+            {TABS.find((t) => t.key === tab)?.label}
+          </h1>
+        </header>
+        <main className="flex-1 overflow-y-auto p-4 md:p-8">
+          {tab === 'prices' && <ManagerPrices />}
+          {tab === 'orders' && <ManagerOrders />}
+          {tab === 'settings' && <ManagerSettings />}
+        </main>
+      </div>
     </div>
   );
 }

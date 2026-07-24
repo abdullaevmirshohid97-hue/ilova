@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { ORDER_STATUS, formatDate, formatSum, imageUrl, supabase } from '../lib/supabase';
 import AdminOrderModal from '../components/AdminOrderModal';
 import DesignOrderModal from '../components/DesignOrderModal';
+import OrderEditModal from '../components/OrderEditModal';
 
 const PAGE_SIZE = 50;
 
@@ -41,6 +42,7 @@ export default function Orders() {
   const [hasMore, setHasMore] = useState(false);
   const [showNewOrder, setShowNewOrder] = useState(false);
   const [showDesignOrder, setShowDesignOrder] = useState(false);
+  const [editOrderId, setEditOrderId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     const q_ = search.trim();
@@ -258,6 +260,12 @@ export default function Orders() {
                     ✓ Qabul qilish
                   </button>
                   <button
+                    onClick={() => setEditOrderId(o.id)}
+                    className="rounded-xl border border-gray-200 px-5 py-2 text-sm font-bold text-gray-600 hover:border-brand hover:text-brand"
+                  >
+                    ✏️ Tahrirlash
+                  </button>
+                  <button
                     disabled={busy === o.id}
                     onClick={() => confirm(`№${o.order_number} bekor qilinsinmi?`) && act(o.id, 'cancel_order')}
                     className="rounded-xl border border-red-200 px-5 py-2 text-sm font-bold text-red-500 hover:bg-red-50 disabled:opacity-50"
@@ -322,6 +330,9 @@ export default function Orders() {
       )}
       {showDesignOrder && (
         <DesignOrderModal onClose={() => setShowDesignOrder(false)} onCreated={() => {}} />
+      )}
+      {editOrderId && (
+        <OrderEditModal orderId={editOrderId} onClose={() => setEditOrderId(null)} onSaved={load} />
       )}
     </div>
   );
