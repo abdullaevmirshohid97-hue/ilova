@@ -68,6 +68,7 @@ export default function Finance() {
         <div className="border-b border-gray-100 px-6 py-4 font-bold text-gray-900">
           Moliya jurnali (ledger)
         </div>
+        <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="bg-gray-50">
             <tr className="text-left text-xs uppercase tracking-wide text-gray-400">
@@ -107,6 +108,7 @@ export default function Finance() {
             )}
           </tbody>
         </table>
+        </div>
       </div>
     </div>
   );

@@ -297,6 +297,7 @@ export default function ProductImport() {
           </div>
 
           <div className="mt-4 max-h-96 overflow-auto rounded-xl border border-gray-100">
+            <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="sticky top-0 bg-gray-50">
                 <tr className="text-left text-xs uppercase tracking-wide text-gray-400">
@@ -327,6 +328,7 @@ export default function ProductImport() {
                 ))}
               </tbody>
             </table>
+            </div>
           </div>
         </div>
       )}

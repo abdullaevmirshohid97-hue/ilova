@@ -64,6 +64,7 @@ export default function Customers() {
       </div>
 
       <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white">
+      <div className="overflow-x-auto">
       <table className="w-full text-sm">
         <thead className="bg-gray-50">
           <tr className="text-left text-xs uppercase tracking-wide text-gray-400">
@@ -144,6 +145,7 @@ export default function Customers() {
           )}
         </tbody>
       </table>
+      </div>
       </div>
 
       {payFor && (

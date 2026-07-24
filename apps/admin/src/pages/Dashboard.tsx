@@ -126,6 +126,7 @@ export default function Dashboard() {
             Hammasi →
           </Link>
         </div>
+        <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
             <tr className="text-left text-xs uppercase tracking-wide text-gray-400">
@@ -164,6 +165,7 @@ export default function Dashboard() {
             )}
           </tbody>
         </table>
+        </div>
       </div>
     </div>
   );

@@ -508,6 +508,7 @@ export default function CustomerDetail() {
       {/* Buyurtmalar tarixi */}
       <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white">
         <div className="border-b border-gray-100 px-6 py-4 font-bold text-gray-900">Buyurtmalar tarixi</div>
+        <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="bg-gray-50">
             <tr className="text-left text-xs uppercase tracking-wide text-gray-400">
@@ -538,11 +539,13 @@ export default function CustomerDetail() {
             )}
           </tbody>
         </table>
+        </div>
       </div>
 
       {/* Moliya tarixi */}
       <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white">
         <div className="border-b border-gray-100 px-6 py-4 font-bold text-gray-900">To'lovlar / moliya tarixi</div>
+        <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="bg-gray-50">
             <tr className="text-left text-xs uppercase tracking-wide text-gray-400">
@@ -588,6 +591,7 @@ export default function CustomerDetail() {
             )}
           </tbody>
         </table>
+        </div>
       </div>
 
       {payOpen && (

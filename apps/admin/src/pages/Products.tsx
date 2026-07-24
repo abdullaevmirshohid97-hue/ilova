@@ -888,6 +888,7 @@ export default function Products() {
             </div>
           </div>
 
+          <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-gray-50/60">
               <tr className="text-left text-xs uppercase tracking-wide text-gray-400">
@@ -943,6 +944,7 @@ export default function Products() {
               })}
             </tbody>
           </table>
+          </div>
         </div>
       ))}
 

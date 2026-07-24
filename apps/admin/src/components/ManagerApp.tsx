@@ -17,19 +17,19 @@ export default function ManagerApp() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <header className="flex h-16 items-center justify-between border-b border-gray-200 bg-white px-8">
-        <div>
-          <div className="text-lg font-extrabold text-gray-900">YUKCHIBOLLA</div>
-          <div className="text-xs text-gray-400">Menejer paneli{name ? ` — ${name}` : ''}</div>
+      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 bg-white px-4 py-3 sm:px-8 sm:py-0 sm:h-16">
+        <div className="min-w-0">
+          <div className="text-base font-extrabold text-gray-900 sm:text-lg">YUKCHIBOLLA</div>
+          <div className="truncate text-xs text-gray-400">Menejer paneli{name ? ` — ${name}` : ''}</div>
         </div>
         <button
           onClick={() => supabase.auth.signOut()}
-          className="rounded-xl border border-gray-200 px-4 py-2 text-sm font-bold text-red-500 hover:bg-red-50"
+          className="shrink-0 rounded-xl border border-gray-200 px-4 py-2 text-sm font-bold text-red-500 hover:bg-red-50"
         >
           🚪 Chiqish
         </button>
       </header>
-      <main className="mx-auto max-w-5xl space-y-6 p-8">
+      <main className="mx-auto max-w-5xl space-y-6 p-4 sm:p-8">
         <ChangePasswordPanel />
         <ManagerPrices />
       </main>

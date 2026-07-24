@@ -295,8 +295,8 @@ export default function ManagerPrices() {
                   const mine = activePrices[v.id];
                   const generalRef = selectedCustomer ? generalPrices[v.id] : null;
                   return (
-                    <div key={v.id} className="flex items-center gap-2 rounded-lg bg-gray-50 px-3 py-2 text-sm">
-                      <span className="flex-1 text-gray-600">
+                    <div key={v.id} className="flex flex-wrap items-center gap-2 rounded-lg bg-gray-50 px-3 py-2 text-sm">
+                      <span className="min-w-0 flex-1 text-gray-600">
                         {[v.size, v.color].filter(Boolean).join(' / ') || v.sku}
                         {generalRef != null && (
                           <span className="ml-2 text-xs text-gray-400">(umumiy: {formatSum(generalRef)})</span>
@@ -309,12 +309,12 @@ export default function ManagerPrices() {
                         value={inputs[v.id] ?? ''}
                         onChange={(e) => setInputs((p) => ({ ...p, [v.id]: e.target.value.replace(/\D/g, '') }))}
                         placeholder={mine != null ? "O'zgartirish" : "Narx qo'yish"}
-                        className="w-32 rounded-lg border border-gray-200 bg-white px-2 py-1 text-sm outline-none focus:border-brand"
+                        className="w-28 min-w-0 flex-1 rounded-lg border border-gray-200 bg-white px-2 py-1 text-sm outline-none focus:border-brand sm:w-32 sm:flex-none"
                       />
                       <button
                         onClick={() => savePrice(v.id)}
                         disabled={saving === v.id || !inputs[v.id]}
-                        className="rounded-lg bg-brand px-3 py-1.5 text-xs font-bold text-white hover:opacity-90 disabled:opacity-50"
+                        className="shrink-0 rounded-lg bg-brand px-3 py-1.5 text-xs font-bold text-white hover:opacity-90 disabled:opacity-50"
                       >
                         Saqlash
                       </button>
@@ -322,7 +322,7 @@ export default function ManagerPrices() {
                         <button
                           onClick={() => clearPrice(v.id)}
                           disabled={saving === v.id}
-                          className="rounded-lg border border-gray-200 px-2 py-1.5 text-xs font-bold text-gray-400 hover:border-red-300 hover:text-red-400"
+                          className="shrink-0 rounded-lg border border-gray-200 px-2 py-1.5 text-xs font-bold text-gray-400 hover:border-red-300 hover:text-red-400"
                         >
                           ✕
                         </button>
