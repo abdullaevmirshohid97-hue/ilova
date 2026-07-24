@@ -4,17 +4,21 @@ import { supabase } from '../lib/supabase';
 export type PickedCustomer = {
   id: string;
   name: string;
-  phone: string;
+  phone: string | null;
   price_group_id: string | null;
 };
 
+// customers_masked — menejerga biriktirilgan mijozning telefoni admin
+// uchun yashirilgan (o'zi ko'rgan holda esa to'liq) — pastda shu view
+// ishlatiladi, shunda bu komponent admin ham, menejer ham foydalanganda
+// avtomatik to'g'ri ishlaydi.
 export default function CustomerPicker({ onPick }: { onPick: (c: PickedCustomer) => void }) {
   const [search, setSearch] = useState('');
   const [customers, setCustomers] = useState<PickedCustomer[]>([]);
 
   useEffect(() => {
     supabase
-      .from('customers')
+      .from('customers_masked')
       .select('id, name, phone, price_group_id')
       .eq('is_active', true)
       .order('name')
@@ -23,7 +27,7 @@ export default function CustomerPicker({ onPick }: { onPick: (c: PickedCustomer)
 
   const q = search.trim().toLowerCase();
   const filtered = q
-    ? customers.filter((c) => c.name.toLowerCase().includes(q) || c.phone.includes(q))
+    ? customers.filter((c) => c.name.toLowerCase().includes(q) || (c.phone ?? '').includes(q))
     : customers;
 
   return (
@@ -46,7 +50,7 @@ export default function CustomerPicker({ onPick }: { onPick: (c: PickedCustomer)
             className="flex w-full items-center justify-between border-b border-gray-50 px-4 py-3 text-left text-sm last:border-0 hover:bg-brand-soft"
           >
             <span className="font-semibold text-gray-800">{c.name}</span>
-            <span className="text-gray-400">{c.phone}</span>
+            <span className="text-gray-400">{c.phone ?? '🔒 menejer mijozi'}</span>
           </button>
         ))}
       </div>

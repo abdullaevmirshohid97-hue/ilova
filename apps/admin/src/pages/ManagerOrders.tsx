@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { ORDER_STATUS, formatDate, formatSum, supabase } from '../lib/supabase';
 import OrderEditModal from '../components/OrderEditModal';
+import AdminOrderModal from '../components/AdminOrderModal';
+import DesignOrderModal from '../components/DesignOrderModal';
 
 type Item = { qty: number; unit_price: number; name: string; size: string | null; color: string | null };
 type Order = {
@@ -32,6 +34,8 @@ export default function ManagerOrders() {
   const [search, setSearch] = useState('');
   const [busy, setBusy] = useState<string | null>(null);
   const [editOrderId, setEditOrderId] = useState<string | null>(null);
+  const [showNewOrder, setShowNewOrder] = useState(false);
+  const [showDesignOrder, setShowDesignOrder] = useState(false);
 
   const load = useCallback(async () => {
     const q_ = search.trim();
@@ -111,12 +115,26 @@ export default function ManagerOrders() {
         ))}
       </div>
 
-      <input
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-        placeholder="🔍 Mijoz nomi, telefon yoki buyurtma №..."
-        className={inputCls + ' w-full max-w-sm'}
-      />
+      <div className="flex flex-wrap items-center gap-3">
+        <input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="🔍 Mijoz nomi, telefon yoki buyurtma №..."
+          className={inputCls + ' w-full max-w-sm'}
+        />
+        <button
+          onClick={() => setShowDesignOrder(true)}
+          className="ml-auto rounded-xl border border-gray-200 px-5 py-3 text-sm font-bold text-gray-600 hover:border-brand hover:text-brand"
+        >
+          🎨 Dizayn buyurtma
+        </button>
+        <button
+          onClick={() => setShowNewOrder(true)}
+          className="rounded-xl bg-brand px-6 py-3 text-sm font-bold text-white shadow-lg shadow-brand/25 hover:opacity-90"
+        >
+          ➕ Buyurtma yaratish
+        </button>
+      </div>
 
       {orders.length === 0 && (
         <div className="rounded-2xl border border-gray-200 bg-white p-12 text-center text-gray-400">
@@ -201,6 +219,12 @@ export default function ManagerOrders() {
 
       {editOrderId && (
         <OrderEditModal orderId={editOrderId} onClose={() => setEditOrderId(null)} onSaved={load} />
+      )}
+      {showNewOrder && (
+        <AdminOrderModal onClose={() => setShowNewOrder(false)} onCreated={load} />
+      )}
+      {showDesignOrder && (
+        <DesignOrderModal onClose={() => setShowDesignOrder(false)} onCreated={() => {}} />
       )}
     </div>
   );

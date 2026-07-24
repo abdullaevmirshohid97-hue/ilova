@@ -18,7 +18,7 @@ type Manager = { id: string; name: string };
 type Customer = {
   id: string;
   name: string;
-  phone: string;
+  phone: string | null;
   email: string | null;
   address: string | null;
   region: string | null;
@@ -146,7 +146,7 @@ export default function CustomerDetail() {
     const [{ data: cust }, { data: grps }, { data: mgrs }, { data: bal }, { data: ords }, { data: led }] =
       await Promise.all([
         supabase
-          .from('customers')
+          .from('customers_masked')
           .select('id, name, phone, email, address, region, price_group_id, manager_id, display_currency, photo_path, is_active, notes')
           .eq('id', id)
           .single(),
@@ -169,7 +169,7 @@ export default function CustomerDetail() {
     if (cust) {
       setCustomer(cust as any);
       setPreview((cust as any).photo_path ? AVATAR_BASE + (cust as any).photo_path : null);
-      setNewPhone((cust as any).phone);
+      setNewPhone((cust as any).phone ?? '');
     }
     setGroups((grps ?? []) as Group[]);
     setManagers((mgrs ?? []) as Manager[]);
@@ -351,7 +351,7 @@ export default function CustomerDetail() {
                 <label className="text-xs font-semibold text-gray-500">TELEFON (LOGIN)</label>
                 {!phoneEdit ? (
                   <div className="flex items-center gap-2">
-                    <input value={customer.phone} disabled className={inputCls + ' text-gray-400'} />
+                    <input value={customer.phone ?? '🔒 menejer mijozi — yashirin'} disabled className={inputCls + ' text-gray-400'} />
                     <button
                       onClick={() => setPhoneEdit(true)}
                       className="shrink-0 rounded-xl border border-gray-200 px-3 py-3 text-xs font-bold text-gray-500 hover:border-brand hover:text-brand"
@@ -372,7 +372,7 @@ export default function CustomerDetail() {
                     <button
                       onClick={() => {
                         setPhoneEdit(false);
-                        setNewPhone(customer.phone);
+                        setNewPhone(customer.phone ?? '');
                       }}
                       className="shrink-0 rounded-xl border border-gray-200 px-3 py-3 text-xs font-bold text-gray-500"
                     >

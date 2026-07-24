@@ -1,12 +1,14 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
+import ManagerCustomers from '../pages/ManagerCustomers';
 import ManagerPrices from '../pages/ManagerPrices';
 import ManagerOrders from '../pages/ManagerOrders';
 import ManagerSettings from '../pages/ManagerSettings';
 
-type Tab = 'prices' | 'orders' | 'settings';
+type Tab = 'customers' | 'prices' | 'orders' | 'settings';
 
 const TABS: { key: Tab; icon: string; label: string }[] = [
+  { key: 'customers', icon: '👥', label: 'Mijozlarim' },
   { key: 'prices', icon: '🏷️', label: 'Narxlarim' },
   { key: 'orders', icon: '🧾', label: 'Buyurtmalarim' },
   { key: 'settings', icon: '⚙️', label: 'Sozlamalar' },
@@ -56,7 +58,7 @@ function SidebarNav({
 // sozlamalariga kirish huquqiga ega — boshqa hech narsa yo'q.
 export default function ManagerApp() {
   const [name, setName] = useState('');
-  const [tab, setTab] = useState<Tab>('prices');
+  const [tab, setTab] = useState<Tab>('customers');
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   useEffect(() => {
@@ -103,6 +105,7 @@ export default function ManagerApp() {
           </h1>
         </header>
         <main className="flex-1 overflow-y-auto p-4 md:p-8">
+          {tab === 'customers' && <ManagerCustomers />}
           {tab === 'prices' && <ManagerPrices />}
           {tab === 'orders' && <ManagerOrders />}
           {tab === 'settings' && <ManagerSettings />}

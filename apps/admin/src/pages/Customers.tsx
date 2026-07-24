@@ -8,7 +8,7 @@ const AVATAR_BASE = `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/publ
 type Row = {
   id: string;
   name: string;
-  phone: string;
+  phone: string | null;
   email: string | null;
   photo: string | null;
   region: string | null;
@@ -23,16 +23,22 @@ export default function Customers() {
   const nav = useNavigate();
 
   const load = useCallback(async () => {
-    const [{ data: customers }, { data: balances }] = await Promise.all([
+    // customers_masked — menejerga biriktirilgan mijozning telefonini
+    // admin uchun yashiradi. Bu view bo'lgani uchun price_groups
+    // avtomatik "embed" qilinmaydi (PostgREST FK'ni faqat jadvallardan
+    // biladi) — shuning uchun alohida so'rab, id bo'yicha bog'laymiz.
+    const [{ data: customers }, { data: balances }, { data: groups }] = await Promise.all([
       supabase
-        .from('customers')
-        .select('id, name, phone, email, photo_path, region, is_active, price_groups ( name )')
+        .from('customers_masked')
+        .select('id, name, phone, email, photo_path, region, is_active, price_group_id')
         .order('name'),
       supabase.from('customer_balances').select('customer_id, balance'),
+      supabase.from('price_groups').select('id, name'),
     ]);
     const balMap = new Map(
       (balances ?? []).map((b: any) => [b.customer_id, Number(b.balance)])
     );
+    const groupMap = new Map((groups ?? []).map((g: any) => [g.id, g.name]));
     setRows(
       (customers ?? []).map((c: any) => ({
         id: c.id,
@@ -41,7 +47,7 @@ export default function Customers() {
         email: c.email,
         photo: c.photo_path ? AVATAR_BASE + c.photo_path : null,
         region: c.region,
-        group: c.price_groups?.name ?? '—',
+        group: groupMap.get(c.price_group_id) ?? '—',
         balance: balMap.get(c.id) ?? 0,
         active: c.is_active,
       }))
@@ -105,7 +111,7 @@ export default function Customers() {
                   </div>
                 </div>
               </td>
-              <td className="px-6 py-3 text-gray-600">{r.phone}</td>
+              <td className="px-6 py-3 text-gray-600">{r.phone ?? '🔒 menejer mijozi'}</td>
               <td className="px-6 py-3 text-gray-500">{r.region ?? '—'}</td>
               <td className="px-6 py-3">
                 <span className="rounded-full bg-brand-soft px-3 py-1 text-xs font-bold text-brand">
