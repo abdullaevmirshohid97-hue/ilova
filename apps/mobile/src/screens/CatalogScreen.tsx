@@ -283,14 +283,19 @@ export default function CatalogScreen() {
     return () => clearTimeout(t);
   }, [search]);
 
-  function mapRow(p: any): Product {
+  // Narx to'g'ridan-to'g'ri `prices` (baza) jadvalidan emas — mijozning
+  // o'ziga (menejeri qo'ygan narx bo'lsa, o'shani hisobga olib) tegishli
+  // yakuniy narxni qaytaradigan my_effective_prices() RPC orqali olinadi.
+  // Aks holda mijoz katalogda hali buyurtma bermay turib ham noto'g'ri
+  // (baza) narxni ko'rib, chalkashib qolardi.
+  function mapRow(p: any, priceMap: Map<string, number>): Product {
     const imgs = (p.product_images ?? []).sort(
       (a: any, b: any) => Number(b.is_primary) - Number(a.is_primary) || a.sort_order - b.sort_order
     );
     // Narxsiz variant (mijoz guruhida narx yo'q) katalogda ko'rsatilmaydi
     const variants: Variant[] = (p.product_variants ?? [])
       .map((v: any): Variant | null => {
-        const price = first<any>(v.prices)?.price;
+        const price = priceMap.get(v.id);
         if (price == null) return null;
         const sl = first<any>(v.stock_levels);
         return {
@@ -298,7 +303,7 @@ export default function CatalogScreen() {
           sku: v.sku,
           size: v.size,
           color: v.color,
-          price: Number(price),
+          price,
           available: Math.max(0, (sl?.qty ?? 0) - (sl?.reserved ?? 0)),
         };
       })
@@ -321,7 +326,6 @@ export default function CatalogScreen() {
         `id, name, model, material,
          product_images ( storage_path, thumb_path, is_primary, sort_order ),
          product_variants ( id, sku, size, color,
-           prices ( price ),
            stock_levels ( qty, reserved )
          )`
       )
@@ -331,10 +335,16 @@ export default function CatalogScreen() {
     if (categoryId) q = q.eq('category_id', categoryId);
     if (debouncedSearch) q = q.or(`name.ilike.%${debouncedSearch}%,model.ilike.%${debouncedSearch}%`);
 
-    const { data, error } = await q;
+    const [{ data, error }, { data: priceRows }] = await Promise.all([
+      q,
+      supabase.rpc('my_effective_prices'),
+    ]);
     if (error || !data) return { rows: [], full: false, failed: true };
+    const priceMap = new Map<string, number>(
+      (priceRows ?? []).map((r: any) => [r.variant_id, Number(r.price)])
+    );
     // Mijoz guruhida narxi bo'lmagan mahsulot (barcha variantlari filtrlanib) grid'da chiqmaydi
-    const rows = data.map(mapRow).filter((p) => p.variants.length > 0);
+    const rows = data.map((p: any) => mapRow(p, priceMap)).filter((p) => p.variants.length > 0);
     return { rows, full: data.length === PAGE_SIZE, failed: false };
   }
 
