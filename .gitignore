@@ -10,6 +10,7 @@ build/
 .env
 .env.*
 !.env.example
+.env-zaxira/
 kodchi/
 supabase/.temp/
 supabase/.branches/
