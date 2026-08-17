@@ -32,24 +32,28 @@ fi
 cd "$REPO_DIR"
 git pull --ff-only
 
-# apps/admin/.env va apps/mobile/.env — gitignore'da, serverda bir marta
-# qo'lda yaratiladi. Bu yerdagi kalit PUBLISHABLE (anon) — client bundle'ga
-# baribir ochiq chiqadi, shuning uchun faylda saqlash xavfsiz.
-if [ ! -f apps/admin/.env ]; then
-  cat > apps/admin/.env <<'ENVEOF'
-VITE_SUPABASE_URL=https://hgyugftmkausfkekandq.supabase.co
-VITE_SUPABASE_ANON_KEY=sb_publishable_xUgjGdPDbukb5Pk57H4U6w_VO9vWTRO
-ENVEOF
-  echo "apps/admin/.env yaratildi (birinchi marta)."
-fi
+# apps/admin/.env va apps/mobile/.env — gitignore'da, shuning uchun shu skript
+# HAR SAFAR ustidan yozadi. Bu yerdagi kalit PUBLISHABLE (anon) — client
+# bundle'ga baribir ochiq chiqadi, shuning uchun faylda saqlash xavfsiz.
+#
+# MUHIM: avval "faqat fayl yo'q bo'lsa yarat" mantiqi edi — natijada baza
+# almashganda serverdagi eski .env o'zgarmay, deploy'dan keyin ham ilova
+# ESKI bazaga qarab turardi. Endi har deploy'da qayta yoziladi, ya'ni
+# haqiqat manbasi — shu fayl.
+SUPABASE_URL=https://gnuddryjsmcrjchrbvyz.supabase.co
+SUPABASE_PUBLISHABLE_KEY=sb_publishable_BjX_3t2LGX9y8FsKbCqFdw_7AOnXTN3
 
-if [ ! -f apps/mobile/.env ]; then
-  cat > apps/mobile/.env <<'ENVEOF'
-EXPO_PUBLIC_SUPABASE_URL=https://hgyugftmkausfkekandq.supabase.co
-EXPO_PUBLIC_SUPABASE_ANON_KEY=sb_publishable_xUgjGdPDbukb5Pk57H4U6w_VO9vWTRO
+cat > apps/admin/.env <<ENVEOF
+VITE_SUPABASE_URL=$SUPABASE_URL
+VITE_SUPABASE_ANON_KEY=$SUPABASE_PUBLISHABLE_KEY
 ENVEOF
-  echo "apps/mobile/.env yaratildi (birinchi marta)."
-fi
+
+cat > apps/mobile/.env <<ENVEOF
+EXPO_PUBLIC_SUPABASE_URL=$SUPABASE_URL
+EXPO_PUBLIC_SUPABASE_ANON_KEY=$SUPABASE_PUBLISHABLE_KEY
+ENVEOF
+
+echo "apps/admin/.env va apps/mobile/.env yozildi -> $SUPABASE_URL"
 
 corepack enable
 pnpm install --filter "@ilova/admin..." --filter "@ilova/mobile..." --frozen-lockfile
