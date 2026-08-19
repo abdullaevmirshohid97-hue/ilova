@@ -16,6 +16,93 @@ type CancelledDesignOrder = {
 const rowInputCls =
   'flex-1 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm outline-none focus:border-brand';
 
+// Biznes nomi — fakturalarda, pick-list'larda va hisobotlarda chiqadi,
+// shuning uchun admin uni o'zi to'g'rilay olishi kerak. Obuna holati va
+// tarif bu yerda YO'Q — ularni faqat super-admin o'zgartiradi
+// (update_org_profile RPC ham faqat shu uchta maydonni yangilaydi).
+function OrgProfilePanel() {
+  const [orgId, setOrgId] = useState<string | null>(null);
+  const [name, setName] = useState('');
+  const [contactName, setContactName] = useState('');
+  const [contactPhone, setContactPhone] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+
+  const load = useCallback(async () => {
+    const { data } = await supabase
+      .from('organizations')
+      .select('id, name, contact_name, contact_phone')
+      .limit(1)
+      .maybeSingle();
+    if (!data) return;
+    setOrgId((data as any).id);
+    setName((data as any).name ?? '');
+    setContactName((data as any).contact_name ?? '');
+    setContactPhone((data as any).contact_phone ?? '');
+  }, []);
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  async function save() {
+    setMsg(null);
+    if (!name.trim()) return setMsg({ ok: false, text: 'Nom majburiy' });
+    setSaving(true);
+    const { error } = await supabase.rpc('update_org_profile', {
+      p_org_id: orgId,
+      p_name: name.trim(),
+      p_contact_name: contactName.trim() || null,
+      p_contact_phone: contactPhone.trim() || null,
+    });
+    setSaving(false);
+    setMsg(error ? { ok: false, text: error.message } : { ok: true, text: 'Saqlandi ✓' });
+    if (!error) load();
+  }
+
+  if (!orgId) return null;
+
+  return (
+    <div className="rounded-2xl border border-gray-200 bg-white p-6">
+      <h2 className="font-bold text-gray-900">🏢 Biznes ma'lumotlari</h2>
+      <p className="mt-1 text-xs text-gray-400">
+        Bu nom fakturalarda va hisobotlarda chiqadi
+      </p>
+
+      <div className="mt-4 space-y-3">
+        <div>
+          <label className="text-xs font-semibold text-gray-500">BIZNES NOMI *</label>
+          <input value={name} onChange={(e) => setName(e.target.value)} className={rowInputCls + ' w-full'} />
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div>
+            <label className="text-xs font-semibold text-gray-500">KONTAKT ISM</label>
+            <input value={contactName} onChange={(e) => setContactName(e.target.value)} className={rowInputCls + ' w-full'} />
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-gray-500">KONTAKT TELEFON</label>
+            <input value={contactPhone} onChange={(e) => setContactPhone(e.target.value)} className={rowInputCls + ' w-full'} placeholder="+998 90 123 45 67" />
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-4 flex items-center gap-3">
+        <button
+          onClick={save}
+          disabled={saving}
+          className="rounded-xl bg-brand px-6 py-2.5 text-sm font-bold text-white hover:opacity-90 disabled:opacity-50"
+        >
+          {saving ? 'Saqlanmoqda...' : 'Saqlash'}
+        </button>
+        {msg && (
+          <span className={`text-sm font-semibold ${msg.ok ? 'text-emerald-600' : 'text-red-500'}`}>
+            {msg.text}
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function CategoriesPanel() {
   const [rows, setRows] = useState<Category[]>([]);
   const [newName, setNewName] = useState('');
@@ -314,6 +401,7 @@ export default function Settings() {
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       <ChangePasswordPanel />
+      <OrgProfilePanel />
       <CategoriesPanel />
       <PriceGroupsPanel />
       <StaffPanel />

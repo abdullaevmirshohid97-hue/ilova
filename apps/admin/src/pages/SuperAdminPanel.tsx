@@ -170,9 +170,95 @@ function NewOrgModal({ onClose, onCreated }: { onClose: () => void; onCreated: (
   );
 }
 
+// ---------------- Tenant ma'lumotlarini tahrirlash ----------------
+function EditOrgModal({
+  org,
+  onClose,
+  onSaved,
+}: {
+  org: Org;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [name, setName] = useState(org.name);
+  const [contactName, setContactName] = useState(org.contact_name ?? '');
+  const [contactPhone, setContactPhone] = useState(org.contact_phone ?? '');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function save() {
+    setError(null);
+    if (!name.trim()) return setError('Tenant nomi majburiy');
+    setSaving(true);
+    try {
+      const { error: e } = await supabase.rpc('update_org_profile', {
+        p_org_id: org.id,
+        p_name: name.trim(),
+        p_contact_name: contactName.trim() || null,
+        p_contact_phone: contactPhone.trim() || null,
+      });
+      if (e) throw e;
+      onSaved();
+      onClose();
+    } catch (e: any) {
+      setError(e.message ?? 'Xatolik');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const inputCls =
+    'w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm outline-none focus:border-brand';
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-6">
+      <div className="w-full max-w-md rounded-2xl bg-white p-8 shadow-2xl">
+        <div className="flex items-center justify-between">
+          <h2 className="text-xl font-extrabold text-gray-900">✏️ Tenantni tahrirlash</h2>
+          <button onClick={onClose} className="text-2xl text-gray-300 hover:text-gray-500">
+            ✕
+          </button>
+        </div>
+
+        <div className="mt-6 space-y-4">
+          <div>
+            <label className="text-xs font-semibold text-gray-500">TENANT (BIZNES) NOMI *</label>
+            <input value={name} onChange={(e) => setName(e.target.value)} className={inputCls} autoFocus />
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-gray-500">KONTAKT ISM</label>
+            <input value={contactName} onChange={(e) => setContactName(e.target.value)} className={inputCls} />
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-gray-500">KONTAKT TELEFON</label>
+            <input value={contactPhone} onChange={(e) => setContactPhone(e.target.value)} className={inputCls} placeholder="+998 90 123 45 67" />
+          </div>
+        </div>
+
+        {error && <p className="mt-4 text-sm font-semibold text-red-500">{error}</p>}
+
+        <div className="mt-8 flex justify-end gap-3">
+          <button onClick={onClose} className="rounded-xl border border-gray-200 px-6 py-3 text-sm font-bold text-gray-500 hover:bg-gray-50">
+            Bekor qilish
+          </button>
+          <button
+            onClick={save}
+            disabled={saving}
+            className="rounded-xl px-8 py-3 text-sm font-bold text-white hover:opacity-90 disabled:opacity-50"
+            style={{ backgroundColor: '#7000FF' }}
+          >
+            {saving ? 'Saqlanmoqda...' : 'Saqlash'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function SuperAdminPanel() {
   const [orgs, setOrgs] = useState<Org[]>([]);
   const [modalOpen, setModalOpen] = useState(false);
+  const [editOrg, setEditOrg] = useState<Org | null>(null);
 
   const load = useCallback(async () => {
     const [{ data: orgRows }, { data: stats }] = await Promise.all([
@@ -246,6 +332,7 @@ export default function SuperAdminPanel() {
                 <th className="px-6 py-3 text-right">Mahsulotlar</th>
                 <th className="px-6 py-3 text-right">Buyurtmalar</th>
                 <th className="px-6 py-3">Yaratilgan</th>
+                <th className="px-6 py-3"></th>
               </tr>
             </thead>
             <tbody>
@@ -272,11 +359,19 @@ export default function SuperAdminPanel() {
                   <td className="px-6 py-3 text-right">{o.products_count}</td>
                   <td className="px-6 py-3 text-right">{o.orders_count}</td>
                   <td className="px-6 py-3 text-gray-400">{formatDate(o.created_at)}</td>
+                  <td className="px-6 py-3 text-right">
+                    <button
+                      onClick={() => setEditOrg(o)}
+                      className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-bold text-gray-600 hover:border-brand hover:text-brand"
+                    >
+                      ✏️ Tahrirlash
+                    </button>
+                  </td>
                 </tr>
               ))}
               {orgs.length === 0 && (
                 <tr>
-                  <td colSpan={8} className="px-6 py-10 text-center text-gray-400">
+                  <td colSpan={9} className="px-6 py-10 text-center text-gray-400">
                     Tenant yo'q — «➕ Yangi tenant» bilan birinchisini qo'shing
                   </td>
                 </tr>
@@ -288,6 +383,7 @@ export default function SuperAdminPanel() {
       </main>
 
       {modalOpen && <NewOrgModal onClose={() => setModalOpen(false)} onCreated={load} />}
+      {editOrg && <EditOrgModal org={editOrg} onClose={() => setEditOrg(null)} onSaved={load} />}
     </div>
   );
 }
