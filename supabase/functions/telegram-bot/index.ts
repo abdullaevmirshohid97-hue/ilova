@@ -65,6 +65,46 @@ Deno.serve(async (req) => {
     Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
   );
 
+  // ---------------------------------------------- tugma bosildi (callback)
+  // "Buyurtmalarim" ro'yxatidagi tugma bosilsa shu yerga tushadi va
+  // telegram-notify funksiyasi fakturani PDF qilib yuboradi.
+  if (update.callback_query) {
+    const cq = update.callback_query;
+    const cqChat: number = cq.message?.chat?.id;
+    const data: string = cq.data ?? '';
+
+    if (data.startsWith('inv:')) {
+      const orderId = data.slice(4);
+      await tg(token, 'answerCallbackQuery', {
+        callback_query_id: cq.id,
+        text: 'Faktura tayyorlanmoqda...',
+      });
+
+      const r = await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/telegram-notify`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          // Bot service_role bilan murojaat qiladi; telegram-notify esa
+          // fakturani AYNAN shu chat egasiga tegishli ekanini tekshiradi
+          Authorization: `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
+          'x-bot-chat-id': String(cqChat),
+        },
+        body: JSON.stringify({ order_id: orderId }),
+      });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) {
+        await tg(token, 'sendMessage', {
+          chat_id: cqChat,
+          text: `❌ Faktura yuborilmadi.\n${esc((j as any)?.message ?? (j as any)?.error ?? '')}`,
+          parse_mode: 'HTML',
+        });
+      }
+    } else {
+      await tg(token, 'answerCallbackQuery', { callback_query_id: cq.id });
+    }
+    return new Response('ok');
+  }
+
   const msg = update.message ?? update.edited_message;
   if (!msg) return new Response('ok');
 
@@ -190,25 +230,51 @@ Deno.serve(async (req) => {
     }
 
     const HOLAT: Record<string, string> = {
-      new: '🆕 Yangi',
-      confirmed: '✅ Qabul qilingan',
-      picking: "📦 Yig'ilmoqda",
-      done: '🏁 Yopilgan',
-      cancelled: '❌ Bekor qilingan',
+      new: '🆕',
+      confirmed: '✅',
+      picking: '📦',
+      done: '🏁',
+      cancelled: '❌',
     };
-    const qatorlar = orders
+    const HOLAT_MATN: Record<string, string> = {
+      new: 'Yangi',
+      confirmed: 'Qabul qilingan',
+      picking: "Yig'ilmoqda",
+      done: 'Yopilgan',
+      cancelled: 'Bekor qilingan',
+    };
+
+    // Har bir buyurtma — alohida tugma. Bosilganda fakturasi PDF bo'lib
+    // keladi (yuqoridagi callback_query bo'limiga tushadi).
+    const tugmalar = orders.map((o: any) => {
+      const sana = new Date(o.created_at).toLocaleDateString('ru-RU', {
+        day: '2-digit',
+        month: '2-digit',
+        year: '2-digit',
+      });
+      return [
+        {
+          text: `${HOLAT[o.status] ?? ''} №${o.order_number} · ${sana} · ${raqam(o.total)} so'm`,
+          callback_data: `inv:${o.id}`,
+        },
+      ];
+    });
+
+    const royxat = orders
       .map(
         (o: any) =>
-          `<b>№${o.order_number}</b> · ${HOLAT[o.status] ?? o.status}\n` +
-          `${raqam(o.total)} so'm · ${new Date(o.created_at).toLocaleDateString('ru-RU')}`
+          `<b>№${o.order_number}</b> · ${new Date(o.created_at).toLocaleDateString('ru-RU')}\n` +
+          `${HOLAT[o.status] ?? ''} ${HOLAT_MATN[o.status] ?? o.status} · <b>${raqam(o.total)} so'm</b>`
       )
       .join('\n\n');
 
     await tg(token, 'sendMessage', {
       chat_id: chatId,
-      text: `🧾 <b>Oxirgi buyurtmalaringiz</b>\n\n${qatorlar}`,
+      text:
+        `🧾 <b>Buyurtmalaringiz</b>\n\n${royxat}\n\n` +
+        `<i>Fakturani PDF ko'rinishida olish uchun pastdagi tugmalardan birini bosing 👇</i>`,
       parse_mode: 'HTML',
-      reply_markup: asosiyKlaviatura,
+      reply_markup: { inline_keyboard: tugmalar },
     });
     return new Response('ok');
   }

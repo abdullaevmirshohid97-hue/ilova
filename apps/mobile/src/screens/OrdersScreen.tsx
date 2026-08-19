@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   FlatList,
   Platform,
   RefreshControl,
@@ -15,6 +14,7 @@ import * as Sharing from 'expo-sharing';
 import { formatSum, formatUsd, imageUrl, supabase } from '../lib/supabase';
 import { C, ORDER_STATUS } from '../lib/theme';
 import { useLanguage } from '../lib/i18n';
+import { sorov, xabar } from '../lib/xabar';
 
 // Faktura yuklab olish faqat "qabul qilingan" bosqichdan boshlab (yangi/bekor
 // qilingan buyurtmada narx/miqdor hali yakunlanmagan hisoblanadi)
@@ -141,23 +141,16 @@ export default function OrdersScreen() {
   }
 
   function cancelOrder(order: Order) {
-    Alert.alert(
+    sorov(
       t('cancelOrderTitle'),
       t('cancelOrderBody', { num: order.order_number }),
-      [
-        { text: t('cancelOrderNo'), style: 'cancel' },
-        {
-          text: t('cancelOrderYes'),
-          style: 'destructive',
-          onPress: async () => {
-            const { error } = await supabase.rpc('cancel_order', { p_order_id: order.id });
-            if (error) {
-              Alert.alert(t('error'), t('cancelOrderFailed'));
-            }
-            load();
-          },
-        },
-      ]
+      t('cancelOrderYes'),
+      async () => {
+        const { error } = await supabase.rpc('cancel_order', { p_order_id: order.id });
+        if (error) xabar(t('error'), t('cancelOrderFailed'));
+        load();
+      },
+      true
     );
   }
 
@@ -223,13 +216,13 @@ export default function OrdersScreen() {
       });
       const xato = (data as any)?.error ? ((data as any).message ?? (data as any).error) : error?.message;
       if (xato) {
-        Alert.alert(t('invoiceShareTitle'), xato);
+        xabar(t('invoiceShareTitle'), xato);
         return false;
       }
-      Alert.alert(t('invoiceShareTitle'), t('invoiceSentTelegram'));
+      xabar(t('invoiceShareTitle'), t('invoiceSentTelegram'));
       return true;
     } catch (e: any) {
-      Alert.alert(t('error'), e?.message ?? t('invoiceFailed'));
+      xabar(t('error'), e?.message ?? t('invoiceFailed'));
       return false;
     }
   }
@@ -265,7 +258,7 @@ export default function OrdersScreen() {
         }
       }
     } catch {
-      Alert.alert(t('error'), t('invoiceFailed'));
+      xabar(t('error'), t('invoiceFailed'));
     } finally {
       setInvoiceBusy(null);
     }

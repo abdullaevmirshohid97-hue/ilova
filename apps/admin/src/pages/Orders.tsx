@@ -260,7 +260,7 @@ export default function Orders() {
 
       <table>
         <thead><tr>
-          <th style="width:34px">№</th><th>Mahsulot</th><th>Razmer / Rang</th>
+          <th style="width:30px">№</th><th style="width:56px">Rasm</th><th>Mahsulot</th><th>Razmer / Rang</th>
           <th class="num">Miqdor</th><th class="num">Narx</th><th class="num">Summa</th>
         </tr></thead>
         <tbody>
@@ -269,6 +269,11 @@ export default function Orders() {
             (it, i) =>
               `<tr>
                  <td>${i + 1}</td>
+                 <td>${
+                   it.image
+                     ? `<img src="${it.image}" style="width:44px;height:44px;object-fit:cover;border-radius:5px;display:block" />`
+                     : '<div style="width:44px;height:44px;border-radius:5px;background:#f0f0f4"></div>'
+                 }</td>
                  <td><b>${esc(it.name)}</b><div style="color:#888;font-size:11px">${esc(it.sku)}</div></td>
                  <td>${esc([it.size, it.color].filter(Boolean).join(' / ') || '—')}</td>
                  <td class="num">${it.qty.toLocaleString('ru-RU')}</td>
@@ -279,7 +284,7 @@ export default function Orders() {
           .join('')}
         </tbody>
         <tfoot><tr>
-          <td colspan="5" class="num">JAMI</td><td class="num">${formatSum(o.total)}</td>
+          <td colspan="6" class="num">JAMI</td><td class="num">${formatSum(o.total)}</td>
         </tr></tfoot>
       </table>
 

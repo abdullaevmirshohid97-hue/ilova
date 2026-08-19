@@ -48,11 +48,44 @@ const HOLAT: Record<string, string> = {
   cancelled: 'BEKOR QILINGAN',
 };
 
-async function makePdf(inv: any): Promise<Uint8Array> {
+// Mahsulot rasmini storage'dan olib PDF ichiga joylash uchun tayyorlaymiz.
+// Bitta rasm bir necha qatorda takrorlanishi mumkin, shuning uchun natija
+// keshlanadi. Rasm yuklanmasa faktura RASMSIZ chiqadi — bu butun yuborishni
+// to'xtatishdan afzal.
+async function embedImages(doc: any, inv: any, baseUrl: string) {
+  const kesh = new Map<string, any>();
+  const yollar = [
+    ...new Set(
+      (inv.items ?? [])
+        .map((it: any) => it.image_path)
+        .filter((p: unknown): p is string => typeof p === 'string' && p.length > 0)
+    ),
+  ];
+
+  await Promise.all(
+    yollar.map(async (yol) => {
+      try {
+        const url = `${baseUrl}/storage/v1/object/public/product-images/${yol}`;
+        const r = await fetch(url);
+        if (!r.ok) return;
+        const bytes = new Uint8Array(await r.arrayBuffer());
+        // Turini baytlardan aniqlaymiz: PNG sarlavhasi 0x89 'P' 'N' 'G'
+        const png = bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47;
+        kesh.set(yol, png ? await doc.embedPng(bytes) : await doc.embedJpg(bytes));
+      } catch {
+        // rasm bo'lmasa shunchaki tashlab ketamiz
+      }
+    })
+  );
+  return kesh;
+}
+
+async function makePdf(inv: any, baseUrl: string): Promise<Uint8Array> {
   const doc = await PDFDocument.create();
   let page = doc.addPage([595, 842]); // A4
   const font = await doc.embedFont(StandardFonts.Helvetica);
   const bold = await doc.embedFont(StandardFonts.HelveticaBold);
+  const rasmlar = await embedImages(doc, inv, baseUrl);
 
   const M = 45;
   const brand = rgb(0.44, 0, 1);
@@ -84,30 +117,41 @@ async function makePdf(inv: any): Promise<Uint8Array> {
   t(inv.customer?.phone ?? '-', M + 42, y, 10);
   y -= 26;
 
-  // jadval sarlavhasi
-  const cols = { n: M, name: M + 24, qty: 350, price: 415, sum: 495 };
+  // jadval sarlavhasi — rasm ustuni qo'shilgani uchun nom o'ngga surildi
+  const IMG = 30; // rasm tomoni, pt
+  const cols = { n: M, img: M + 18, name: M + 18 + IMG + 8, qty: 350, price: 415, sum: 495 };
   page.drawRectangle({ x: M, y: y - 5, width: 595 - M * 2, height: 20, color: rgb(0.96, 0.94, 1) });
   t('#', cols.n, y, 8, bold);
   t('MAHSULOT', cols.name, y, 8, bold);
   t('MIQDOR', cols.qty, y, 8, bold);
   t('NARX', cols.price, y, 8, bold);
   t('SUMMA', cols.sum, y, 8, bold);
-  y -= 22;
+  y -= 26;
 
   for (const [i, it] of (inv.items ?? []).entries()) {
-    if (y < 120) {
+    // Rasm bilan qator balandroq — sahifa chegarasini shunga qarab tekshiramiz
+    if (y < 130) {
       page = doc.addPage([595, 842]);
       y = 842 - M;
     }
-    const nomi = wa(it.name).slice(0, 40);
-    const olcham = wa([it.size, it.color].filter(Boolean).join(' / ')).slice(0, 40);
-    t(String(i + 1), cols.n, y, 9);
-    t(nomi, cols.name, y, 10);
-    if (olcham) t(olcham, cols.name, y - 10, 8, font, grey);
-    t(raqam(it.qty), cols.qty, y, 10);
-    t(raqam(it.unit_price), cols.price, y, 10);
-    t(raqam(it.line_total), cols.sum, y, 10, bold);
-    y -= olcham ? 26 : 18;
+    const nomi = wa(it.name).slice(0, 34);
+    const olcham = wa([it.size, it.color].filter(Boolean).join(' / ')).slice(0, 34);
+    const rasm = it.image_path ? rasmlar.get(it.image_path) : null;
+
+    // Matn rasmning o'rtasiga to'g'ri kelsin
+    const matnY = rasm ? y - 8 : y;
+
+    if (rasm) {
+      page.drawImage(rasm, { x: cols.img, y: y - IMG + 4, width: IMG, height: IMG });
+    }
+    t(String(i + 1), cols.n, matnY, 9);
+    t(nomi, cols.name, matnY, 10);
+    if (olcham) t(olcham, cols.name, matnY - 10, 8, font, grey);
+    t(raqam(it.qty), cols.qty, matnY, 10);
+    t(raqam(it.unit_price), cols.price, matnY, 10);
+    t(raqam(it.line_total), cols.sum, matnY, 10, bold);
+
+    y -= rasm ? IMG + 10 : olcham ? 26 : 18;
     page.drawLine({
       start: { x: M, y: y + 6 },
       end: { x: 595 - M, y: y + 6 },
@@ -141,24 +185,42 @@ Deno.serve(async (req) => {
     const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const anonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
 
-    // Chaqiruvchi shu buyurtmani ko'rish huquqiga egami — order_invoice
-    // RPC'ning o'zi RLS mantiqini yuritadi, ya'ni ruxsatni ikki marta
-    // yozib qo'yishning hojati yo'q.
     const authHeader = req.headers.get('Authorization') ?? '';
-    const caller = createClient(supabaseUrl, anonKey, {
-      global: { headers: { Authorization: authHeader } },
-    });
-    const {
-      data: { user },
-    } = await caller.auth.getUser();
-    if (!user) return json({ error: 'UNAUTHENTICATED' }, 401);
+    const botChatId = req.headers.get('x-bot-chat-id');
+    const admin = createClient(supabaseUrl, serviceKey);
 
     const { order_id } = await req.json();
     if (!order_id) return json({ error: 'ORDER_ID_YOQ' }, 400);
 
-    const { data: inv, error: invErr } = await caller.rpc('order_invoice', { p_order_id: order_id });
-    if (invErr) return json({ error: invErr.message }, 400);
-    if (!inv) return json({ error: 'BUYURTMA_TOPILMADI_YOKI_RUXSAT_YOQ' }, 404);
+    let inv: any = null;
+
+    if (botChatId && authHeader.includes(serviceKey)) {
+      // Chaqiruvchi — bot (telegram-bot funksiyasi). Unda auth.uid() yo'q,
+      // shuning uchun order_invoice ishlamaydi; o'rniga chat_id bog'lanishi
+      // bo'yicha tekshiradigan alohida RPC ishlatiladi.
+      const { data, error } = await admin.rpc('order_invoice_for_chat', {
+        p_order_id: order_id,
+        p_chat_id: Number(botChatId),
+      });
+      if (error) return json({ error: error.message }, 400);
+      inv = data;
+      if (!inv) return json({ error: 'BUYURTMA_SIZGA_TEGISHLI_EMAS' }, 404);
+    } else {
+      // Odatdagi yo'l: admin/menejer/mijoz o'z JWT'si bilan. Ruxsatni
+      // order_invoice RPC'ning o'zi hal qiladi — RLS mantiqi takrorlanmaydi.
+      const caller = createClient(supabaseUrl, anonKey, {
+        global: { headers: { Authorization: authHeader } },
+      });
+      const {
+        data: { user },
+      } = await caller.auth.getUser();
+      if (!user) return json({ error: 'UNAUTHENTICATED' }, 401);
+
+      const { data, error } = await caller.rpc('order_invoice', { p_order_id: order_id });
+      if (error) return json({ error: error.message }, 400);
+      inv = data;
+      if (!inv) return json({ error: 'BUYURTMA_TOPILMADI_YOKI_RUXSAT_YOQ' }, 404);
+    }
 
     const chatId = (inv as any).customer?.telegram_chat_id;
     if (!chatId) {
@@ -171,7 +233,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    const pdf = await makePdf(inv);
+    const pdf = await makePdf(inv, supabaseUrl);
 
     const holat = HOLAT[(inv as any).status] ?? (inv as any).status;
     const caption =
@@ -198,7 +260,6 @@ Deno.serve(async (req) => {
 
     // Yuborilgan xabarlar tarixi — service_role bilan yoziladi, chunki
     // telegram_notifications'da authenticated uchun insert policy yo'q
-    const admin = createClient(supabaseUrl, serviceKey);
     await admin.from('telegram_notifications').insert({
       order_id,
       chat_id: chatId,

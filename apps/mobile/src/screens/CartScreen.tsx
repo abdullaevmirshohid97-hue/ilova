@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   FlatList,
   Image,
   StyleSheet,
@@ -13,6 +12,7 @@ import {
 import { formatSum, formatUsd, supabase } from '../lib/supabase';
 import { useCart } from '../lib/cart';
 import { useLanguage } from '../lib/i18n';
+import { xabar } from '../lib/xabar';
 import { C } from '../lib/theme';
 
 export default function CartScreen({ onOrdered }: { onOrdered: () => void }) {
@@ -55,17 +55,14 @@ export default function CartScreen({ onOrdered }: { onOrdered: () => void }) {
       const msg = error.message.includes('QOLDIQ_YETARLI_EMAS')
         ? t('stockErrorMsg')
         : t('orderFailedMsg');
-      Alert.alert(t('error'), msg);
+      xabar(t('error'), msg);
       return;
     }
 
     cart.clear();
     setComment('');
-    Alert.alert(
-      t('orderSuccessTitle'),
-      t('orderSuccessBody'),
-      [{ text: t('goToOrders'), onPress: onOrdered }]
-    );
+    xabar(t('orderSuccessTitle'), t('orderSuccessBody'));
+    onOrdered();
   }
 
   if (cart.items.length === 0) {
