@@ -7,7 +7,7 @@ import {
   Text,
   View,
 } from 'react-native';
-import { formatSum, supabase } from '../lib/supabase';
+import { formatDateTime, formatSum, supabase } from '../lib/supabase';
 import { C, LEDGER_KIND } from '../lib/theme';
 import { useLanguage } from '../lib/i18n';
 
@@ -21,7 +21,7 @@ type Entry = {
 };
 
 export default function LedgerScreen() {
-  const { t, lang } = useLanguage();
+  const { t } = useLanguage();
   const [entries, setEntries] = useState<Entry[]>([]);
   const [balance, setBalance] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -114,12 +114,7 @@ export default function LedgerScreen() {
                   {label}
                   {item.order_number != null ? ` №${item.order_number}` : ''}
                 </Text>
-                <Text style={s.rowDate}>
-                  {new Date(item.created_at).toLocaleString(lang === 'ru' ? 'ru-RU' : 'uz-UZ', {
-                    day: '2-digit', month: '2-digit', year: 'numeric',
-                    hour: '2-digit', minute: '2-digit',
-                  })}
-                </Text>
+                <Text style={s.rowDate}>{formatDateTime(item.created_at)}</Text>
                 {item.note && <Text style={s.rowNote}>{item.note}</Text>}
               </View>
               <Text style={[s.amount, positive ? { color: C.red } : { color: C.green }]}>

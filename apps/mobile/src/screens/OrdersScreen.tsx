@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
-import { formatSum, formatUsd, imageUrl, supabase } from '../lib/supabase';
+import { formatDateTime, formatQty, formatSum, formatUsd, imageUrl, supabase } from '../lib/supabase';
 import { C, ORDER_STATUS } from '../lib/theme';
 import { useLanguage } from '../lib/i18n';
 import { sorov, xabar } from '../lib/xabar';
@@ -156,9 +156,7 @@ export default function OrdersScreen() {
 
   function buildInvoiceHtml(order: Order): string {
     const usdTotal = usdTotalOf(order);
-    const dateStr = new Date(order.created_at).toLocaleString(lang === 'ru' ? 'ru-RU' : 'uz-UZ', {
-      day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit',
-    });
+    const dateStr = formatDateTime(order.created_at);
     const rows = order.items
       .map((it) => {
         const showUsd = usdTotal != null && it.orig_price != null;
@@ -168,7 +166,7 @@ export default function OrdersScreen() {
           <td>${it.image ? `<img src="${it.image}" style="width:40px;height:40px;object-fit:cover;border-radius:4px" />` : ''}</td>
           <td>${it.name}</td>
           <td>${[it.size, it.color].filter(Boolean).join(' / ') || '—'}</td>
-          <td style="text-align:right">${it.qty.toLocaleString()}</td>
+          <td style="text-align:right">${formatQty(it.qty)}</td>
           <td style="text-align:right">${unit}</td>
           <td style="text-align:right"><b>${lineTotal}</b></td>
         </tr>`;
@@ -306,12 +304,7 @@ export default function OrdersScreen() {
                   <Text style={[s.badgeText, { color: st?.color ?? C.muted }]}>{statusLabel}</Text>
                 </View>
               </View>
-              <Text style={s.date}>
-                {new Date(item.created_at).toLocaleString(lang === 'ru' ? 'ru-RU' : 'uz-UZ', {
-                  day: '2-digit', month: '2-digit', year: 'numeric',
-                  hour: '2-digit', minute: '2-digit',
-                })}
-              </Text>
+              <Text style={s.date}>{formatDateTime(item.created_at)}</Text>
               {item.items.map((it, idx) => {
                 const showUsd = usdTotal != null && it.orig_price != null;
                 return (
@@ -323,7 +316,7 @@ export default function OrdersScreen() {
                         : ''}
                     </Text>
                     <Text style={s.itemQty}>
-                      {it.qty.toLocaleString()} × {showUsd ? formatUsd(it.orig_price) : formatSum(it.unit_price)}
+                      {formatQty(it.qty)} × {showUsd ? formatUsd(it.orig_price) : formatSum(it.unit_price)}
                     </Text>
                   </View>
                 );

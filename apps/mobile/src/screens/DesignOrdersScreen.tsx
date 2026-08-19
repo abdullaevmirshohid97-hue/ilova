@@ -7,7 +7,7 @@ import {
   Text,
   View,
 } from 'react-native';
-import { formatSum, supabase } from '../lib/supabase';
+import { formatDate, formatSum, supabase } from '../lib/supabase';
 import { C, DESIGN_ORDER_STATUS } from '../lib/theme';
 import { useLanguage, TranslationKey } from '../lib/i18n';
 
@@ -36,7 +36,7 @@ const PRINT_TYPE_LABEL: Record<string, TranslationKey> = {
 };
 
 export default function DesignOrdersScreen() {
-  const { t, lang } = useLanguage();
+  const { t } = useLanguage();
   const [orders, setOrders] = useState<DesignOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -82,11 +82,7 @@ export default function DesignOrdersScreen() {
 
   function fmtDate(d: string | null): string | null {
     if (!d) return null;
-    return new Date(d).toLocaleDateString(lang === 'ru' ? 'ru-RU' : 'uz-UZ', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-    });
+    return formatDate(d);
   }
 
   if (loading) {
@@ -136,11 +132,7 @@ export default function DesignOrdersScreen() {
               <View style={s.cardHeader}>
                 <Text style={s.cardIcon}>🎨</Text>
                 <Text style={s.date}>
-                  {new Date(item.created_at).toLocaleDateString(lang === 'ru' ? 'ru-RU' : 'uz-UZ', {
-                    day: '2-digit',
-                    month: '2-digit',
-                    year: 'numeric',
-                  })}
+                  {formatDate(item.created_at)}
                 </Text>
                 <View style={[s.badge, { backgroundColor: st?.bg ?? C.divider }]}>
                   <Text style={[s.badgeText, { color: st?.color ?? C.muted }]}>{statusLabel}</Text>
