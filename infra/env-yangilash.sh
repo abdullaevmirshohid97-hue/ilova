@@ -70,7 +70,14 @@ echo ""
 echo "[2/4] Eski build'lar va kesh tozalanmoqda..."
 rm -rf apps/admin/dist apps/admin/node_modules/.vite
 rm -rf apps/mobile/dist apps/mobile/.expo
-echo "    tozalandi: apps/admin/dist, apps/mobile/dist, Vite/Expo kesh"
+
+# MUHIM: Metro (Expo) keshi .expo papkasida EMAS — u node_modules/.cache va
+# tizim temp papkasida yotadi. Bir marta shu sabab bo'lgan edi: .env yangi
+# bazaga yozilgan bo'lsa ham, Metro eski keshdan bundle berib, mijoz ilovasi
+# o'chirilgan bazaga so'rov yuborardi va "parol noto'g'ri" deb ko'rsatardi.
+rm -rf apps/mobile/node_modules/.cache node_modules/.cache
+rm -rf "${TMPDIR:-/tmp}"/metro-* "${TMPDIR:-/tmp}"/haste-map-* 2>/dev/null || true
+echo "    tozalandi: dist papkalar, Vite keshi, Expo/Metro keshi"
 
 # ---------- 3. Deploy ----------
 echo ""
@@ -129,6 +136,8 @@ if [ -d "$LANDING_WWW" ] && grep -raqs "$YANGI_REF" "$LANDING_WWW"; then
   fi
 else
   echo "    XATO $LANDING_WWW da yangi URL topilmadi"
+  echo "         -> Metro keshi eski bundle bergan bo'lishi mumkin."
+  echo "            Tekshirish: grep -ao 'supabase.co' $LANDING_WWW/_expo/static/js/web/*.js"
   xato=1
 fi
 
