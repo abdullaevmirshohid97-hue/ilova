@@ -65,8 +65,12 @@ cp -r apps/admin/dist "$ADMIN_WWW/dist"
 
 pnpm --filter @ilova/mobile build:web
 mkdir -p "$LANDING_WWW"
-# rm -rf QILINMAYDI — yukchibolla.apk shu papkada qo'lda qo'yilgan bo'lishi
-# mumkin, uni o'chirib yubormaslik uchun faqat ustidan ko'chiramiz
+# Papkaning O'ZINI rm -rf QILMAYMIZ — yukchibolla.apk shu yerda qo'lda
+# qo'yilgan bo'lishi mumkin. Lekin _expo/ ni tozalaymiz: bundle nomida hash
+# bor, ya'ni har build yangi fayl yaratadi va eskisi abadiy qolib ketardi.
+# (index.html doim eng yangisini ko'rsatgani uchun ilova to'g'ri ishlardi,
+# ammo eski fayllar joy egallab, tekshiruvni ham chalg'itardi.)
+rm -rf "${LANDING_WWW:?}/_expo"
 cp -r apps/mobile/dist/. "$LANDING_WWW/"
 
 echo ""
