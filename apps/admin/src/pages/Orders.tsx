@@ -43,6 +43,16 @@ export default function Orders() {
   const [showNewOrder, setShowNewOrder] = useState(false);
   const [showDesignOrder, setShowDesignOrder] = useState(false);
   const [editOrderId, setEditOrderId] = useState<string | null>(null);
+  const [orgName, setOrgName] = useState('');
+
+  useEffect(() => {
+    supabase
+      .from('organizations')
+      .select('name')
+      .limit(1)
+      .maybeSingle()
+      .then(({ data }) => setOrgName((data as any)?.name ?? ''));
+  }, []);
 
   const load = useCallback(async () => {
     const q_ = search.trim();
@@ -149,6 +159,115 @@ export default function Orders() {
       </tbody></table>
       <p style="margin-top:24px">Jami: <b>${formatSum(o.total)}</b></p>
       <script>window.onload = function() { window.print(); };</script>
+      </body></html>
+    `);
+    w.document.close();
+  }
+
+  // Faktura — pick-list'dan farqli o'laroq HAR QANDAY holатdagi buyurtma
+  // uchun ochiladi (yopilgani ham, hali tasdiqlanmagani ham). Tasdiqlanmagan
+  // buyurtmada yuqorida "TASDIQLANMAGAN" belgisi chiqadi, chunki narx/miqdor
+  // hali o'zgarishi mumkin.
+  function printInvoice(o: Order) {
+    const w = window.open('', '_blank');
+    if (!w) return;
+    const tasdiqlanmagan = o.status === 'new' || o.status === 'cancelled';
+    const statusLabel: Record<string, string> = {
+      new: 'YANGI — TASDIQLANMAGAN',
+      confirmed: 'QABUL QILINGAN',
+      picking: "YIG'ILMOQDA",
+      done: 'YOPILGAN',
+      cancelled: 'BEKOR QILINGAN',
+    };
+    const esc = (s: string) => s.replace(/[<>&]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' })[c]!);
+
+    w.document.write(`
+      <html><head><meta charset="utf-8"><title>Faktura №${o.order_number}</title>
+      <style>
+        @page { size: A4; margin: 14mm; }
+        * { box-sizing: border-box; }
+        body { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; color: #14151a; margin: 0; }
+        .head { display: flex; justify-content: space-between; align-items: flex-start;
+                border-bottom: 3px solid #7000FF; padding-bottom: 12px; }
+        .brand { font-size: 22px; font-weight: 800; letter-spacing: 1px; color: #7000FF; }
+        .sub { color: #666; font-size: 12px; margin-top: 2px; }
+        .no { text-align: right; }
+        .no b { font-size: 26px; }
+        .warn { margin-top: 12px; padding: 8px 12px; background: #fff4e5;
+                border-left: 4px solid #ff9800; font-size: 12px; font-weight: 700; color: #8a5200; }
+        .grid { display: flex; gap: 40px; margin-top: 18px; font-size: 13px; }
+        .grid div span { color: #777; }
+        table { width: 100%; border-collapse: collapse; margin-top: 18px; font-size: 13px; }
+        th { background: #f4f0ff; text-align: left; padding: 9px 10px; border: 1px solid #ddd;
+             font-size: 11px; text-transform: uppercase; letter-spacing: .5px; }
+        td { border: 1px solid #ddd; padding: 8px 10px; vertical-align: middle; }
+        td.num, th.num { text-align: right; white-space: nowrap; }
+        tfoot td { font-weight: 800; background: #faf7ff; font-size: 15px; }
+        .foot { margin-top: 30px; display: flex; justify-content: space-between;
+                font-size: 12px; color: #666; }
+        .sign { margin-top: 40px; font-size: 12px; }
+        .sign span { display: inline-block; width: 200px; border-bottom: 1px solid #999; }
+        @media print { .noprint { display: none; } }
+        .noprint { position: fixed; top: 10px; right: 10px; }
+        .noprint button { background: #7000FF; color: #fff; border: 0; padding: 10px 18px;
+                          border-radius: 8px; font-size: 13px; font-weight: 700; cursor: pointer; }
+      </style></head><body>
+
+      <div class="noprint"><button onclick="window.print()">🖨 Chop etish / PDF saqlash</button></div>
+
+      <div class="head">
+        <div>
+          <div class="brand">${esc(orgName || 'YUKCHIBOLLA')}</div>
+          <div class="sub">Ulgurji savdo · faktura</div>
+        </div>
+        <div class="no">
+          <div style="font-size:11px;color:#777;text-transform:uppercase">Faktura</div>
+          <b>№${o.order_number}</b>
+          <div class="sub">${formatDate(o.created_at)}</div>
+        </div>
+      </div>
+
+      ${tasdiqlanmagan ? `<div class="warn">⚠ ${statusLabel[o.status] ?? o.status} — bu faktura yakuniy emas, miqdor va summa hali o'zgarishi mumkin.</div>` : ''}
+
+      <div class="grid">
+        <div><span>Mijoz</span><br><b>${esc(o.customer)}</b></div>
+        <div><span>Telefon</span><br><b>${esc(o.phone ?? '—')}</b></div>
+        <div><span>Holat</span><br><b>${statusLabel[o.status] ?? o.status}</b></div>
+      </div>
+
+      <table>
+        <thead><tr>
+          <th style="width:34px">№</th><th>Mahsulot</th><th>Razmer / Rang</th>
+          <th class="num">Miqdor</th><th class="num">Narx</th><th class="num">Summa</th>
+        </tr></thead>
+        <tbody>
+        ${o.items
+          .map(
+            (it, i) =>
+              `<tr>
+                 <td>${i + 1}</td>
+                 <td><b>${esc(it.name)}</b><div style="color:#888;font-size:11px">${esc(it.sku)}</div></td>
+                 <td>${esc([it.size, it.color].filter(Boolean).join(' / ') || '—')}</td>
+                 <td class="num">${it.qty.toLocaleString('ru-RU')}</td>
+                 <td class="num">${formatSum(it.unit_price)}</td>
+                 <td class="num">${formatSum(it.unit_price * it.qty)}</td>
+               </tr>`
+          )
+          .join('')}
+        </tbody>
+        <tfoot><tr>
+          <td colspan="5" class="num">JAMI</td><td class="num">${formatSum(o.total)}</td>
+        </tr></tfoot>
+      </table>
+
+      <div class="sign">
+        Topshirdi: <span></span> &nbsp;&nbsp;&nbsp; Qabul qildi: <span></span>
+      </div>
+
+      <div class="foot">
+        <div>${esc(orgName || 'Yukchibolla')}</div>
+        <div>Chop etilgan: ${new Date().toLocaleString('ru-RU')}</div>
+      </div>
       </body></html>
     `);
     w.document.close();
@@ -300,6 +419,15 @@ export default function Orders() {
                   Yopish (topshirildi)
                 </button>
               )}
+
+              {/* Faktura — holatdan qat'i nazar doim mavjud: yopilgan
+                  buyurtmani ham, hali tasdiqlanmaganini ham ko'rish kerak */}
+              <button
+                onClick={() => printInvoice(o)}
+                className="rounded-xl border border-gray-300 px-5 py-2 text-sm font-bold text-gray-700 hover:border-brand hover:text-brand"
+              >
+                📄 Faktura
+              </button>
             </div>
           </div>
         );
