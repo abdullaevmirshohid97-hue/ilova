@@ -1,10 +1,13 @@
-import { useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
-import ManagerCustomers from '../pages/ManagerCustomers';
-import ManagerPrices from '../pages/ManagerPrices';
-import ManagerOrders from '../pages/ManagerOrders';
-import ManagerAnalytics from '../pages/ManagerAnalytics';
-import ManagerSettings from '../pages/ManagerSettings';
+
+// Har bir bo'lim ochilganda yuklanadi — menejer kirishi bilan beshtasini
+// birdan yuklab kutib turmaydi
+const ManagerCustomers = lazy(() => import('../pages/ManagerCustomers'));
+const ManagerPrices = lazy(() => import('../pages/ManagerPrices'));
+const ManagerOrders = lazy(() => import('../pages/ManagerOrders'));
+const ManagerAnalytics = lazy(() => import('../pages/ManagerAnalytics'));
+const ManagerSettings = lazy(() => import('../pages/ManagerSettings'));
 
 type Tab = 'customers' | 'prices' | 'orders' | 'analytics' | 'settings';
 
@@ -107,11 +110,19 @@ export default function ManagerApp() {
           </h1>
         </header>
         <main className="flex-1 overflow-y-auto p-4 md:p-8">
-          {tab === 'customers' && <ManagerCustomers />}
-          {tab === 'prices' && <ManagerPrices />}
-          {tab === 'orders' && <ManagerOrders />}
-          {tab === 'analytics' && <ManagerAnalytics />}
-          {tab === 'settings' && <ManagerSettings />}
+          <Suspense
+            fallback={
+              <div className="flex min-h-[50vh] items-center justify-center text-gray-400">
+                Yuklanmoqda...
+              </div>
+            }
+          >
+            {tab === 'customers' && <ManagerCustomers />}
+            {tab === 'prices' && <ManagerPrices />}
+            {tab === 'orders' && <ManagerOrders />}
+            {tab === 'analytics' && <ManagerAnalytics />}
+            {tab === 'settings' && <ManagerSettings />}
+          </Suspense>
         </main>
       </div>
     </div>

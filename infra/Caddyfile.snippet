@@ -10,10 +10,21 @@
 
 admin.yukchibolla.com, 4020.yukchibolla.com {
 	root * /var/www/ilova-admin/dist
-	encode gzip
 
+	# zstd gzip'dan ~15% yaxshiroq siqadi; qo'llab-quvvatlamaydigan
+	# brauzerlar avtomatik gzip'ga tushadi
+	encode zstd gzip
+
+	# Fayl nomida hash bor (index-xZwHXtpi.js) — mazmuni o'zgarsa nom ham
+	# o'zgaradi, shuning uchun bir yil keshlash xavfsiz
 	@assets path /assets/*
 	header @assets Cache-Control "public, max-age=31536000, immutable"
+
+	# index.html HECH QACHON keshlanmasin — aks holda yangi deploy'dan keyin
+	# brauzer eski HTML'ni ko'rsatib, allaqachon yo'q bo'lgan eski asset
+	# fayllarini so'rab oq ekran beradi
+	@html path /index.html /
+	header @html Cache-Control "no-cache, must-revalidate"
 
 	try_files {path} /index.html
 	file_server
@@ -21,6 +32,19 @@ admin.yukchibolla.com, 4020.yukchibolla.com {
 
 app.yukchibolla.com {
 	root * /var/www/ilova-app-landing
-	encode gzip
+	encode zstd gzip
+
+	@assets path /_expo/* /assets/*
+	header @assets Cache-Control "public, max-age=31536000, immutable"
+
+	@html path /index.html /
+	header @html Cache-Control "no-cache, must-revalidate"
+
+	# APK to'g'ridan-to'g'ri yuklab olinsin (SPA fallback'ga tushmasin)
+	@apk path /yukchibolla.apk
+	header @apk Content-Disposition "attachment; filename=yukchibolla.apk"
+
+	# Expo web ham SPA — ichki sahifa yangilanganda 404 bo'lmasligi uchun
+	try_files {path} /index.html
 	file_server
 }
