@@ -47,9 +47,20 @@ export default function LoginScreen() {
       password,
     });
     setLoading(false);
-    if (err) {
-      setError(t('loginError'));
-    }
+    if (!err) return;
+
+    // Avval HAR QANDAY xato "telefon yoki parol noto'g'ri" deb ko'rsatilardi —
+    // shu sababli serverga umuman ulana olmaganda ham foydalanuvchi parolini
+    // qayta-qayta terib, sababni topa olmasdi. Endi ajratamiz.
+    const tarmoq =
+      err.status === 0 ||
+      err.status === undefined ||
+      /fetch|network|failed to|timeout/i.test(err.message ?? '');
+    const notogriParol = err.status === 400 || /invalid|credential/i.test(err.message ?? '');
+
+    if (notogriParol) setError(t('loginError'));
+    else if (tarmoq) setError(t('loginNetworkError'));
+    else setError(`${t('loginServerError')} (${err.status ?? '?'}): ${err.message}`);
   }
 
   return (
