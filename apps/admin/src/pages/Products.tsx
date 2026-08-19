@@ -191,6 +191,18 @@ function ProductModal({
     );
     if (!isEdit && rows.length === 0) return setError('Kamida bitta variant kiriting');
 
+    // Narxsiz variant mijoz katalogida UMUMAN ko'rinmaydi. Avval bu jimgina
+    // sodir bo'lardi — mahsulot saqlanardi, admin esa uni mijoz ko'rmayotganini
+    // bilmasdi. Endi ataylab shundaymi deb so'raymiz.
+    const narxKiritilgan = groups.some((g) => groupPrices[g.id]?.trim());
+    if (rows.length > 0 && !narxKiritilgan) {
+      const davom = window.confirm(
+        "Narx kiritilmadi!\n\nNarxsiz mahsulot mijozning katalogida KO'RINMAYDI.\n\n" +
+          'Baribir saqlansinmi? (Narxni keyin "+ Kirim" tugmasi orqali qo\'yish mumkin)'
+      );
+      if (!davom) return;
+    }
+
     setSaving(true);
     try {
       // 1. Mahsulot
@@ -921,7 +933,18 @@ export default function Products() {
                       {avail.toLocaleString()}
                     </td>
                     <td className="px-6 py-2.5 text-right text-gray-600">
-                      {stdGroup && v.prices[stdGroup.id] != null ? formatSum(v.prices[stdGroup.id]) : '—'}
+                      {stdGroup && v.prices[stdGroup.id] != null ? (
+                        formatSum(v.prices[stdGroup.id])
+                      ) : (
+                        // Narxsiz variant mijoz katalogida umuman chiqmaydi —
+                        // buni admin darhol ko'rishi kerak
+                        <span
+                          className="rounded-lg bg-red-50 px-2 py-1 text-[11px] font-bold text-red-600"
+                          title="Narx qo'yilmagan — bu mahsulot mijozga ko'rinmaydi. '+ Kirim' tugmasi orqali narx qo'ying."
+                        >
+                          narx yo'q
+                        </span>
+                      )}
                     </td>
                     <td className="px-6 py-2.5 text-right">
                       <div className="flex justify-end gap-1.5">

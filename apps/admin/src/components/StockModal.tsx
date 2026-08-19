@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 
 const REASONS = [
@@ -7,6 +7,8 @@ const REASONS = [
   { value: 'Inventarizatsiya farqi', label: '📋 Inventarizatsiya farqi' },
   { value: 'Boshqa', label: '❓ Boshqa sabab' },
 ];
+
+type Group = { id: string; name: string };
 
 function todayStr(): string {
   return new Date().toISOString().slice(0, 10);
@@ -32,6 +34,28 @@ export default function StockModal({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Kirim bilan birga narxni ham qo'yish/yangilash mumkin. Narxsiz mahsulot
+  // mijoz katalogida UMUMAN ko'rinmaydi, shuning uchun kirim payti narxni
+  // shu yerdayoq kiritish eng qulay joy.
+  const [groups, setGroups] = useState<Group[]>([]);
+  const [prices, setPrices] = useState<Record<string, string>>({});
+  const [narxYoq, setNarxYoq] = useState(false);
+
+  useEffect(() => {
+    if (mode !== 'in') return;
+    (async () => {
+      const [{ data: g }, { data: p }] = await Promise.all([
+        supabase.from('price_groups').select('id, name').order('name'),
+        supabase.from('prices').select('price_group_id, price').eq('variant_id', variantId),
+      ]);
+      setGroups((g as Group[]) ?? []);
+      const m: Record<string, string> = {};
+      for (const row of (p as any[]) ?? []) m[row.price_group_id] = String(row.price);
+      setPrices(m);
+      setNarxYoq(((p as any[]) ?? []).length === 0);
+    })();
+  }, [variantId, mode]);
+
   const n = parseInt(qty, 10);
 
   async function save() {
@@ -50,6 +74,20 @@ export default function StockModal({
           p_created_at: createdAt,
         });
         if (e) throw e;
+
+        const upserts = groups
+          .filter((g) => prices[g.id]?.trim())
+          .map((g) => ({
+            variant_id: variantId,
+            price_group_id: g.id,
+            price: parseInt(prices[g.id].replace(/\D/g, ''), 10) || 0,
+          }));
+        if (upserts.length > 0) {
+          const { error: pe } = await supabase
+            .from('prices')
+            .upsert(upserts, { onConflict: 'variant_id,price_group_id' });
+          if (pe) throw pe;
+        }
       } else {
         const fullNote = `${reason}: ${note.trim()}`;
         const { error: e } = await supabase.rpc('adjust_stock', {
@@ -127,6 +165,39 @@ export default function StockModal({
                 onChange={(e) => setDate(e.target.value)}
                 className={inputCls}
               />
+            </div>
+          )}
+
+          {mode === 'in' && groups.length > 0 && (
+            <div>
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-semibold text-gray-500">
+                  NARX (GURUH BO'YICHA, SO'M)
+                </label>
+                {narxYoq && (
+                  <span className="rounded-lg bg-red-50 px-2 py-0.5 text-[11px] font-bold text-red-600">
+                    narx yo'q — mijozga ko'rinmaydi
+                  </span>
+                )}
+              </div>
+              <div className="mt-1 grid grid-cols-2 gap-2">
+                {groups.map((g) => (
+                  <div key={g.id}>
+                    <label className="text-[11px] font-semibold text-gray-400">{g.name}</label>
+                    <input
+                      value={prices[g.id] ?? ''}
+                      onChange={(e) =>
+                        setPrices((p) => ({ ...p, [g.id]: e.target.value.replace(/\D/g, '') }))
+                      }
+                      className={inputCls}
+                      placeholder="0"
+                    />
+                  </div>
+                ))}
+              </div>
+              <p className="mt-1.5 text-[11px] text-gray-400">
+                Bo'sh qoldirsangiz eski narx o'zgarmaydi.
+              </p>
             </div>
           )}
 
