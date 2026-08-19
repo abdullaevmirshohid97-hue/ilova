@@ -44,6 +44,29 @@ export default function Orders() {
   const [showDesignOrder, setShowDesignOrder] = useState(false);
   const [editOrderId, setEditOrderId] = useState<string | null>(null);
   const [orgName, setOrgName] = useState('');
+  const [tgBusy, setTgBusy] = useState<string | null>(null);
+
+  // Fakturani PDF qilib mijozning Telegramiga yuboradi. PDF server tomonda
+  // (telegram-notify edge funksiyasida) yasaladi — bot ham, admin panel ham
+  // bitta manbadan foydalanadi.
+  async function sendTelegram(o: Order) {
+    if (!confirm(`№${o.order_number} fakturasi ${o.customer}ga Telegram orqali yuborilsinmi?`)) return;
+    setTgBusy(o.id);
+    try {
+      const { data, error } = await supabase.functions.invoke('telegram-notify', {
+        body: { order_id: o.id },
+      });
+      // Edge funksiya xato holatida ham tushunarli matn qaytaradi (masalan
+      // mijoz botga hali ulanmagan bo'lsa) — uni ko'rsatamiz
+      const xato = (data as any)?.error ? ((data as any).message ?? (data as any).error) : error?.message;
+      if (xato) alert('❌ ' + xato);
+      else alert('✅ Faktura Telegramga yuborildi');
+    } catch (e: any) {
+      alert('❌ ' + (e?.message ?? 'Xatolik'));
+    } finally {
+      setTgBusy(null);
+    }
+  }
 
   useEffect(() => {
     supabase
@@ -427,6 +450,14 @@ export default function Orders() {
                 className="rounded-xl border border-gray-300 px-5 py-2 text-sm font-bold text-gray-700 hover:border-brand hover:text-brand"
               >
                 📄 Faktura
+              </button>
+              <button
+                disabled={tgBusy === o.id}
+                onClick={() => sendTelegram(o)}
+                className="rounded-xl border border-sky-200 bg-sky-50 px-5 py-2 text-sm font-bold text-sky-600 hover:bg-sky-100 disabled:opacity-50"
+                title="Fakturani PDF qilib mijozning Telegramiga yuboradi"
+              >
+                {tgBusy === o.id ? 'Yuborilmoqda...' : '📤 Telegramga yuborish'}
               </button>
             </div>
           </div>
