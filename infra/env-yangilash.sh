@@ -117,9 +117,11 @@ fi
 
 echo ""
 echo "  Joylashtirilgan mijoz web-ilovasi:"
-if [ -d "$LANDING_WWW" ] && grep -rqs "$YANGI_REF" "$LANDING_WWW"; then
+# -a (--text) SHART: Expo bundle'i katta va ichida ko'p belgilar bo'lgani
+# uchun grep uni ba'zan "binary" deb hisoblab, jimgina o'tkazib yuboradi
+if [ -d "$LANDING_WWW" ] && grep -raqs "$YANGI_REF" "$LANDING_WWW"; then
   echo "    OK   yangi baza URL bor"
-  if grep -rqs "$ESKI_REF" "$LANDING_WWW"; then
+  if grep -raqs "$ESKI_REF" "$LANDING_WWW"; then
     echo "    XATO eski baza URL hali bor"
     xato=1
   else
@@ -132,12 +134,18 @@ fi
 
 echo ""
 echo "  Yangi baza javob beryaptimi:"
+# apikey SHART — usiz Supabase 401 qaytaradi va bu "pauzada" degani EMAS
+ANON_KEY=$(sed -n 's/^VITE_SUPABASE_ANON_KEY=//p' apps/admin/.env)
 kod=$(curl -s -o /dev/null -w "%{http_code}" --max-time 15 \
+  -H "apikey: $ANON_KEY" \
   "https://${YANGI_REF}.supabase.co/auth/v1/settings" || echo "000")
 if [ "$kod" = "200" ]; then
   echo "    OK   Supabase javob berdi (HTTP $kod)"
+elif [ "$kod" = "000" ]; then
+  echo "    XATO Supabase umuman javob bermadi — loyiha PAUZADA bo'lishi mumkin"
+  xato=1
 else
-  echo "    XATO Supabase javob bermadi (HTTP $kod) — loyiha pauzada bo'lishi mumkin"
+  echo "    XATO Supabase kutilmagan javob berdi (HTTP $kod)"
   xato=1
 fi
 
