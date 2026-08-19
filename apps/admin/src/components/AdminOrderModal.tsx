@@ -49,47 +49,88 @@ export default function AdminOrderModal({
 
   useEffect(() => {
     if (!customer) return;
-    supabase
-      .from('products')
-      .select(
-        `id, name, model,
-         product_images ( storage_path, thumb_path, is_primary, sort_order ),
-         product_variants ( id, sku, size, color, is_active,
-           stock_levels ( qty, reserved ),
-           prices ( price_group_id, price ) )`
-      )
-      .eq('is_active', true)
-      .order('name')
-      .limit(300)
-      .then(({ data }) => {
-        setProducts(
-          (data ?? [])
-            .map((p: any) => {
-              const imgs = (p.product_images ?? []).sort(
-                (a: any, b: any) => Number(b.is_primary) - Number(a.is_primary) || a.sort_order - b.sort_order
-              );
-              const variants: Variant[] = (p.product_variants ?? [])
-                .filter((v: any) => v.is_active)
-                .map((v: any) => {
-                  const sl = Array.isArray(v.stock_levels) ? v.stock_levels[0] : v.stock_levels;
-                  const priceRow = (v.prices ?? []).find(
-                    (pr: any) => pr.price_group_id === customer.price_group_id
-                  );
-                  return {
-                    id: v.id,
-                    sku: v.sku,
-                    size: v.size,
-                    color: v.color,
-                    price: priceRow ? Number(priceRow.price) : null,
-                    available: Math.max(0, (sl?.qty ?? 0) - (sl?.reserved ?? 0)),
-                  };
-                })
-                .filter((v: any): v is Variant => v.price != null && v.available > 0);
-              return { id: p.id, name: p.name, model: p.model, image: imgs[0] ? imageUrl(imgs[0].thumb_path || imgs[0].storage_path) : null, variants };
-            })
-            .filter((p: Product) => p.variants.length > 0)
-        );
-      });
+    (async () => {
+      // Menejer o'z mijoziga buyurtma yaratganda EKRANDA ham o'z narxini
+      // ko'rishi shart. Avval faqat `prices` (kompaniya bazasi) o'qilardi —
+      // server esa admin_create_order ichida menejer narxini qo'llardi, ya'ni
+      // menejer bir summani ko'rib, buyurtma boshqa summada tushardi.
+      // Ustuvorlik serverdagi bilan bir xil:
+      //   mijozga alohida narx > menejerning umumiy narxi > kompaniya bazasi
+      const [{ data }, { data: mgrUser }] = await Promise.all([
+        supabase
+          .from('products')
+          .select(
+            `id, name, model,
+             product_images ( storage_path, thumb_path, is_primary, sort_order ),
+             product_variants ( id, sku, size, color, is_active,
+               stock_levels ( qty, reserved ),
+               prices ( price_group_id, price ) )`
+          )
+          .eq('is_active', true)
+          .order('name')
+          .limit(300),
+        supabase.auth.getUser(),
+      ]);
+
+      // managers.id = menejerning o'z profil id'si. Admin bu jadvalda umuman
+      // yo'q, shuning uchun bu so'rov admin uchun null qaytaradi va quyidagi
+      // blok o'tkazib yuboriladi — admin baribir kompaniya bazasini ko'radi.
+      const uid = (mgrUser as any)?.user?.id;
+      const { data: mgr } = uid
+        ? await supabase.from('managers').select('id, usd_rate').eq('id', uid).maybeSingle()
+        : { data: null };
+
+      const mgrPrices = new Map<string, { price: number; currency: string }>();
+      if (mgr) {
+        const rate = Number((mgr as any).usd_rate) || 0;
+        const [{ data: general }, { data: perCustomer }] = await Promise.all([
+          supabase.from('manager_prices').select('variant_id, price, currency'),
+          supabase
+            .from('manager_customer_prices')
+            .select('variant_id, price, currency')
+            .eq('customer_id', customer.id),
+        ]);
+        const put = (rows: any[]) => {
+          for (const r of rows ?? []) {
+            const raw = Number(r.price);
+            const som = r.currency === 'USD' ? Math.round(raw * rate) : raw;
+            mgrPrices.set(r.variant_id, { price: som, currency: r.currency });
+          }
+        };
+        put(general ?? []); // avval umumiy...
+        put(perCustomer ?? []); // ...keyin mijozga alohida narx ustidan yozadi
+      }
+
+      setProducts(
+        (data ?? [])
+          .map((p: any) => {
+            const imgs = (p.product_images ?? []).sort(
+              (a: any, b: any) => Number(b.is_primary) - Number(a.is_primary) || a.sort_order - b.sort_order
+            );
+            const variants: Variant[] = (p.product_variants ?? [])
+              .filter((v: any) => v.is_active)
+              .map((v: any) => {
+                const sl = Array.isArray(v.stock_levels) ? v.stock_levels[0] : v.stock_levels;
+                const priceRow = (v.prices ?? []).find(
+                  (pr: any) => pr.price_group_id === customer.price_group_id
+                );
+                const basePrice = priceRow ? Number(priceRow.price) : null;
+                const own = mgrPrices.get(v.id);
+                return {
+                  id: v.id,
+                  sku: v.sku,
+                  size: v.size,
+                  color: v.color,
+                  price: own ? own.price : basePrice,
+                  available: Math.max(0, (sl?.qty ?? 0) - (sl?.reserved ?? 0)),
+                };
+              })
+              .filter((v: any): v is Variant => v.price != null && v.available > 0);
+            return { id: p.id, name: p.name, model: p.model, image: imgs[0] ? imageUrl(imgs[0].thumb_path || imgs[0].storage_path) : null, variants };
+          })
+          .filter((p: Product) => p.variants.length > 0)
+      );
+    })();
   }, [customer]);
 
   function addToCart(p: Product, v: Variant) {

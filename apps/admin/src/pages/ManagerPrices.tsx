@@ -168,9 +168,31 @@ export default function ManagerPrices() {
   }
 
   const activePrices = selectedCustomer ? customerPrices : generalPrices;
-  const stdGroupId = groups.find((g) => g.name === 'Standart')?.id;
   const selectedCustomerObj = customers.find((c) => c.id === selectedCustomer);
+
+  // "Umumiy narx" rejimida qaysi guruh baza bo'lishini aniqlaymiz.
+  // Avval qat'iy "Standart" nomli guruh qidirilardi — agar kompaniyada
+  // undan boshqa nom ishlatilsa (yoki Standart'da narx qo'yilmagan bo'lsa),
+  // baza topilmay, "Barchasiga qo'llash" JIMGINA hech narsa qilmasdi.
+  // Endi: Standart -> menejer mijozlari eng ko'p turgan guruh -> narxi bor
+  // birinchi guruh.
+  const stdGroupId = (() => {
+    const std = groups.find((g) => g.name.toLowerCase() === 'standart')?.id;
+    if (std && products.some((p) => p.variants.some((v) => v.basePrices[std] != null))) return std;
+
+    const soni = new Map<string, number>();
+    for (const c of customers) {
+      if (c.price_group_id) soni.set(c.price_group_id, (soni.get(c.price_group_id) ?? 0) + 1);
+    }
+    const ommabop = [...soni.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
+    if (ommabop && products.some((p) => p.variants.some((v) => v.basePrices[ommabop] != null)))
+      return ommabop;
+
+    return groups.find((g) => products.some((p) => p.variants.some((v) => v.basePrices[g.id] != null)))?.id;
+  })();
+
   const refGroupId = selectedCustomer ? selectedCustomerObj?.price_group_id : stdGroupId;
+  const refGroupName = groups.find((g) => g.id === refGroupId)?.name ?? null;
 
   async function savePrice(variantId: string, baseSom: number | null) {
     if (!managerId) return;
@@ -244,9 +266,18 @@ export default function ManagerPrices() {
   const visibleVariants = filtered.flatMap((p) => p.variants);
 
   async function applyBulk() {
-    if (!managerId || !refGroupId) return;
+    // Avval bu shartlar jimgina `return` qilardi — foydalanuvchi tugmani
+    // bosardi va mutlaqo hech narsa bo'lmasdi, sababi ham ko'rinmasdi.
+    if (!managerId) return alert('Menejer profili topilmadi.');
+    if (!refGroupId)
+      return alert(
+        "Baza narx topilmadi.\n\nMahsulotlarga hali kompaniya narxi qo'yilmagan " +
+          "(admin panel > Mahsulotlar > '+ Kirim' orqali narx qo'yiladi). " +
+          "Baza narxsiz ustama hisoblab bo'lmaydi."
+      );
     const markup = parseFloat(bulkMarkup);
-    if (Number.isNaN(markup) || visibleVariants.length === 0) return;
+    if (Number.isNaN(markup)) return alert('Ustama sonini kiriting.');
+    if (visibleVariants.length === 0) return alert("Ro'yxatda mahsulot yo'q.");
     const unit = markupMode === 'percent' ? '%' : bulkCurrency === 'USD' ? '$' : "so'm";
     const verb = markupMode === 'percent' ? 'foiz qo`shilsinmi' : "qo'shilsinmi";
     if (
@@ -268,6 +299,19 @@ export default function ManagerPrices() {
       })
       .filter((r): r is { variant_id: string; price: number } => r != null);
 
+    // Baza narxi yo'q variantlar yuqorida null bo'lib chiqib ketadi. Agar
+    // hammasi shunday bo'lsa, "qo'llandi" deb ko'rsatib, aslida hech narsa
+    // saqlamaslik eng chalg'ituvchi holat edi.
+    if (rows.length === 0) {
+      setBulkBusy(false);
+      return alert(
+        `Hech bir mahsulotga qo'llanmadi.\n\nKo'rinayotgan ${visibleVariants.length} ta mahsulotning ` +
+          `hech birida "${refGroupName ?? '—'}" guruhida kompaniya baza narxi yo'q.\n\n` +
+          "Avval admin panelda o'sha mahsulotlarga narx qo'ying."
+      );
+    }
+    const otkazildi = visibleVariants.length - rows.length;
+
     if (selectedCustomer) {
       const payload = rows.map((r) => ({
         manager_id: managerId,
@@ -279,7 +323,11 @@ export default function ManagerPrices() {
       const { error } = await supabase
         .from('manager_customer_prices')
         .upsert(payload, { onConflict: 'manager_id,customer_id,variant_id' });
-      if (!error) {
+      if (error) {
+        setBulkBusy(false);
+        return alert('Saqlashda xatolik: ' + error.message);
+      }
+      {
         setCustomerPrices((p) => {
           const next = { ...p };
           for (const r of rows) next[r.variant_id] = { price: r.price, currency: bulkCurrency };
@@ -289,7 +337,11 @@ export default function ManagerPrices() {
     } else {
       const payload = rows.map((r) => ({ manager_id: managerId, variant_id: r.variant_id, price: r.price, currency: bulkCurrency }));
       const { error } = await supabase.from('manager_prices').upsert(payload, { onConflict: 'manager_id,variant_id' });
-      if (!error) {
+      if (error) {
+        setBulkBusy(false);
+        return alert('Saqlashda xatolik: ' + error.message);
+      }
+      {
         setGeneralPrices((p) => {
           const next = { ...p };
           for (const r of rows) next[r.variant_id] = { price: r.price, currency: bulkCurrency };
@@ -299,6 +351,10 @@ export default function ManagerPrices() {
     }
     setBulkMarkup('');
     setBulkBusy(false);
+    alert(
+      `✅ ${rows.length} ta mahsulotga qo'llandi.` +
+        (otkazildi > 0 ? `\n\n${otkazildi} tasi o'tkazib yuborildi — ularda baza narx yo'q.` : '')
+    );
   }
 
   const inputCls =
@@ -384,6 +440,17 @@ export default function ManagerPrices() {
             </option>
           ))}
         </select>
+        {/* Qaysi guruh baza sifatida olinayotgani ko'rinib tursin — aks holda
+            "nega bu narx chiqdi" degan savol javobsiz qoladi */}
+        {refGroupName ? (
+          <span className="text-xs text-gray-500">
+            Baza: <b className="text-gray-700">{refGroupName}</b> guruhi narxi
+          </span>
+        ) : (
+          <span className="text-xs font-semibold text-red-500">
+            ⚠️ Baza narx topilmadi — mahsulotlarga hali kompaniya narxi qo'yilmagan
+          </span>
+        )}
         {usdRate <= 0 && (
           <span className="text-xs font-semibold text-amber-600">
             ⚠️ Dollar kursi kiritilmagan — Sozlamalarda kiriting, aks holda dollarda narx qo'ya olmaysiz
