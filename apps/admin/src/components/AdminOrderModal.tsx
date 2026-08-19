@@ -72,12 +72,17 @@ export default function AdminOrderModal({
         supabase.auth.getUser(),
       ]);
 
-      // managers.id = menejerning o'z profil id'si. Admin bu jadvalda umuman
-      // yo'q, shuning uchun bu so'rov admin uchun null qaytaradi va quyidagi
-      // blok o'tkazib yuboriladi — admin baribir kompaniya bazasini ko'radi.
+      // MUHIM: managers.id auth foydalanuvchi id'si EMAS. Bog'lanish
+      // profiles.manager_id -> managers.id orqali ketadi (bazadagi
+      // current_manager_id() ham aynan shuni o'qiydi). Admin'da bu ustun
+      // bo'sh, shuning uchun u avvalgidek kompaniya bazasini ko'radi.
       const uid = (mgrUser as any)?.user?.id;
-      const { data: mgr } = uid
-        ? await supabase.from('managers').select('id, usd_rate').eq('id', uid).maybeSingle()
+      const { data: prof } = uid
+        ? await supabase.from('profiles').select('manager_id').eq('id', uid).maybeSingle()
+        : { data: null };
+      const myManagerId = (prof as any)?.manager_id ?? null;
+      const { data: mgr } = myManagerId
+        ? await supabase.from('managers').select('id, usd_rate').eq('id', myManagerId).maybeSingle()
         : { data: null };
 
       const mgrPrices = new Map<string, { price: number; currency: string }>();
