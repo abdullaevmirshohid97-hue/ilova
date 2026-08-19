@@ -213,20 +213,50 @@ export default function OrdersScreen() {
     `;
   }
 
+  // Fakturani serverda PDF qilib, mijozning Telegram chatiga yuboradi.
+  // Telegram Mini App ichida yagona ishlaydigan yo'l — WebView'da na
+  // window.open, na fayl yuklab olish ishlaydi.
+  async function sendInvoiceToTelegram(order: Order): Promise<boolean> {
+    try {
+      const { data, error } = await supabase.functions.invoke('telegram-notify', {
+        body: { order_id: order.id },
+      });
+      const xato = (data as any)?.error ? ((data as any).message ?? (data as any).error) : error?.message;
+      if (xato) {
+        Alert.alert(t('invoiceShareTitle'), xato);
+        return false;
+      }
+      Alert.alert(t('invoiceShareTitle'), t('invoiceSentTelegram'));
+      return true;
+    } catch (e: any) {
+      Alert.alert(t('error'), e?.message ?? t('invoiceFailed'));
+      return false;
+    }
+  }
+
   async function downloadInvoice(order: Order) {
     setInvoiceBusy(order.id);
     try {
       const html = buildInvoiceHtml(order);
       if (Platform.OS === 'web') {
-        // expo-print/expo-sharing faylga yozib bo'lmaydi (brauzerda fayl
-        // tizimi yo'q) — o'rniga yangi oynada ochib, brauzer "Saqlash PDF"
-        // dialogini chiqaramiz
-        const win = window.open('', '_blank');
+        // expo-print/expo-sharing brauzerda faylga yoza olmaydi, shuning
+        // uchun odatda yangi oynada ochib print dialogini chiqaramiz.
+        // AMMO Telegram Mini App (WebView) window.open'ni bloklaydi va
+        // null qaytaradi — o'sha holatda fakturani bot orqali yuboramiz.
+        // Bu popup-blocker yoqilgan oddiy brauzerni ham qutqaradi.
+        let win: Window | null = null;
+        try {
+          win = window.open('', '_blank');
+        } catch {
+          win = null;
+        }
         if (win) {
           win.document.write(html);
           win.document.close();
           win.focus();
           win.print();
+        } else {
+          await sendInvoiceToTelegram(order);
         }
       } else {
         const { uri } = await Print.printToFileAsync({ html });
