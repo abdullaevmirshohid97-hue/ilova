@@ -1,10 +1,19 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ORDER_STATUS, formatDate, formatSum, supabase } from '../lib/supabase';
+import { ORDER_STATUS, formatDate, formatSum, imageUrl, supabase } from '../lib/supabase';
+import { openInvoice } from '../lib/invoice';
 import OrderEditModal from '../components/OrderEditModal';
 import AdminOrderModal from '../components/AdminOrderModal';
 import DesignOrderModal from '../components/DesignOrderModal';
 
-type Item = { qty: number; unit_price: number; name: string; size: string | null; color: string | null };
+type Item = {
+  qty: number;
+  unit_price: number;
+  name: string;
+  sku: string;
+  size: string | null;
+  color: string | null;
+  image: string | null;
+};
 type Order = {
   id: string;
   order_number: number;
@@ -36,6 +45,37 @@ export default function ManagerOrders() {
   const [editOrderId, setEditOrderId] = useState<string | null>(null);
   const [showNewOrder, setShowNewOrder] = useState(false);
   const [showDesignOrder, setShowDesignOrder] = useState(false);
+  const [orgName, setOrgName] = useState('');
+  const [tgBusy, setTgBusy] = useState<string | null>(null);
+
+  useEffect(() => {
+    supabase
+      .from('organizations')
+      .select('name')
+      .limit(1)
+      .maybeSingle()
+      .then(({ data }) => setOrgName((data as any)?.name ?? ''));
+  }, []);
+
+  // Fakturani PDF qilib MIJOZNING Telegramiga yuboradi. PDF server tomonda
+  // (telegram-notify) yasaladi va u yerda menejerning o'z narxi ishlatiladi —
+  // mijoz aynan o'zi to'laydigan summani ko'radi.
+  async function sendTelegram(o: Order) {
+    if (!confirm(`№${o.order_number} fakturasi ${o.customer}ga Telegram orqali yuborilsinmi?`)) return;
+    setTgBusy(o.id);
+    try {
+      const { data, error } = await supabase.functions.invoke('telegram-notify', {
+        body: { order_id: o.id },
+      });
+      const xato = (data as any)?.error ? ((data as any).message ?? (data as any).error) : error?.message;
+      if (xato) alert('❌ ' + xato);
+      else alert('✅ Faktura Telegramga yuborildi');
+    } catch (e: any) {
+      alert('❌ ' + (e?.message ?? 'Xatolik'));
+    } finally {
+      setTgBusy(null);
+    }
+  }
 
   const load = useCallback(async () => {
     const q_ = search.trim();
@@ -46,7 +86,8 @@ export default function ManagerOrders() {
       .select(
         `id, order_number, status, total, created_at,
          customers!inner ( name, phone ),
-         order_items ( qty, unit_price, product_variants ( size, color, products ( name ) ) )`
+         order_items ( qty, unit_price, product_variants ( sku, size, color,
+           products ( name, product_images ( storage_path, thumb_path, is_primary, sort_order ) ) ) )`
       )
       .order('created_at', { ascending: false })
       .limit(100);
@@ -64,13 +105,20 @@ export default function ManagerOrders() {
         created_at: o.created_at,
         customer: o.customers?.name ?? '—',
         phone: o.customers?.phone ?? '',
-        items: (o.order_items ?? []).map((it: any) => ({
-          qty: it.qty,
-          unit_price: Number(it.unit_price),
-          name: it.product_variants?.products?.name ?? '—',
-          size: it.product_variants?.size ?? null,
-          color: it.product_variants?.color ?? null,
-        })),
+        items: (o.order_items ?? []).map((it: any) => {
+          const imgs = (it.product_variants?.products?.product_images ?? []).sort(
+            (a: any, b: any) => Number(b.is_primary) - Number(a.is_primary) || a.sort_order - b.sort_order
+          );
+          return {
+            qty: it.qty,
+            unit_price: Number(it.unit_price),
+            sku: it.product_variants?.sku ?? '',
+            name: it.product_variants?.products?.name ?? '—',
+            size: it.product_variants?.size ?? null,
+            color: it.product_variants?.color ?? null,
+            image: imgs[0] ? imageUrl(imgs[0].thumb_path || imgs[0].storage_path) : null,
+          };
+        }),
       }))
     );
   }, [filter, search]);
@@ -167,32 +215,32 @@ export default function ManagerOrders() {
               ))}
             </div>
 
-            {o.status === 'new' && (
-              <div className="mt-4 flex flex-wrap gap-2">
-                <button
-                  disabled={busy === o.id}
-                  onClick={() => act(o.id, 'confirm_order')}
-                  className="rounded-xl bg-emerald-600 px-5 py-2 text-sm font-bold text-white hover:bg-emerald-700 disabled:opacity-50"
-                >
-                  ✓ Qabul qilish
-                </button>
-                <button
-                  onClick={() => setEditOrderId(o.id)}
-                  className="rounded-xl border border-gray-200 px-5 py-2 text-sm font-bold text-gray-600 hover:border-brand hover:text-brand"
-                >
-                  ✏️ Tahrirlash
-                </button>
-                <button
-                  disabled={busy === o.id}
-                  onClick={() => confirm(`№${o.order_number} bekor qilinsinmi?`) && act(o.id, 'cancel_order')}
-                  className="rounded-xl border border-red-200 px-5 py-2 text-sm font-bold text-red-500 hover:bg-red-50 disabled:opacity-50"
-                >
-                  ✕ Bekor qilish
-                </button>
-              </div>
-            )}
-            {o.status === 'confirmed' && (
-              <div className="mt-4 flex flex-wrap gap-2">
+            <div className="mt-4 flex flex-wrap gap-2">
+              {o.status === 'new' && (
+                <>
+                  <button
+                    disabled={busy === o.id}
+                    onClick={() => act(o.id, 'confirm_order')}
+                    className="rounded-xl bg-emerald-600 px-5 py-2 text-sm font-bold text-white hover:bg-emerald-700 disabled:opacity-50"
+                  >
+                    ✓ Qabul qilish
+                  </button>
+                  <button
+                    onClick={() => setEditOrderId(o.id)}
+                    className="rounded-xl border border-gray-200 px-5 py-2 text-sm font-bold text-gray-600 hover:border-brand hover:text-brand"
+                  >
+                    ✏️ Tahrirlash
+                  </button>
+                  <button
+                    disabled={busy === o.id}
+                    onClick={() => confirm(`№${o.order_number} bekor qilinsinmi?`) && act(o.id, 'cancel_order')}
+                    className="rounded-xl border border-red-200 px-5 py-2 text-sm font-bold text-red-500 hover:bg-red-50 disabled:opacity-50"
+                  >
+                    ✕ Bekor qilish
+                  </button>
+                </>
+              )}
+              {o.status === 'confirmed' && (
                 <button
                   disabled={busy === o.id}
                   onClick={() => act(o.id, 'set_order_status', 'picking')}
@@ -200,10 +248,8 @@ export default function ManagerOrders() {
                 >
                   Yig'ishga berish
                 </button>
-              </div>
-            )}
-            {o.status === 'picking' && (
-              <div className="mt-4 flex flex-wrap gap-2">
+              )}
+              {o.status === 'picking' && (
                 <button
                   disabled={busy === o.id}
                   onClick={() => act(o.id, 'set_order_status', 'done')}
@@ -211,8 +257,25 @@ export default function ManagerOrders() {
                 >
                   Yopish (topshirildi)
                 </button>
-              </div>
-            )}
+              )}
+
+              {/* Faktura — holatdan qat'i nazar doim mavjud. Ochilgan oynada
+                  "Chop etish / PDF saqlash" tugmasi bor, ya'ni yuklab ham olinadi. */}
+              <button
+                onClick={() => openInvoice(o, orgName)}
+                className="rounded-xl border border-gray-300 px-5 py-2 text-sm font-bold text-gray-700 hover:border-brand hover:text-brand"
+              >
+                📄 Faktura
+              </button>
+              <button
+                disabled={tgBusy === o.id}
+                onClick={() => sendTelegram(o)}
+                className="rounded-xl border border-sky-200 bg-sky-50 px-5 py-2 text-sm font-bold text-sky-600 hover:bg-sky-100 disabled:opacity-50"
+                title="Fakturani PDF qilib mijozning Telegramiga yuboradi"
+              >
+                {tgBusy === o.id ? 'Yuborilmoqda...' : '📤 Telegramga yuborish'}
+              </button>
+            </div>
           </div>
         );
       })}

@@ -1,7 +1,13 @@
-// Buyurtma fakturasini mijozga Telegram orqali yuborish (PDF fayl bilan).
+// Buyurtma fakturasini Telegram orqali yuborish (PDF fayl bilan).
 //
-// Chaqiriladi: admin panelidagi "📤 Telegramga yuborish" tugmasi, yoki
-// buyurtma tasdiqlangan paytda. Body: { order_id: uuid }
+// Uchta chaqiruvchi bor va uchalasi ham SHU YERDAGI bitta PDF yasovchidan
+// foydalanadi — faktura ko'rinishi hamma joyda bir xil bo'lsin:
+//   1. Panel (admin/menejer) "📤 Telegramga yuborish" — mijozning chatiga
+//   2. Mijoz boti (telegram-bot)  — x-bot-chat-id sarlavhasi bilan
+//   3. Xodim boti (telegram-staff) — x-staff-chat-id sarlavhasi bilan,
+//      faktura xodimning O'ZIGA yuboriladi (xodim boti tokeni bilan)
+//
+// Body: { order_id: uuid }
 //
 // PDF pdf-lib bilan shu yerda yasaladi — server tomonda kutubxona yo'q
 // degan cheklov faqat OGIR (puppeteer kabi) yechimlarga tegishli; pdf-lib
@@ -177,9 +183,6 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
   if (req.method !== 'POST') return json({ error: 'METHOD' }, 405);
 
-  const token = Deno.env.get('TELEGRAM_BOT_TOKEN');
-  if (!token) return json({ error: 'TELEGRAM_BOT_TOKEN_YOQ' }, 500);
-
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -187,14 +190,34 @@ Deno.serve(async (req) => {
 
     const authHeader = req.headers.get('Authorization') ?? '';
     const botChatId = req.headers.get('x-bot-chat-id');
+    const staffChatId = req.headers.get('x-staff-chat-id');
+    const xizmatChaqiruvi = authHeader.includes(serviceKey);
     const admin = createClient(supabaseUrl, serviceKey);
 
     const { order_id } = await req.json();
     if (!order_id) return json({ error: 'ORDER_ID_YOQ' }, 400);
 
     let inv: any = null;
+    // Kimga va qaysi bot orqali ketishi shu ikki o'zgaruvchida hal bo'ladi
+    let chatId: number | null = null;
+    let token = Deno.env.get('TELEGRAM_BOT_TOKEN');
 
-    if (botChatId && authHeader.includes(serviceKey)) {
+    if (staffChatId && xizmatChaqiruvi) {
+      // Chaqiruvchi — xodim boti. Faktura mijozga emas, XODIMNING o'ziga
+      // ketadi va narx turi uning roliga qarab tanlanadi (admin baza narxni,
+      // menejer o'z narxini ko'radi) — buni RPC hal qiladi.
+      token = Deno.env.get('TELEGRAM_STAFF_BOT_TOKEN');
+      if (!token) return json({ error: 'TELEGRAM_STAFF_BOT_TOKEN_YOQ' }, 500);
+
+      const { data, error } = await admin.rpc('order_invoice_for_staff_chat', {
+        p_order_id: order_id,
+        p_chat_id: Number(staffChatId),
+      });
+      if (error) return json({ error: error.message }, 400);
+      inv = data;
+      if (!inv) return json({ error: 'BUYURTMA_TOPILMADI_YOKI_RUXSAT_YOQ' }, 404);
+      chatId = Number(staffChatId);
+    } else if (botChatId && xizmatChaqiruvi) {
       // Chaqiruvchi — bot (telegram-bot funksiyasi). Unda auth.uid() yo'q,
       // shuning uchun order_invoice ishlamaydi; o'rniga chat_id bog'lanishi
       // bo'yicha tekshiradigan alohida RPC ishlatiladi.
@@ -222,25 +245,35 @@ Deno.serve(async (req) => {
       if (!inv) return json({ error: 'BUYURTMA_TOPILMADI_YOKI_RUXSAT_YOQ' }, 404);
     }
 
-    const chatId = (inv as any).customer?.telegram_chat_id;
-    if (!chatId) {
-      return json(
-        {
-          error: 'TELEGRAM_ULANMAGAN',
-          message: `${(inv as any).customer?.name ?? 'Mijoz'} hali botga ulanmagan. Mijoz botda /start bosib telefon raqamini yuborishi kerak.`,
-        },
-        409
-      );
+    // Xodim yo'lida manzil yuqorida aniqlangan; qolgan ikkisida faktura
+    // mijozning o'z chatiga ketadi
+    if (chatId === null) {
+      chatId = (inv as any).customer?.telegram_chat_id ?? null;
+      if (!chatId) {
+        return json(
+          {
+            error: 'TELEGRAM_ULANMAGAN',
+            message: `${(inv as any).customer?.name ?? 'Mijoz'} hali botga ulanmagan. Mijoz botda /start bosib telefon raqamini yuborishi kerak.`,
+          },
+          409
+        );
+      }
     }
+
+    if (!token) return json({ error: 'TELEGRAM_BOT_TOKEN_YOQ' }, 500);
 
     const pdf = await makePdf(inv, supabaseUrl);
 
     const holat = HOLAT[(inv as any).status] ?? (inv as any).status;
+    const xodimga = !!staffChatId && xizmatChaqiruvi;
     const caption =
       `🧾 <b>Faktura №${(inv as any).order_number}</b>\n` +
+      (xodimga ? `Mijoz: ${(inv as any).customer?.name ?? '-'}\n` : '') +
       `Holat: ${holat}\n` +
-      `Jami: <b>${raqam((inv as any).total)} so'm</b>\n\n` +
-      `${(inv as any).org_name ?? ''}`;
+      `Jami: <b>${raqam((inv as any).total)} so'm</b>` +
+      // Admin baza (rasmiy) narxni ko'radi — chalkashmasin uchun aytib qo'yamiz
+      ((inv as any).price_kind === 'base' ? ' <i>(rasmiy narx)</i>' : '') +
+      `\n\n${(inv as any).org_name ?? ''}`;
 
     const form = new FormData();
     form.append('chat_id', String(chatId));
@@ -263,7 +296,7 @@ Deno.serve(async (req) => {
     await admin.from('telegram_notifications').insert({
       order_id,
       chat_id: chatId,
-      kind: 'invoice',
+      kind: xodimga ? 'invoice_staff' : 'invoice',
       ok: !!tgJson.ok,
       error: tgJson.ok ? null : JSON.stringify(tgJson).slice(0, 500),
     });

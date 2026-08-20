@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import ChangePasswordPanel from '../components/ChangePasswordPanel';
+import StaffTelegramPanel from '../components/StaffTelegramPanel';
 
 export default function ManagerSettings() {
   const [rate, setRate] = useState('');
@@ -62,6 +63,8 @@ export default function ManagerSettings() {
         {error && <p className="mt-2 text-sm font-semibold text-red-500">{error}</p>}
         {done && <p className="mt-2 text-sm font-semibold text-emerald-600">✅ Kurs yangilandi</p>}
       </div>
+
+      <StaffTelegramPanel />
 
       <ChangePasswordPanel />
     </div>

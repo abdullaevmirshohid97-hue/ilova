@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { formatDate, formatSum, genPassword, supabase } from '../lib/supabase';
 import ChangePasswordPanel from '../components/ChangePasswordPanel';
+import StaffTelegramPanel from '../components/StaffTelegramPanel';
 
 type Category = { id: string; name: string; sort_order: number };
 type Group = { id: string; name: string };
@@ -401,6 +402,7 @@ export default function Settings() {
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       <ChangePasswordPanel />
+      <StaffTelegramPanel />
       <OrgProfilePanel />
       <CategoriesPanel />
       <PriceGroupsPanel />
