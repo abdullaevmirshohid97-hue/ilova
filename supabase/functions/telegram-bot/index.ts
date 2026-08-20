@@ -137,6 +137,26 @@ Deno.serve(async (req) => {
 
   // ------------------------------------------------------------- kontakt
   if (msg.contact) {
+    // XAVFSIZLIK: Telegramda BOSHQA odamning kontakt kartochkasini ham
+    // yuborish mumkin. Bu tekshiruvsiz begona odam mijozning raqamini
+    // yuborib, uning kartochkasiga ulanib olardi va fakturalarini ko'rardi.
+    // "📞 Telefon yuborish" tugmasi doim o'z raqamini yuboradi — ya'ni bu
+    // tekshiruv haqiqiy foydalanuvchiga xalaqit bermaydi.
+    if (Number(msg.contact.user_id) !== Number(from.id)) {
+      await tg(token, 'sendMessage', {
+        chat_id: chatId,
+        text:
+          `❌ Faqat <b>o'z</b> raqamingizni yuboring — pastdagi tugma orqali.`,
+        parse_mode: 'HTML',
+        reply_markup: {
+          keyboard: [[{ text: '📞 Telefon raqamni yuborish', request_contact: true }]],
+          resize_keyboard: true,
+          one_time_keyboard: true,
+        },
+      });
+      return new Response('ok');
+    }
+
     const tel = faqatRaqam(msg.contact.phone_number);
     // Mijozlar bazasidagi telefon turli formatda saqlangan bo'lishi mumkin,
     // shuning uchun oxirgi 9 raqam bo'yicha solishtiramiz

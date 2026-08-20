@@ -207,6 +207,9 @@ Deno.serve(async (req) => {
     const authHeader = req.headers.get('Authorization') ?? '';
     const botChatId = req.headers.get('x-bot-chat-id');
     const staffChatId = req.headers.get('x-staff-chat-id');
+    // Xodim botidan "mijozga yubor" bosilgan holat: manzil ham, ruxsat ham
+    // bazada aniqlanadi — bot mijozning chat_id'sini bilmaydi
+    const staffSender = req.headers.get('x-staff-sender');
     const xizmatChaqiruvi = authHeader.includes(serviceKey);
     const admin = createClient(supabaseUrl, serviceKey);
 
@@ -218,7 +221,32 @@ Deno.serve(async (req) => {
     let chatId: number | null = null;
     let token = Deno.env.get('TELEGRAM_BOT_TOKEN');
 
-    if (staffChatId && xizmatChaqiruvi) {
+    if (staffSender && xizmatChaqiruvi) {
+      // Xodim buyurtmaga egami — buni RPC tekshiradi va mijozning chatini
+      // o'zi qaytaradi. Faktura MIJOZGA ketadi, ya'ni narx haqiqiy; xodimga
+      // esa faqat "yuborildi" javobi boradi, faktura mazmuni emas.
+      const { data, error } = await admin.rpc('order_invoice_for_staff_to_customer', {
+        p_order_id: order_id,
+        p_staff_chat_id: Number(staffSender),
+      });
+      if (error) return json({ error: error.message }, 400);
+      const r = (data ?? {}) as any;
+      if (!r.ok) {
+        return json(
+          {
+            error: r.error,
+            message:
+              r.error === 'MIJOZ_ULANMAGAN'
+                ? 'Mijoz botga hali ulanmagan — u botda /start bosib telefon raqamini yuborishi kerak.'
+                : 'Bu buyurtma sizga tegishli emas.',
+          },
+          r.error === 'MIJOZ_ULANMAGAN' ? 409 : 403
+        );
+      }
+      inv = r.invoice;
+      chatId = Number(r.chat_id);
+      // Mijoz o'zi biladigan bot orqali oladi (xodim boti orqali emas)
+    } else if (staffChatId && xizmatChaqiruvi) {
       // Chaqiruvchi — xodim boti. Faktura mijozga emas, XODIMNING o'ziga
       // ketadi va narx turi uning roliga qarab tanlanadi (admin baza narxni,
       // menejer o'z narxini ko'radi) — buni RPC hal qiladi.

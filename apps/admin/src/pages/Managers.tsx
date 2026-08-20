@@ -8,6 +8,19 @@ type Row = {
   is_active: boolean;
 };
 
+// Xodimlar boti — admin ham, menejer ham shu bitta botga ulanadi,
+// kim ekanini bot profil bo'yicha aniqlaydi.
+const STAFF_BOT = 'yukchibolla_bot';
+
+type TgHolat = {
+  manager_id: string;
+  has_account: boolean;
+  linked: boolean;
+  username: string | null;
+  linked_at: string | null;
+  invite_expires_at: string | null;
+};
+
 async function callFn(action: string, extra: Record<string, unknown>) {
   const { data, error } = await supabase.functions.invoke('admin-update-manager', {
     body: { action, ...extra },
@@ -143,11 +156,55 @@ export default function Managers() {
   const [showNew, setShowNew] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [newPasswordFor, setNewPasswordFor] = useState<{ id: string; password: string } | null>(null);
+  const [tgStatus, setTgStatus] = useState<Record<string, TgHolat>>({});
+  const [invite, setInvite] = useState<{ id: string; url: string } | null>(null);
 
   const load = useCallback(async () => {
-    const { data } = await supabase.from('managers').select('id, name, phone, is_active').order('name');
+    const [{ data }, { data: tg }] = await Promise.all([
+      supabase.from('managers').select('id, name, phone, is_active').order('name'),
+      supabase.rpc('manager_telegram_status'),
+    ]);
     setRows((data ?? []) as Row[]);
+    const xarita: Record<string, TgHolat> = {};
+    for (const t of ((tg ?? []) as any[])) xarita[t.manager_id] = t;
+    setTgStatus(xarita);
   }, []);
+
+  // Taklif havolasi: kod menejerning telefon raqamiga bog'lanadi, ya'ni
+  // havolaning o'zi yetarli emas — botda o'sha raqamni tasdiqlash kerak.
+  // Shu sabab admin havolani o'zi ishlatib menejer narxlarini ko'ra olmaydi.
+  async function taklifHavolasi(r: Row) {
+    setBusy(r.id);
+    try {
+      const { data, error } = await supabase.rpc('staff_telegram_code_for', { p_manager_id: r.id });
+      if (error) throw error;
+      const kod = (data as any)?.code as string;
+      setInvite({ id: r.id, url: `https://t.me/${STAFF_BOT}?start=${kod}` });
+      load();
+    } catch (e: any) {
+      alert(
+        e?.message === 'MENEJER_HISOBI_YOQ'
+          ? "Bu menejerda hali login yo'q — avval unga parol yarating."
+          : 'Xatolik: ' + (e?.message ?? '')
+      );
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function botdanUzish(r: Row) {
+    if (!confirm(`${r.name}ning Telegram ulanishi uzilsinmi?`)) return;
+    setBusy(r.id);
+    try {
+      const { error } = await supabase.rpc('staff_telegram_admin_unlink', { p_manager_id: r.id });
+      if (error) throw error;
+      load();
+    } catch (e: any) {
+      alert('Xatolik: ' + (e?.message ?? ''));
+    } finally {
+      setBusy(null);
+    }
+  }
 
   useEffect(() => {
     load();
@@ -202,6 +259,7 @@ export default function Managers() {
             <tr className="text-left text-xs uppercase tracking-wide text-gray-400">
               <th className="px-6 py-3">Menejer</th>
               <th className="px-6 py-3">Telefon</th>
+              <th className="px-6 py-3">Telegram</th>
               <th className="px-6 py-3"></th>
             </tr>
           </thead>
@@ -224,6 +282,60 @@ export default function Managers() {
                   </div>
                 </td>
                 <td className="px-6 py-3 text-gray-600">{r.phone}</td>
+                <td className="px-6 py-3">
+                  {tgStatus[r.id]?.linked ? (
+                    <div className="flex items-center gap-2">
+                      <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">
+                        🟢 Ulangan
+                      </span>
+                      {tgStatus[r.id]?.username && (
+                        <span className="text-xs text-gray-400">@{tgStatus[r.id]?.username}</span>
+                      )}
+                      <button
+                        onClick={() => botdanUzish(r)}
+                        disabled={busy === r.id}
+                        className="text-xs font-bold text-gray-400 hover:text-red-500 disabled:opacity-50"
+                        title="Telegram ulanishini uzish"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ) : invite?.id === r.id ? (
+                    <div className="flex items-center gap-2">
+                      <input
+                        readOnly
+                        value={invite.url}
+                        onFocus={(e) => e.currentTarget.select()}
+                        className="w-52 rounded-lg border border-emerald-200 bg-emerald-50 px-2 py-1 font-mono text-[11px] text-emerald-800"
+                      />
+                      <button
+                        onClick={() => navigator.clipboard.writeText(invite.url)}
+                        className="text-xs font-bold text-emerald-700 hover:underline"
+                        title="Nusxa olish"
+                      >
+                        📋
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <span className="rounded-full bg-gray-100 px-2.5 py-1 text-xs font-semibold text-gray-400">
+                        ⚪ Ulanmagan
+                      </span>
+                      <button
+                        onClick={() => taklifHavolasi(r)}
+                        disabled={busy === r.id || !tgStatus[r.id]?.has_account}
+                        title={
+                          tgStatus[r.id]?.has_account
+                            ? 'Havolani menejerga yuboring — u botda o‘z raqamini tasdiqlab ulanadi'
+                            : "Avval menejerga parol yarating (login kerak)"
+                        }
+                        className="rounded-lg border border-gray-200 px-3 py-1 text-xs font-bold text-gray-500 hover:border-brand hover:text-brand disabled:opacity-40"
+                      >
+                        🔗 Taklif havolasi
+                      </button>
+                    </div>
+                  )}
+                </td>
                 <td className="px-6 py-3">
                   <div className="flex justify-end gap-2">
                     {newPasswordFor?.id === r.id && (
@@ -261,7 +373,7 @@ export default function Managers() {
             ))}
             {rows.length === 0 && (
               <tr>
-                <td colSpan={3} className="px-6 py-10 text-center text-gray-400">
+                <td colSpan={4} className="px-6 py-10 text-center text-gray-400">
                   Menejerlar yo'q — «➕ Menejer yaratish» bilan birinchisini qo'shing
                 </td>
               </tr>
