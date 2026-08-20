@@ -28,6 +28,13 @@ function raqam(n: number): string {
     .replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
 }
 
+// Menejer dollarda sotgan bo'lsa summa dollarda ko'rsatiladi. Qaysi valyuta
+// ekanini baza hal qiladi (order_usd_total qoidasi) — bu yer faqat yozadi.
+function pul(n: unknown, valyuta: string): string {
+  const x = Number(n) || 0;
+  return valyuta === 'USD' ? '$' + x.toFixed(2) : raqam(x) + " so'm";
+}
+
 async function tg(token: string, method: string, body: unknown) {
   const r = await fetch(`${TG}${token}/${method}`, {
     method: 'POST',
@@ -123,7 +130,7 @@ Deno.serve(async (req) => {
             o.created_at
           ).toLocaleDateString('ru-RU')}\n` +
           `${esc(o.customer)} · ${esc(o.phone ?? '')}\n` +
-          `${HOLAT_MATN[o.status] ?? o.status} · <b>${raqam(o.total)} so'm</b>`
+          `${HOLAT_MATN[o.status] ?? o.status} · <b>${pul(o.total, o.currency)}</b>`
       )
       .join('\n\n');
 

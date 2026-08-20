@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ORDER_STATUS, formatDate, formatSum, imageUrl, supabase } from '../lib/supabase';
+import { ORDER_STATUS, formatDate, formatSum, formatUsd, imageUrl, supabase } from '../lib/supabase';
 import { openInvoice } from '../lib/invoice';
 import OrderEditModal from '../components/OrderEditModal';
 import AdminOrderModal from '../components/AdminOrderModal';
@@ -23,6 +23,10 @@ type Order = {
   customer: string;
   phone: string;
   items: Item[];
+  // Mijoz dollarda savdo qilinsa summalar dollarda ko'rsatiladi; so'mdagi
+  // ekvivalent esa saqlanadi, chunki qarz (ledger) so'mda yuritiladi
+  currency: 'UZS' | 'USD';
+  totalUzs: number | null;
 };
 
 const FILTERS = [
@@ -85,8 +89,9 @@ export default function ManagerOrders() {
       .from('orders')
       .select(
         `id, order_number, status, total, created_at,
-         customers!inner ( name, phone ),
-         order_items ( qty, unit_price, product_variants ( sku, size, color,
+         customers!inner ( name, phone, display_currency ),
+         order_items ( qty, unit_price, currency, orig_price, discount,
+           product_variants ( sku, size, color,
            products ( name, product_images ( storage_path, thumb_path, is_primary, sort_order ) ) ) )`
       )
       .order('created_at', { ascending: false })
@@ -97,29 +102,50 @@ export default function ManagerOrders() {
 
     const { data } = await q;
     setOrders(
-      (data ?? []).map((o: any) => ({
-        id: o.id,
-        order_number: o.order_number,
-        status: o.status,
-        total: Number(o.total),
-        created_at: o.created_at,
-        customer: o.customers?.name ?? '—',
-        phone: o.customers?.phone ?? '',
-        items: (o.order_items ?? []).map((it: any) => {
-          const imgs = (it.product_variants?.products?.product_images ?? []).sort(
-            (a: any, b: any) => Number(b.is_primary) - Number(a.is_primary) || a.sort_order - b.sort_order
+      (data ?? []).map((o: any) => {
+        const qatorlar = (o.order_items ?? []) as any[];
+
+        // Dollar faqat mijozning valyutasi USD bo'lsa VA hamma qator USD
+        // bo'lsa ko'rsatiladi — bu qoida bazadagi order_usd_total() va
+        // mobil ilovadagi mantiq bilan bir xil. Chegirmali qator so'mda
+        // qoladi: chegirma so'mda saqlanadi, orig_price'ga tegmaydi.
+        const usd =
+          o.customers?.display_currency === 'USD' &&
+          qatorlar.length > 0 &&
+          qatorlar.every(
+            (it) => it.currency === 'USD' && it.orig_price != null && Number(it.discount ?? 0) === 0
           );
-          return {
-            qty: it.qty,
-            unit_price: Number(it.unit_price),
-            sku: it.product_variants?.sku ?? '',
-            name: it.product_variants?.products?.name ?? '—',
-            size: it.product_variants?.size ?? null,
-            color: it.product_variants?.color ?? null,
-            image: imgs[0] ? imageUrl(imgs[0].thumb_path || imgs[0].storage_path) : null,
-          };
-        }),
-      }))
+
+        return {
+          id: o.id,
+          order_number: o.order_number,
+          status: o.status,
+          currency: (usd ? 'USD' : 'UZS') as 'USD' | 'UZS',
+          total: usd
+            ? qatorlar.reduce((s, it) => s + Number(it.orig_price) * it.qty, 0)
+            : Number(o.total),
+          totalUzs: usd ? Number(o.total) : null,
+          created_at: o.created_at,
+          customer: o.customers?.name ?? '—',
+          phone: o.customers?.phone ?? '',
+          items: qatorlar.map((it: any) => {
+            const imgs = (it.product_variants?.products?.product_images ?? []).sort(
+              (a: any, b: any) => Number(b.is_primary) - Number(a.is_primary) || a.sort_order - b.sort_order
+            );
+            return {
+              qty: it.qty,
+              unit_price: usd
+                ? Number(it.orig_price)
+                : Number(it.unit_price) - Number(it.discount ?? 0),
+              sku: it.product_variants?.sku ?? '',
+              name: it.product_variants?.products?.name ?? '—',
+              size: it.product_variants?.size ?? null,
+              color: it.product_variants?.color ?? null,
+              image: imgs[0] ? imageUrl(imgs[0].thumb_path || imgs[0].storage_path) : null,
+            };
+          }),
+        };
+      })
     );
   }, [filter, search]);
 
@@ -143,6 +169,10 @@ export default function ManagerOrders() {
     setBusy(null);
     load();
   }
+
+  // Buyurtma valyutasida yozadi — dollarli savdoda so'm ko'rsatish
+  // menejerni chalkashtiradi (u mijozga dollarda narx aytgan)
+  const pul = (o: Order, n: number) => (o.currency === 'USD' ? formatUsd(n) : formatSum(n));
 
   const inputCls =
     'rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm outline-none focus:border-brand';
@@ -201,7 +231,7 @@ export default function ManagerOrders() {
                 {o.customer} · {o.phone}
               </span>
               <span className="text-xs text-gray-400">{formatDate(o.created_at)}</span>
-              <span className="ml-auto text-lg font-extrabold text-gray-900">{formatSum(o.total)}</span>
+              <span className="ml-auto text-lg font-extrabold text-gray-900">{pul(o, o.total)}</span>
             </div>
 
             <div className="mt-3 space-y-1 border-t border-gray-100 pt-3">
@@ -209,7 +239,7 @@ export default function ManagerOrders() {
                 <div key={i} className="flex justify-between text-sm">
                   <span className="text-gray-700">{it.name} {[it.size, it.color].filter(Boolean).join(' · ')}</span>
                   <span className="font-semibold text-gray-900">
-                    {it.qty.toLocaleString()} × {formatSum(it.unit_price)}
+                    {it.qty.toLocaleString()} × {pul(o, it.unit_price)}
                   </span>
                 </div>
               ))}

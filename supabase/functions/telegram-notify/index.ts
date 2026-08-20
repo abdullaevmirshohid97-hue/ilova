@@ -46,6 +46,14 @@ function raqam(n: number): string {
     .replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
 }
 
+// Menejer dollarda sotgan bo'lsa faktura ham dollarda chiqadi — qaysi
+// valyuta ekanini RPC hal qiladi (inv.currency), bu yer faqat chiroyli
+// yozadi. Dollarda tiyin muhim (0.28), so'mda esa butun son.
+function pul(n: unknown, usd: boolean): string {
+  const x = Number(n) || 0;
+  return usd ? '$' + x.toFixed(2) : raqam(x);
+}
+
 const HOLAT: Record<string, string> = {
   new: 'YANGI - TASDIQLANMAGAN',
   confirmed: 'QABUL QILINGAN',
@@ -92,6 +100,7 @@ async function makePdf(inv: any, baseUrl: string): Promise<Uint8Array> {
   const font = await doc.embedFont(StandardFonts.Helvetica);
   const bold = await doc.embedFont(StandardFonts.HelveticaBold);
   const rasmlar = await embedImages(doc, inv, baseUrl);
+  const usd = inv.currency === 'USD';
 
   const M = 45;
   const brand = rgb(0.44, 0, 1);
@@ -130,8 +139,8 @@ async function makePdf(inv: any, baseUrl: string): Promise<Uint8Array> {
   t('#', cols.n, y, 8, bold);
   t('MAHSULOT', cols.name, y, 8, bold);
   t('MIQDOR', cols.qty, y, 8, bold);
-  t('NARX', cols.price, y, 8, bold);
-  t('SUMMA', cols.sum, y, 8, bold);
+  t(usd ? 'NARX ($)' : 'NARX', cols.price, y, 8, bold);
+  t(usd ? 'SUMMA ($)' : 'SUMMA', cols.sum, y, 8, bold);
   y -= 26;
 
   for (const [i, it] of (inv.items ?? []).entries()) {
@@ -154,8 +163,8 @@ async function makePdf(inv: any, baseUrl: string): Promise<Uint8Array> {
     t(nomi, cols.name, matnY, 10);
     if (olcham) t(olcham, cols.name, matnY - 10, 8, font, grey);
     t(raqam(it.qty), cols.qty, matnY, 10);
-    t(raqam(it.unit_price), cols.price, matnY, 10);
-    t(raqam(it.line_total), cols.sum, matnY, 10, bold);
+    t(pul(it.unit_price, usd), cols.price, matnY, 10);
+    t(pul(it.line_total, usd), cols.sum, matnY, 10, bold);
 
     y -= rasm ? IMG + 10 : olcham ? 26 : 18;
     page.drawLine({
@@ -170,7 +179,14 @@ async function makePdf(inv: any, baseUrl: string): Promise<Uint8Array> {
   y -= 8;
   page.drawRectangle({ x: 330, y: y - 8, width: 595 - M - 330, height: 26, color: rgb(0.96, 0.94, 1) });
   t('JAMI:', 340, y, 11, bold);
-  t(`${raqam(inv.total)} som`, cols.sum - 40, y, 13, bold, brand);
+  t(usd ? pul(inv.total, true) : `${raqam(inv.total)} som`, cols.sum - 40, y, 13, bold, brand);
+
+  // Dollarli fakturada so'm summasi ham yozib qo'yiladi: qarz (ledger)
+  // aynan shu so'm bo'yicha yuritiladi, hisob-kitobda ikkalasi kerak.
+  if (usd && inv.total_uzs != null) {
+    y -= 16;
+    t(`(kurs bo'yicha ${raqam(inv.total_uzs)} som)`, 340, y, 9, font, grey);
+  }
 
   y -= 60;
   t('Topshirdi: ______________________', M, y, 9, font, grey);
@@ -270,7 +286,11 @@ Deno.serve(async (req) => {
       `🧾 <b>Faktura №${(inv as any).order_number}</b>\n` +
       (xodimga ? `Mijoz: ${(inv as any).customer?.name ?? '-'}\n` : '') +
       `Holat: ${holat}\n` +
-      `Jami: <b>${raqam((inv as any).total)} so'm</b>` +
+      `Jami: <b>${
+        (inv as any).currency === 'USD'
+          ? pul((inv as any).total, true)
+          : raqam((inv as any).total) + " so'm"
+      }</b>` +
       // Admin baza (rasmiy) narxni ko'radi — chalkashmasin uchun aytib qo'yamiz
       ((inv as any).price_kind === 'base' ? ' <i>(rasmiy narx)</i>' : '') +
       `\n\n${(inv as any).org_name ?? ''}`;

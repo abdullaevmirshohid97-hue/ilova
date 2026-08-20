@@ -24,6 +24,13 @@ function raqam(n: number): string {
     .replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
 }
 
+// Menejerga dollarda, adminga so'mda — qaysi biri ekanini
+// staff_chats_for_order har bir chat uchun alohida aytadi.
+function pul(n: unknown, valyuta: string): string {
+  const x = Number(n) || 0;
+  return valyuta === 'USD' ? '$' + x.toFixed(2) : raqam(x) + " so'm";
+}
+
 Deno.serve(async (req) => {
   const token = Deno.env.get('TELEGRAM_STAFF_BOT_TOKEN');
   const secret = Deno.env.get('INTERNAL_NOTIFY_SECRET');
@@ -58,7 +65,7 @@ Deno.serve(async (req) => {
       `👤 ${esc(ch.customer)}\n` +
       `📞 ${esc(ch.phone ?? '—')}\n` +
       `📦 ${ch.items_count} xil mahsulot\n` +
-      `💰 <b>${raqam(ch.total)} so'm</b>\n` +
+      `💰 <b>${pul(ch.total, ch.currency)}</b>\n` +
       `🕒 ${new Date(ch.created_at).toLocaleString('ru-RU')}`;
 
     const r = await fetch(`${TG}${token}/sendMessage`, {

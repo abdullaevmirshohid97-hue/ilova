@@ -1,9 +1,13 @@
-import { formatDate, formatSum } from './supabase';
+import { formatDate, formatSum, formatUsd } from './supabase';
 
 // Faktura bitta joyda yasaladi — admin ham, menejer ham AYNAN shu
 // ko'rinishni ochadi. Farqi faqat narxda: admin sahifasi baza (rasmiy)
 // narxni uzatadi, menejer esa o'z narxini — chunki qaysi narx ko'rinishini
 // chaqiruvchi sahifa hal qiladi, bu fayl emas.
+//
+// Valyuta ham shunday: menejer mijozni dollarda savdo qilsa, sahifa
+// currency='USD' va dollardagi narxlarni (order_items.orig_price) uzatadi.
+// Baza narx doim so'mda, shuning uchun admin sahifasi valyuta bermaydi.
 
 export type InvoiceItem = {
   qty: number;
@@ -23,6 +27,10 @@ export type InvoiceOrder = {
   customer: string;
   phone: string;
   items: InvoiceItem[];
+  currency?: 'UZS' | 'USD';
+  // Dollarli fakturada so'mdagi ekvivalent — qarz (ledger) shu bo'yicha
+  // yuritilgani uchun pastda kichik yozuv bilan ko'rsatiladi
+  totalUzs?: number | null;
 };
 
 const STATUS_LABEL: Record<string, string> = {
@@ -45,6 +53,8 @@ export function openInvoice(o: InvoiceOrder, orgName: string) {
     return;
   }
   const tasdiqlanmagan = o.status === 'new' || o.status === 'cancelled';
+  const usd = o.currency === 'USD';
+  const pul = (n: number) => (usd ? formatUsd(n) : formatSum(n));
 
   w.document.write(`
       <html><head><meta charset="utf-8"><title>Faktura №${o.order_number}</title>
@@ -119,16 +129,24 @@ export function openInvoice(o: InvoiceOrder, orgName: string) {
                  <td><b>${esc(it.name)}</b><div style="color:#888;font-size:11px">${esc(it.sku)}</div></td>
                  <td>${esc([it.size, it.color].filter(Boolean).join(' / ') || '—')}</td>
                  <td class="num">${it.qty.toLocaleString('ru-RU')}</td>
-                 <td class="num">${formatSum(it.unit_price)}</td>
-                 <td class="num">${formatSum(it.unit_price * it.qty)}</td>
+                 <td class="num">${pul(it.unit_price)}</td>
+                 <td class="num">${pul(it.unit_price * it.qty)}</td>
                </tr>`
           )
           .join('')}
         </tbody>
         <tfoot><tr>
-          <td colspan="6" class="num">JAMI</td><td class="num">${formatSum(o.total)}</td>
+          <td colspan="6" class="num">JAMI</td><td class="num">${pul(o.total)}</td>
         </tr></tfoot>
       </table>
+
+      ${
+        usd && o.totalUzs != null
+          ? `<div style="margin-top:8px;text-align:right;font-size:12px;color:#777">
+               Kurs bo'yicha: <b>${formatSum(o.totalUzs)}</b>
+             </div>`
+          : ''
+      }
 
       <div class="sign">
         Topshirdi: <span></span> &nbsp;&nbsp;&nbsp; Qabul qildi: <span></span>
