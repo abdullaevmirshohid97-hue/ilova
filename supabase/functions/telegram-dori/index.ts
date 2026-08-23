@@ -35,8 +35,17 @@ function miqdor(n: unknown): string {
   return Number.isInteger(x) ? String(x) : x.toFixed(2);
 }
 
+// Mini App — katalogni varaqlab, savatga qo'shib, buyurtma berish uchun.
+// Manzili secret'da: bir joydan boshqarilsin, kod o'zgartirmasdan almashsin.
+const MINI_APP = Deno.env.get('DORI_MINI_APP_URL') ?? '';
+
 const MENYU = {
-  keyboard: [[{ text: '🔎 Qidirish' }, { text: '🛒 Savat' }], [{ text: '🧾 Buyurtmalarim' }]],
+  keyboard: [
+    MINI_APP
+      ? [{ text: '🛍 Katalog', web_app: { url: MINI_APP } }, { text: '🛒 Savat' }]
+      : [{ text: '🔎 Qidirish' }, { text: '🛒 Savat' }],
+    [{ text: '🔎 Qidirish' }, { text: '🧾 Buyurtmalarim' }],
+  ],
   resize_keyboard: true,
 };
 

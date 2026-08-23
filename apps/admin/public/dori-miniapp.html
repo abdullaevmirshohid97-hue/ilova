@@ -1,0 +1,322 @@
+<!doctype html>
+<html lang="uz">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Idaa Farm — katalog</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+  /* Telegram temasiga moslashadi: ilova qorong'i bo'lsa — biz ham */
+  :root {
+    --bg: var(--tg-theme-bg-color, #ffffff);
+    --card: var(--tg-theme-secondary-bg-color, #f4f5f7);
+    --ink: var(--tg-theme-text-color, #17181c);
+    --ink-2: var(--tg-theme-hint-color, #77797f);
+    --brand: var(--tg-theme-button-color, #0e7c6b);
+    --brand-ink: var(--tg-theme-button-text-color, #ffffff);
+    --line: rgba(128, 132, 140, .22);
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 15px/1.45 -apple-system, system-ui, "Segoe UI", Roboto, sans-serif;
+    padding-bottom: 84px;
+  }
+  header {
+    position: sticky; top: 0; z-index: 5; background: var(--bg);
+    padding: 10px 12px 8px; border-bottom: 1px solid var(--line);
+  }
+  .qidiruv { display: flex; gap: 8px; }
+  input[type=search] {
+    flex: 1; min-width: 0; font-size: 16px; padding: 11px 13px;
+    border: 1px solid var(--line); border-radius: 11px;
+    background: var(--card); color: var(--ink); outline: none;
+  }
+  input[type=search]:focus { border-color: var(--brand); }
+  .tab { display: flex; gap: 6px; margin-top: 8px; }
+  .tab button {
+    flex: 1; padding: 8px; font-size: 13px; font-weight: 600;
+    border: 1px solid var(--line); background: transparent; color: var(--ink-2);
+    border-radius: 9px;
+  }
+  .tab button.faol { background: var(--brand); color: var(--brand-ink); border-color: var(--brand); }
+
+  main { padding: 10px 12px; }
+  .karta {
+    background: var(--card); border-radius: 12px; padding: 12px;
+    margin-bottom: 9px; display: grid; gap: 5px;
+  }
+  .nom { font-weight: 620; line-height: 1.3; }
+  .kichik { font-size: 12.5px; color: var(--ink-2); }
+  .qator { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+  .narx { font-weight: 750; font-size: 16px; white-space: nowrap; }
+  .yoq { color: #c2410c; }
+
+  .qosh {
+    border: 0; background: var(--brand); color: var(--brand-ink);
+    padding: 9px 15px; border-radius: 9px; font-weight: 650; font-size: 14px;
+  }
+  .miqdor { display: flex; align-items: center; gap: 8px; }
+  .miqdor button {
+    width: 34px; height: 34px; border-radius: 9px; border: 1px solid var(--line);
+    background: transparent; color: var(--ink); font-size: 18px; font-weight: 700;
+  }
+  .miqdor span { min-width: 34px; text-align: center; font-weight: 700; }
+
+  .bosh { text-align: center; color: var(--ink-2); padding: 44px 20px; }
+  .yuklanmoqda { text-align: center; color: var(--ink-2); padding: 22px; }
+
+  footer {
+    position: fixed; left: 0; right: 0; bottom: 0; background: var(--bg);
+    border-top: 1px solid var(--line); padding: 10px 12px calc(10px + env(safe-area-inset-bottom));
+    display: none;
+  }
+  footer.bor { display: block; }
+  .jami { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+  .asosiy {
+    width: 100%; border: 0; background: var(--brand); color: var(--brand-ink);
+    padding: 13px; border-radius: 11px; font-weight: 700; font-size: 15px;
+  }
+  .asosiy:disabled { opacity: .5; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="qidiruv">
+    <input id="q" type="search" placeholder="Dori nomi — kirill yoki lotin" autocomplete="off" />
+  </div>
+  <div class="tab">
+    <button id="tabKatalog" class="faol">🔎 Katalog</button>
+    <button id="tabSavat">🛒 Savat</button>
+  </div>
+</header>
+
+<main id="royxat">
+  <div class="bosh">Dori nomini yozing — kirillda ham, lotinda ham topadi.</div>
+</main>
+
+<footer id="pastki">
+  <div class="jami"><span class="kichik">Savatdagi summa</span><span class="narx" id="jami">0</span></div>
+  <button class="asosiy" id="buyurtma">Buyurtma berish</button>
+</footer>
+
+<script>
+const tg = window.Telegram?.WebApp;
+tg?.ready();
+tg?.expand();
+
+// Sahifa admin saytida turadi, API esa Supabase'da — manzil aniq yozilgan.
+// Bu yerda maxfiy kalit YO'Q: kim ekanini Telegram imzosi hal qiladi.
+const API = 'https://gnuddryjsmcrjchrbvyz.supabase.co/functions/v1/dori-miniapp';
+const initData = tg?.initData || '';
+
+const royxat = document.getElementById('royxat');
+const pastki = document.getElementById('pastki');
+const jamiEl = document.getElementById('jami');
+const qEl = document.getElementById('q');
+
+let bolim = 'katalog';
+let savat = { items: [], total: 0 };
+
+const pul = (n) => (Math.round(Number(n) || 0)).toLocaleString('ru-RU') + " so'm";
+const sana = (s) => (s ? new Date(s).toLocaleDateString('ru-RU') : null);
+
+async function api(amal, qoshimcha = {}) {
+  const r = await fetch(API, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ amal, initData, ...qoshimcha }),
+  });
+  return await r.json();
+}
+
+function yuklanmoqda() {
+  royxat.innerHTML = '<div class="yuklanmoqda">Yuklanmoqda...</div>';
+}
+
+// ------------------------------------------------------------- katalog
+let taymer = null;
+qEl.addEventListener('input', () => {
+  clearTimeout(taymer);
+  const s = qEl.value.trim();
+  if (s.length < 2) {
+    if (bolim === 'katalog') {
+      royxat.innerHTML = '<div class="bosh">Dori nomini yozing — kirillda ham, lotinda ham topadi.</div>';
+    }
+    return;
+  }
+  // Har harfda so'rov yubormaymiz — yozib bo'lguncha kutamiz
+  taymer = setTimeout(() => qidir(s), 320);
+});
+
+async function qidir(s) {
+  bolimGa('katalog');
+  yuklanmoqda();
+  const j = await api('qidir', { q: s });
+  if (!j.ok) return xato(j.error);
+
+  if (!j.items.length) {
+    royxat.innerHTML = '<div class="bosh">Topilmadi. Nomning bir qismini yozib ko‘ring.</div>';
+    return;
+  }
+
+  royxat.innerHTML = '';
+  for (const d of j.items) {
+    const bor = Number(d.stock) > 0;
+    const el = document.createElement('div');
+    el.className = 'karta';
+    el.innerHTML =
+      '<div class="nom"></div>' +
+      '<div class="kichik ishlab"></div>' +
+      '<div class="qator"><span class="narx"></span></div>';
+    el.querySelector('.nom').textContent = d.name;
+    el.querySelector('.ishlab').textContent =
+      [d.manufacturer, bor ? 'omborda ' + Math.round(d.stock) : 'omborda yo‘q',
+       d.eng_yaqin_muddat ? 'muddat ' + sana(d.eng_yaqin_muddat) : null]
+        .filter(Boolean).join(' · ');
+    el.querySelector('.narx').textContent = pul(d.price);
+
+    const tugma = document.createElement('button');
+    tugma.className = 'qosh';
+    tugma.textContent = '+ Savatga';
+    tugma.onclick = () => miqdorSora(el, d);
+    el.querySelector('.qator').appendChild(tugma);
+
+    royxat.appendChild(el);
+  }
+}
+
+// Miqdorni shu yerda, kartochka ichida so'raymiz — alohida ekran ochmaymiz
+function miqdorSora(karta, dori) {
+  const qator = karta.querySelector('.qator');
+  const eski = qator.querySelector('.qosh');
+  if (!eski) return;
+  eski.remove();
+
+  let n = 1;
+  const quti = document.createElement('div');
+  quti.className = 'miqdor';
+  quti.innerHTML = '<button>−</button><span>1</span><button>+</button>';
+  const [kam, son, kop] = [quti.children[0], quti.children[1], quti.children[2]];
+  kam.onclick = () => { n = Math.max(1, n - 1); son.textContent = n; };
+  kop.onclick = () => { n = n + 1; son.textContent = n; };
+
+  const ok = document.createElement('button');
+  ok.className = 'qosh';
+  ok.textContent = '✓ Qo‘shish';
+  ok.onclick = async () => {
+    ok.disabled = true;
+    const j = await api('qosh', { product_id: dori.id, qty: n });
+    if (j.ok) {
+      tg?.HapticFeedback?.notificationOccurred('success');
+      quti.remove();
+      ok.replaceWith(belgi('✓ Savatda'));
+      savatniYangila();
+    } else {
+      ok.disabled = false;
+      xato(j.error);
+    }
+  };
+
+  qator.appendChild(quti);
+  qator.appendChild(ok);
+}
+
+function belgi(matn) {
+  const s = document.createElement('span');
+  s.className = 'kichik';
+  s.textContent = matn;
+  return s;
+}
+
+// --------------------------------------------------------------- savat
+async function savatniYangila() {
+  const j = await api('savat');
+  if (!j.ok) return;
+  savat = j.savat ?? { items: [], total: 0 };
+  jamiEl.textContent = pul(savat.total);
+  pastki.classList.toggle('bor', (savat.items ?? []).length > 0);
+  if (bolim === 'savat') savatniChiz();
+}
+
+function savatniChiz() {
+  const items = savat.items ?? [];
+  if (!items.length) {
+    royxat.innerHTML = '<div class="bosh">Savat bo‘sh.</div>';
+    return;
+  }
+  royxat.innerHTML = '';
+  for (const it of items) {
+    const el = document.createElement('div');
+    el.className = 'karta';
+    el.innerHTML =
+      '<div class="nom"></div>' +
+      '<div class="qator"><span class="kichik hisob"></span><span class="narx"></span></div>';
+    el.querySelector('.nom').textContent = it.name;
+    el.querySelector('.hisob').textContent = `${Number(it.qty)} × ${pul(it.price)}`;
+    el.querySelector('.narx').textContent = pul(it.sum);
+
+    const och = document.createElement('button');
+    och.className = 'qosh';
+    och.style.background = 'transparent';
+    och.style.color = '#c2410c';
+    och.textContent = '✕';
+    och.onclick = async () => {
+      await api('ochir', { product_id: it.product_id });
+      savatniYangila();
+    };
+    el.querySelector('.qator').appendChild(och);
+    royxat.appendChild(el);
+  }
+}
+
+// ------------------------------------------------------------- bo'limlar
+function bolimGa(nom) {
+  bolim = nom;
+  document.getElementById('tabKatalog').classList.toggle('faol', nom === 'katalog');
+  document.getElementById('tabSavat').classList.toggle('faol', nom === 'savat');
+}
+
+document.getElementById('tabKatalog').onclick = () => {
+  bolimGa('katalog');
+  const s = qEl.value.trim();
+  if (s.length >= 2) qidir(s);
+  else royxat.innerHTML = '<div class="bosh">Dori nomini yozing — kirillda ham, lotinda ham topadi.</div>';
+};
+
+document.getElementById('tabSavat').onclick = () => {
+  bolimGa('savat');
+  savatniChiz();
+};
+
+document.getElementById('buyurtma').onclick = async () => {
+  const t = document.getElementById('buyurtma');
+  t.disabled = true;
+  const j = await api('buyurtma');
+  t.disabled = false;
+
+  if (j.ok && j.natija?.ok) {
+    tg?.HapticFeedback?.notificationOccurred('success');
+    royxat.innerHTML =
+      `<div class="bosh">✅ Buyurtma №${j.natija.order_no} qabul qilindi.<br><br>` +
+      `Jami: <b>${pul(j.natija.total)}</b><br><br>Tez orada bog‘lanamiz.</div>`;
+    savat = { items: [], total: 0 };
+    pastki.classList.remove('bor');
+    setTimeout(() => tg?.close(), 2500);
+  } else if (j.error === 'TELEFON_KERAK' || j.natija?.error === 'TANISHTIRILMAGAN') {
+    xato('Avval botda telefon raqamingizni yuboring — /start');
+  } else {
+    xato(j.natija?.error ?? j.error);
+  }
+};
+
+function xato(matn) {
+  royxat.innerHTML = '<div class="bosh">❌ ' + (matn || 'Xatolik') + '</div>';
+}
+
+// ------------------------------------------------------------- boshlash
+savatniYangila();
+</script>
+</body>
+</html>
