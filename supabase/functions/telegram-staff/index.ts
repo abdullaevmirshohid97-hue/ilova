@@ -321,7 +321,11 @@ Deno.serve(async (req) => {
     const chatId: number = cq.message?.chat?.id;
     const messageId: number | undefined = cq.message?.message_id;
     const data: string = cq.data ?? '';
-    const [amal, id] = [data.slice(0, data.indexOf(':')), data.slice(data.indexOf(':') + 1)];
+    // Ikki nuqtasiz callback ham bo'lishi mumkin — slice(0, -1) qilib
+    // qo'ymaslik uchun aniq tekshiramiz
+    const nuqta = data.indexOf(':');
+    const amal = nuqta === -1 ? data : data.slice(0, nuqta);
+    const id = nuqta === -1 ? '' : data.slice(nuqta + 1);
 
     // Faktura — PDF telegram-notify'da yasaladi (bitta manba)
     if (amal === 'inv') {
