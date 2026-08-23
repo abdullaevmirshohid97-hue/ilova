@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { formatDate, genPassword, supabase } from '../lib/supabase';
+import NazoratMarkazi from '../components/NazoratMarkazi';
 
 // ============================================================================
 // Super-admin "boshqaruv markazi" — eDEX-UI uslubidagi HUD.
@@ -672,6 +673,13 @@ export default function SuperAdminPanel() {
                   )}
                 </tbody>
               </table>
+            </div>
+          </Panel>
+
+          {/* Nazorat markazi — kim nima qilgani jonli oqimda */}
+          <Panel title="NAZORAT MARKAZI" pad={false}>
+            <div className="p-4">
+              <NazoratMarkazi />
             </div>
           </Panel>
 
