@@ -65,7 +65,9 @@ const KALITLAR: Record<Maydon, string[]> = {
   nds_sum: ['nds summa', 'qqs summa', 'сумма ндс', 'ндс сумма', 'vat amount', 'nds'],
   // Katalog uchun kerak: dorini AYNAN tanish (shtrix-kod nomdan ishonchli —
   // nom "таб.№30" / "таб. №30" bo'lib o'zgarib turadi), bor-yo'qligi va bo'limi
-  barcode: ['shtrix', 'штрих', 'штрихкод', 'barcode', 'ean', 'sku', 'artikul', 'артикул'],
+  // "Код" — haqiqiy fayllarda shtrix-kod o'rniga postavshchikning o'z
+  // kodi ishlatiladi (masalan "A66458") va u ham xuddi shunday doimiy kalit
+  barcode: ['shtrix', 'штрих', 'штрихкод', 'barcode', 'ean', 'sku', 'artikul', 'артикул', 'kod', 'код'],
   stock: ['qoldiq', 'ombor', 'mavjud', 'остаток', 'остатки', 'наличие', 'склад', 'stock'],
   group: ['guruh', 'kategoriya', "bo'lim", 'группа', 'категория', 'раздел', 'group', 'category'],
 };
