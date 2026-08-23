@@ -104,11 +104,28 @@ Deno.serve(async (req) => {
     }
     const topildi = (data ?? []) as any[];
     if (topildi.length === 0) {
-      await yubor(
-        chatId,
-        `🔍 «${esc(soz)}» bo‘yicha hech narsa topilmadi.\n\n` +
-          `Nomning bir qismini yozib ko‘ring — masalan «азитро».`
-      );
+      // Katalog umuman bo'shmi yoki shu nom yo'qmi — bu ikki boshqa holat.
+      // Farqini aytmasak, foydalanuvchi o'zini aybdor his qiladi va
+      // nomni qayta-qayta boshqacha yozib ovora bo'ladi.
+      const { count } = await supabase
+        .from('dori_products')
+        .select('id', { count: 'exact', head: true })
+        .eq('is_active', true);
+
+      if (!count) {
+        await yubor(
+          chatId,
+          `📭 <b>Katalog hali yuklanmagan.</b>\n\n` +
+            `Dorilar ro‘yxati tizimga kiritilgach, qidiruv ishlay boshlaydi. ` +
+            `Iltimos, keyinroq urinib ko‘ring.`
+        );
+      } else {
+        await yubor(
+          chatId,
+          `🔍 «${esc(soz)}» bo‘yicha hech narsa topilmadi.\n\n` +
+            `Nomning bir qismini yozib ko‘ring — masalan «азитро».`
+        );
+      }
       return;
     }
 
