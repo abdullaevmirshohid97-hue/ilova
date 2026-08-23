@@ -36,8 +36,18 @@ const C = {
 const MONO = "ui-monospace, 'JetBrains Mono', 'Cascadia Mono', Consolas, monospace";
 
 const MAYDONLAR: Maydon[] = [
-  'name', 'manufacturer', 'series', 'expiry', 'qty', 'unit', 'price', 'sum', 'nds_rate', 'nds_sum',
+  'name', 'manufacturer', 'barcode', 'series', 'expiry', 'qty', 'unit', 'price', 'sum', 'stock', 'group', 'nds_rate', 'nds_sum',
 ];
+
+type Farq = {
+  jami: number;
+  yangi: number;
+  narx_ozgardi: number;
+  ozgarmagan: number;
+  royxatdan_chiqdi: number;
+  narx_namuna: { name: string; eski_narx: number | null; yangi_narx: number | null }[];
+  yangi_namuna: { name: string; price: number | null }[];
+};
 
 type Saqlangan = {
   id: string;
@@ -66,6 +76,8 @@ export default function DoriModuli() {
   const [saqlanganlar, setSaqlanganlar] = useState<Saqlangan[]>([]);
   const [supplier, setSupplier] = useState('');
   const [shablonTopildi, setShablonTopildi] = useState(false);
+  const [farq, setFarq] = useState<Farq | null>(null);
+  const [natijaXabar, setNatijaXabar] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const royxatYukla = useCallback(async () => {
@@ -171,6 +183,84 @@ export default function DoriModuli() {
       setBayt(null);
     } catch (e: any) {
       setXato('Saqlanmadi: ' + (e?.message ?? ''));
+    } finally {
+      setIsh(null);
+    }
+  }
+
+  // ---------- katalog (narxlar ro'yxati uchun) ----------
+  // Avval FARQ ko'rsatiladi (bazaga hech narsa yozilmaydi), foydalanuvchi
+  // ko'rib tasdiqlagach yoziladi. 9000+ qatorni bitta so'rovda yuborib
+  // bo'lmaydi — vaqt chegarasiga uriladi, shuning uchun bo'laklab ketadi.
+  const KATALOG_BOLAK = 500;
+
+  function katalogQatorlari() {
+    return (natija?.qatorlar ?? []).map((q) => ({
+      barcode: q.barcode ?? '',
+      name: q.name ?? '',
+      manufacturer: q.manufacturer ?? '',
+      group: q.group ?? '',
+      unit: q.unit ?? '',
+      price: q.price ?? '',
+      stock: q.stock ?? '',
+      series: q.series ?? '',
+      expiry: q.expiry ?? '',
+    }));
+  }
+
+  async function farqniKorsat() {
+    setXato(null);
+    setIsh('Farq hisoblanmoqda...');
+    try {
+      const { data, error } = await supabase.rpc('dori_catalog_diff', {
+        p_items: katalogQatorlari(),
+      });
+      if (error) throw error;
+      setFarq(data as Farq);
+    } catch (e: any) {
+      setXato('Farqni hisoblab bo‘lmadi: ' + (e?.message ?? ''));
+    } finally {
+      setIsh(null);
+    }
+  }
+
+  async function kataloggaYukla() {
+    if (!natija) return;
+    const qatorlar = katalogQatorlari();
+    const importId = `imp-${Date.now()}`;
+    const bolaklar = Math.ceil(qatorlar.length / KATALOG_BOLAK);
+    let yigma = { yangi: 0, narx_yangilandi: 0, partiya: 0, sotuvdan_olindi: 0, katalog_jami: 0 };
+
+    setXato(null);
+    try {
+      for (let i = 0; i < bolaklar; i++) {
+        setIsh(`Katalogga yozilmoqda... ${i + 1}/${bolaklar} bo‘lak`);
+        const { data, error } = await supabase.rpc('dori_catalog_apply', {
+          p_items: qatorlar.slice(i * KATALOG_BOLAK, (i + 1) * KATALOG_BOLAK),
+          p_source: natija.fileName,
+          p_import_id: importId,
+          p_finalize: i === bolaklar - 1,
+        });
+        if (error) throw error;
+        const d = data as any;
+        yigma = {
+          yangi: yigma.yangi + Number(d.yangi ?? 0),
+          narx_yangilandi: yigma.narx_yangilandi + Number(d.narx_yangilandi ?? 0),
+          partiya: yigma.partiya + Number(d.partiya ?? 0),
+          sotuvdan_olindi: Number(d.sotuvdan_olindi ?? yigma.sotuvdan_olindi),
+          katalog_jami: Number(d.katalog_jami ?? 0),
+        };
+      }
+      setNatijaXabar(
+        `Katalog yangilandi: ${yigma.yangi} yangi dori, ${yigma.narx_yangilandi} narx o‘zgardi, ` +
+          `${yigma.sotuvdan_olindi} sotuvdan olindi. Katalogda jami ${yigma.katalog_jami} dori.`
+      );
+      await shablonniEslab();
+      setFarq(null);
+      setNatija(null);
+      setBayt(null);
+    } catch (e: any) {
+      setXato('Katalogga yozilmadi: ' + (e?.message ?? ''));
     } finally {
       setIsh(null);
     }
@@ -401,14 +491,77 @@ export default function DoriModuli() {
             )}
           </div>
 
+          {/* ---------- katalog farqi ---------- */}
+          {farq && (
+            <div className="mb-3 p-4" style={{ background: C.panel, border: `1px solid ${C.neon}55` }}>
+              <div className="mb-3 text-[10px] font-bold tracking-[0.16em]" style={{ color: C.neon }}>
+                KATALOG FARQI — HALI HECH NARSA YOZILMADI
+              </div>
+              <div className="grid gap-3 text-[12px] md:grid-cols-4">
+                <Qator chap="Fayldagi dori" ong={String(farq.jami)} />
+                <Qator chap="Yangi qo‘shiladi" ong={String(farq.yangi)} rang={C.neon} />
+                <Qator chap="Narxi o‘zgaradi" ong={String(farq.narx_ozgardi)} rang={C.warn} />
+                <Qator chap="Sotuvdan olinadi" ong={String(farq.royxatdan_chiqdi)} rang={C.danger} />
+              </div>
+
+              {farq.narx_namuna?.length > 0 && (
+                <div className="mt-3">
+                  <div className="mb-1 text-[10px]" style={{ color: `${C.text}aa` }}>
+                    NARX O‘ZGARISHIGA MISOL
+                  </div>
+                  {farq.narx_namuna.slice(0, 5).map((n, i) => (
+                    <div key={i} className="text-[11px]" style={{ color: C.text }}>
+                      {n.name}: <span style={{ color: C.textBright }}>{son(n.eski_narx)}</span> →{' '}
+                      <span style={{ color: C.warn }}>{son(n.yangi_narx)}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {farq.royxatdan_chiqdi > 0 && (
+                <div className="mt-3 text-[11px]" style={{ color: C.text }}>
+                  Ro‘yxatdan chiqqan dori <b style={{ color: C.textBright }}>o‘chirilmaydi</b> —
+                  «sotuvda yo‘q» bo‘ladi, eski buyurtmalari tarixda qoladi.
+                </div>
+              )}
+            </div>
+          )}
+
+          {natijaXabar && <Xabar rang={C.neon}>{natijaXabar}</Xabar>}
+
           <div className="mb-6 flex flex-wrap gap-2">
+            {natija.rejim === 'narxlar' ? (
+              farq ? (
+                <button
+                  onClick={kataloggaYukla}
+                  disabled={!!ish}
+                  className={btn}
+                  style={{ color: '#05080a', background: C.neon, border: `1px solid ${C.neon}` }}
+                >
+                  TASDIQLAB KATALOGGA YOZISH
+                </button>
+              ) : (
+                <button
+                  onClick={farqniKorsat}
+                  disabled={!!ish}
+                  className={btn}
+                  style={{ color: C.neon, background: 'transparent', border: `1px solid ${C.neon}` }}
+                >
+                  KATALOG FARQINI KO‘RSATISH
+                </button>
+              )
+            ) : null}
             <button
               onClick={saqla}
               disabled={!!ish}
               className={btn}
-              style={{ color: '#05080a', background: C.neon, border: `1px solid ${C.neon}` }}
+              style={
+                natija.rejim === 'narxlar'
+                  ? { color: C.text, background: 'transparent', border: `1px solid ${C.line}` }
+                  : { color: '#05080a', background: C.neon, border: `1px solid ${C.neon}` }
+              }
             >
-              BAZAGA SAQLASH
+              {natija.rejim === 'narxlar' ? 'FAKTURA SIFATIDA SAQLASH' : 'BAZAGA SAQLASH'}
             </button>
             <button
               onClick={yuklab}
@@ -476,6 +629,15 @@ function Quti({ sarlavha, children }: { sarlavha: string; children: React.ReactN
         {sarlavha}
       </div>
       {children}
+    </div>
+  );
+}
+
+function Qator({ chap, ong, rang }: { chap: string; ong: string; rang?: string }) {
+  return (
+    <div className="flex items-baseline justify-between gap-2">
+      <span style={{ color: C.text }}>{chap}</span>
+      <span className="text-base font-extrabold" style={{ color: rang ?? C.textBright }}>{ong}</span>
     </div>
   );
 }

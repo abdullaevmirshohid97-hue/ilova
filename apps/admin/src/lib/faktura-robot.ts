@@ -29,7 +29,10 @@ export type Maydon =
   | 'price'
   | 'sum'
   | 'nds_rate'
-  | 'nds_sum';
+  | 'nds_sum'
+  | 'barcode'
+  | 'stock'
+  | 'group';
 
 export const MAYDON_NOMI: Record<Maydon, string> = {
   name: 'Nomi',
@@ -42,6 +45,9 @@ export const MAYDON_NOMI: Record<Maydon, string> = {
   sum: 'Summa',
   nds_rate: 'NDS %',
   nds_sum: 'NDS summa',
+  barcode: 'Shtrix-kod',
+  stock: 'Qoldiq',
+  group: 'Guruh',
 };
 
 // Ustun nomini tanish uchun kalit so'zlar. Uzbek (lotin/kirill), rus va
@@ -57,6 +63,11 @@ const KALITLAR: Record<Maydon, string[]> = {
   sum: ['summa', 'jami', 'qiymat', 'сумма', 'стоимость', 'итого', 'total', 'amount'],
   nds_rate: ['nds %', 'ndc %', 'qqs %', 'ндс %', 'ставка ндс', 'vat %', 'nds stavka'],
   nds_sum: ['nds summa', 'qqs summa', 'сумма ндс', 'ндс сумма', 'vat amount', 'nds'],
+  // Katalog uchun kerak: dorini AYNAN tanish (shtrix-kod nomdan ishonchli —
+  // nom "таб.№30" / "таб. №30" bo'lib o'zgarib turadi), bor-yo'qligi va bo'limi
+  barcode: ['shtrix', 'штрих', 'штрихкод', 'barcode', 'ean', 'sku', 'artikul', 'артикул'],
+  stock: ['qoldiq', 'ombor', 'mavjud', 'остаток', 'остатки', 'наличие', 'склад', 'stock'],
+  group: ['guruh', 'kategoriya', "bo'lim", 'группа', 'категория', 'раздел', 'group', 'category'],
 };
 
 export type Ustun = { indeks: number; sarlavha: string };
@@ -74,6 +85,9 @@ export type Qator = {
   sum?: number;
   nds_rate?: number;
   nds_sum?: number;
+  barcode?: string;
+  stock?: number;
+  group?: string;
   qoshimcha: Record<string, unknown>;
   ogohlar: string[];
 };
@@ -199,6 +213,9 @@ const MAYDON_TURI: Record<Maydon, Tur> = {
   sum: 'son',
   nds_rate: 'son',
   nds_sum: 'son',
+  barcode: 'matn',
+  stock: 'son',
+  group: 'matn',
 };
 
 // Ustunda HAQIQATAN kerakli turdagi ma'lumot bormi? 0..1 oralig'ida.
@@ -480,6 +497,9 @@ export function qatorlarniYig(
       sum: hisoblangan,
       nds_rate: songa(olish('nds_rate')),
       nds_sum: songa(olish('nds_sum')),
+      barcode: matn(olish('barcode')) || undefined,
+      stock: songa(olish('stock')),
+      group: matn(olish('group')) || undefined,
       qoshimcha,
       ogohlar,
     });
