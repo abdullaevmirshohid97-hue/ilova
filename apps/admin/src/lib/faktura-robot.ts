@@ -32,7 +32,8 @@ export type Maydon =
   | 'nds_sum'
   | 'barcode'
   | 'stock'
-  | 'group';
+  | 'group'
+  | 'made_at';
 
 export const MAYDON_NOMI: Record<Maydon, string> = {
   name: 'Nomi',
@@ -48,6 +49,7 @@ export const MAYDON_NOMI: Record<Maydon, string> = {
   barcode: 'Shtrix-kod',
   stock: 'Qoldiq',
   group: 'Guruh',
+  made_at: 'Ishlab chiqarilgan sana',
 };
 
 // Ustun nomini tanish uchun kalit so'zlar. Uzbek (lotin/kirill), rus va
@@ -70,6 +72,14 @@ const KALITLAR: Record<Maydon, string[]> = {
   barcode: ['shtrix', 'штрих', 'штрихкод', 'barcode', 'ean', 'sku', 'artikul', 'артикул', 'kod', 'код'],
   stock: ['qoldiq', 'ombor', 'mavjud', 'остаток', 'остатки', 'наличие', 'склад', 'stock'],
   group: ['guruh', 'kategoriya', "bo'lim", 'группа', 'категория', 'раздел', 'group', 'category'],
+  // Ishlab chiqarilgan sana. DIQQAT: "производств" ni tanlaymiz, "производ"
+  // emas — aks holda "Производитель" (ishlab chiqaruvchi) ham shunga tushib
+  // ketardi va ikkala ustun chalkashardi.
+  made_at: [
+    'ishlab chiqarilgan', 'ishlab chiq', 'i/ch sana',
+    'производств', 'изготовлен', 'дата изг', 'дата вып',
+    'made', 'mfg', 'manufactured', 'prod date',
+  ],
 };
 
 export type Ustun = { indeks: number; sarlavha: string };
@@ -90,6 +100,7 @@ export type Qator = {
   barcode?: string;
   stock?: number;
   group?: string;
+  made_at?: string;
   qoshimcha: Record<string, unknown>;
   ogohlar: string[];
 };
@@ -218,12 +229,19 @@ const MAYDON_TURI: Record<Maydon, Tur> = {
   barcode: 'matn',
   stock: 'son',
   group: 'matn',
+  made_at: 'sana',
 };
 
 // Ustunda HAQIQATAN kerakli turdagi ma'lumot bormi? 0..1 oralig'ida.
 // Bu tekshiruvsiz "Цена со скидкой" kabi bo'sh ustun narx deb tanlanib,
 // butun faktura narxsiz qolib ketardi.
-function ustunBali(satrlar: unknown[][], boshlanish: number, indeks: number, tur: Tur): number {
+function ustunBali(
+  satrlar: unknown[][],
+  boshlanish: number,
+  indeks: number,
+  tur: Tur,
+  raqamRad = false
+): number {
   let jami = 0;
   let mos = 0;
   for (let i = boshlanish; i < satrlar.length && jami < 60; i++) {
@@ -235,9 +253,14 @@ function ustunBali(satrlar: unknown[][], boshlanish: number, indeks: number, tur
       if (n !== undefined && Number.isFinite(n)) mos++;
     } else if (tur === 'sana') {
       if (sanaga(katak)) mos++;
+    } else if (raqamRad) {
+      // Faqat NOM uchun: butunlay raqamli ustun dori nomi bo'la olmaydi
+      // ("№" ustuni). Boshqa matn ustunlariga bu cheklov QO'YILMAYDI —
+      // seriya ("A-2211") va shtrix-kod ("4780001") raqamga o'xshaydi va
+      // avval shu sababli tanilmay qolardi.
+      mos += /^[\d\s.,'’\-]+$/.test(matn(katak)) ? 0 : 1;
     } else {
-      // Matn ustuni: sof son bo'lsa bu matn ustuni emas (masalan "№")
-      mos += songa(katak) !== undefined && matn(katak).length < 8 ? 0 : 1;
+      mos++;
     }
   }
   if (jami === 0) return 0;
@@ -259,7 +282,7 @@ function moslashniTop(
 
   for (const u of ustunlar) {
     for (const { maydon, ball } of nomNomzodlari(u.sarlavha)) {
-      const dBall = ustunBali(satrlar, sarlavhaQatori + 1, u.indeks, MAYDON_TURI[maydon]);
+      const dBall = ustunBali(satrlar, sarlavhaQatori + 1, u.indeks, MAYDON_TURI[maydon], maydon === 'name');
       // Ma'lumot mutlaqo mos kelmasa — bu ustun emas
       if (dBall < 0.15) continue;
       juftlar.push({ maydon, indeks: u.indeks, ball: ball / 10 + dBall * 2 });
@@ -502,6 +525,7 @@ export function qatorlarniYig(
       barcode: matn(olish('barcode')) || undefined,
       stock: songa(olish('stock')),
       group: matn(olish('group')) || undefined,
+      made_at: sanaga(olish('made_at')),
       qoshimcha,
       ogohlar,
     });

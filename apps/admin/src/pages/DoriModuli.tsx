@@ -36,7 +36,7 @@ const C = {
 const MONO = "ui-monospace, 'JetBrains Mono', 'Cascadia Mono', Consolas, monospace";
 
 const MAYDONLAR: Maydon[] = [
-  'name', 'manufacturer', 'barcode', 'series', 'expiry', 'qty', 'unit', 'price', 'sum', 'stock', 'group', 'nds_rate', 'nds_sum',
+  'name', 'manufacturer', 'barcode', 'series', 'made_at', 'expiry', 'qty', 'unit', 'price', 'sum', 'stock', 'group', 'nds_rate', 'nds_sum',
 ];
 
 type Farq = {
@@ -205,6 +205,7 @@ export default function DoriModuli() {
       stock: q.stock ?? '',
       series: q.series ?? '',
       expiry: q.expiry ?? '',
+      made_at: q.made_at ?? '',
     }));
   }
 
