@@ -17,7 +17,32 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
-const CFG = JSON.parse(readFileSync(join(ROOT, 'kodchi', 'kalitlar.json'), 'utf8'));
+// Bu skript kalitlarni kodchi/kalitlar.json dan oladi. U fayl ataylab
+// faqat shaxsiy kompyuterda bor — VPS'ga hech qachon chiqmaydi. Shuning
+// uchun serverda ishga tushirilsa, tushunarli xabar chiqsin.
+function kalitlarniOqi(yol) {
+  try {
+    return JSON.parse(readFileSync(yol, 'utf8'));
+  } catch {
+    console.error(
+      [
+        '',
+        '  Kalitlar fayli topilmadi: kodchi/kalitlar.json',
+        '',
+        '  Bu skript SIZNING KOMPYUTERINGIZDA ishlaydi, serverda emas —',
+        '  kalitlar VPS ga chiqmaydi (shunday bo\'lishi ham kerak).',
+        '',
+        '  Kompyuteringizda:',
+        '      cd d:\\ilova',
+        '      node tests\\kritik-yollar.mjs',
+        '',
+      ].join('\n')
+    );
+    process.exit(1);
+  }
+}
+
+const CFG = kalitlarniOqi(join(ROOT, 'kodchi', 'kalitlar.json'));
 
 const URL = `https://${CFG.ref}.supabase.co`;
 const MGMT = `https://api.supabase.com/v1/projects/${CFG.ref}/database/query`;
