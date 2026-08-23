@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { formatDate, genPassword, supabase } from '../lib/supabase';
 import NazoratMarkazi from '../components/NazoratMarkazi';
+import DoriModuli from './DoriModuli';
 
 // ============================================================================
 // Super-admin "boshqaruv markazi" — eDEX-UI uslubidagi HUD.
@@ -22,6 +23,14 @@ const C = {
   danger: '#ff3b5c',
   ok: '#00e8c6',
 };
+
+type Bolim = 'tenantlar' | 'nazorat' | 'dori';
+
+const BOLIMLAR: { key: Bolim; belgi: string; nom: string; izoh: string }[] = [
+  { key: 'tenantlar', belgi: '▤', nom: 'TENANTLAR', izoh: 'reestr va obuna' },
+  { key: 'nazorat', belgi: '◉', nom: 'NAZORAT', izoh: 'harakatlar va xatolar' },
+  { key: 'dori', belgi: '⚕', nom: 'DORI', izoh: 'faktura roboti' },
+];
 
 const MONO = "ui-monospace, 'JetBrains Mono', 'Cascadia Mono', Consolas, monospace";
 
@@ -414,6 +423,8 @@ export default function SuperAdminPanel() {
   const [editOrg, setEditOrg] = useState<Org | null>(null);
   const [search, setSearch] = useState('');
   const [clock, setClock] = useState(new Date());
+  // Sidebar bo'limi — panel bitta uzun varaq bo'lib ketmasin
+  const [bolim, setBolim] = useState<Bolim>('tenantlar');
 
   useEffect(() => {
     const t = setInterval(() => setClock(new Date()), 1000);
@@ -545,7 +556,60 @@ export default function SuperAdminPanel() {
         </header>
 
         {/* ------------------------------------------------------------ main */}
-        <main className="mx-auto max-w-[1600px] space-y-5 p-6">
+        <div className="mx-auto flex max-w-[1600px] flex-col gap-0 lg:flex-row">
+        {/* ---------------------------------------------------------- sidebar */}
+        <aside
+          className="hidden w-52 shrink-0 flex-col gap-1 p-4 lg:flex"
+          style={{ borderRight: `1px solid ${C.line}` }}
+        >
+          {BOLIMLAR.map((b) => {
+            const faol = bolim === b.key;
+            return (
+              <button
+                key={b.key}
+                onClick={() => setBolim(b.key)}
+                className="flex items-center gap-3 px-3 py-2.5 text-left"
+                style={{
+                  color: faol ? '#05080a' : C.text,
+                  background: faol ? C.neon : 'transparent',
+                  border: `1px solid ${faol ? C.neon : 'transparent'}`,
+                }}
+              >
+                <span className="text-base">{b.belgi}</span>
+                <span className="min-w-0">
+                  <span className="block text-[11px] font-bold tracking-[0.14em]">{b.nom}</span>
+                  <span className="block text-[9px]" style={{ color: faol ? '#05080a99' : `${C.text}88` }}>
+                    {b.izoh}
+                  </span>
+                </span>
+              </button>
+            );
+          })}
+        </aside>
+
+        {/* telefon/planshet uchun gorizontal tanlov */}
+        <div className="flex gap-1 overflow-x-auto p-3 lg:hidden" style={{ borderBottom: `1px solid ${C.line}` }}>
+          {BOLIMLAR.map((b) => (
+            <button
+              key={b.key}
+              onClick={() => setBolim(b.key)}
+              className="whitespace-nowrap px-3 py-1.5 text-[11px] font-bold tracking-[0.12em]"
+              style={{
+                color: bolim === b.key ? '#05080a' : C.text,
+                background: bolim === b.key ? C.neon : 'transparent',
+                border: `1px solid ${bolim === b.key ? C.neon : C.line}`,
+              }}
+            >
+              {b.belgi} {b.nom}
+            </button>
+          ))}
+        </div>
+
+        <main className="min-w-0 flex-1 space-y-5 p-6">
+          {bolim === 'dori' && <DoriModuli />}
+          {bolim === 'nazorat' && <NazoratMarkazi />}
+
+          {bolim === 'tenantlar' && (<>
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
             <Stat label="Tenantlar" value={orgs.length} accent={C.neon} />
             <Stat label="Faol obuna" value={jami.faol} accent={C.ok} />
@@ -676,17 +740,12 @@ export default function SuperAdminPanel() {
             </div>
           </Panel>
 
-          {/* Nazorat markazi — kim nima qilgani jonli oqimda */}
-          <Panel title="NAZORAT MARKAZI" pad={false}>
-            <div className="p-4">
-              <NazoratMarkazi />
-            </div>
-          </Panel>
-
           <div className="pb-4 text-center text-[10px] tracking-[0.2em]" style={{ color: `${C.text}66` }}>
             YUKCHIBOLLA CONTROL · {orgs.length} TENANT · {jami.orders.toLocaleString('ru-RU')} BUYURTMA
           </div>
+          </>)}
         </main>
+        </div>
       </div>
 
       {modalOpen && <NewOrgModal onClose={() => setModalOpen(false)} onCreated={load} />}
