@@ -243,13 +243,22 @@ export default function DoriModuli() {
                 {son(natija.jamiHisoblangan)}
               </span>
             </Quti>
-            <Quti sarlavha="FAYLDAGI JAMI">
-              <span
-                className="text-xl font-extrabold"
-                style={{ color: natija.jamiFayldan == null ? C.text : jamiFarq > 1 ? C.danger : C.neon }}
-              >
-                {son(natija.jamiFayldan)}
-              </span>
+            <Quti sarlavha={natija.rejim === 'narxlar' ? 'FAYL TURI' : 'FAYLDAGI JAMI'}>
+              {natija.rejim === 'narxlar' ? (
+                <span className="text-[13px] font-extrabold" style={{ color: C.neon2 }}>
+                  NARXLAR RO‘YXATI
+                  <span className="ml-1 block text-[10px] font-normal" style={{ color: `${C.text}aa` }}>
+                    miqdor/summa ustuni yo‘q
+                  </span>
+                </span>
+              ) : (
+                <span
+                  className="text-xl font-extrabold"
+                  style={{ color: natija.jamiFayldan == null ? C.text : jamiFarq > 1 ? C.danger : C.neon }}
+                >
+                  {son(natija.jamiFayldan)}
+                </span>
+              )}
             </Quti>
             <Quti sarlavha="OGOHLANTIRISH">
               <span

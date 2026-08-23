@@ -17,6 +17,8 @@ import * as XLSX from 'xlsx';
 //     Ya'ni xato jimgina o'tib ketmaydi.
 // ============================================================================
 
+export type Rejim = 'faktura' | 'narxlar';
+
 export type Maydon =
   | 'name'
   | 'manufacturer'
@@ -86,6 +88,7 @@ export type Natija = {
   qatorlar: Qator[];
   jamiHisoblangan: number;
   jamiFayldan: number | null;
+  rejim: Rejim;
   faktura: { invoice_no?: string; invoice_date?: string; supplier?: string };
 };
 
@@ -160,19 +163,100 @@ export function sanaga(v: unknown): string | undefined {
 // ---------------------------------------------------------------- tanish
 
 function ustunniTani(sarlavha: string): Maydon | null {
+  const r = nomNomzodlari(sarlavha);
+  return r.length ? r[0].maydon : null;
+}
+
+// Bitta sarlavha bir necha maydonga o'xshashi mumkin ("Сумма НДС" — ham
+// summa, ham nds). Hammasini ball bilan qaytaramiz, tanlashni keyingi
+// bosqich (ma'lumotni ko'rib) hal qiladi.
+function nomNomzodlari(sarlavha: string): { maydon: Maydon; ball: number }[] {
   const s = past(sarlavha);
-  if (!s) return null;
+  if (!s) return [];
 
-  // Aniq moslik ustun turadi: "summa" ni "nds summa" dan ajratish uchun
-  // avval uzunroq kalitlar tekshiriladi
-  const juftlar: { maydon: Maydon; kalit: string }[] = [];
+  const natija = new Map<Maydon, number>();
   for (const [maydon, kalitlar] of Object.entries(KALITLAR) as [Maydon, string[]][]) {
-    for (const k of kalitlar) if (s.includes(k)) juftlar.push({ maydon, kalit: k });
+    for (const k of kalitlar) {
+      if (!s.includes(k)) continue;
+      // Uzunroq kalit — ishonchliroq moslik; aynan teng bo'lsa yana kuchliroq
+      const ball = k.length + (s === k ? 10 : 0);
+      natija.set(maydon, Math.max(natija.get(maydon) ?? 0, ball));
+    }
   }
-  if (juftlar.length === 0) return null;
+  return [...natija].map(([maydon, ball]) => ({ maydon, ball })).sort((a, b) => b.ball - a.ball);
+}
 
-  juftlar.sort((a, b) => b.kalit.length - a.kalit.length);
-  return juftlar[0].maydon;
+type Tur = 'son' | 'sana' | 'matn';
+
+const MAYDON_TURI: Record<Maydon, Tur> = {
+  name: 'matn',
+  manufacturer: 'matn',
+  series: 'matn',
+  unit: 'matn',
+  expiry: 'sana',
+  qty: 'son',
+  price: 'son',
+  sum: 'son',
+  nds_rate: 'son',
+  nds_sum: 'son',
+};
+
+// Ustunda HAQIQATAN kerakli turdagi ma'lumot bormi? 0..1 oralig'ida.
+// Bu tekshiruvsiz "Цена со скидкой" kabi bo'sh ustun narx deb tanlanib,
+// butun faktura narxsiz qolib ketardi.
+function ustunBali(satrlar: unknown[][], boshlanish: number, indeks: number, tur: Tur): number {
+  let jami = 0;
+  let mos = 0;
+  for (let i = boshlanish; i < satrlar.length && jami < 60; i++) {
+    const katak = (satrlar[i] ?? [])[indeks];
+    if (katak === null || katak === undefined || matn(katak) === '') continue;
+    jami++;
+    if (tur === 'son') {
+      const n = songa(katak);
+      if (n !== undefined && Number.isFinite(n)) mos++;
+    } else if (tur === 'sana') {
+      if (sanaga(katak)) mos++;
+    } else {
+      // Matn ustuni: sof son bo'lsa bu matn ustuni emas (masalan "№")
+      mos += songa(katak) !== undefined && matn(katak).length < 8 ? 0 : 1;
+    }
+  }
+  if (jami === 0) return 0;
+  // To'ldirilganlik ham muhim: 3 ta qatorda qiymat bor ustun yaxshi emas
+  const toldirilgan = Math.min(1, jami / 20);
+  return (mos / jami) * (0.4 + 0.6 * toldirilgan);
+}
+
+// Ustunlarni maydonlarga taqsimlash: nom mosligi + ma'lumot mosligi.
+// Ochko'zlik bilan eng yaxshi juftlikdan boshlab biriktiramiz, shunda
+// bitta ustun ikki maydonga tushib qolmaydi.
+function moslashniTop(
+  satrlar: unknown[][],
+  sarlavhaQatori: number,
+  ustunlar: Ustun[]
+): Moslash {
+  type Juft = { maydon: Maydon; indeks: number; ball: number };
+  const juftlar: Juft[] = [];
+
+  for (const u of ustunlar) {
+    for (const { maydon, ball } of nomNomzodlari(u.sarlavha)) {
+      const dBall = ustunBali(satrlar, sarlavhaQatori + 1, u.indeks, MAYDON_TURI[maydon]);
+      // Ma'lumot mutlaqo mos kelmasa — bu ustun emas
+      if (dBall < 0.15) continue;
+      juftlar.push({ maydon, indeks: u.indeks, ball: ball / 10 + dBall * 2 });
+    }
+  }
+
+  juftlar.sort((a, b) => b.ball - a.ball);
+
+  const moslash: Moslash = {};
+  const bandUstun = new Set<number>();
+  for (const j of juftlar) {
+    if (moslash[j.maydon] !== undefined || bandUstun.has(j.indeks)) continue;
+    moslash[j.maydon] = j.indeks;
+    bandUstun.add(j.indeks);
+  }
+  return moslash;
 }
 
 // Sarlavha qatori qayerda? Eng ko'p tanilgan ustun bergan qator.
@@ -273,6 +357,7 @@ export function faylniOqi(bayt: ArrayBuffer, fileName: string, sheetIndex = 0): 
       qatorlar: [],
       jamiHisoblangan: 0,
       jamiFayldan: null,
+      rejim: 'faktura',
       faktura: {},
     };
   }
@@ -282,14 +367,9 @@ export function faylniOqi(bayt: ArrayBuffer, fileName: string, sheetIndex = 0): 
     .map((s, i) => ({ indeks: i, sarlavha: matn(s) }))
     .filter((u) => u.sarlavha !== '');
 
-  const moslash: Moslash = {};
-  for (const u of ustunlar) {
-    const m = ustunniTani(u.sarlavha);
-    // Birinchi topilgan ustun ustun turadi (chapdan o'ngga)
-    if (m && moslash[m] === undefined) moslash[m] = u.indeks;
-  }
+  const moslash = moslashniTop(satrlar, sarlavhaQatori, ustunlar);
 
-  const { qatorlar, jamiHisoblangan, jamiFayldan } = qatorlarniYig(
+  const { qatorlar, jamiHisoblangan, jamiFayldan, rejim } = qatorlarniYig(
     satrlar,
     sarlavhaQatori,
     ustunlar,
@@ -306,6 +386,7 @@ export function faylniOqi(bayt: ArrayBuffer, fileName: string, sheetIndex = 0): 
     qatorlar,
     jamiHisoblangan,
     jamiFayldan,
+    rejim,
     faktura: bosh(satrlar, sarlavhaQatori),
   };
 }
@@ -317,10 +398,17 @@ export function qatorlarniYig(
   sarlavhaQatori: number,
   ustunlar: Ustun[],
   moslash: Moslash
-): { qatorlar: Qator[]; jamiHisoblangan: number; jamiFayldan: number | null } {
+): { qatorlar: Qator[]; jamiHisoblangan: number; jamiFayldan: number | null; rejim: Rejim } {
   const qatorlar: Qator[] = [];
   let jamiHisoblangan = 0;
   let jamiFayldan: number | null = null;
+
+  // Har bir fayl faktura emas. Miqdor ham, summa ham yo'q bo'lsa — bu
+  // narxlar ro'yxati (assortiment). Unda "miqdor yo'q" deb har bir qatorni
+  // ogohlantirish ma'nosiz: 10 ming qator qizarib ketadi va haqiqiy
+  // muammolar ko'rinmay qoladi.
+  const rejim: Rejim =
+    moslash.qty === undefined && moslash.sum === undefined ? 'narxlar' : 'faktura';
 
   const moslanganIndekslar = new Set(Object.values(moslash));
 
@@ -348,8 +436,12 @@ export function qatorlarniYig(
 
     const ogohlar: string[] = [];
     if (!nomi) ogohlar.push('nomi yo‘q');
-    if (qty === undefined) ogohlar.push('miqdor yo‘q');
-    if (price === undefined && sum === undefined) ogohlar.push('narx ham, summa ham yo‘q');
+    if (rejim === 'faktura') {
+      if (qty === undefined) ogohlar.push('miqdor yo‘q');
+      if (price === undefined && sum === undefined) ogohlar.push('narx ham, summa ham yo‘q');
+    } else if (price === undefined) {
+      ogohlar.push('narx yo‘q');
+    }
 
     let hisoblangan = sum;
     if (qty !== undefined && price !== undefined) {
@@ -393,7 +485,7 @@ export function qatorlarniYig(
     });
   }
 
-  return { qatorlar, jamiHisoblangan, jamiFayldan };
+  return { qatorlar, jamiHisoblangan, jamiFayldan, rejim };
 }
 
 // Fayl satrlarini qayta o'qish uchun (moslashtirish o'zgarganda kerak)
