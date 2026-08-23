@@ -193,6 +193,27 @@ Deno.serve(async (req) => {
       return new Response('ok');
     }
 
+    // Faktura: PDF va Excel alohida funksiyada yasaladi (bu yerda emas —
+    // webhook tez javob qaytarishi kerak, PDF esa shrift yuklaydi)
+    if (amal === 'inv') {
+      await tg('answerCallbackQuery', {
+        callback_query_id: cq.id,
+        text: 'Faktura tayyorlanmoqda...',
+      });
+      const r = await fetch(`${supabaseUrl}/functions/v1/dori-faktura`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${serviceKey}`,
+        },
+        body: JSON.stringify({ order_id: id, chat_id: chatId }),
+      });
+      if (!r.ok) {
+        await yubor(chatId, '❌ Faktura tayyorlanmadi. Birozdan keyin urinib ko‘ring.');
+      }
+      return new Response('ok');
+    }
+
     if (amal === 'add') {
       await tg('answerCallbackQuery', { callback_query_id: cq.id });
       await holatQoy(chatId, 'miqdor', { product_id: id });
@@ -329,14 +350,44 @@ Deno.serve(async (req) => {
       done: '🏁 Yopildi',
       cancelled: '❌ Bekor',
     };
-    const matn = list
+
+    // Sana bo'yicha guruhlab ko'rsatamiz — mijoz "o'tgan hafta bergan
+    // buyurtmam" deb qidirganda shu ko'rinish qulay
+    const guruh = new Map<string, any[]>();
+    for (const o of list) {
+      const kun = new Date(o.created_at).toLocaleDateString('ru-RU');
+      if (!guruh.has(kun)) guruh.set(kun, []);
+      guruh.get(kun)!.push(o);
+    }
+
+    const matn = [...guruh.entries()]
       .map(
-        (o) =>
-          `<b>№${o.order_no}</b> · ${new Date(o.created_at).toLocaleDateString('ru-RU')}\n` +
-          `${HOLAT[o.status] ?? o.status} · ${o.items_count} xil · <b>${pul(o.total)}</b>`
+        ([kun, lar]) =>
+          `📅 <b>${kun}</b>\n` +
+          lar
+            .map(
+              (o) =>
+                `   №${o.order_no} · ${HOLAT[o.status] ?? o.status} · ${o.items_count} xil · <b>${pul(o.total)}</b>`
+            )
+            .join('\n')
       )
       .join('\n\n');
-    await yubor(chatId, `🧾 <b>Buyurtmalaringiz</b>\n\n${matn}`, { reply_markup: MENYU });
+
+    await yubor(
+      chatId,
+      `🧾 <b>Buyurtmalaringiz</b>\n\n${matn}\n\n` +
+        `<i>Fakturani PDF va Excel ko‘rinishida olish uchun tanlang 👇</i>`,
+      {
+        reply_markup: {
+          inline_keyboard: list.map((o) => [
+            {
+              text: `📄 №${o.order_no} · ${new Date(o.created_at).toLocaleDateString('ru-RU')} · ${pul(o.total)}`,
+              callback_data: `inv:${o.id}`,
+            },
+          ]),
+        },
+      }
+    );
     return new Response('ok');
   }
 
