@@ -16,6 +16,7 @@ import { CartProvider, useCart } from './src/lib/cart';
 import { LanguageProvider, useLanguage } from './src/lib/i18n';
 import { useIsWide } from './src/lib/responsive';
 import { C } from './src/lib/theme';
+import { telemetriyaniYoq, ekranBelgila } from './src/lib/xatolik';
 import LoginScreen from './src/screens/LoginScreen';
 import CatalogScreen from './src/screens/CatalogScreen';
 import CartScreen from './src/screens/CartScreen';
@@ -248,6 +249,12 @@ function MainApp() {
   const isWide = useIsWide();
   const goOrders = useCallback(() => setScreen('orders'), []);
 
+  // Xato yuborilganda qaysi ekranda bo'lganimiz ham yozilsin —
+  // "qaysi ekran yiqilyapti" degan savolga javob shu
+  useEffect(() => {
+    ekranBelgila(screen);
+  }, [screen]);
+
   // Android fizik "orqaga" tugmasi: drawer ochiq bo'lsa yopadi,
   // ichki ekranda bo'lsa katalogga qaytaradi
   useEffect(() => {
@@ -335,6 +342,12 @@ function MainApp() {
 export default function App() {
   const [session, setSession] = useState<Session | null>(null);
   const [ready, setReady] = useState(false);
+
+  // Tutilmagan xatolar jurnalga tushsin — bug'ni foydalanuvchi emas,
+  // tizim aytib bersin (0-bosqich: telemetriya)
+  useEffect(() => {
+    telemetriyaniYoq();
+  }, []);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
