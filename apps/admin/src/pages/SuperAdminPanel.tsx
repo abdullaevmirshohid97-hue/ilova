@@ -4,6 +4,7 @@ import { formatDate, genPassword, supabase } from '../lib/supabase';
 import NazoratMarkazi from '../components/NazoratMarkazi';
 import DoriModuli from './DoriModuli';
 import NarxlarPaneli from './NarxlarPaneli';
+import DoriMijozlar from './DoriMijozlar';
 
 // ============================================================================
 // Super-admin "boshqaruv markazi" — eDEX-UI uslubidagi HUD.
@@ -13,13 +14,14 @@ import NarxlarPaneli from './NarxlarPaneli';
 // ============================================================================
 
 
-type Bolim = 'tenantlar' | 'nazorat' | 'dori' | 'narxlar';
+type Bolim = 'tenantlar' | 'nazorat' | 'dori' | 'narxlar' | 'mijozlar';
 
 const BOLIMLAR: { key: Bolim; belgi: string; nom: string; izoh: string }[] = [
   { key: 'tenantlar', belgi: '▤', nom: 'TENANTLAR', izoh: 'reestr va obuna' },
   { key: 'nazorat', belgi: '◉', nom: 'NAZORAT', izoh: 'harakatlar va xatolar' },
   { key: 'dori', belgi: '⚕', nom: 'DORI', izoh: 'faktura roboti' },
   { key: 'narxlar', belgi: '₴', nom: 'NARX QO‘YISH', izoh: 'ustama va chegirma' },
+  { key: 'mijozlar', belgi: '☎', nom: 'MIJOZLAR', izoh: 'dorixonalar va login' },
 ];
 
 
@@ -629,6 +631,7 @@ export default function SuperAdminPanel() {
         <main className="min-w-0 flex-1 space-y-5 p-6">
           {bolim === 'dori' && <DoriModuli />}
           {bolim === 'narxlar' && <NarxlarPaneli />}
+          {bolim === 'mijozlar' && <DoriMijozlar />}
           {bolim === 'nazorat' && <NazoratMarkazi />}
 
           {bolim === 'tenantlar' && (<>

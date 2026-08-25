@@ -288,17 +288,29 @@ Deno.serve(async (req) => {
       return new Response('ok');
     }
 
-    await supabase.rpc('dori_bot_link', {
+    const { data: bogl } = await supabase.rpc('dori_bot_link', {
       p_chat_id: chatId,
       p_phone: msg.contact.phone_number,
       p_name: [from.first_name, from.last_name].filter(Boolean).join(' ') || null,
       p_username: from.username ?? null,
     });
 
+    // Mijozni admin ro'yxatga oladi — ro'yxatda bo'lmagan raqam kira olmaydi
+    if (!(bogl as any)?.ok) {
+      await yubor(
+        chatId,
+        `❌ <b>${esc(msg.contact.phone_number)}</b> raqami ro‘yxatda topilmadi.\n\n` +
+          `Idaa Farm ulgurji savdo qiladi — mijozlarni administrator ro‘yxatga oladi. ` +
+          `Iltimos, biz bilan bog‘laning.`
+      );
+      return new Response('ok');
+    }
+
     await yubor(
       chatId,
-      `✅ Rahmat! Endi dori nomini yozing — narxi bilan topib beraman.\n\n` +
-        `Masalan: <b>азитромицин</b> yoki <b>аспирин</b>`,
+      `✅ Xush kelibsiz${(bogl as any).name ? ', <b>' + esc((bogl as any).name) + '</b>' : ''}!\n\n` +
+        `Dori nomini yozing — narxi bilan topib beraman.\n` +
+        `Masalan: <b>азитромицин</b> yoki <b>aspirin</b>`,
       { reply_markup: MENYU }
     );
     return new Response('ok');
