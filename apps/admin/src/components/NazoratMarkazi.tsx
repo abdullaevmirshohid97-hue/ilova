@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { C, MONO, RADIUS, sh } from '../lib/sa-tema';
 import { supabase } from '../lib/supabase';
 
 // ============================================================================
@@ -14,19 +15,7 @@ import { supabase } from '../lib/supabase';
 // Uslub SuperAdminPanel bilan bir xil (HUD) — bu shu panelning bir qismi.
 // ============================================================================
 
-const C = {
-  panel: '#0a1014',
-  panel2: '#0d151a',
-  line: '#16323a',
-  neon: '#00e8c6',
-  neon2: '#05d1ff',
-  text: '#8fa8b0',
-  textBright: '#d6ebf0',
-  warn: '#ffb454',
-  danger: '#ff3b5c',
-};
 
-const MONO = "ui-monospace, 'JetBrains Mono', 'Cascadia Mono', Consolas, monospace";
 
 type Yozuv = {
   id: number;
@@ -59,9 +48,9 @@ type XatoGuruh = {
 };
 
 const AMAL: Record<string, { belgi: string; rang: string }> = {
-  insert: { belgi: '+', rang: '#00e8c6' },
-  update: { belgi: '~', rang: '#05d1ff' },
-  delete: { belgi: '−', rang: '#ff3b5c' },
+  insert: { belgi: '+', rang: C.neon },
+  update: { belgi: '~', rang: C.neon2 },
+  delete: { belgi: '−', rang: C.danger },
 };
 
 // Jadval nomlari — texnik nom o'rniga odam tushunadigan nom
@@ -178,7 +167,7 @@ export default function NazoratMarkazi() {
             onClick={() => setTab(k)}
             className="px-3 py-1.5 text-[11px] font-bold tracking-[0.14em]"
             style={{
-              color: tab === k ? '#05080a' : C.text,
+              color: tab === k ? C.onAccent : C.text,
               background: tab === k ? C.neon : 'transparent',
               border: `1px solid ${tab === k ? C.neon : C.line}`,
             }}
@@ -209,7 +198,7 @@ export default function NazoratMarkazi() {
             onClick={() => setJonli((v) => !v)}
             className="px-3 py-1.5 text-[11px] font-bold tracking-[0.14em]"
             style={{
-              color: jonli ? '#05080a' : C.text,
+              color: jonli ? C.onAccent : C.text,
               background: jonli ? C.neon2 : 'transparent',
               border: `1px solid ${jonli ? C.neon2 : C.line}`,
             }}
@@ -245,7 +234,7 @@ export default function NazoratMarkazi() {
           )}
 
           {/* ---------- oqim ---------- */}
-          <div style={{ background: C.panel, border: `1px solid ${C.line}` }}>
+          <div style={{ background: C.panel, border: `1px solid ${C.line}`, borderRadius: RADIUS }}>
             {yozuvlar.length === 0 && (
               <div className="p-10 text-center text-xs" style={{ color: C.text }}>
                 Bu davrda harakat yo‘q
@@ -260,11 +249,11 @@ export default function NazoratMarkazi() {
                   className="grid gap-3 px-4 py-2 text-[12px]"
                   style={{
                     gridTemplateColumns: '78px 18px 1fr',
-                    borderTop: i ? `1px solid ${C.line}55` : 'none',
-                    background: i % 2 ? '#0a1014' : 'transparent',
+                    borderTop: i ? `1px solid ${sh(C.line, 33)}` : 'none',
+                    background: i % 2 ? C.zebra : 'transparent',
                   }}
                 >
-                  <span style={{ color: `${C.text}cc` }}>{vaqt(y.at)}</span>
+                  <span style={{ color: `${sh(C.text, 80)}` }}>{vaqt(y.at)}</span>
                   <span style={{ color: a.rang, fontWeight: 800 }}>{a.belgi}</span>
                   <div className="min-w-0">
                     <span style={{ color: C.textBright, fontWeight: 700 }}>
@@ -275,7 +264,7 @@ export default function NazoratMarkazi() {
                         {matn}
                       </span>
                     )}
-                    <div className="mt-0.5 text-[10px]" style={{ color: `${C.text}99` }}>
+                    <div className="mt-0.5 text-[10px]" style={{ color: `${sh(C.text, 60)}` }}>
                       {y.actor_name}
                       {y.actor_role ? ` · ${y.actor_role}` : ''}
                       {y.org_name ? ` · ${y.org_name}` : ''}
@@ -289,7 +278,7 @@ export default function NazoratMarkazi() {
         </>
       ) : (
         /* ---------- xatoliklar ---------- */
-        <div style={{ background: C.panel, border: `1px solid ${C.line}` }}>
+        <div style={{ background: C.panel, border: `1px solid ${C.line}`, borderRadius: RADIUS }}>
           {xatolar.length === 0 && (
             <div className="p-10 text-center text-xs" style={{ color: C.text }}>
               Bu davrda xatolik qayd etilmagan
@@ -300,14 +289,14 @@ export default function NazoratMarkazi() {
               key={x.fingerprint}
               className="px-4 py-3"
               style={{
-                borderTop: i ? `1px solid ${C.line}55` : 'none',
-                background: i % 2 ? '#0a1014' : 'transparent',
+                borderTop: i ? `1px solid ${sh(C.line, 33)}` : 'none',
+                background: i % 2 ? C.zebra : 'transparent',
               }}
             >
               <div className="flex flex-wrap items-baseline gap-2">
                 <span
                   className="px-2 py-0.5 text-[10px] font-bold"
-                  style={{ color: '#05080a', background: x.hodisalar > 20 ? C.danger : C.warn }}
+                  style={{ color: C.onAccent, background: x.hodisalar > 20 ? C.danger : C.warn }}
                 >
                   {x.hodisalar}×
                 </span>
@@ -315,7 +304,7 @@ export default function NazoratMarkazi() {
                   {x.message}
                 </span>
               </div>
-              <div className="mt-1 text-[10px]" style={{ color: `${C.text}aa` }}>
+              <div className="mt-1 text-[10px]" style={{ color: `${sh(C.text, 67)}` }}>
                 {x.app} · {x.screen ?? 'ekran nomalum'} · {x.foydalanuvchilar} foydalanuvchi ·
                 oxirgi: {vaqt(x.oxirgi)}
                 {x.platformalar?.filter(Boolean).length
@@ -333,8 +322,8 @@ export default function NazoratMarkazi() {
 // ---------------------------------------------------------------- yordamchi
 function Quti({ sarlavha, children }: { sarlavha: string; children: React.ReactNode }) {
   return (
-    <div style={{ background: C.panel, border: `1px solid ${C.line}` }} className="p-4">
-      <div className="mb-2 text-[10px] font-bold tracking-[0.16em]" style={{ color: `${C.text}cc` }}>
+    <div style={{ background: C.panel, border: `1px solid ${C.line}`, borderRadius: RADIUS }} className="p-4">
+      <div className="mb-2 text-[10px] font-bold tracking-[0.16em]" style={{ color: `${sh(C.text, 80)}` }}>
         {sarlavha}
       </div>
       {children}
@@ -347,7 +336,7 @@ function Qator({ chap, ong, izoh }: { chap: string; ong: string; izoh?: string }
     <div className="flex items-baseline justify-between gap-3 py-0.5">
       <span className="truncate text-[12px]" style={{ color: C.textBright }}>
         {chap}
-        {izoh ? <span style={{ color: `${C.text}88` }} className="ml-1 text-[10px]">{izoh}</span> : null}
+        {izoh ? <span style={{ color: `${sh(C.text, 53)}` }} className="ml-1 text-[10px]">{izoh}</span> : null}
       </span>
       <span className="text-[12px] font-bold" style={{ color: C.neon }}>
         {ong}
@@ -358,7 +347,7 @@ function Qator({ chap, ong, izoh }: { chap: string; ong: string; izoh?: string }
 
 function Bosh() {
   return (
-    <div className="py-1 text-[11px]" style={{ color: `${C.text}88` }}>
+    <div className="py-1 text-[11px]" style={{ color: `${sh(C.text, 53)}` }}>
       ma'lumot yo‘q
     </div>
   );

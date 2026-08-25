@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { C, MONO, RADIUS, sh } from '../lib/sa-tema';
 import { supabase } from '../lib/supabase';
 
 // ============================================================================
@@ -12,18 +13,6 @@ import { supabase } from '../lib/supabase';
 // tasodifan buzib qo'yish juda oson bo'lardi.
 // ============================================================================
 
-const C = {
-  panel: '#0a1014',
-  panel2: '#0d151a',
-  line: '#16323a',
-  neon: '#00e8c6',
-  neon2: '#05d1ff',
-  text: '#8fa8b0',
-  textBright: '#d6ebf0',
-  warn: '#ffb454',
-  danger: '#ff3b5c',
-};
-const MONO = "ui-monospace, 'JetBrains Mono', 'Cascadia Mono', Consolas, monospace";
 
 type Umumiy = {
   jami: number;
@@ -209,7 +198,7 @@ export default function NarxlarPaneli() {
   const btn = 'px-3 py-1.5 text-[11px] font-bold tracking-[0.14em]';
   const inp = 'w-24 px-2 py-1.5 text-[13px] outline-none';
   const inpStyle = {
-    background: '#060b0e',
+    background: C.field,
     border: `1px solid ${C.line}`,
     color: C.textBright,
     fontFamily: MONO,
@@ -256,8 +245,8 @@ export default function NarxlarPaneli() {
       )}
 
       {/* ---------- umumiy ustama ---------- */}
-      <div className="mb-4 p-4" style={{ background: C.panel, border: `1px solid ${C.line}` }}>
-        <div className="mb-3 text-[10px] font-bold tracking-[0.16em]" style={{ color: `${C.text}cc` }}>
+      <div className="mb-4 p-4" style={{ background: C.panel, border: `1px solid ${C.line}`, borderRadius: RADIUS }}>
+        <div className="mb-3 text-[10px] font-bold tracking-[0.16em]" style={{ color: `${sh(C.text, 80)}` }}>
           HAMMA DORIGA — USTAMA VA CHEGIRMA
         </div>
         <div className="flex flex-wrap items-end gap-3">
@@ -277,7 +266,7 @@ export default function NarxlarPaneli() {
           </button>
           {korish && (
             <button onClick={umumiyQolla} className={btn}
-                    style={{ color: '#05080a', background: C.neon, border: `1px solid ${C.neon}` }}>
+                    style={{ color: C.onAccent, background: C.neon, border: `1px solid ${C.neon}` }}>
               TASDIQLAB QO‘LLASH
             </button>
           )}
@@ -302,8 +291,8 @@ export default function NarxlarPaneli() {
       </div>
 
       {/* ---------- tanlanganlarga ---------- */}
-      <div className="mb-4 p-4" style={{ background: C.panel, border: `1px solid ${C.line}` }}>
-        <div className="mb-3 text-[10px] font-bold tracking-[0.16em]" style={{ color: `${C.text}cc` }}>
+      <div className="mb-4 p-4" style={{ background: C.panel, border: `1px solid ${C.line}`, borderRadius: RADIUS }}>
+        <div className="mb-3 text-[10px] font-bold tracking-[0.16em]" style={{ color: `${sh(C.text, 80)}` }}>
           TANLANGAN DORILARGA — CHEGIRMA YOKI ALOHIDA USTAMA
         </div>
 
@@ -326,13 +315,13 @@ export default function NarxlarPaneli() {
                   className="grid cursor-pointer gap-3 px-3 py-2 text-[11px]"
                   style={{
                     gridTemplateColumns: '18px 1fr 90px 90px 70px',
-                    background: belgilangan ? `${C.neon}18` : i % 2 ? '#0a1014' : 'transparent',
-                    borderTop: i ? `1px solid ${C.line}44` : 'none',
+                    background: belgilangan ? `${sh(C.neon, 9)}` : i % 2 ? C.zebra : 'transparent',
+                    borderTop: i ? `1px solid ${sh(C.line, 27)}` : 'none',
                   }}
                 >
                   <span style={{ color: belgilangan ? C.neon : C.text }}>{belgilangan ? '☑' : '☐'}</span>
                   <span className="truncate" style={{ color: C.textBright }}>{d.name}</span>
-                  <span className="text-right" style={{ color: `${C.text}aa` }}>{son(d.tannarx)}</span>
+                  <span className="text-right" style={{ color: `${sh(C.text, 67)}` }}>{son(d.tannarx)}</span>
                   <span className="text-right" style={{ color: C.textBright }}>{son(d.sotuv)}</span>
                   <span className="text-right" style={{ color: C.warn }}>
                     {d.oz_chegirmasi ? `−${d.oz_chegirmasi}%` : d.oz_ustamasi ? `+${d.oz_ustamasi}%` : ''}
@@ -362,7 +351,7 @@ export default function NarxlarPaneli() {
             disabled={!Object.keys(tanlangan).length}
             className={btn}
             style={{
-              color: '#05080a',
+              color: C.onAccent,
               background: C.warn,
               border: `1px solid ${C.warn}`,
               opacity: Object.keys(tanlangan).length ? 1 : 0.4,
@@ -374,9 +363,9 @@ export default function NarxlarPaneli() {
       </div>
 
       {/* ---------- amaldagi qoidalar ---------- */}
-      <div style={{ background: C.panel, border: `1px solid ${C.line}` }}>
+      <div style={{ background: C.panel, border: `1px solid ${C.line}`, borderRadius: RADIUS }}>
         <div className="px-4 py-2 text-[10px] font-bold tracking-[0.16em]"
-             style={{ color: `${C.text}cc`, borderBottom: `1px solid ${C.line}` }}>
+             style={{ color: `${sh(C.text, 80)}`, borderBottom: `1px solid ${C.line}` }}>
           AMALDAGI QOIDALAR — {qoidalar.length}
         </div>
         {qoidalar.length === 0 && (
@@ -386,8 +375,8 @@ export default function NarxlarPaneli() {
         )}
         {qoidalar.map((r, i) => (
           <div key={r.id} className="grid gap-3 px-4 py-2 text-[11px]"
-               style={{ gridTemplateColumns: '110px 1fr 80px 80px 30px', borderTop: i ? `1px solid ${C.line}44` : 'none' }}>
-            <span style={{ color: `${C.text}cc` }}>{SCOPE_NOM[r.scope]}</span>
+               style={{ gridTemplateColumns: '110px 1fr 80px 80px 30px', borderTop: i ? `1px solid ${sh(C.line, 27)}` : 'none' }}>
+            <span style={{ color: `${sh(C.text, 80)}` }}>{SCOPE_NOM[r.scope]}</span>
             <span className="truncate" style={{ color: C.textBright }}>{r.nishon ?? '—'}</span>
             <span className="text-right" style={{ color: C.neon }}>
               {r.markup_pct != null ? `+${r.markup_pct}%` : ''}
@@ -395,7 +384,7 @@ export default function NarxlarPaneli() {
             <span className="text-right" style={{ color: C.warn }}>
               {r.discount_pct != null ? `−${r.discount_pct}%` : ''}
             </span>
-            <button onClick={() => qoidaniOchir(r)} style={{ color: `${C.text}88` }}>✕</button>
+            <button onClick={() => qoidaniOchir(r)} style={{ color: `${sh(C.text, 53)}` }}>✕</button>
           </div>
         ))}
       </div>
@@ -405,8 +394,8 @@ export default function NarxlarPaneli() {
 
 function Quti({ sarlavha, children }: { sarlavha: string; children: React.ReactNode }) {
   return (
-    <div style={{ background: C.panel, border: `1px solid ${C.line}` }} className="p-3">
-      <div className="mb-1 text-[10px] font-bold tracking-[0.16em]" style={{ color: `${C.text}cc` }}>
+    <div style={{ background: C.panel, border: `1px solid ${C.line}`, borderRadius: RADIUS }} className="p-3">
+      <div className="mb-1 text-[10px] font-bold tracking-[0.16em]" style={{ color: `${sh(C.text, 80)}` }}>
         {sarlavha}
       </div>
       {children}
@@ -417,7 +406,7 @@ function Quti({ sarlavha, children }: { sarlavha: string; children: React.ReactN
 function Xabar({ rang, children }: { rang: string; children: React.ReactNode }) {
   return (
     <div className="mb-3 px-3 py-2 text-[11px]"
-         style={{ color: rang, background: `${rang}12`, border: `1px solid ${rang}55` }}>
+         style={{ color: rang, background: `${sh(rang, 7)}`, border: `1px solid ${sh(rang, 33)}` }}>
       {children}
     </div>
   );

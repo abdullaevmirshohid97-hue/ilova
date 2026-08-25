@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { C, KESIM, KESIM_KICHIK, MONO, RADIUS, TEMALAR, sh, temaCssniUlash, temaniOl, temaniQoy, type Tema } from '../lib/sa-tema';
 import { formatDate, genPassword, supabase } from '../lib/supabase';
 import NazoratMarkazi from '../components/NazoratMarkazi';
 import DoriModuli from './DoriModuli';
@@ -11,19 +12,6 @@ import NarxlarPaneli from './NarxlarPaneli';
 // Ranglar shu fayl ichida (tailwind token'lari butun ilovaga tegib ketmasin).
 // ============================================================================
 
-const C = {
-  bg: '#05080a',
-  panel: '#0a1014',
-  panel2: '#0d151a',
-  line: '#16323a',
-  neon: '#00e8c6',
-  neon2: '#05d1ff',
-  text: '#8fa8b0',
-  textBright: '#d6ebf0',
-  warn: '#ffb454',
-  danger: '#ff3b5c',
-  ok: '#00e8c6',
-};
 
 type Bolim = 'tenantlar' | 'nazorat' | 'dori' | 'narxlar';
 
@@ -34,7 +22,6 @@ const BOLIMLAR: { key: Bolim; belgi: string; nom: string; izoh: string }[] = [
   { key: 'narxlar', belgi: '₴', nom: 'NARX QO‘YISH', izoh: 'ustama va chegirma' },
 ];
 
-const MONO = "ui-monospace, 'JetBrains Mono', 'Cascadia Mono', Consolas, monospace";
 
 type Org = {
   id: string;
@@ -75,7 +62,7 @@ function Panel({
       style={{
         background: C.panel,
         border: `1px solid ${C.line}`,
-        clipPath: 'polygon(14px 0, 100% 0, 100% calc(100% - 14px), calc(100% - 14px) 100%, 0 100%, 0 14px)',
+        clipPath: KESIM, borderRadius: RADIUS,
       }}
     >
       {title && (
@@ -104,7 +91,7 @@ function Stat({ label, value, accent }: { label: string; value: string | number;
       style={{
         background: C.panel,
         border: `1px solid ${C.line}`,
-        clipPath: 'polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px)',
+        clipPath: KESIM_KICHIK, borderRadius: RADIUS,
       }}
     >
       <div
@@ -115,7 +102,7 @@ function Stat({ label, value, accent }: { label: string; value: string | number;
       </div>
       <div
         className="mt-1 text-2xl font-extrabold tabular-nums"
-        style={{ color: accent ?? C.textBright, fontFamily: MONO, textShadow: `0 0 18px ${(accent ?? C.neon)}44` }}
+        style={{ color: accent ?? C.textBright, fontFamily: MONO, textShadow: `0 0 18px ${sh(accent ?? C.neon, 27)}` }}
       >
         {value}
       </div>
@@ -124,7 +111,7 @@ function Stat({ label, value, accent }: { label: string; value: string | number;
 }
 
 const fieldStyle: React.CSSProperties = {
-  background: '#060b0e',
+  background: C.field,
   border: `1px solid ${C.line}`,
   color: C.textBright,
   fontFamily: MONO,
@@ -186,12 +173,12 @@ function NeonButton({
       style={{
         fontFamily: MONO,
         color,
-        background: tone === 'neon' ? `${C.neon}14` : 'transparent',
+        background: tone === 'neon' ? `${sh(C.neon, 8)}` : 'transparent',
         border: `1px solid ${tone === 'ghost' ? C.line : color}`,
-        clipPath: 'polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px)',
+        clipPath: KESIM_KICHIK, borderRadius: RADIUS,
       }}
       onMouseEnter={(e) => {
-        if (!disabled) e.currentTarget.style.boxShadow = `0 0 18px ${color}55`;
+        if (!disabled) e.currentTarget.style.boxShadow = `0 0 18px ${sh(color, 33)}`;
       }}
       onMouseLeave={(e) => (e.currentTarget.style.boxShadow = 'none')}
     >
@@ -204,7 +191,7 @@ function Overlay({ children }: { children: React.ReactNode }) {
   return (
     <div
       className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto p-6"
-      style={{ background: 'rgba(2,6,8,0.82)', backdropFilter: 'blur(3px)' }}
+      style={{ background: C.overlay, backdropFilter: 'blur(3px)' }}
     >
       {children}
     </div>
@@ -427,6 +414,16 @@ export default function SuperAdminPanel() {
   const [clock, setClock] = useState(new Date());
   // Sidebar bo'limi — panel bitta uzun varaq bo'lib ketmasin
   const [bolim, setBolim] = useState<Bolim>('tenantlar');
+  // Dizayn tanlovi brauzerda eslab qolinadi — har kim o'ziga qulayida ishlaydi
+  const [tema, setTema] = useState<Tema>(() => temaniOl());
+
+  useEffect(() => {
+    temaCssniUlash();
+  }, []);
+
+  useEffect(() => {
+    temaniQoy(tema);
+  }, [tema]);
 
   useEffect(() => {
     const t = setInterval(() => setClock(new Date()), 1000);
@@ -492,25 +489,25 @@ export default function SuperAdminPanel() {
   const td = 'px-4 py-3 text-sm';
 
   return (
-    <div className="min-h-screen" style={{ background: C.bg, fontFamily: MONO }}>
+    <div id="sa-tema-root" data-sa-tema={tema} className="min-h-screen" style={{ background: C.bg, fontFamily: MONO }}>
       {/* fon: nozik grid + yuqoridan neon yorug'lik */}
       <div
         className="pointer-events-none fixed inset-0"
         style={{
-          backgroundImage: `linear-gradient(${C.line}22 1px, transparent 1px), linear-gradient(90deg, ${C.line}22 1px, transparent 1px)`,
+          backgroundImage: `linear-gradient(${sh(C.line, 13)} 1px, transparent 1px), linear-gradient(90deg, ${sh(C.line, 13)} 1px, transparent 1px)`,
           backgroundSize: '38px 38px',
         }}
       />
       <div
         className="pointer-events-none fixed inset-x-0 top-0 h-64"
-        style={{ background: `radial-gradient(ellipse at 50% 0%, ${C.neon}12, transparent 70%)` }}
+        style={{ background: `radial-gradient(ellipse at 50% 0%, ${sh(C.neon, 7)}, transparent 70%)` }}
       />
 
       <div className="relative">
         {/* ---------------------------------------------------------- header */}
         <header
           className="flex flex-wrap items-center justify-between gap-4 px-6 py-4"
-          style={{ borderBottom: `1px solid ${C.line}`, background: `${C.panel}dd` }}
+          style={{ borderBottom: `1px solid ${C.line}`, background: `${sh(C.panel, 87)}` }}
         >
           <div className="flex items-center gap-4">
             <div
@@ -518,7 +515,7 @@ export default function SuperAdminPanel() {
               style={{
                 color: C.bg,
                 background: C.neon,
-                clipPath: 'polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px)',
+                clipPath: KESIM_KICHIK, borderRadius: RADIUS,
               }}
             >
               Y
@@ -551,6 +548,28 @@ export default function SuperAdminPanel() {
                 ONLAYN
               </span>
             </div>
+            {/* Dizayn tanlovi — panelning o'zi uch xil ko'rinishda ishlaydi */}
+            <div className="flex items-center gap-1" title="Dizayn">
+              {TEMALAR.map((t) => {
+                const faol = tema === t.key;
+                return (
+                  <button
+                    key={t.key}
+                    onClick={() => setTema(t.key)}
+                    className="px-2.5 py-1.5 text-[10px] font-bold tracking-[0.1em]"
+                    style={{
+                      color: faol ? C.onAccent : C.text,
+                      background: faol ? C.neon : 'transparent',
+                      border: `1px solid ${faol ? C.neon : C.line}`,
+                      borderRadius: 'var(--sa-radius)',
+                    }}
+                  >
+                    {t.nom}
+                  </button>
+                );
+              })}
+            </div>
+
             <NeonButton tone="danger" onClick={() => supabase.auth.signOut()}>
               chiqish
             </NeonButton>
@@ -572,7 +591,7 @@ export default function SuperAdminPanel() {
                 onClick={() => setBolim(b.key)}
                 className="flex items-center gap-3 px-3 py-2.5 text-left"
                 style={{
-                  color: faol ? '#05080a' : C.text,
+                  color: faol ? C.onAccent : C.text,
                   background: faol ? C.neon : 'transparent',
                   border: `1px solid ${faol ? C.neon : 'transparent'}`,
                 }}
@@ -580,7 +599,7 @@ export default function SuperAdminPanel() {
                 <span className="text-base">{b.belgi}</span>
                 <span className="min-w-0">
                   <span className="block text-[11px] font-bold tracking-[0.14em]">{b.nom}</span>
-                  <span className="block text-[9px]" style={{ color: faol ? '#05080a99' : `${C.text}88` }}>
+                  <span className="block text-[9px]" style={{ color: faol ? '#05080a99' : `${sh(C.text, 53)}` }}>
                     {b.izoh}
                   </span>
                 </span>
@@ -597,7 +616,7 @@ export default function SuperAdminPanel() {
               onClick={() => setBolim(b.key)}
               className="whitespace-nowrap px-3 py-1.5 text-[11px] font-bold tracking-[0.12em]"
               style={{
-                color: bolim === b.key ? '#05080a' : C.text,
+                color: bolim === b.key ? C.onAccent : C.text,
                 background: bolim === b.key ? C.neon : 'transparent',
                 border: `1px solid ${bolim === b.key ? C.neon : C.line}`,
               }}
@@ -662,23 +681,23 @@ export default function SuperAdminPanel() {
                         key={o.id}
                         style={{
                           borderTop: `1px solid ${C.line}`,
-                          background: i % 2 ? '#0a1014' : 'transparent',
+                          background: i % 2 ? C.zebra : 'transparent',
                         }}
-                        onMouseEnter={(e) => (e.currentTarget.style.background = `${C.neon}0c`)}
-                        onMouseLeave={(e) => (e.currentTarget.style.background = i % 2 ? '#0a1014' : 'transparent')}
+                        onMouseEnter={(e) => (e.currentTarget.style.background = `${sh(C.neon, 5)}`)}
+                        onMouseLeave={(e) => (e.currentTarget.style.background = i % 2 ? C.zebra : 'transparent')}
                       >
                         <td className={td}>
                           <div className="font-bold" style={{ color: C.textBright }}>
                             {o.name}
                           </div>
-                          <div className="text-[10px]" style={{ color: `${C.text}99` }}>
+                          <div className="text-[10px]" style={{ color: `${sh(C.text, 60)}` }}>
                             {o.id.slice(0, 8)}
                           </div>
                         </td>
                         <td className={td} style={{ color: C.text }}>
                           {o.contact_name ?? '—'}
                           {o.contact_phone && (
-                            <div className="text-xs" style={{ color: `${C.text}aa` }}>
+                            <div className="text-xs" style={{ color: `${sh(C.text, 67)}` }}>
                               {o.contact_phone}
                             </div>
                           )}
@@ -689,8 +708,8 @@ export default function SuperAdminPanel() {
                             onChange={(e) => changeStatus(o, e.target.value)}
                             className="px-2.5 py-1 text-[10px] font-bold tracking-[0.12em] outline-none"
                             style={{
-                              background: `${meta.color}14`,
-                              border: `1px solid ${meta.color}66`,
+                              background: sh(meta.color, 8),
+                              border: `1px solid ${sh(meta.color, 40)}`,
                               color: meta.color,
                               fontFamily: MONO,
                             }}
@@ -718,7 +737,7 @@ export default function SuperAdminPanel() {
                         <td className={td + ' text-right tabular-nums font-bold'} style={{ color: C.neon2 }}>
                           {o.orders_count}
                         </td>
-                        <td className={td + ' text-xs'} style={{ color: `${C.text}aa` }}>
+                        <td className={td + ' text-xs'} style={{ color: `${sh(C.text, 67)}` }}>
                           {formatDate(o.created_at)}
                         </td>
                         <td className={td + ' text-right'}>
@@ -743,7 +762,7 @@ export default function SuperAdminPanel() {
             </div>
           </Panel>
 
-          <div className="pb-4 text-center text-[10px] tracking-[0.2em]" style={{ color: `${C.text}66` }}>
+          <div className="pb-4 text-center text-[10px] tracking-[0.2em]" style={{ color: `${sh(C.text, 40)}` }}>
             YUKCHIBOLLA CONTROL · {orgs.length} TENANT · {jami.orders.toLocaleString('ru-RU')} BUYURTMA
           </div>
           </>)}

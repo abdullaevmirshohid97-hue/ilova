@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { C, MONO, RADIUS, sh } from '../lib/sa-tema';
 import { supabase } from '../lib/supabase';
 import {
   MAYDON_NOMI,
@@ -22,18 +23,6 @@ import {
 // Uslub super-admin panelining HUD ko'rinishida — bu o'sha panelning bo'limi.
 // ============================================================================
 
-const C = {
-  panel: '#0a1014',
-  panel2: '#0d151a',
-  line: '#16323a',
-  neon: '#00e8c6',
-  neon2: '#05d1ff',
-  text: '#8fa8b0',
-  textBright: '#d6ebf0',
-  warn: '#ffb454',
-  danger: '#ff3b5c',
-};
-const MONO = "ui-monospace, 'JetBrains Mono', 'Cascadia Mono', Consolas, monospace";
 
 const MAYDONLAR: Maydon[] = [
   'name', 'manufacturer', 'barcode', 'series', 'made_at', 'expiry', 'qty', 'unit', 'price', 'sum', 'stock', 'group', 'nds_rate', 'nds_sum',
@@ -338,7 +327,7 @@ export default function DoriModuli() {
               {natija.rejim === 'narxlar' ? (
                 <span className="text-[13px] font-extrabold" style={{ color: C.neon2 }}>
                   NARXLAR RO‘YXATI
-                  <span className="ml-1 block text-[10px] font-normal" style={{ color: `${C.text}aa` }}>
+                  <span className="ml-1 block text-[10px] font-normal" style={{ color: `${sh(C.text, 67)}` }}>
                     miqdor/summa ustuni yo‘q
                   </span>
                 </span>
@@ -374,9 +363,9 @@ export default function DoriModuli() {
           )}
 
           {/* ---------- moslashtirish ---------- */}
-          <div className="mb-3 p-4" style={{ background: C.panel, border: `1px solid ${C.line}` }}>
+          <div className="mb-3 p-4" style={{ background: C.panel, border: `1px solid ${C.line}`, borderRadius: RADIUS }}>
             <div className="mb-3 flex flex-wrap items-center gap-3">
-              <span className="text-[10px] font-bold tracking-[0.16em]" style={{ color: `${C.text}cc` }}>
+              <span className="text-[10px] font-bold tracking-[0.16em]" style={{ color: `${sh(C.text, 80)}` }}>
                 USTUNLAR MOSLASHTIRILISHI
               </span>
               {varaqRoyxat.length > 1 && (
@@ -428,9 +417,9 @@ export default function DoriModuli() {
                     }
                     className="min-w-0 flex-1 px-2 py-1 text-[11px] outline-none"
                     style={{
-                      color: natija.moslash[m] === undefined ? `${C.text}88` : C.textBright,
+                      color: natija.moslash[m] === undefined ? `${sh(C.text, 53)}` : C.textBright,
                       background: 'transparent',
-                      border: `1px solid ${natija.moslash[m] === undefined ? C.line : C.neon}55`,
+                      border: `1px solid ${sh(natija.moslash[m] === undefined ? C.line : C.neon, 33)}`,
                     }}
                   >
                     <option value="">— yo‘q —</option>
@@ -446,10 +435,10 @@ export default function DoriModuli() {
           </div>
 
           {/* ---------- qatorlar ---------- */}
-          <div className="mb-3 overflow-x-auto" style={{ background: C.panel, border: `1px solid ${C.line}` }}>
+          <div className="mb-3 overflow-x-auto" style={{ background: C.panel, border: `1px solid ${C.line}`, borderRadius: RADIUS }}>
             <table className="w-full text-[11px]" style={{ minWidth: 900 }}>
               <thead>
-                <tr style={{ color: `${C.text}cc`, borderBottom: `1px solid ${C.line}` }}>
+                <tr style={{ color: `${sh(C.text, 80)}`, borderBottom: `1px solid ${C.line}` }}>
                   {['№', 'Nomi', 'Seriya', 'Muddat', 'Miqdor', 'Narx', 'Summa', 'Qo‘shimcha', 'Holat'].map((h) => (
                     <th key={h} className="px-2 py-2 text-left font-bold tracking-[0.1em]">
                       {h.toUpperCase()}
@@ -462,18 +451,18 @@ export default function DoriModuli() {
                   <tr
                     key={q.line_no}
                     style={{
-                      background: i % 2 ? '#0a1014' : 'transparent',
-                      borderTop: `1px solid ${C.line}44`,
+                      background: i % 2 ? C.zebra : 'transparent',
+                      borderTop: `1px solid ${sh(C.line, 27)}`,
                     }}
                   >
-                    <td className="px-2 py-1.5" style={{ color: `${C.text}99` }}>{q.line_no}</td>
+                    <td className="px-2 py-1.5" style={{ color: `${sh(C.text, 60)}` }}>{q.line_no}</td>
                     <td className="px-2 py-1.5" style={{ color: C.textBright }}>{q.name ?? '—'}</td>
                     <td className="px-2 py-1.5" style={{ color: C.text }}>{q.series ?? '—'}</td>
                     <td className="px-2 py-1.5" style={{ color: C.text }}>{q.expiry ?? '—'}</td>
                     <td className="px-2 py-1.5 text-right" style={{ color: C.text }}>{son(q.qty)}</td>
                     <td className="px-2 py-1.5 text-right" style={{ color: C.text }}>{son(q.price)}</td>
                     <td className="px-2 py-1.5 text-right" style={{ color: C.textBright }}>{son(q.sum)}</td>
-                    <td className="px-2 py-1.5" style={{ color: `${C.text}88` }}>
+                    <td className="px-2 py-1.5" style={{ color: `${sh(C.text, 53)}` }}>
                       {Object.keys(q.qoshimcha).length
                         ? `${Object.keys(q.qoshimcha).length} ta ustun`
                         : '—'}
@@ -494,7 +483,7 @@ export default function DoriModuli() {
 
           {/* ---------- katalog farqi ---------- */}
           {farq && (
-            <div className="mb-3 p-4" style={{ background: C.panel, border: `1px solid ${C.neon}55` }}>
+            <div className="mb-3 p-4" style={{ background: C.panel, border: `1px solid ${sh(C.neon, 33)}` }}>
               <div className="mb-3 text-[10px] font-bold tracking-[0.16em]" style={{ color: C.neon }}>
                 KATALOG FARQI — HALI HECH NARSA YOZILMADI
               </div>
@@ -507,7 +496,7 @@ export default function DoriModuli() {
 
               {farq.narx_namuna?.length > 0 && (
                 <div className="mt-3">
-                  <div className="mb-1 text-[10px]" style={{ color: `${C.text}aa` }}>
+                  <div className="mb-1 text-[10px]" style={{ color: `${sh(C.text, 67)}` }}>
                     NARX O‘ZGARISHIGA MISOL
                   </div>
                   {farq.narx_namuna.slice(0, 5).map((n, i) => (
@@ -537,7 +526,7 @@ export default function DoriModuli() {
                   onClick={kataloggaYukla}
                   disabled={!!ish}
                   className={btn}
-                  style={{ color: '#05080a', background: C.neon, border: `1px solid ${C.neon}` }}
+                  style={{ color: C.onAccent, background: C.neon, border: `1px solid ${C.neon}` }}
                 >
                   TASDIQLAB KATALOGGA YOZISH
                 </button>
@@ -559,7 +548,7 @@ export default function DoriModuli() {
               style={
                 natija.rejim === 'narxlar'
                   ? { color: C.text, background: 'transparent', border: `1px solid ${C.line}` }
-                  : { color: '#05080a', background: C.neon, border: `1px solid ${C.neon}` }
+                  : { color: C.onAccent, background: C.neon, border: `1px solid ${C.neon}` }
               }
             >
               {natija.rejim === 'narxlar' ? 'FAKTURA SIFATIDA SAQLASH' : 'BAZAGA SAQLASH'}
@@ -586,8 +575,8 @@ export default function DoriModuli() {
       )}
 
       {/* ---------- saqlangan fakturalar ---------- */}
-      <div style={{ background: C.panel, border: `1px solid ${C.line}` }}>
-        <div className="px-4 py-2 text-[10px] font-bold tracking-[0.16em]" style={{ color: `${C.text}cc`, borderBottom: `1px solid ${C.line}` }}>
+      <div style={{ background: C.panel, border: `1px solid ${C.line}`, borderRadius: RADIUS }}>
+        <div className="px-4 py-2 text-[10px] font-bold tracking-[0.16em]" style={{ color: `${sh(C.text, 80)}`, borderBottom: `1px solid ${C.line}` }}>
           SAQLANGAN FAKTURALAR — {saqlanganlar.length}
         </div>
         {saqlanganlar.length === 0 && (
@@ -601,15 +590,15 @@ export default function DoriModuli() {
             className="grid gap-3 px-4 py-2 text-[11px]"
             style={{
               gridTemplateColumns: '110px 1fr 100px 110px 90px',
-              borderTop: i ? `1px solid ${C.line}44` : 'none',
+              borderTop: i ? `1px solid ${sh(C.line, 27)}` : 'none',
             }}
           >
-            <span style={{ color: `${C.text}cc` }}>
+            <span style={{ color: `${sh(C.text, 80)}` }}>
               {new Date(s.created_at).toLocaleDateString('ru-RU')}
             </span>
             <span className="truncate" style={{ color: C.textBright }}>
               {s.file_name}
-              {s.supplier ? <span style={{ color: `${C.text}99` }}> · {s.supplier}</span> : null}
+              {s.supplier ? <span style={{ color: `${sh(C.text, 60)}` }}> · {s.supplier}</span> : null}
             </span>
             <span style={{ color: C.text }}>{s.rows_count} qator</span>
             <span className="text-right" style={{ color: C.textBright }}>{son(s.total_computed)}</span>
@@ -625,8 +614,8 @@ export default function DoriModuli() {
 
 function Quti({ sarlavha, children }: { sarlavha: string; children: React.ReactNode }) {
   return (
-    <div style={{ background: C.panel, border: `1px solid ${C.line}` }} className="p-3">
-      <div className="mb-1 text-[10px] font-bold tracking-[0.16em]" style={{ color: `${C.text}cc` }}>
+    <div style={{ background: C.panel, border: `1px solid ${C.line}`, borderRadius: RADIUS }} className="p-3">
+      <div className="mb-1 text-[10px] font-bold tracking-[0.16em]" style={{ color: `${sh(C.text, 80)}` }}>
         {sarlavha}
       </div>
       {children}
@@ -647,7 +636,7 @@ function Xabar({ rang, children }: { rang: string; children: React.ReactNode }) 
   return (
     <div
       className="mb-3 px-3 py-2 text-[11px]"
-      style={{ color: rang, background: `${rang}12`, border: `1px solid ${rang}55` }}
+      style={{ color: rang, background: `${sh(rang, 7)}`, border: `1px solid ${sh(rang, 33)}` }}
     >
       {children}
     </div>
