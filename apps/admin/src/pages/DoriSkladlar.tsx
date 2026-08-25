@@ -1,0 +1,490 @@
+import { useCallback, useEffect, useState } from 'react';
+import { C, MONO, RADIUS, sh } from '../lib/sa-tema';
+import { supabase } from '../lib/supabase';
+
+// ============================================================================
+// SKLADLAR
+//
+// Bir xil dori bir necha skladda boshqa narx va boshqa qoldiq bilan turadi.
+// Bu yerda sklad ochiladi, ustama/chegirmasi belgilanadi va o'sha skladga
+// yuklangan prays ro'yxat shaklida ko'rinadi.
+//
+// USTAMA IKKI XIL: foizda ham, summada ham. Ba'zi skladlar bilan "har
+// quticha ustiga 2000 so'm" deb kelishiladi, foiz bilan emas. Bir darajada
+// ikkalasi ham to'ldirilsa — ikkalasi ham qo'llanadi (avval foiz, keyin
+// summa qo'shiladi).
+//
+// TANNARX shu yerda ko'rinadi (bu super admin ekrani), mijozga esa faqat
+// ustama qo'yilgan sotuv narxi chiqadi.
+// ============================================================================
+
+type Sklad = {
+  id: string;
+  name: string;
+  code: string | null;
+  phone: string | null;
+  address: string | null;
+  contact_name: string | null;
+  note: string | null;
+  markup_pct: number | null;
+  markup_sum: number | null;
+  discount_pct: number | null;
+  discount_sum: number | null;
+  priority: number;
+  is_default: boolean;
+  is_active: boolean;
+  pozitsiya: number;
+  qoldiqli: number;
+  qiymat: number;
+  oxirgi_yuklash: string | null;
+};
+
+type Qator = {
+  id: string;
+  name: string;
+  manufacturer: string | null;
+  grp: string | null;
+  unit: string | null;
+  base_price: number | null;
+  price: number | null;
+  stock: number | null;
+  eng_yaqin_muddat: string | null;
+  seriyalar: string | null;
+};
+
+type Yuklash = {
+  id: string;
+  sklad: string | null;
+  file_name: string | null;
+  rows_total: number;
+  status: string;
+  created_at: string;
+  natija: { yangi?: number; sotuvdan_olindi?: number; sklad_jami?: number } | null;
+};
+
+const BOSH_SHAKL = {
+  id: null as string | null,
+  name: '',
+  code: '',
+  phone: '',
+  address: '',
+  contact_name: '',
+  note: '',
+  markup_pct: '',
+  markup_sum: '',
+  discount_pct: '',
+  discount_sum: '',
+  priority: '100',
+};
+
+const son = (n: number | null | undefined) =>
+  n === null || n === undefined ? '—' : Number(n).toLocaleString('ru-RU', { maximumFractionDigits: 2 });
+
+const sana = (s: string | null) => (s ? new Date(s).toLocaleDateString('ru-RU') : '—');
+
+const raqam = (s: string) => {
+  const t = s.trim().replace(',', '.');
+  if (!t) return null;
+  const n = Number(t);
+  return Number.isFinite(n) ? n : null;
+};
+
+const SAHIFA = 50;
+
+export default function DoriSkladlar() {
+  const [skladlar, setSkladlar] = useState<Sklad[]>([]);
+  const [tanlangan, setTanlangan] = useState<string | null>(null);
+  const [shakl, setShakl] = useState<typeof BOSH_SHAKL | null>(null);
+  const [qatorlar, setQatorlar] = useState<Qator[]>([]);
+  const [jami, setJami] = useState(0);
+  const [q, setQ] = useState('');
+  const [ofset, setOfset] = useState(0);
+  const [tarix, setTarix] = useState<Yuklash[]>([]);
+  const [ish, setIsh] = useState<string | null>(null);
+  const [xato, setXato] = useState<string | null>(null);
+  const [xabar, setXabar] = useState<string | null>(null);
+
+  const yukla = useCallback(async () => {
+    const { data, error } = await supabase.rpc('dori_skladlar');
+    if (error) { setXato('Skladlarni o‘qib bo‘lmadi: ' + error.message); return; }
+    setSkladlar((data ?? []) as Sklad[]);
+  }, []);
+
+  useEffect(() => { yukla(); }, [yukla]);
+
+  const narxlarniYukla = useCallback(
+    async (wh: string, qidiruv: string, off: number) => {
+      setIsh('Prays o‘qilmoqda...');
+      const { data, error } = await supabase.rpc('dori_sklad_narxlar', {
+        p_warehouse_id: wh,
+        p_q: qidiruv || null,
+        p_offset: off,
+        p_limit: SAHIFA,
+      });
+      setIsh(null);
+      if (error) { setXato('Praysni o‘qib bo‘lmadi: ' + error.message); return; }
+      const d = data as { jami: number; items: Qator[] };
+      setJami(Number(d?.jami ?? 0));
+      setQatorlar(off === 0 ? (d?.items ?? []) : (p) => [...p, ...(d?.items ?? [])]);
+    },
+    []
+  );
+
+  async function skladniOch(id: string) {
+    setTanlangan(id);
+    setQ('');
+    setOfset(0);
+    setQatorlar([]);
+    await narxlarniYukla(id, '', 0);
+    const { data } = await supabase.rpc('dori_import_tarix', { p_warehouse_id: id, p_limit: 10 });
+    setTarix((data ?? []) as Yuklash[]);
+  }
+
+  async function saqla() {
+    if (!shakl) return;
+    if (!shakl.name.trim()) { setXato('Sklad nomi kerak'); return; }
+    setIsh('Saqlanmoqda...');
+    setXato(null);
+    const { error } = await supabase.rpc('dori_sklad_saqla', {
+      p_id: shakl.id,
+      p_name: shakl.name,
+      p_code: shakl.code,
+      p_phone: shakl.phone,
+      p_address: shakl.address,
+      p_contact_name: shakl.contact_name,
+      p_note: shakl.note,
+      p_markup_pct: raqam(shakl.markup_pct),
+      p_markup_sum: raqam(shakl.markup_sum),
+      p_discount_pct: raqam(shakl.discount_pct),
+      p_discount_sum: raqam(shakl.discount_sum),
+      p_priority: raqam(shakl.priority) ?? 100,
+    });
+    setIsh(null);
+    if (error) { setXato('Saqlanmadi: ' + error.message); return; }
+    setXabar(shakl.id ? 'Sklad yangilandi, narxlar qayta hisoblandi' : 'Sklad qo‘shildi');
+    setShakl(null);
+    await yukla();
+  }
+
+  async function ochir(s: Sklad) {
+    if (s.is_default) { setXato('Asosiy sklad o‘chirilmaydi'); return; }
+    if (!confirm(`"${s.name}" o‘chirilsinmi? Undagi ${son(s.pozitsiya)} pozitsiya ham o‘chadi.`)) return;
+    const { error } = await supabase.rpc('dori_sklad_ochir', { p_id: s.id });
+    if (error) { setXato('O‘chirilmadi: ' + error.message); return; }
+    if (tanlangan === s.id) setTanlangan(null);
+    setXabar('Sklad o‘chirildi');
+    await yukla();
+  }
+
+  function tahrirla(s: Sklad) {
+    setShakl({
+      id: s.id,
+      name: s.name,
+      code: s.code ?? '',
+      phone: s.phone ?? '',
+      address: s.address ?? '',
+      contact_name: s.contact_name ?? '',
+      note: s.note ?? '',
+      markup_pct: s.markup_pct == null ? '' : String(s.markup_pct),
+      markup_sum: s.markup_sum == null ? '' : String(s.markup_sum),
+      discount_pct: s.discount_pct == null ? '' : String(s.discount_pct),
+      discount_sum: s.discount_sum == null ? '' : String(s.discount_sum),
+      priority: String(s.priority),
+    });
+  }
+
+  const btn = 'px-3 py-1.5 text-[11px] font-bold tracking-[0.14em]';
+  const inp = 'w-full px-2 py-1.5 text-[13px] outline-none';
+  const inpStyle = {
+    background: C.field,
+    border: `1px solid ${C.line}`,
+    color: C.textBright,
+    fontFamily: MONO,
+  };
+  const joriy = skladlar.find((s) => s.id === tanlangan) ?? null;
+
+  return (
+    <div style={{ fontFamily: MONO }}>
+      {xato && <Xabar rang={C.danger} yop={() => setXato(null)}>{xato}</Xabar>}
+      {xabar && <Xabar rang={C.neon} yop={() => setXabar(null)}>{xabar}</Xabar>}
+
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <div className="text-[15px] font-bold tracking-[0.14em]" style={{ color: C.textBright }}>
+            SKLADLAR
+          </div>
+          <div className="text-[11px]" style={{ color: C.text }}>
+            har sklad o‘z narxi va o‘z qoldig‘i bilan · ustama shu yerda belgilanadi
+          </div>
+        </div>
+        <button
+          onClick={() => setShakl({ ...BOSH_SHAKL })}
+          className={btn}
+          style={{ color: C.onAccent, background: C.neon, border: `1px solid ${C.neon}`, borderRadius: RADIUS }}
+        >
+          + SKLAD QO‘SHISH
+        </button>
+      </div>
+
+      {/* ---------- shakl ---------- */}
+      {shakl && (
+        <div className="mb-4 p-4" style={{ background: C.panel, border: `1px solid ${C.neon2}`, borderRadius: RADIUS }}>
+          <div className="mb-3 text-[10px] font-bold tracking-[0.16em]" style={{ color: sh(C.text, 80) }}>
+            {shakl.id ? 'SKLADNI TAHRIRLASH' : 'YANGI SKLAD'}
+          </div>
+
+          <div className="grid gap-3 md:grid-cols-3">
+            <Maydon nom="NOMI *">
+              <input value={shakl.name} onChange={(e) => setShakl({ ...shakl, name: e.target.value })}
+                     placeholder="Chilonzor ombori" className={inp} style={inpStyle} />
+            </Maydon>
+            <Maydon nom="BELGI">
+              <input value={shakl.code} onChange={(e) => setShakl({ ...shakl, code: e.target.value })}
+                     placeholder="CHL" className={inp} style={inpStyle} />
+            </Maydon>
+            <Maydon nom="TELEFON">
+              <input value={shakl.phone} onChange={(e) => setShakl({ ...shakl, phone: e.target.value })}
+                     placeholder="+998 90 000 00 00" className={inp} style={inpStyle} />
+            </Maydon>
+            <Maydon nom="MAS'UL SHAXS">
+              <input value={shakl.contact_name} onChange={(e) => setShakl({ ...shakl, contact_name: e.target.value })}
+                     className={inp} style={inpStyle} />
+            </Maydon>
+            <Maydon nom="MANZIL">
+              <input value={shakl.address} onChange={(e) => setShakl({ ...shakl, address: e.target.value })}
+                     className={inp} style={inpStyle} />
+            </Maydon>
+            <Maydon nom="USTUVORLIK (kichik = avval)">
+              <input value={shakl.priority} onChange={(e) => setShakl({ ...shakl, priority: e.target.value })}
+                     className={inp} style={inpStyle} />
+            </Maydon>
+          </div>
+
+          <div className="mt-3 pt-3" style={{ borderTop: `1px dashed ${C.line}` }}>
+            <div className="mb-2 text-[10px] font-bold tracking-[0.16em]" style={{ color: sh(C.text, 80) }}>
+              NARX QO‘YISH — FOIZDA YOKI SUMMADA
+            </div>
+            <div className="grid gap-3 md:grid-cols-4">
+              <Maydon nom="USTAMA %">
+                <input value={shakl.markup_pct} onChange={(e) => setShakl({ ...shakl, markup_pct: e.target.value })}
+                       placeholder="5" className={inp} style={inpStyle} />
+              </Maydon>
+              <Maydon nom="USTAMA SO‘M">
+                <input value={shakl.markup_sum} onChange={(e) => setShakl({ ...shakl, markup_sum: e.target.value })}
+                       placeholder="2000" className={inp} style={inpStyle} />
+              </Maydon>
+              <Maydon nom="CHEGIRMA %">
+                <input value={shakl.discount_pct} onChange={(e) => setShakl({ ...shakl, discount_pct: e.target.value })}
+                       className={inp} style={inpStyle} />
+              </Maydon>
+              <Maydon nom="CHEGIRMA SO‘M">
+                <input value={shakl.discount_sum} onChange={(e) => setShakl({ ...shakl, discount_sum: e.target.value })}
+                       className={inp} style={inpStyle} />
+              </Maydon>
+            </div>
+            <div className="mt-2 text-[11px]" style={{ color: C.text }}>
+              Bo‘sh qoldirilsa — bu sklad uchun qoida yo‘q, umumiy ustama ishlaydi.
+              Alohida dori yoki guruh qoidasi esa skladnikidan kuchli.
+            </div>
+          </div>
+
+          <Maydon nom="IZOH">
+            <input value={shakl.note} onChange={(e) => setShakl({ ...shakl, note: e.target.value })}
+                   className={inp} style={inpStyle} />
+          </Maydon>
+
+          <div className="mt-3 flex gap-2">
+            <button onClick={saqla} className={btn}
+                    style={{ color: C.onAccent, background: C.neon, border: `1px solid ${C.neon}` }}>
+              SAQLASH
+            </button>
+            <button onClick={() => setShakl(null)} className={btn}
+                    style={{ color: C.text, background: 'transparent', border: `1px solid ${C.line}` }}>
+              BEKOR
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ---------- ro'yxat ---------- */}
+      <div className="mb-4 grid gap-2">
+        {skladlar.length === 0 && (
+          <div className="p-6 text-center text-[12px]" style={{ color: C.text, border: `1px dashed ${C.line}` }}>
+            Hali sklad yo‘q. «+ SKLAD QO‘SHISH» bilan boshlang.
+          </div>
+        )}
+
+        {skladlar.map((s) => {
+          const faol = tanlangan === s.id;
+          return (
+            <div
+              key={s.id}
+              className="p-3"
+              style={{
+                background: faol ? C.panel2 : C.panel,
+                border: `1px solid ${faol ? C.neon : C.line}`,
+                borderRadius: RADIUS,
+                opacity: s.is_active ? 1 : 0.55,
+              }}
+            >
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <button onClick={() => (faol ? setTanlangan(null) : skladniOch(s.id))} className="text-left">
+                  <div className="text-[13px] font-bold" style={{ color: C.textBright }}>
+                    {s.name}
+                    {s.code && <span style={{ color: C.text }}> · {s.code}</span>}
+                    {s.is_default && (
+                      <span className="ml-2 px-1.5 py-0.5 text-[9px]"
+                            style={{ color: C.onAccent, background: C.neon2 }}>ASOSIY</span>
+                    )}
+                  </div>
+                  <div className="text-[11px]" style={{ color: C.text }}>
+                    {son(s.pozitsiya)} pozitsiya · qoldiqli {son(s.qoldiqli)} · ombor {son(s.qiymat)} so‘m ·
+                    oxirgi yuklash {sana(s.oxirgi_yuklash)}
+                  </div>
+                </button>
+
+                <div className="flex items-center gap-3">
+                  <div className="text-right text-[11px]" style={{ color: C.text }}>
+                    <div>
+                      ustama{' '}
+                      <b style={{ color: C.neon }}>
+                        {s.markup_pct != null ? `${s.markup_pct}%` : ''}
+                        {s.markup_pct != null && s.markup_sum != null ? ' + ' : ''}
+                        {s.markup_sum != null ? `${son(s.markup_sum)} so‘m` : ''}
+                        {s.markup_pct == null && s.markup_sum == null ? 'umumiy' : ''}
+                      </b>
+                    </div>
+                    {(s.discount_pct != null || s.discount_sum != null) && (
+                      <div>
+                        chegirma{' '}
+                        <b style={{ color: C.warn }}>
+                          {s.discount_pct != null ? `${s.discount_pct}%` : ''}
+                          {s.discount_pct != null && s.discount_sum != null ? ' + ' : ''}
+                          {s.discount_sum != null ? `${son(s.discount_sum)} so‘m` : ''}
+                        </b>
+                      </div>
+                    )}
+                  </div>
+                  <button onClick={() => tahrirla(s)} className="px-2 py-1 text-[10px] font-bold"
+                          style={{ color: C.neon2, border: `1px solid ${C.line}` }}>
+                    TAHRIR
+                  </button>
+                  {!s.is_default && (
+                    <button onClick={() => ochir(s)} className="px-2 py-1 text-[10px] font-bold"
+                            style={{ color: C.danger, border: `1px solid ${C.line}` }}>
+                      O‘CHIR
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* ---------- skladning praysi ---------- */}
+      {joriy && (
+        <div className="p-4" style={{ background: C.panel, border: `1px solid ${C.line}`, borderRadius: RADIUS }}>
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <div className="text-[10px] font-bold tracking-[0.16em]" style={{ color: sh(C.text, 80) }}>
+              {joriy.name.toUpperCase()} — PRAYS ({son(jami)})
+            </div>
+            <input
+              value={q}
+              onChange={(e) => {
+                setQ(e.target.value);
+                setOfset(0);
+                narxlarniYukla(joriy.id, e.target.value, 0);
+              }}
+              placeholder="dori nomi yoki ishlab chiqaruvchi"
+              className="px-2 py-1.5 text-[12px] outline-none"
+              style={{ ...inpStyle, width: 280 }}
+            />
+          </div>
+
+          {tarix.length > 0 && (
+            <div className="mb-3 text-[11px]" style={{ color: C.text }}>
+              Oxirgi yuklashlar:{' '}
+              {tarix.slice(0, 3).map((t, i) => (
+                <span key={t.id}>
+                  {i > 0 && ' · '}
+                  {sana(t.created_at)} {t.file_name ? `(${t.file_name.slice(0, 22)})` : ''}
+                  {t.natija?.sotuvdan_olindi ? ` · ${t.natija.sotuvdan_olindi} ta o‘chdi` : ''}
+                </span>
+              ))}
+            </div>
+          )}
+
+          {ish && <div className="mb-2 text-[11px]" style={{ color: C.neon2 }}>{ish}</div>}
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-[11px]" style={{ borderCollapse: 'collapse' }}>
+              <thead>
+                <tr style={{ color: sh(C.text, 80) }}>
+                  {['DORI', 'ISHLAB CHIQARUVCHI', 'QOLDIQ', 'TANNARX', 'SOTUV', 'SERIYA', 'MUDDAT'].map((h) => (
+                    <th key={h} className="px-2 py-1.5 text-left text-[9px] font-bold tracking-[0.14em]"
+                        style={{ borderBottom: `1px solid ${C.line}`, whiteSpace: 'nowrap' }}>
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {qatorlar.map((r, i) => (
+                  <tr key={r.id} style={{ background: i % 2 ? C.zebra : 'transparent' }}>
+                    <td className="px-2 py-1.5" style={{ color: C.textBright, minWidth: 220 }}>{r.name}</td>
+                    <td className="px-2 py-1.5" style={{ color: C.text }}>{r.manufacturer ?? '—'}</td>
+                    <td className="px-2 py-1.5" style={{ color: Number(r.stock) > 0 ? C.text : C.danger }}>
+                      {son(r.stock)}
+                    </td>
+                    <td className="px-2 py-1.5" style={{ color: C.text }}>{son(r.base_price)}</td>
+                    <td className="px-2 py-1.5 font-bold" style={{ color: C.neon }}>{son(r.price)}</td>
+                    <td className="px-2 py-1.5" style={{ color: C.text }}>{r.seriyalar ?? '—'}</td>
+                    <td className="px-2 py-1.5" style={{ color: C.text, whiteSpace: 'nowrap' }}>
+                      {sana(r.eng_yaqin_muddat)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {qatorlar.length < jami && (
+            <button
+              onClick={() => {
+                const y = ofset + SAHIFA;
+                setOfset(y);
+                narxlarniYukla(joriy.id, q, y);
+              }}
+              className="mt-3 w-full py-2 text-[11px] font-bold"
+              style={{ color: C.text, border: `1px solid ${C.line}` }}
+            >
+              YANA {son(Math.min(SAHIFA, jami - qatorlar.length))} TA
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Maydon({ nom, children }: { nom: string; children: React.ReactNode }) {
+  return (
+    <label className="mt-3 block md:mt-0">
+      <span className="mb-1 block text-[10px]" style={{ color: C.text }}>{nom}</span>
+      {children}
+    </label>
+  );
+}
+
+function Xabar({ rang, yop, children }: { rang: string; yop: () => void; children: React.ReactNode }) {
+  return (
+    <div
+      className="mb-3 flex items-start justify-between gap-3 px-3 py-2 text-[12px]"
+      style={{ color: rang, border: `1px solid ${rang}`, background: sh(rang, 8) }}
+    >
+      <span>{children}</span>
+      <button onClick={yop} style={{ color: rang }}>✕</button>
+    </div>
+  );
+}

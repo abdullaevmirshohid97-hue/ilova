@@ -67,6 +67,10 @@ export default function DoriModuli() {
   const [shablonTopildi, setShablonTopildi] = useState(false);
   const [farq, setFarq] = useState<Farq | null>(null);
   const [natijaXabar, setNatijaXabar] = useState<string | null>(null);
+  // Prays QAYSI skladga yozilishi majburiy tanlov: skladsiz yuklash
+  // "hammasi bitta omborda" degan eski xatoni qaytarardi
+  const [skladlar, setSkladlar] = useState<{ id: string; name: string; is_default: boolean }[]>([]);
+  const [sklad, setSklad] = useState<string>('');
   const fileRef = useRef<HTMLInputElement>(null);
 
   const royxatYukla = useCallback(async () => {
@@ -198,6 +202,15 @@ export default function DoriModuli() {
     }));
   }
 
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase.rpc('dori_skladlar');
+      const r = (data ?? []) as { id: string; name: string; is_default: boolean }[];
+      setSkladlar(r);
+      setSklad((oldingi) => oldingi || r.find((x) => x.is_default)?.id || r[0]?.id || '');
+    })();
+  }, []);
+
   async function farqniKorsat() {
     setXato(null);
     setIsh('Farq hisoblanmoqda...');
@@ -225,11 +238,13 @@ export default function DoriModuli() {
     try {
       for (let i = 0; i < bolaklar; i++) {
         setIsh(`Katalogga yozilmoqda... ${i + 1}/${bolaklar} bo‘lak`);
-        const { data, error } = await supabase.rpc('dori_catalog_apply', {
+        const { data, error } = await supabase.rpc('dori_import_apply', {
+          p_warehouse_id: sklad || null,
           p_items: qatorlar.slice(i * KATALOG_BOLAK, (i + 1) * KATALOG_BOLAK),
           p_source: natija.fileName,
           p_import_id: importId,
           p_finalize: i === bolaklar - 1,
+          p_file_name: natija.fileName,
         });
         if (error) throw error;
         const d = data as any;
@@ -241,9 +256,10 @@ export default function DoriModuli() {
           katalog_jami: Number(d.katalog_jami ?? 0),
         };
       }
+      const skladNomi = skladlar.find((x) => x.id === sklad)?.name ?? 'sklad';
       setNatijaXabar(
-        `Katalog yangilandi: ${yigma.yangi} yangi dori, ${yigma.narx_yangilandi} narx o‘zgardi, ` +
-          `${yigma.sotuvdan_olindi} sotuvdan olindi. Katalogda jami ${yigma.katalog_jami} dori.`
+        `${skladNomi}: ${yigma.yangi} yangi dori, ${yigma.narx_yangilandi} narx o‘zgardi, ` +
+          `${yigma.sotuvdan_olindi} eski pozitsiya o‘chirildi. Katalogda jami ${yigma.katalog_jami} dori.`
       );
       await shablonniEslab();
       setFarq(null);
@@ -518,6 +534,32 @@ export default function DoriModuli() {
           )}
 
           {natijaXabar && <Xabar rang={C.neon}>{natijaXabar}</Xabar>}
+
+          {natija.rejim === 'narxlar' && (
+            <div
+              className="mb-3 flex flex-wrap items-center gap-3 p-3"
+              style={{ background: C.panel, border: `1px solid ${sklad ? C.line : C.warn}` }}
+            >
+              <span className="text-[10px] font-bold tracking-[0.16em]" style={{ color: sh(C.text, 80) }}>
+                QAYSI SKLADGA
+              </span>
+              <select
+                value={sklad}
+                onChange={(e) => setSklad(e.target.value)}
+                className="px-2 py-1.5 text-[12px] outline-none"
+                style={{ background: C.field, border: `1px solid ${C.line}`, color: C.textBright, fontFamily: MONO }}
+              >
+                {skladlar.length === 0 && <option value="">— sklad yo‘q —</option>}
+                {skladlar.map((w) => (
+                  <option key={w.id} value={w.id}>{w.name}</option>
+                ))}
+              </select>
+              <span className="text-[11px]" style={{ color: C.text }}>
+                Shu skladning eski praysi <b style={{ color: C.warn }}>o‘chiriladi</b> va o‘rniga
+                shu fayl yoziladi. Boshqa skladlarga tegilmaydi.
+              </span>
+            </div>
+          )}
 
           <div className="mb-6 flex flex-wrap gap-2">
             {natija.rejim === 'narxlar' ? (
