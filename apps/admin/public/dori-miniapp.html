@@ -63,6 +63,17 @@
   }
   .miqdor span { min-width: 34px; text-align: center; font-weight: 700; }
 
+  .guruhlar { display: flex; gap: 6px; overflow-x: auto; padding: 8px 12px 0; }
+  .guruhlar button {
+    white-space: nowrap; padding: 6px 12px; font-size: 12.5px; border-radius: 999px;
+    border: 1px solid var(--line); background: transparent; color: var(--ink-2);
+  }
+  .guruhlar button.faol { background: var(--brand); color: var(--brand-ink); border-color: var(--brand); }
+  .koproq { padding: 0 12px 16px; }
+  .koproq button {
+    width: 100%; padding: 12px; border-radius: 11px; border: 1px solid var(--line);
+    background: transparent; color: var(--ink-2); font-size: 14px; font-weight: 600;
+  }
   .bosh { text-align: center; color: var(--ink-2); padding: 44px 20px; }
   .yuklanmoqda { text-align: center; color: var(--ink-2); padding: 22px; }
 
@@ -92,9 +103,13 @@
   </div>
 </header>
 
+<div id="guruhlar" class="guruhlar"></div>
+
 <main id="royxat">
-  <div class="bosh">Dori nomini yozing — kirillda ham, lotinda ham topadi.</div>
+  <div class="yuklanmoqda">Katalog yuklanmoqda...</div>
 </main>
+
+<div id="koproq" class="koproq"></div>
 
 <footer id="pastki">
   <div class="jami"><span class="kichik">Savatdagi summa</span><span class="narx" id="jami">0</span></div>
@@ -137,22 +152,76 @@ function yuklanmoqda() {
 
 // ------------------------------------------------------------- katalog
 let taymer = null;
+let guruh = null;
+let offset = 0;
+let jamiTopilgan = 0;
+
 qEl.addEventListener('input', () => {
   clearTimeout(taymer);
   const s = qEl.value.trim();
+  // Qidiruv bo'shatilsa — katalogga qaytamiz
   if (s.length < 2) {
-    if (bolim === 'katalog') {
-      royxat.innerHTML = '<div class="bosh">Dori nomini yozing — kirillda ham, lotinda ham topadi.</div>';
-    }
+    if (bolim === 'katalog') katalogniYukla(true);
     return;
   }
   // Har harfda so'rov yubormaymiz — yozib bo'lguncha kutamiz
   taymer = setTimeout(() => qidir(s), 320);
 });
 
+// Katalogni sahifalab yuklaydi: 6900 dorini birdan yuborib bo'lmaydi
+async function katalogniYukla(boshidan) {
+  bolimGa('katalog');
+  if (boshidan) {
+    offset = 0;
+    royxat.innerHTML = '<div class="yuklanmoqda">Yuklanmoqda...</div>';
+  }
+  const j = await api('katalog', { guruh, offset });
+  if (!j.ok) return xato(j.error);
+
+  jamiTopilgan = j.jami || 0;
+  if (boshidan) royxat.innerHTML = '';
+  if (!j.items.length && boshidan) {
+    royxat.innerHTML = '<div class="bosh">Katalog hali to‘ldirilmagan.</div>';
+    return;
+  }
+  chiz(j.items);
+  offset += j.items.length;
+  koproqTugmasi();
+}
+
+function koproqTugmasi() {
+  const q = document.getElementById('koproq');
+  if (offset >= jamiTopilgan) { q.innerHTML = ''; return; }
+  q.innerHTML = '<button>Yana ko‘rsatish (' + (jamiTopilgan - offset) + ' ta qoldi)</button>';
+  q.querySelector('button').onclick = () => katalogniYukla(false);
+}
+
+async function guruhlarniYukla() {
+  const j = await api('guruhlar');
+  const el = document.getElementById('guruhlar');
+  const list = (j.guruhlar || []);
+  if (!j.ok || list.length === 0) { el.innerHTML = ''; return; }
+
+  el.innerHTML = '';
+  const hammasi = document.createElement('button');
+  hammasi.textContent = 'Hammasi';
+  hammasi.className = guruh ? '' : 'faol';
+  hammasi.onclick = () => { guruh = null; guruhlarniYukla(); katalogniYukla(true); };
+  el.appendChild(hammasi);
+
+  for (const g of list) {
+    const b = document.createElement('button');
+    b.textContent = g.grp + ' (' + g.n + ')';
+    b.className = guruh === g.grp ? 'faol' : '';
+    b.onclick = () => { guruh = g.grp; guruhlarniYukla(); katalogniYukla(true); };
+    el.appendChild(b);
+  }
+}
+
 async function qidir(s) {
   bolimGa('katalog');
   yuklanmoqda();
+  document.getElementById('koproq').innerHTML = '';
   const j = await api('qidir', { q: s });
   if (!j.ok) return xato(j.error);
 
@@ -160,9 +229,13 @@ async function qidir(s) {
     royxat.innerHTML = '<div class="bosh">Topilmadi. Nomning bir qismini yozib ko‘ring.</div>';
     return;
   }
-
   royxat.innerHTML = '';
-  for (const d of j.items) {
+  chiz(j.items);
+}
+
+// Dorilar ro'yxatini chizadi (katalog ham, qidiruv ham shundan foydalanadi)
+function chiz(items) {
+  for (const d of items) {
     const bor = Number(d.stock) > 0;
     const el = document.createElement('div');
     el.className = 'karta';
@@ -172,7 +245,7 @@ async function qidir(s) {
       '<div class="qator"><span class="narx"></span></div>';
     el.querySelector('.nom').textContent = d.name;
     el.querySelector('.ishlab').textContent =
-      [d.manufacturer, bor ? 'omborda ' + Math.round(d.stock) : 'omborda yo‘q',
+      [d.manufacturer, bor ? 'omborda ' + Math.round(d.stock) : null,
        d.eng_yaqin_muddat ? 'muddat ' + sana(d.eng_yaqin_muddat) : null]
         .filter(Boolean).join(' · ');
     el.querySelector('.narx').textContent = pul(d.price);
@@ -279,14 +352,14 @@ function bolimGa(nom) {
 }
 
 document.getElementById('tabKatalog').onclick = () => {
-  bolimGa('katalog');
   const s = qEl.value.trim();
   if (s.length >= 2) qidir(s);
-  else royxat.innerHTML = '<div class="bosh">Dori nomini yozing — kirillda ham, lotinda ham topadi.</div>';
+  else katalogniYukla(true);
 };
 
 document.getElementById('tabSavat').onclick = () => {
   bolimGa('savat');
+  document.getElementById('koproq').innerHTML = '';
   savatniChiz();
 };
 
@@ -317,6 +390,8 @@ function xato(matn) {
 
 // ------------------------------------------------------------- boshlash
 savatniYangila();
+guruhlarniYukla();
+katalogniYukla(true);
 </script>
 </body>
 </html>

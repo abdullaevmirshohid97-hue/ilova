@@ -119,6 +119,23 @@ Deno.serve(async (req) => {
       return json({ ok: true, items: data ?? [] });
     }
 
+    // Katalogni varaqlash — mijoz ochishi bilan ro'yxat ko'rinadi
+    if (amal === 'katalog') {
+      const { data, error } = await supabase.rpc('dori_catalog_page', {
+        p_group: body.guruh ? String(body.guruh) : null,
+        p_offset: Number(body.offset ?? 0),
+        p_limit: 40,
+      });
+      if (error) throw error;
+      return json({ ok: true, ...(data as any) });
+    }
+
+    if (amal === 'guruhlar') {
+      const { data, error } = await supabase.rpc('dori_groups');
+      if (error) throw error;
+      return json({ ok: true, guruhlar: data ?? [] });
+    }
+
     if (amal === 'savat') {
       const { data, error } = await supabase.rpc('dori_bot_cart', { p_chat_id: chatId });
       if (error) throw error;
