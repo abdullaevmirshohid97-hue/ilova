@@ -152,6 +152,19 @@ Deno.serve(async (req) => {
       return json({ ok: true, natija: data });
     }
 
+    // Savatdagi miqdorni TAHRIRLASH - aniq qiymatga o'rnatiladi.
+    // 'qosh' qo'shib boradi, shuning uchun u tahrir uchun yaramaydi:
+    // "+" tugmasi ikki marta yuborilib qolsa miqdor ikki barobar oshardi.
+    if (amal === 'ozgartir') {
+      const { data, error } = await supabase.rpc('dori_bot_cart_set', {
+        p_chat_id: chatId,
+        p_product_id: String(body.product_id ?? ''),
+        p_qty: Number(body.qty ?? 0),
+      });
+      if (error) throw error;
+      return json({ ok: true, natija: data });
+    }
+
     if (amal === 'ochir') {
       const { error } = await supabase.rpc('dori_bot_cart_clear', {
         p_chat_id: chatId,

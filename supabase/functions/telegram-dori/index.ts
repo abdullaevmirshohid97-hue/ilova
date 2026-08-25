@@ -345,7 +345,7 @@ Deno.serve(async (req) => {
   }
 
   // ---------- menyu ----------
-  if (text.includes('Savat')) {
+  if (text.startsWith('/savat') || text.includes('Savat')) {
     await holatQoy(chatId, 'idle', {});
     await savatKorsat(chatId);
     return new Response('ok');

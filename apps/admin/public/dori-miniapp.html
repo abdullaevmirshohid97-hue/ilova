@@ -52,7 +52,10 @@
   }
   .nom { font-weight: 620; line-height: 1.3; }
   .kichik { font-size: 12.5px; color: var(--ink-2); }
-  .qator { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+  .qator {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 10px; flex-wrap: wrap; row-gap: 8px;
+  }
   .narx { font-weight: 750; font-size: 16px; white-space: nowrap; }
   .yoq { color: #c2410c; }
 
@@ -60,12 +63,34 @@
     border: 0; background: var(--brand); color: var(--brand-ink);
     padding: 9px 15px; border-radius: 9px; font-weight: 650; font-size: 14px;
   }
-  .miqdor { display: flex; align-items: center; gap: 8px; }
+  .miqdor { display: flex; align-items: center; gap: 6px; flex: none; }
   .miqdor button {
     width: 34px; height: 34px; border-radius: 9px; border: 1px solid var(--line);
     background: transparent; color: var(--ink); font-size: 18px; font-weight: 700;
   }
-  .miqdor span { min-width: 34px; text-align: center; font-weight: 700; }
+  /* Raqamning o'zi ham tugma: bosilsa aniq miqdorni yozish mumkin */
+  .miqdor .son {
+    width: auto; min-width: 46px; padding: 0 8px; font-size: 15px;
+    border-color: var(--brand); font-variant-numeric: tabular-nums;
+  }
+  .miqdor .ochir { color: #c2410c; font-size: 15px; font-weight: 600; }
+  .sonKirit {
+    width: 64px; height: 34px; text-align: center; font-size: 16px; font-weight: 700;
+    border: 1px solid var(--brand); border-radius: 9px; outline: none;
+    background: var(--bg); color: var(--ink); font-variant-numeric: tabular-nums;
+  }
+
+  /* Xatoni ro'yxat o'rniga ko'rsatib bo'lmaydi: mijoz miqdorni
+     o'zgartirayotganda butun katalog yo'qolib ketardi */
+  .xabar {
+    position: fixed; left: 12px; right: 12px; z-index: 20;
+    bottom: calc(96px + env(safe-area-inset-bottom));
+    background: var(--ink); color: var(--bg);
+    padding: 11px 14px; border-radius: 11px; font-size: 13.5px; text-align: center;
+    opacity: 0; transition: opacity .18s ease; pointer-events: none;
+  }
+  .xabar.bor { opacity: .95; }
+  @media (prefers-reduced-motion: reduce) { .xabar { transition: none; } }
 
   .guruhlar { display: flex; gap: 6px; overflow-x: auto; padding: 8px 12px 0; }
   .guruhlar button {
@@ -306,73 +331,215 @@ function chiz(items) {
         .filter(Boolean).join(' · ');
     el.querySelector('.narx').textContent = pul(d.price);
 
-    const tugma = document.createElement('button');
-    tugma.className = 'qosh';
-    tugma.textContent = '+ Savatga';
-    tugma.onclick = () => miqdorSora(el, d);
-    el.querySelector('.qator').appendChild(tugma);
-
+    kartaAmali(el, d);
     royxat.appendChild(el);
   }
 }
 
-// Miqdorni shu yerda, kartochka ichida so'raymiz — alohida ekran ochmaymiz
-function miqdorSora(karta, dori) {
-  const qator = karta.querySelector('.qator');
-  const eski = qator.querySelector('.qosh');
-  if (!eski) return;
-  eski.remove();
+// Kartochkaning o'ng tomoni: dori savatda bo'lmasa "+ Savatga", bo'lsa —
+// darhol tahrir. Ilgari qo'shilgandan keyin "✓ Savatda" yozuvi qolardi va
+// miqdorni o'zgartirish uchun Savat bo'limiga o'tish kerak edi.
+function kartaAmali(el, d) {
+  const qator = el.querySelector('.qator');
+  const eski = qator.querySelector('.amal');
+  if (eski) eski.remove();
 
-  let n = 1;
-  const quti = document.createElement('div');
-  quti.className = 'miqdor';
-  quti.innerHTML = '<button>−</button><span>1</span><button>+</button>';
-  const [kam, son, kop] = [quti.children[0], quti.children[1], quti.children[2]];
-  kam.onclick = () => { n = Math.max(1, n - 1); son.textContent = n; };
-  kop.onclick = () => { n = n + 1; son.textContent = n; };
+  const q = savatMiqdor[d.id] || 0;
 
-  const ok = document.createElement('button');
-  ok.className = 'qosh';
-  ok.textContent = '✓ Qo‘shish';
-  ok.onclick = async () => {
-    ok.disabled = true;
-    const j = await api('qosh', { product_id: dori.id, qty: n });
-    if (j.ok) {
-      titrat('success');
-      quti.remove();
-      ok.replaceWith(belgi('✓ Savatda'));
-      savatniYangila();
-    } else {
-      ok.disabled = false;
-      xato(j.error);
-    }
+  if (q > 0) {
+    const quti = boshqaruv(d.id, q, function (yangi) {
+      if (yangi <= 0) kartaAmali(el, d);
+    });
+    quti.classList.add('amal');
+    qator.appendChild(quti);
+    return;
+  }
+
+  const tugma = document.createElement('button');
+  tugma.type = 'button';
+  tugma.className = 'qosh amal';
+  tugma.textContent = '+ Savatga';
+  tugma.onclick = function () {
+    savatMiqdor[d.id] = 1;
+    titrat('success');
+    jamiOldindan(d.id, 1, d);
+    miqdorniYubor(d.id, 1);
+    kartaAmali(el, d);
   };
-
-  qator.appendChild(quti);
-  qator.appendChild(ok);
+  qator.appendChild(tugma);
 }
 
-function belgi(matn) {
-  const s = document.createElement('span');
-  s.className = 'kichik';
-  s.textContent = matn;
-  return s;
+// ------------------------------------------------------------ miqdor
+// Savatdagi miqdorlar: product_id -> qty. Katalog ham, savat ham shu
+// yerdan o'qiydi, shuning uchun ikki bo'lim doim bir xil ko'rsatadi.
+var savatMiqdor = {};
+
+function miqdorlarniQayta() {
+  savatMiqdor = {};
+  const items = savat.items || [];
+  for (const it of items) savatMiqdor[it.product_id] = Number(it.qty);
+}
+
+function sonl(n) {
+  const x = Number(n) || 0;
+  return Math.round(x) === x ? String(x) : String(Math.round(x * 1000) / 1000);
+}
+
+// − [3] +  boshqaruvi. Raqamni bosib aniq miqdorni yozish ham mumkin:
+// "24" ni + tugmasi bilan yig'ish uzoq.
+// ozgargach(yangi) — chaqiruvchi o'z ekranini yangilashi uchun.
+function boshqaruv(doriId, qty, ozgargach) {
+  const quti = document.createElement('div');
+  quti.className = 'miqdor';
+
+  const kam = document.createElement('button');
+  kam.type = 'button'; kam.textContent = '−'; kam.setAttribute('aria-label', 'Kamaytirish');
+  const son = document.createElement('button');
+  son.type = 'button'; son.className = 'son'; son.setAttribute('aria-label', 'Miqdorni kiritish');
+  const kop = document.createElement('button');
+  kop.type = 'button'; kop.textContent = '+'; kop.setAttribute('aria-label', 'Kopaytirish');
+
+  let joriy = Number(qty) || 0;
+  son.textContent = sonl(joriy);
+
+  function qoy(yangi) {
+    let v = Number(yangi);
+    if (isNaN(v)) return;
+    v = Math.round(v * 1000) / 1000;
+    if (v < 0) v = 0;
+    if (v > 100000) v = 100000;
+    if (v === joriy) return;
+    joriy = v;
+    son.textContent = sonl(joriy);
+
+    if (joriy > 0) savatMiqdor[doriId] = joriy;
+    else delete savatMiqdor[doriId];
+
+    // Ekran darhol o'zgaradi, server keyin quvib yetadi: tarmoq sekin
+    // bo'lsa ham tugma bosilgani sezilib tursin
+    jamiOldindan(doriId, joriy);
+    miqdorniYubor(doriId, joriy);
+    if (ozgargach) ozgargach(joriy);
+  }
+
+  kam.onclick = function () { qoy(joriy - 1); };
+  kop.onclick = function () { qoy(joriy + 1); };
+
+  // Raqamni bosish -> kiritish maydoni
+  son.onclick = function () {
+    const inp = document.createElement('input');
+    inp.type = 'text';
+    inp.setAttribute('inputmode', 'decimal');
+    inp.className = 'sonKirit';
+    inp.value = sonl(joriy);
+    quti.replaceChild(inp, son);
+    tahrirda = true;
+    inp.focus();
+    try { inp.select(); } catch (e) {}
+
+    let tugadi = false;
+    function tugat(saqla) {
+      if (tugadi) return;
+      tugadi = true;
+      tahrirda = false;
+      if (saqla) {
+        const v = parseFloat(String(inp.value).replace(',', '.'));
+        if (!isNaN(v)) qoy(v);
+      }
+      son.textContent = sonl(joriy);
+      if (inp.parentNode === quti) quti.replaceChild(son, inp);
+    }
+    inp.onblur = function () { tugat(true); };
+    inp.onkeydown = function (e) {
+      if (e.key === 'Enter') { e.preventDefault(); inp.blur(); }
+      else if (e.key === 'Escape') { inp.value = sonl(joriy); inp.blur(); }
+    };
+  };
+
+  const ochir = document.createElement('button');
+  ochir.type = 'button';
+  ochir.className = 'ochir';
+  ochir.textContent = '✕';
+  ochir.setAttribute('aria-label', 'Savatdan olib tashlash');
+  ochir.onclick = function () { titrat('warning'); qoy(0); };
+
+  quti.appendChild(kam);
+  quti.appendChild(son);
+  quti.appendChild(kop);
+  quti.appendChild(ochir);
+  return quti;
+}
+
+// Server javobini kutmasdan jami summani hisoblab turamiz.
+// dori — katalogdan yangi qo'shilganda narx/nom shu yerdan olinadi.
+function jamiOldindan(doriId, qty, dori) {
+  const items = savat.items || [];
+  let topildi = false;
+  for (let i = items.length - 1; i >= 0; i--) {
+    if (items[i].product_id === doriId) {
+      topildi = true;
+      if (qty > 0) { items[i].qty = qty; items[i].sum = Number(items[i].price) * qty; }
+      else items.splice(i, 1);
+    }
+  }
+  if (!topildi && qty > 0 && dori) {
+    items.push({
+      product_id: doriId, name: dori.name, price: Number(dori.price) || 0,
+      qty: qty, sum: (Number(dori.price) || 0) * qty,
+    });
+  }
+  savat.items = items;
+  savat.total = items.reduce(function (s, it) { return s + (Number(it.sum) || 0); }, 0);
+  jaminiChiz();
+}
+
+// Server bilan sinxronlash kechiktiriladi: "+" ni ketma-ket bosganda har
+// bosishga so'rov ketmasin. Miqdor MUTLAQ yuboriladi (qo'shilmaydi),
+// shuning uchun so'rovlar tartibi buzilsa ham natija bir xil bo'ladi -
+// oxirgi qiymat qoladi.
+var kechikish = {};
+function miqdorniYubor(doriId, qty) {
+  if (kechikish[doriId]) clearTimeout(kechikish[doriId]);
+  kechikish[doriId] = setTimeout(function () {
+    delete kechikish[doriId];
+    api('ozgartir', { product_id: doriId, qty: qty }).then(function (j) {
+      const n = j && j.natija;
+      if (!j || !j.ok || !n || !n.ok) {
+        xabar('Miqdor saqlanmadi: ' + ((n && n.error) || (j && j.error) || 'aloqa yo‘q'));
+        savatniYangila();
+        return;
+      }
+      savat = n.savat || { items: [], total: 0 };
+      miqdorlarniQayta();
+      jaminiChiz();
+      if (bolim === 'savat' && !tahrirda) savatniChiz();
+    });
+  }, 350);
 }
 
 // --------------------------------------------------------------- savat
+function jaminiChiz() {
+  jamiEl.textContent = pul(savat.total);
+  pastki.classList.toggle('bor', (savat.items || []).length > 0);
+}
+
+// Mijoz raqam kiritayotganda ro'yxat qayta chizilmaydi — maydon yopilib
+// qolardi
+var tahrirda = false;
+
 async function savatniYangila() {
   const j = await api('savat');
   if (!j.ok) return;
   savat = j.savat || { items: [], total: 0 };
-  jamiEl.textContent = pul(savat.total);
-  pastki.classList.toggle('bor', (savat.items || []).length > 0);
-  if (bolim === 'savat') savatniChiz();
+  miqdorlarniQayta();
+  jaminiChiz();
+  if (bolim === 'savat' && !tahrirda) savatniChiz();
 }
 
 function savatniChiz() {
-  var items = savat.items || [];
+  const items = savat.items || [];
   if (!items.length) {
-    royxat.innerHTML = '<div class="bosh">Savat bo‘sh.</div>';
+    royxat.innerHTML = '<div class="bosh">Savat bo‘sh.<br><br>Katalogdan dori tanlang.</div>';
     return;
   }
   royxat.innerHTML = '';
@@ -381,21 +548,26 @@ function savatniChiz() {
     el.className = 'karta';
     el.innerHTML =
       '<div class="nom"></div>' +
-      '<div class="qator"><span class="kichik hisob"></span><span class="narx"></span></div>';
+      '<div class="kichik hisob"></div>' +
+      '<div class="qator"><span class="narx summa"></span></div>';
     el.querySelector('.nom').textContent = it.name;
-    el.querySelector('.hisob').textContent = `${Number(it.qty)} × ${pul(it.price)}`;
-    el.querySelector('.narx').textContent = pul(it.sum);
 
-    const och = document.createElement('button');
-    och.className = 'qosh';
-    och.style.background = 'transparent';
-    och.style.color = '#c2410c';
-    och.textContent = '✕';
-    och.onclick = async () => {
-      await api('ochir', { product_id: it.product_id });
-      savatniYangila();
+    const hisob = el.querySelector('.hisob');
+    const summa = el.querySelector('.summa');
+    const chizgich = function (q) {
+      hisob.textContent = sonl(q) + ' × ' + pul(it.price);
+      summa.textContent = pul(Number(it.price) * q);
     };
-    el.querySelector('.qator').appendChild(och);
+    chizgich(Number(it.qty));
+
+    const quti = boshqaruv(it.product_id, Number(it.qty), function (yangi) {
+      if (yangi <= 0) {
+        el.remove();
+        if (!(savat.items || []).length) savatniChiz();
+      } else chizgich(yangi);
+    });
+    quti.classList.add('amal');
+    el.querySelector('.qator').appendChild(quti);
     royxat.appendChild(el);
   }
 }
@@ -416,7 +588,8 @@ document.getElementById('tabKatalog').onclick = () => {
 document.getElementById('tabSavat').onclick = () => {
   bolimGa('savat');
   document.getElementById('koproq').innerHTML = '';
-  savatniChiz();
+  savatniChiz();      // saqlangan holat — darhol ko'rinsin
+  savatniYangila();   // so'ng serverdagi haqiqiy holat
 };
 
 document.getElementById('buyurtma').onclick = async () => {
@@ -431,17 +604,33 @@ document.getElementById('buyurtma').onclick = async () => {
       `<div class="bosh">✅ Buyurtma №${j.natija.order_no} qabul qilindi.<br><br>` +
       `Jami: <b>${pul(j.natija.total)}</b><br><br>Tez orada bog‘lanamiz.</div>`;
     savat = { items: [], total: 0 };
+    savatMiqdor = {};
     pastki.classList.remove('bor');
     setTimeout(function () { if (tg) tg.close(); }, 2500);
   } else if (j.error === 'TELEFON_KERAK' || (j.natija && j.natija.error === 'TANISHTIRILMAGAN')) {
-    xato('Avval botda telefon raqamingizni yuboring — /start');
+    xabar('Avval botda telefon raqamingizni yuboring — /start');
   } else {
-    xato((j.natija && j.natija.error) || j.error);
+    xabar('Buyurtma yuborilmadi: ' + ((j.natija && j.natija.error) || j.error || 'xatolik'));
   }
 };
 
+// Ro'yxat o'rniga chiqadi — katalog umuman yuklanmagan holatlar uchun
 function xato(matn) {
   royxat.innerHTML = '<div class="bosh">❌ ' + (matn || 'Xatolik') + '</div>';
+}
+
+// Ro'yxatni saqlab qolib, pastda qisqa xabar
+var xabarEl = null, xabarVaqt = null;
+function xabar(matn) {
+  if (!xabarEl) {
+    xabarEl = document.createElement('div');
+    xabarEl.className = 'xabar';
+    document.body.appendChild(xabarEl);
+  }
+  xabarEl.textContent = matn;
+  xabarEl.classList.add('bor');
+  if (xabarVaqt) clearTimeout(xabarVaqt);
+  xabarVaqt = setTimeout(function () { xabarEl.classList.remove('bor'); }, 2600);
 }
 
 // ------------------------------------------------------------- boshlash

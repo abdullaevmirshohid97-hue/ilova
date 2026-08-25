@@ -26,6 +26,13 @@ admin.yukchibolla.com, 4020.yukchibolla.com {
 	@html path /index.html /
 	header @html Cache-Control "no-cache, must-revalidate"
 
+	# Telegram Mini App sahifasi: manzili o'zgarmaydi (klaviatura tugmasi
+	# chatda saqlanadi), shuning uchun yangilik faqat shu sarlavha orqali
+	# yetadi. Keshlansa - mijoz eski sahifani ko'radi va "ro'yxat
+	# ko'rinmayapti" deb qoladi.
+	@miniapp path /dori-miniapp.html
+	header @miniapp Cache-Control "no-store, must-revalidate"
+
 	try_files {path} /index.html
 	file_server
 }
