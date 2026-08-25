@@ -357,6 +357,24 @@ Deno.serve(async (req) => {
     return new Response('ok');
   }
 
+  // Klaviatura tugmasi chatda SAQLANIB qoladi: manzil o'zgarsa ham eski
+  // tugma eskisini ochaveradi. Shuning uchun "Katalog" so'zi kelganda
+  // (yoki /katalog) yangi manzil bilan inline tugma yuboramiz — u har
+  // safar joriy manzilni oladi.
+  if (text.startsWith('/katalog') || text.includes('Katalog')) {
+    await holatQoy(chatId, 'idle', {});
+    if (MINI_APP) {
+      await yubor(chatId, '🛍 <b>Katalog</b> — dorilar ro‘yxati, narxi bilan.', {
+        reply_markup: { inline_keyboard: [[{ text: '🛍 Katalogni ochish', web_app: { url: MINI_APP } }]] },
+      });
+      // Pastdagi klaviatura ham yangilansin
+      await yubor(chatId, "Pastdagi tugmalar yangilandi.", { reply_markup: MENYU });
+    } else {
+      await yubor(chatId, 'Katalog hozircha mavjud emas — dori nomini yozib qidiring.');
+    }
+    return new Response('ok');
+  }
+
   if (text.includes('Buyurtmalarim')) {
     await holatQoy(chatId, 'idle', {});
     const { data } = await supabase.rpc('dori_bot_orders', { p_chat_id: chatId, p_limit: 10 });

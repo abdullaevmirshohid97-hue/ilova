@@ -121,14 +121,15 @@
 </footer>
 
 <script>
-const tg = window.Telegram?.WebApp;
-tg?.ready();
-tg?.expand();
+// Eski Android WebView'da `?.` va `??` sintaksis xatosi beradi va butun
+// skript ishga tushmaydi. Shuning uchun bu sahifa ES5 uslubida yozilgan.
+var tg = (window.Telegram && window.Telegram.WebApp) || null;
+if (tg) { tg.ready(); tg.expand(); }
 
 // Sahifa admin saytida turadi, API esa Supabase'da — manzil aniq yozilgan.
 // Bu yerda maxfiy kalit YO'Q: kim ekanini Telegram imzosi hal qiladi.
 const API = 'https://gnuddryjsmcrjchrbvyz.supabase.co/functions/v1/dori-miniapp';
-const initData = tg?.initData || '';
+var initData = (tg && tg.initData) || '';
 
 const royxat = document.getElementById('royxat');
 const pastki = document.getElementById('pastki');
@@ -138,16 +139,67 @@ const qEl = document.getElementById('q');
 let bolim = 'katalog';
 let savat = { items: [], total: 0 };
 
-const pul = (n) => (Math.round(Number(n) || 0)).toLocaleString('ru-RU') + " so'm";
-const sana = (s) => (s ? new Date(s).toLocaleDateString('ru-RU') : null);
+// DIQQAT: toLocaleString/Intl bu yerda ATAYLAB ishlatilmaydi.
+// Telegram eski Android WebView'da ICU ma'lumotlari kesilgan bo'ladi va
+// locale ko'rsatilgan chaqiruv RangeError tashlaydi. Xato ro'yxatni
+// chizish paytida yuz bergani uchun butun katalog ko'rinmay qolardi
+// (mobil ilovada xuddi shu xato 6bcc8a5 da tuzatilgan).
+function titrat(tur) {
+  try { if (tg && tg.HapticFeedback) tg.HapticFeedback.notificationOccurred(tur); } catch (e) {}
+}
+
+function pul(n) {
+  var x = Math.round(Number(n) || 0);
+  var manfiy = x < 0;
+  var t = String(Math.abs(x)).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+  return (manfiy ? '-' : '') + t + " so'm";
+}
+function ikki(n) { return (n < 10 ? '0' : '') + n; }
+function sana(s) {
+  if (!s) return null;
+  var d = new Date(String(s).replace(' ', 'T'));
+  if (isNaN(d.getTime())) return null;
+  return ikki(d.getDate()) + '.' + ikki(d.getMonth() + 1) + '.' + d.getFullYear();
+}
+
+// Xatolar bizning jurnalga tushadi (client_errors) — Mini App boshqa
+// odamning telefonida ochiladi, konsolni ko'rib bo'lmaydi
+const ANON = 'sb_publishable_BjX_3t2LGX9y8FsKbCqFdw_7AOnXTN3';
+const BAZA = 'https://gnuddryjsmcrjchrbvyz.supabase.co';
+
+function jurnalga(xabar, ekran) {
+  try {
+    fetch(BAZA + '/rest/v1/rpc/report_client_error', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', apikey: ANON, Authorization: 'Bearer ' + ANON },
+      body: JSON.stringify({
+        p_app: 'mobile', p_message: String(xabar).slice(0, 400),
+        p_screen: 'miniapp:' + (ekran || ''), p_platform: (tg && tg.platform) || 'nomalum',
+        p_app_version: 'v2',
+      }),
+    });
+  } catch (e) { /* jurnal ishlamasa ham ilova ishlayversin */ }
+}
+
+window.addEventListener('error', (e) => jurnalga(e.message, 'window'));
+window.addEventListener('unhandledrejection', (e) => jurnalga(e.reason && e.reason.message || e.reason, 'promise'));
 
 async function api(amal, qoshimcha = {}) {
-  const r = await fetch(API, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ amal, initData, ...qoshimcha }),
-  });
-  return await r.json();
+  try {
+    const r = await fetch(API, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ amal, initData, ...qoshimcha }),
+    });
+    const matn = await r.text();
+    let j;
+    try { j = JSON.parse(matn); } catch { j = { ok: false, error: 'JAVOB_JSON_EMAS: ' + matn.slice(0, 120) }; }
+    if (!j.ok && j.error) jurnalga(amal + ' -> ' + j.error + ' (' + r.status + ')', amal);
+    return j;
+  } catch (e) {
+    jurnalga(amal + ' -> ' + (e && e.message), amal);
+    return { ok: false, error: 'Aloqa yoq: ' + (e && e.message) };
+  }
 }
 
 function yuklanmoqda() {
@@ -286,7 +338,7 @@ function miqdorSora(karta, dori) {
     ok.disabled = true;
     const j = await api('qosh', { product_id: dori.id, qty: n });
     if (j.ok) {
-      tg?.HapticFeedback?.notificationOccurred('success');
+      titrat('success');
       quti.remove();
       ok.replaceWith(belgi('✓ Savatda'));
       savatniYangila();
@@ -311,14 +363,14 @@ function belgi(matn) {
 async function savatniYangila() {
   const j = await api('savat');
   if (!j.ok) return;
-  savat = j.savat ?? { items: [], total: 0 };
+  savat = j.savat || { items: [], total: 0 };
   jamiEl.textContent = pul(savat.total);
-  pastki.classList.toggle('bor', (savat.items ?? []).length > 0);
+  pastki.classList.toggle('bor', (savat.items || []).length > 0);
   if (bolim === 'savat') savatniChiz();
 }
 
 function savatniChiz() {
-  const items = savat.items ?? [];
+  var items = savat.items || [];
   if (!items.length) {
     royxat.innerHTML = '<div class="bosh">Savat bo‘sh.</div>';
     return;
@@ -373,18 +425,18 @@ document.getElementById('buyurtma').onclick = async () => {
   const j = await api('buyurtma');
   t.disabled = false;
 
-  if (j.ok && j.natija?.ok) {
-    tg?.HapticFeedback?.notificationOccurred('success');
+  if (j.ok && j.natija && j.natija.ok) {
+    titrat('success');
     royxat.innerHTML =
       `<div class="bosh">✅ Buyurtma №${j.natija.order_no} qabul qilindi.<br><br>` +
       `Jami: <b>${pul(j.natija.total)}</b><br><br>Tez orada bog‘lanamiz.</div>`;
     savat = { items: [], total: 0 };
     pastki.classList.remove('bor');
-    setTimeout(() => tg?.close(), 2500);
-  } else if (j.error === 'TELEFON_KERAK' || j.natija?.error === 'TANISHTIRILMAGAN') {
+    setTimeout(function () { if (tg) tg.close(); }, 2500);
+  } else if (j.error === 'TELEFON_KERAK' || (j.natija && j.natija.error === 'TANISHTIRILMAGAN')) {
     xato('Avval botda telefon raqamingizni yuboring — /start');
   } else {
-    xato(j.natija?.error ?? j.error);
+    xato((j.natija && j.natija.error) || j.error);
   }
 };
 
@@ -393,9 +445,17 @@ function xato(matn) {
 }
 
 // ------------------------------------------------------------- boshlash
-savatniYangila();
-guruhlarniYukla();
-katalogniYukla(true);
+if (!initData) {
+  jurnalga('initData bosh - sahifa Telegramdan tashqarida ochilgan', 'boshlash');
+  royxat.innerHTML =
+    '<div class="bosh">Bu sahifa Telegram ichida ochilishi kerak.<br><br>' +
+    'Botga qayting va <b>🛍 Katalog</b> tugmasini bosing.</div>';
+} else {
+  jurnalga('ochildi: ' + ((tg && tg.platform) || '?') + ' v' + ((tg && tg.version) || '?'), 'boshlash');
+  savatniYangila();
+  guruhlarniYukla();
+  katalogniYukla(true);
+}
 </script>
 </body>
 </html>
