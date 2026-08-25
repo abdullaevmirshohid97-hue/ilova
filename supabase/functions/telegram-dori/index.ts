@@ -49,6 +49,12 @@ const MENYU = {
   resize_keyboard: true,
 };
 
+// Sklad xodimi uchun boshqa menyu: u dori qidirmaydi, so'rov oladi
+const SKLAD_MENYU = {
+  keyboard: [[{ text: '📥 So‘rovlar' }, { text: 'ℹ️ Sklad' }]],
+  resize_keyboard: true,
+};
+
 const TELEFON_SORASH = {
   keyboard: [[{ text: '📞 Telefon raqamni yuborish', request_contact: true }]],
   resize_keyboard: true,
@@ -86,6 +92,18 @@ Deno.serve(async (req) => {
 
   const yubor = (chat_id: number, text: string, extra: Record<string, unknown> = {}) =>
     tg('sendMessage', { chat_id, text, parse_mode: 'HTML', ...extra });
+
+  // Taqsimot va skladlarga xabar - alohida funksiyada, chunki webhook
+  // tez javob qaytarishi kerak. Natijasini kutmaymiz.
+  function skladlargaYubor(orderId: string) {
+    if (!orderId) return;
+    const url = `${supabaseUrl}/functions/v1/dori-sklad-yubor`;
+    fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${serviceKey}` },
+      body: JSON.stringify({ order_id: orderId }),
+    }).catch(() => {});
+  }
 
   async function mijoz(chatId: number) {
     const { data } = await supabase
@@ -156,6 +174,39 @@ Deno.serve(async (req) => {
     });
   }
 
+  // Skladga ko'rinadigan so'rov. DIQQAT: bu yerda faqat TANNARX bor -
+  // mijozga qo'yilgan ustama skladga ko'rinmasligi kerak.
+  async function sorovniKorsat(chatId: number, sor: any) {
+    const p = (sor.pozitsiyalar ?? []) as any[];
+    const matn = p
+      .map((it, i) => `${i + 1}. <b>${esc(it.name)}</b>\n   ${miqdor(it.qty)} × ${pul(it.base_price)} = <b>${pul(it.base_sum)}</b>`)
+      .join('\n\n');
+
+    const holatNomi: Record<string, string> = {
+      new: 'yangi', sent: 'yuborildi', accepted: 'qabul qilingan',
+      rejected: 'rad etilgan', done: 'bajarilgan',
+    };
+
+    const tugmalar: any[][] = [];
+    if (sor.status === 'new' || sor.status === 'sent') {
+      tugmalar.push([
+        { text: '✅ Qabul qilaman', callback_data: `wa:${sor.split_id}` },
+        { text: '❌ Yo‘q', callback_data: `wr:${sor.split_id}` },
+      ]);
+    } else if (sor.status === 'accepted') {
+      tugmalar.push([{ text: '📦 Bajarildi', callback_data: `wd:${sor.split_id}` }]);
+    }
+
+    await yubor(
+      chatId,
+      `📥 <b>So‘rov №${esc(sor.order_no)}</b> · ${esc(holatNomi[sor.status] ?? sor.status)}\n` +
+        (sor.pharmacy ? `${esc(sor.pharmacy)}\n` : '') +
+        `\n${matn}\n\nJami: <b>${pul(sor.base_total)}</b>` +
+        (sor.comment ? `\n\nIzoh: ${esc(sor.comment)}` : ''),
+      tugmalar.length ? { reply_markup: { inline_keyboard: tugmalar } } : {}
+    );
+  }
+
   async function savatKorsat(chatId: number) {
     const { data } = await supabase.rpc('dori_bot_cart', { p_chat_id: chatId });
     const savat = (data ?? { items: [], total: 0 }) as any;
@@ -195,6 +246,53 @@ Deno.serve(async (req) => {
     const nuqta = data.indexOf(':');
     const amal = nuqta === -1 ? data : data.slice(0, nuqta);
     const id = nuqta === -1 ? '' : data.slice(nuqta + 1);
+
+    // ---------- sklad javobi ----------
+    // Bu tugmalar SKLAD xodimiga tegishli, mijozga emas. Tekshiruv RPC
+    // ichida: chat_id -> sklad bog'lanishi qayta o'qiladi, ya'ni split_id
+    // ni qo'lda almashtirib boshqa skladning so'roviga javob berib
+    // bo'lmaydi.
+    if (amal === 'wa' || amal === 'wr' || amal === 'wd' || amal === 'ws') {
+      const holat = amal === 'wa' ? 'accepted' : amal === 'wr' ? 'rejected' : amal === 'wd' ? 'done' : null;
+
+      if (amal === 'ws') {
+        const { data: sor } = await supabase.rpc('dori_sklad_sorov', {
+          p_chat_id: chatId,
+          p_split_id: id,
+        });
+        await tg('answerCallbackQuery', { callback_query_id: cq.id });
+        if ((sor as any)?.ok) await sorovniKorsat(chatId, sor as any);
+        else await yubor(chatId, '❌ So‘rov topilmadi.');
+        return new Response('ok');
+      }
+
+      const { data: jav } = await supabase.rpc('dori_split_javob', {
+        p_chat_id: chatId,
+        p_split_id: id,
+        p_status: holat,
+      });
+      const ok = (jav as any)?.ok;
+      await tg('answerCallbackQuery', {
+        callback_query_id: cq.id,
+        text: ok
+          ? holat === 'accepted' ? 'Qabul qilindi' : holat === 'done' ? 'Bajarildi' : 'Rad etildi'
+          : 'Bajarilmadi',
+      });
+      if (ok) {
+        await yubor(
+          chatId,
+          holat === 'accepted'
+            ? `✅ So‘rov №${esc((jav as any).order_no)} <b>qabul qilindi</b>.\n\nYig‘ib bo‘lgach «Bajarildi» deb belgilang.`
+            : holat === 'done'
+              ? `📦 So‘rov №${esc((jav as any).order_no)} <b>bajarildi</b>. Rahmat!`
+              : `❌ So‘rov №${esc((jav as any).order_no)} rad etildi.`,
+          holat === 'accepted'
+            ? { reply_markup: { inline_keyboard: [[{ text: '📦 Bajarildi', callback_data: `wd:${id}` }]] } }
+            : {}
+        );
+      }
+      return new Response('ok');
+    }
 
     const m = await mijoz(chatId);
     if (!m?.phone) {
@@ -249,6 +347,11 @@ Deno.serve(async (req) => {
       const { data: n } = await supabase.rpc('dori_bot_order_create', { p_chat_id: chatId });
       const r = (n ?? {}) as any;
       if (r.ok) {
+        // Buyurtma skladlarga taqsimlanadi va har sklad o'z so'rovini
+        // Telegramda oladi. Xato bo'lsa ham mijozga bildirmaymiz -
+        // buyurtma qabul qilingan, taqsimotni panelda qayta yuborsa
+        // bo'ladi.
+        skladlargaYubor(r.order_id);
         await yubor(
           chatId,
           `✅ <b>Buyurtma №${r.order_no}</b> qabul qilindi.\n\n` +
@@ -278,6 +381,68 @@ Deno.serve(async (req) => {
   const from = msg.from ?? {};
   const m = await mijoz(chatId);
 
+  // Chat SKLADGA bog'langanmi? Bog'langan bo'lsa - u mijoz emas,
+  // dori qidirmaydi: unga butunlay boshqa menyu ko'rsatiladi.
+  const { data: skladData } = await supabase.rpc('dori_sklad_kim', { p_chat_id: chatId });
+  const sklad = (skladData as any) ?? null;
+
+  if (sklad?.warehouse_id && !msg.contact) {
+    if (text.startsWith('/start') || text.includes('Sklad')) {
+      await yubor(
+        chatId,
+        `🏬 <b>${esc(sklad.sklad)}</b>\n\nSiz shu sklad xodimi sifatida ulangansiz.\n` +
+          `Buyurtma tushganda so‘rov shu yerga keladi.`,
+        { reply_markup: SKLAD_MENYU }
+      );
+      return new Response('ok');
+    }
+
+    if (text.includes('So‘rovlar') || text.includes("So'rovlar") || text.startsWith('/sorovlar')) {
+      const { data } = await supabase.rpc('dori_sklad_sorovlar', { p_chat_id: chatId, p_limit: 10 });
+      const r = (data as any) ?? {};
+      const list = (r.sorovlar ?? []) as any[];
+      if (!r.ok || list.length === 0) {
+        await yubor(chatId, '📭 Hozircha so‘rov yo‘q.', { reply_markup: SKLAD_MENYU });
+        return new Response('ok');
+      }
+      const holatBelgi: Record<string, string> = {
+        new: '🆕', sent: '📤', accepted: '✅', rejected: '❌', done: '📦',
+      };
+      await yubor(
+        chatId,
+        `📥 <b>So‘rovlar</b>\n\n` +
+          list
+            .map((x) => `${holatBelgi[x.status] ?? '•'} №${esc(x.order_no)} · ${x.pozitsiya} pozitsiya · <b>${pul(x.base_total)}</b>`)
+            .join('\n'),
+        {
+          reply_markup: {
+            inline_keyboard: list.slice(0, 8).map((x) => [
+              { text: `№${x.order_no} — ochish`, callback_data: `ws:${x.id}` },
+            ]),
+          },
+        }
+      );
+      return new Response('ok');
+    }
+
+    await yubor(chatId, 'Pastdagi tugmalardan foydalaning 👇', { reply_markup: SKLAD_MENYU });
+    return new Response('ok');
+  }
+
+  // ---------- sklad taklif kodi ----------
+  // Kod telefon raqamga bog'langan: kodni ushlab qolgan odam boshqa
+  // raqamli akkaunt bilan ulanolmaydi.
+  if (/^SKL-[A-Z0-9]{8}$/i.test(text)) {
+    await holatQoy(chatId, 'sklad_kod', { code: text.toUpperCase() });
+    await yubor(
+      chatId,
+      '🏬 Sklad kodi qabul qilindi.\n\nEndi <b>o‘z</b> telefon raqamingizni yuboring — ' +
+        'kod aynan shu raqamga berilgan.',
+      { reply_markup: TELEFON_SORASH }
+    );
+    return new Response('ok');
+  }
+
   // ---------- kontakt ----------
   if (msg.contact) {
     // Boshqa odamning kontakt kartochkasini yuborib bo'lmasin
@@ -285,6 +450,38 @@ Deno.serve(async (req) => {
       await yubor(chatId, '❌ Faqat <b>o‘z</b> raqamingizni yuboring — pastdagi tugma orqali.', {
         reply_markup: TELEFON_SORASH,
       });
+      return new Response('ok');
+    }
+
+    // Sklad kodi kutilyaptimi?
+    const holat = await holatOl(chatId);
+    if ((holat as any)?.state === 'sklad_kod') {
+      const kod = (holat as any)?.data?.code ?? '';
+      const { data: ul } = await supabase.rpc('dori_sklad_ulash', {
+        p_code: kod,
+        p_chat_id: chatId,
+        p_phone: msg.contact.phone_number,
+        p_name: [from.first_name, from.last_name].filter(Boolean).join(' ') || null,
+        p_username: from.username ?? null,
+      });
+      await holatQoy(chatId, 'idle', {});
+
+      if ((ul as any)?.ok) {
+        await yubor(
+          chatId,
+          `✅ <b>${esc((ul as any).sklad)}</b> skladiga ulandingiz.\n\n` +
+            `Buyurtma tushganda so‘rov shu yerga keladi.`,
+          { reply_markup: SKLAD_MENYU }
+        );
+      } else {
+        const xat: Record<string, string> = {
+          KOD_TOPILMADI: 'Bunday kod yo‘q.',
+          KOD_ISHLATILGAN: 'Bu kod allaqachon ishlatilgan.',
+          KOD_MUDDATI_TUGAGAN: 'Kod muddati tugagan — administratordan yangisini so‘rang.',
+          RAQAM_MOS_EMAS: 'Bu kod boshqa raqamga berilgan.',
+        };
+        await yubor(chatId, '❌ ' + (xat[(ul as any)?.error] ?? 'Ulanmadi.'));
+      }
       return new Response('ok');
     }
 

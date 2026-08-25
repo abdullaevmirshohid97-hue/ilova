@@ -183,6 +183,22 @@ Deno.serve(async (req) => {
         p_comment: body.izoh ? String(body.izoh) : null,
       });
       if (error) throw error;
+
+      // Buyurtma skladlarga taqsimlanadi va har sklad o'z so'rovini
+      // Telegramda oladi. Javobini KUTMAYMIZ: mijoz "buyurtma qabul
+      // qilindi" xabarini uch sklad javob berguncha kutib turmasin.
+      const oid = (data as any)?.order_id;
+      if (oid) {
+        fetch(Deno.env.get('SUPABASE_URL') + '/functions/v1/dori-sklad-yubor', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: 'Bearer ' + Deno.env.get('SUPABASE_SERVICE_ROLE_KEY'),
+          },
+          body: JSON.stringify({ order_id: oid }),
+        }).catch(() => {});
+      }
+
       return json({ ok: true, natija: data });
     }
 

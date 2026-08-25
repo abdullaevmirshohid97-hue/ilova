@@ -62,6 +62,7 @@ async function tozala() {
   await sql(`delete from dori_orders where pharmacy = 'SINOV TAQSIM';`);
   await sql(`delete from dori_warehouses where name like 'SINOV-%';`);
   await sql(`delete from dori_price_rules where note = 'sinov';`);
+  await sql(`delete from dori_warehouse_telegram where chat_id in (555000222, 555000333, 555000444);`);
 }
 
 const jsonQator = (o) => JSON.stringify(o).replace(/'/g, "''");
@@ -221,6 +222,92 @@ const jsonQator = (o) => JSON.stringify(o).replace(/'/g, "''");
   const { j: t4 } = await admin(`select dori_order_taqsimot('${o1}') as j;`);
   const jami4 = t4.reduce((s, x) => s + x.pozitsiyalar.reduce((a, p) => a + Number(p.qty), 0), 0);
   tekshir('qayta taqsimlash miqdorni ikkilantirmaydi', jami4 === 100, jami4);
+
+  // ================================================== 4. TELEGRAM
+  console.log('\n4. Sklad Telegramga ulanadi va so‘rov oladi');
+
+  const [{ id: wTg }] = await sql(
+    "select id from dori_warehouses where name = 'SINOV-1';"
+  );
+  const [{ id: wBoshqa }] = await sql(
+    "select id from dori_warehouses where name = 'SINOV-3';"
+  );
+
+  const { j: kod } = await admin(`select dori_sklad_kod('${wTg}', '+998901112233') as j;`);
+  tekshir('taklif kodi yaratildi', kod.ok && /^SKL-[A-Z0-9]{8}$/.test(kod.code), kod.code);
+
+  // Boshqa raqam bilan ulanib bo'lmasin - kodni ushlab qolgan odam
+  // o'ziniki qilib olmasin
+  const [{ j: xatoUl }] = await sql(
+    `select dori_sklad_ulash('${kod.code}', 555000111, '+998909998877', 'Begona', null) as j;`
+  );
+  tekshir('boshqa raqam bilan ulanmaydi', xatoUl.error === 'RAQAM_MOS_EMAS', xatoUl.error);
+
+  const [{ j: ul }] = await sql(
+    `select dori_sklad_ulash('${kod.code}', 555000222, '998901112233', 'Sklad mudiri', 'mudir') as j;`
+  );
+  tekshir('to‘g‘ri raqam bilan ulandi', ul.ok === true, ul.sklad);
+
+  const [{ j: qayta }] = await sql(
+    `select dori_sklad_ulash('${kod.code}', 555000333, '998901112233', 'Ikkinchi', null) as j;`
+  );
+  tekshir('kod ikkinchi marta ishlamaydi', qayta.error === 'KOD_ISHLATILGAN', qayta.error);
+
+  const [{ j: kim }] = await sql(`select dori_sklad_kim(555000222) as j;`);
+  tekshir('chat sklad bilan bog‘landi', kim?.warehouse_id === wTg, kim?.sklad);
+
+  // Boshqa sklad uchun ham bitta chat ulaymiz - izolyatsiyani sinash uchun
+  const { j: kod2 } = await admin(`select dori_sklad_kod('${wBoshqa}', '998905556677') as j;`);
+  await sql(`select dori_sklad_ulash('${kod2.code}', 555000444, '998905556677', 'Uchinchi', null);`);
+
+  // Yuborish uchun ma'lumot
+  const [{ j: yub }] = await sql(`select dori_split_yuborilsin('${o1}') as j;`);
+  const sinov1 = yub.find((x) => x.sklad === 'SINOV-1');
+  tekshir('so‘rovda chat id bor', (sinov1?.chatlar ?? []).includes('555000222'),
+    JSON.stringify(sinov1?.chatlar));
+  tekshir('so‘rovda faqat TANNARX bor (mijoz narxi yo‘q)',
+    sinov1.pozitsiyalar.every((p) => p.base_price !== undefined && p.price === undefined),
+    JSON.stringify(sinov1.pozitsiyalar[0]));
+
+  // Skladning o'z so'rovlari
+  const [{ j: sor }] = await sql(`select dori_sklad_sorovlar(555000222, 10) as j;`);
+  tekshir('sklad o‘z so‘rovlarini ko‘radi', sor.ok && sor.sorovlar.length >= 1,
+    sor.sorovlar?.length);
+
+  const splitId = sor.sorovlar[0].id;
+
+  // ENG MUHIM: boshqa sklad shu so'rovni ochib ham, javob berib ham bo'lmasin
+  const [{ j: begona }] = await sql(`select dori_sklad_sorov(555000444, '${splitId}') as j;`);
+  tekshir('BOSHQA sklad so‘rovni ocholmaydi', begona.ok === false, begona.error);
+
+  const [{ j: begonaJavob }] = await sql(
+    `select dori_split_javob(555000444, '${splitId}', 'accepted') as j;`
+  );
+  tekshir('BOSHQA sklad javob berolmaydi', begonaJavob.ok === false, begonaJavob.error);
+
+  const [{ j: ozi }] = await sql(`select dori_sklad_sorov(555000222, '${splitId}') as j;`);
+  tekshir('o‘z so‘rovini ochadi', ozi.ok === true, '№' + ozi.order_no);
+
+  const [{ j: javob }] = await sql(
+    `select dori_split_javob(555000222, '${splitId}', 'accepted') as j;`
+  );
+  tekshir('sklad qabul qildi', javob.ok === true, '№' + javob.order_no);
+
+  const [{ st }] = await sql(`select status as st from dori_order_splits where id = '${splitId}';`);
+  tekshir('holat bazada yangilandi', st === 'accepted', st);
+
+  const [{ j: notogri }] = await sql(
+    `select dori_split_javob(555000222, '${splitId}', 'hohlagan_narsa') as j;`
+  );
+  tekshir('noto‘g‘ri holat rad etiladi', notogri.error === 'HOLAT_NOTOGRI', notogri.error);
+
+  // Bekor qilingan buyurtma so'rovlari ham bekor bo'lsin
+  await admin(`select dori_buyurtma_holat('${o1}', 'cancelled');`);
+  const [{ n: faol }] = await sql(
+    `select count(*)::int as n from dori_order_splits
+      where order_id = '${o1}' and status in ('new', 'sent', 'accepted');`
+  );
+  tekshir('buyurtma bekor bo‘lsa so‘rovlar ham bekor', faol === 0, faol);
 
   // ================================================== tozalash
   await tozala();

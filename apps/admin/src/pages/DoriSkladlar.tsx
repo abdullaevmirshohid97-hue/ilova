@@ -52,6 +52,16 @@ type Qator = {
   seriyalar: string | null;
 };
 
+type Ulangan = {
+  chat_id: string;
+  warehouse_id: string;
+  sklad: string;
+  phone: string;
+  name: string | null;
+  username: string | null;
+  linked_at: string;
+};
+
 type Yuklash = {
   id: string;
   sklad: string | null;
@@ -100,6 +110,9 @@ export default function DoriSkladlar() {
   const [q, setQ] = useState('');
   const [ofset, setOfset] = useState(0);
   const [tarix, setTarix] = useState<Yuklash[]>([]);
+  const [ulanganlar, setUlanganlar] = useState<Ulangan[]>([]);
+  const [kodTel, setKodTel] = useState('');
+  const [kod, setKod] = useState<{ code: string; phone: string } | null>(null);
   const [ish, setIsh] = useState<string | null>(null);
   const [xato, setXato] = useState<string | null>(null);
   const [xabar, setXabar] = useState<string | null>(null);
@@ -138,6 +151,10 @@ export default function DoriSkladlar() {
     await narxlarniYukla(id, '', 0);
     const { data } = await supabase.rpc('dori_import_tarix', { p_warehouse_id: id, p_limit: 10 });
     setTarix((data ?? []) as Yuklash[]);
+    setKod(null);
+    setKodTel('');
+    const { data: u } = await supabase.rpc('dori_sklad_telegram_royxat', { p_warehouse_id: id });
+    setUlanganlar((u ?? []) as Ulangan[]);
   }
 
   async function saqla() {
@@ -174,6 +191,24 @@ export default function DoriSkladlar() {
     if (tanlangan === s.id) setTanlangan(null);
     setXabar('Sklad o‘chirildi');
     await yukla();
+  }
+
+  async function kodYarat(wh: string) {
+    if (!kodTel.trim()) { setXato('Telefon raqamni yozing — kod aynan shu raqamga beriladi'); return; }
+    setXato(null);
+    const { data, error } = await supabase.rpc('dori_sklad_kod', {
+      p_warehouse_id: wh,
+      p_phone: kodTel,
+    });
+    if (error) { setXato('Kod yaratilmadi: ' + error.message); return; }
+    setKod(data as { code: string; phone: string });
+  }
+
+  async function uz(chatId: string) {
+    if (!confirm('Bu Telegram akkaunt skladdan uzilsinmi?')) return;
+    const { error } = await supabase.rpc('dori_sklad_uzish', { p_chat_id: Number(chatId) });
+    if (error) { setXato('Uzilmadi: ' + error.message); return; }
+    setUlanganlar((p) => p.filter((x) => x.chat_id !== chatId));
   }
 
   function tahrirla(s: Sklad) {
@@ -400,6 +435,67 @@ export default function DoriSkladlar() {
               className="px-2 py-1.5 text-[12px] outline-none"
               style={{ ...inpStyle, width: 280 }}
             />
+          </div>
+
+          {/* ---------- Telegram ---------- */}
+          <div className="mb-4 p-3" style={{ background: C.panel2, border: `1px solid ${C.line}` }}>
+            <div className="mb-2 text-[10px] font-bold tracking-[0.16em]" style={{ color: sh(C.text, 80) }}>
+              TELEGRAM — SO‘ROVLAR SHU YERGA KELADI
+            </div>
+
+            {ulanganlar.length > 0 ? (
+              <div className="mb-3 grid gap-1">
+                {ulanganlar.map((u) => (
+                  <div key={u.chat_id} className="flex items-center justify-between gap-3 text-[11px]">
+                    <span style={{ color: C.textBright }}>
+                      {u.name || 'noma’lum'}{' '}
+                      <span style={{ color: C.text }}>
+                        · {u.phone}
+                        {u.username ? ` · @${u.username}` : ''}
+                      </span>
+                    </span>
+                    <button onClick={() => uz(u.chat_id)} className="px-2 py-0.5 text-[10px]"
+                            style={{ color: C.danger, border: `1px solid ${C.line}` }}>
+                      UZISH
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="mb-3 text-[11px]" style={{ color: C.warn }}>
+                Hali hech kim ulanmagan — so‘rov Telegramga bormaydi, faqat panelda turadi.
+              </div>
+            )}
+
+            <div className="flex flex-wrap items-end gap-2">
+              <label className="block">
+                <span className="mb-1 block text-[10px]" style={{ color: C.text }}>SKLAD XODIMI RAQAMI</span>
+                <input value={kodTel} onChange={(e) => setKodTel(e.target.value)}
+                       placeholder="+998 90 000 00 00"
+                       className="px-2 py-1.5 text-[13px] outline-none"
+                       style={{ ...inpStyle, width: 200 }} />
+              </label>
+              <button onClick={() => kodYarat(joriy.id)} className={btn}
+                      style={{ color: C.neon2, background: 'transparent', border: `1px solid ${C.neon2}` }}>
+                KOD YARATISH
+              </button>
+            </div>
+
+            {kod && (
+              <div className="mt-3 p-3 text-[12px]"
+                   style={{ color: C.textBright, border: `1px dashed ${C.neon}`, background: sh(C.neon, 6) }}>
+                <div>
+                  Kod: <b style={{ color: C.neon, fontSize: 16, letterSpacing: '0.1em' }}>{kod.code}</b>
+                </div>
+                <div className="mt-1" style={{ color: C.text }}>
+                  Shu kodni <b>{kod.phone}</b> raqamli xodimga bering. U{' '}
+                  <a href="https://t.me/Idaa_dori_bot" target="_blank" rel="noreferrer"
+                     style={{ color: C.neon2 }}>@Idaa_dori_bot</a>{' '}
+                  ga kodni yozadi va o‘z raqamini yuboradi. Kod <b>24 soat</b> amal qiladi va
+                  faqat shu raqam bilan ishlaydi.
+                </div>
+              </div>
+            )}
           </div>
 
           {tarix.length > 0 && (
