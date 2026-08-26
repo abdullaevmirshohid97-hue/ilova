@@ -31,7 +31,8 @@ const HTML = fs
   // Tashqi Telegram skripti o'rniga soxta obyekt qo'yamiz
   .replace(/<script src="https:\/\/telegram\.org[^>]*><\/script>/, '');
 
-const NARX = { p1: 10000, p2: 2500 };
+const NARX = { p1: 10000, p2: 2500, p3: 7000 };
+const QOLDIQ = { p1: 40, p2: 0, p3: null };  // p2 tugagan, p3 noma'lum
 const xatolar = [];
 const yuborilgan = [];
 let savatServer = {}; // product_id -> qty (server tomoni)
@@ -42,6 +43,7 @@ function savatJson() {
     name: 'Dori ' + id,
     price: NARX[id],
     qty: savatServer[id],
+    stock: QOLDIQ[id],
     sum: NARX[id] * savatServer[id],
   }));
   return { items, total: items.reduce((s, i) => s + i.sum, 0) };
@@ -75,10 +77,11 @@ const dom = new JSDOM(HTML, {
       if (b.amal === 'katalog') {
         return javob({
           ok: true,
-          jami: 2,
+          jami: 3,
           items: [
-            { id: 'p1', name: 'Azitromitsin 500', manufacturer: 'Nobel', price: NARX.p1, stock: 40, eng_yaqin_muddat: '2027-03-31' },
-            { id: 'p2', name: 'Paratsetamol 500', manufacturer: 'Jurabek', price: NARX.p2, stock: 0, eng_yaqin_muddat: null },
+            { id: 'p1', name: 'Azitromitsin 500', manufacturer: 'Nobel', price: NARX.p1, stock: QOLDIQ.p1, eng_yaqin_muddat: '2027-03-31' },
+            { id: 'p2', name: 'Paratsetamol 500', manufacturer: 'Jurabek', price: NARX.p2, stock: QOLDIQ.p2, eng_yaqin_muddat: null },
+            { id: 'p3', name: 'Analgin 500', manufacturer: 'Uzfarm', price: NARX.p3, stock: QOLDIQ.p3, eng_yaqin_muddat: null },
           ],
         });
       }
@@ -86,9 +89,24 @@ const dom = new JSDOM(HTML, {
       if (b.amal === 'savat') return javob({ ok: true, savat: savatJson(), mijoz: { phone: '998770414020' } });
       if (b.amal === 'ozgartir') {
         yuborilgan.push(b.product_id + '=' + b.qty);
-        if (b.qty > 0) savatServer[b.product_id] = b.qty;
+        const chek = QOLDIQ[b.product_id];
+        if (chek === null || chek === undefined) {
+          // Qoldiq noma'lum: cheklov yo'q
+          if (b.qty > 0) savatServer[b.product_id] = b.qty;
+          else delete savatServer[b.product_id];
+          return javob({ ok: true, natija: { ok: true, qty: b.qty, qoldiq: null, cheklandi: false, savat: savatJson() } });
+        }
+        if (chek <= 0 && b.qty > 0) {
+          delete savatServer[b.product_id];
+          return javob({ ok: true, natija: { ok: false, error: 'QOLMADI', savat: savatJson() } });
+        }
+        const qty = Math.min(b.qty, chek);
+        if (qty > 0) savatServer[b.product_id] = qty;
         else delete savatServer[b.product_id];
-        return javob({ ok: true, natija: { ok: true, savat: savatJson() } });
+        return javob({
+          ok: true,
+          natija: { ok: true, qty, qoldiq: chek, cheklandi: b.qty > chek, savat: savatJson() },
+        });
       }
       return javob({ ok: true });
     };
@@ -122,11 +140,29 @@ await kut(300);
 
 // ---------- katalog ----------
 const kartalar = d.querySelectorAll('main .karta');
-tekshir('katalog chizildi', kartalar.length === 2, kartalar.length + ' kartochka');
+tekshir('katalog chizildi', kartalar.length === 3, kartalar.length + ' kartochka');
 // Telegram WebView'da ICU kesilgan bo'ladi: narx/sana Intl'siz formatlanishi shart
 tekshir("narx Intl'siz formatlandi", matn('.narx') === "10 000 so'm", matn('.narx'));
 tekshir('muddat sanasi', matn('.ishlab').includes('31.03.2027'), matn('.ishlab'));
 tekshir('chizishda xato yuz bermadi', xatolar.length === 0, xatolar.join('; ') || 'toza');
+
+// ---------- qoldiq cheklovi ----------
+const tugagan = kartalar[1];
+tekshir('qolmagan doriga «Qolmadi» yozildi',
+  !!tugagan.querySelector('.tugadi') && !tugagan.querySelector('.qosh'),
+  tugagan.querySelector('.tugadi') ? tugagan.querySelector('.tugadi').textContent : 'tugma qolgan');
+tekshir('qolmagan dori kartochkasi so‘ligan', tugagan.className.includes('tugagan'));
+const nomalum = kartalar[2];
+tekshir('qoldig‘i noma’lum dori sotiladi',
+  !!nomalum.querySelector('.qosh') && !nomalum.querySelector('.tugadi'),
+  nomalum.querySelector('.qosh') ? 'tugma bor' : 'tugma yo‘q');
+tekshir('noma’lum qoldiq son sifatida yozilmaydi',
+  !nomalum.querySelector('.ishlab').textContent.includes('omborda'),
+  nomalum.querySelector('.ishlab').textContent);
+
+tekshir('bor dorining soni ko‘rinadi',
+  kartalar[0].querySelector('.ishlab').textContent.includes('omborda 40 ta'),
+  kartalar[0].querySelector('.ishlab').textContent);
 
 // ---------- katalogdan savatga ----------
 const karta = kartalar[0];
@@ -167,6 +203,28 @@ inp.dispatchEvent(new w.Event('blur'));
 await kut(500);
 tekshir('yozilgan miqdor qabul qilindi', savatServer.p1 === 24, 'server: ' + savatServer.p1);
 tekshir('jami qayta hisoblandi', matn('#jami') === "240 000 so'm", matn('#jami'));
+
+// ---------- qoldiqdan oshirib bo'lmaydi ----------
+son.click();
+const inp2 = q.querySelector('.sonKirit');
+inp2.value = '500';
+inp2.dispatchEvent(new w.Event('blur'));
+await kut(500);
+tekshir('qoldiqdan ko‘p yozilsa qoldiqqacha kesiladi', savatServer.p1 === 40, savatServer.p1);
+tekshir('ekranda ham qoldiq ko‘rsatiladi', son.textContent === '40', son.textContent);
+
+// Chegarada "+" bosilsa oshmasin
+kop.click();
+await kut(500);
+tekshir('chegarada + oshirmaydi', son.textContent === '40' && savatServer.p1 === 40,
+  'ekran ' + son.textContent + ', server ' + savatServer.p1);
+
+// Sinovning qolgan qismi 24 ta bilan davom etsin
+son.click();
+const inp3 = q.querySelector('.sonKirit');
+inp3.value = '24';
+inp3.dispatchEvent(new w.Event('blur'));
+await kut(500);
 
 // ---------- savat bo'limi ----------
 d.getElementById('tabSavat').click();

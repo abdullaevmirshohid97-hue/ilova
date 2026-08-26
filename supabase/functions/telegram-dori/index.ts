@@ -161,17 +161,34 @@ Deno.serve(async (req) => {
         (d, i) =>
           `${i + 1}. <b>${esc(d.name)}</b>\n` +
           `   ${esc(d.manufacturer ?? '')}${d.manufacturer ? ' · ' : ''}<b>${pul(d.price)}</b>` +
-          (Number(d.stock) > 0 ? ` · omborda ${miqdor(d.stock)}` : ' · <i>omborda yo‘q</i>')
+          (d.stock === null || d.stock === undefined
+            ? ''
+            : Number(d.stock) > 0
+              ? ` · omborda ${miqdor(d.stock)} ta`
+              : ' · <i>omborda qolmadi</i>')
       )
       .join('\n\n');
 
-    await yubor(chatId, `🔎 <b>Topildi: ${topildi.length}</b>\n\n${matn}\n\nQo‘shish uchun tanlang 👇`, {
-      reply_markup: {
-        inline_keyboard: topildi.map((d, i) => [
-          { text: `${i + 1}. ${String(d.name).slice(0, 30)}`, callback_data: `add:${d.id}` },
-        ]),
-      },
-    });
+    // Omborda qolmagan doriga tugma qo'yilmaydi: bosilsa baribir
+    // "qolmadi" deyilardi - bekorga umid bermaymiz
+    // Qoldiq NOMA'LUM bo'lsa (prays faylida ustun yo'q) - sotiladi.
+    // Faqat aniq nol bo'lganiga tugma qo'yilmaydi.
+    const olsaBoladi = topildi.filter((d) => d.stock === null || d.stock === undefined || Number(d.stock) > 0);
+
+    await yubor(
+      chatId,
+      `🔎 <b>Topildi: ${topildi.length}</b>\n\n${matn}` +
+        (olsaBoladi.length ? '\n\nQo‘shish uchun tanlang 👇' : '\n\n<i>Topilganlarning hammasi omborda tugagan.</i>'),
+      olsaBoladi.length
+        ? {
+            reply_markup: {
+              inline_keyboard: olsaBoladi.map((d) => [
+                { text: `${String(d.name).slice(0, 30)}`, callback_data: `add:${d.id}` },
+              ]),
+            },
+          }
+        : {}
+    );
   }
 
   // Skladga ko'rinadigan so'rov. DIQQAT: bu yerda faqat TANNARX bor -
@@ -347,6 +364,22 @@ Deno.serve(async (req) => {
       const { data: n } = await supabase.rpc('dori_bot_order_create', { p_chat_id: chatId });
       const r = (n ?? {}) as any;
       if (r.ok) {
+        // Qoldiq savat ochiq turganda kamayib qolishi mumkin: server
+        // nimani kesgani va nimani tashlaganini aytadi
+        const tushdi = (r.tushdi ?? []) as any[];
+        const cheklangan = (r.cheklangan ?? []) as any[];
+        if (tushdi.length || cheklangan.length) {
+          await yubor(
+            chatId,
+            '⚠️ <b>Buyurtma biroz o‘zgardi</b>\n\n' +
+              tushdi.map((x: any) => `• ${esc(x.name)} — tugab qolgan, chiqarildi`).join('\n') +
+              (tushdi.length && cheklangan.length ? '\n' : '') +
+              cheklangan
+                .map((x: any) => `• ${esc(x.name)} — ${miqdor(x.soralgan)} emas, ${miqdor(x.berildi)} ta`)
+                .join('\n')
+          );
+        }
+
         // Buyurtma skladlarga taqsimlanadi va har sklad o'z so'rovini
         // Telegramda oladi. Xato bo'lsa ham mijozga bildirmaymiz -
         // buyurtma qabul qilingan, taqsimotni panelda qayta yuborsa
@@ -645,9 +678,14 @@ Deno.serve(async (req) => {
     await holatQoy(chatId, 'idle', {});
 
     if (r.ok) {
+      // Server qoldiqqacha kesgan bo'lishi mumkin - jim qolmaymiz,
+      // aks holda mijoz 500 so'rab, 100 olgani buyurtmada bilinardi
       await yubor(
         chatId,
-        `✅ Savatga qo‘shildi:\n<b>${esc(r.name)}</b> — ${miqdor(n)} × ${pul(r.price)}`,
+        (r.cheklandi
+          ? `⚠️ Omborda faqat <b>${miqdor(r.qoldiq)}</b> ta bor — shuncha qo‘shildi.\n\n`
+          : '') +
+          `✅ Savatga qo‘shildi:\n<b>${esc(r.name)}</b> — ${miqdor(r.qty)} × ${pul(r.price)}`,
         {
           reply_markup: {
             inline_keyboard: [[{ text: '🛒 Savatni ko‘rish', callback_data: 'cart' }]],
@@ -655,6 +693,12 @@ Deno.serve(async (req) => {
         }
       );
       await savatKorsat(chatId);
+    } else if (r.error === 'QOLMADI') {
+      await yubor(
+        chatId,
+        `😔 <b>${esc(r.name ?? 'Bu dori')}</b> omborda qolmadi.\n\nBoshqa nom bilan qidirib ko‘ring.`,
+        { reply_markup: MENYU }
+      );
     } else {
       await yubor(chatId, '❌ Qo‘shilmadi.', { reply_markup: MENYU });
     }

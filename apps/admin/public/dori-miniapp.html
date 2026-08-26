@@ -58,6 +58,13 @@
   }
   .narx { font-weight: 750; font-size: 16px; white-space: nowrap; }
   .yoq { color: #c2410c; }
+  /* Omborda qolmagan dori ro'yxatdan yo'qolmaydi - mijoz "bor ekan-u,
+     tugabdi" deb bilsin. Lekin sotib bo'lmasligi darrov ko'rinsin. */
+  .karta.tugagan { opacity: .62; }
+  .tugadi {
+    font-size: 12px; font-weight: 700; color: #c2410c;
+    border: 1px solid currentColor; border-radius: 8px; padding: 6px 12px;
+  }
 
   .qosh {
     border: 0; background: var(--brand); color: var(--brand-ink);
@@ -317,16 +324,16 @@ async function qidir(s) {
 // Dorilar ro'yxatini chizadi (katalog ham, qidiruv ham shundan foydalanadi)
 function chiz(items) {
   for (const d of items) {
-    const bor = Number(d.stock) > 0;
+    const bor = d.stock !== null && d.stock !== undefined && Number(d.stock) > 0;
     const el = document.createElement('div');
-    el.className = 'karta';
+    el.className = bor ? 'karta' : 'karta tugagan';
     el.innerHTML =
       '<div class="nom"></div>' +
       '<div class="kichik ishlab"></div>' +
       '<div class="qator"><span class="narx"></span></div>';
     el.querySelector('.nom').textContent = d.name;
     el.querySelector('.ishlab').textContent =
-      [d.manufacturer, bor ? 'omborda ' + Math.round(d.stock) : null,
+      [d.manufacturer, bor ? 'omborda ' + sonl(d.stock) + ' ta' : null,
        d.eng_yaqin_muddat ? 'muddat ' + sana(d.eng_yaqin_muddat) : null]
         .filter(Boolean).join(' · ');
     el.querySelector('.narx').textContent = pul(d.price);
@@ -344,12 +351,26 @@ function kartaAmali(el, d) {
   const eski = qator.querySelector('.amal');
   if (eski) eski.remove();
 
+  // Uch holat: null = noma'lum (prays faylida qoldiq ustuni yo'q),
+  // 0 = tugagan, >0 = shuncha bor. Noma'lumni "tugagan" deb qarasak,
+  // butun katalog sotuvdan chiqib ketardi.
+  const qoldiq = (d.stock === null || d.stock === undefined) ? null : Number(d.stock);
+
+  // Faqat ANIQ tugaganiga tugma qo'yilmaydi
+  if (qoldiq !== null && qoldiq <= 0) {
+    const yoq = document.createElement('span');
+    yoq.className = 'tugadi amal';
+    yoq.textContent = 'Qolmadi';
+    qator.appendChild(yoq);
+    return;
+  }
+
   const q = savatMiqdor[d.id] || 0;
 
   if (q > 0) {
     const quti = boshqaruv(d.id, q, function (yangi) {
       if (yangi <= 0) kartaAmali(el, d);
-    });
+    }, qoldiq);
     quti.classList.add('amal');
     qator.appendChild(quti);
     return;
@@ -388,7 +409,10 @@ function sonl(n) {
 // − [3] +  boshqaruvi. Raqamni bosib aniq miqdorni yozish ham mumkin:
 // "24" ni + tugmasi bilan yig'ish uzoq.
 // ozgargach(yangi) — chaqiruvchi o'z ekranini yangilashi uchun.
-function boshqaruv(doriId, qty, ozgargach) {
+// maxQoldiq - omborda nechta bor. Undan oshirib bo'lmaydi: server ham
+// keskilaydi, lekin ekran jim turmasin - tugma "ishlamayotgandek"
+// tuyulmasligi uchun sabab aytiladi.
+function boshqaruv(doriId, qty, ozgargach, maxQoldiq) {
   const quti = document.createElement('div');
   quti.className = 'miqdor';
 
@@ -408,6 +432,14 @@ function boshqaruv(doriId, qty, ozgargach) {
     v = Math.round(v * 1000) / 1000;
     if (v < 0) v = 0;
     if (v > 100000) v = 100000;
+
+    // null/undefined = qoldiq noma'lum -> cheklov yo'q
+    const chek = (maxQoldiq === null || maxQoldiq === undefined) ? null : Number(maxQoldiq);
+    if (chek !== null && chek > 0 && v > chek) {
+      v = chek;
+      xabar('Omborda faqat ' + sonl(chek) + ' ta bor');
+    }
+
     if (v === joriy) return;
     joriy = v;
     son.textContent = sonl(joriy);
@@ -505,10 +537,14 @@ function miqdorniYubor(doriId, qty) {
     api('ozgartir', { product_id: doriId, qty: qty }).then(function (j) {
       const n = j && j.natija;
       if (!j || !j.ok || !n || !n.ok) {
-        xabar('Miqdor saqlanmadi: ' + ((n && n.error) || (j && j.error) || 'aloqa yo‘q'));
+        const kod = (n && n.error) || (j && j.error) || '';
+        xabar(XATO_MATN[kod] || ('Miqdor saqlanmadi: ' + (kod || 'aloqa yo‘q')));
         savatniYangila();
         return;
       }
+
+      // Server qoldiqqacha kesgan bo'lsa - sababini aytamiz
+      if (n.cheklandi) xabar('Omborda faqat ' + sonl(n.qoldiq) + ' ta bor');
       savat = n.savat || { items: [], total: 0 };
       miqdorlarniQayta();
       jaminiChiz();
@@ -565,7 +601,7 @@ function savatniChiz() {
         el.remove();
         if (!(savat.items || []).length) savatniChiz();
       } else chizgich(yangi);
-    });
+    }, (it.stock === null || it.stock === undefined) ? null : Number(it.stock));
     quti.classList.add('amal');
     el.querySelector('.qator').appendChild(quti);
     royxat.appendChild(el);
@@ -603,14 +639,25 @@ document.getElementById('buyurtma').onclick = async () => {
     royxat.innerHTML =
       `<div class="bosh">✅ Buyurtma №${j.natija.order_no} qabul qilindi.<br><br>` +
       `Jami: <b>${pul(j.natija.total)}</b><br><br>Tez orada bog‘lanamiz.</div>`;
+    // Buyurtma paytida qoldiq kamayib qolgan bo'lishi mumkin - server
+    // nimani kesgani va nimani tashlaganini aytadi
+    const ch = (j.natija.cheklangan || []).length;
+    const tu = (j.natija.tushdi || []).length;
+    if (ch || tu) {
+      xabar(
+        (tu ? tu + ' ta dori tugab qolgani uchun chiqarildi. ' : '') +
+        (ch ? ch + ' ta dori qoldiqqacha kamaytirildi.' : '')
+      );
+    }
+
     savat = { items: [], total: 0 };
     savatMiqdor = {};
     pastki.classList.remove('bor');
     setTimeout(function () { if (tg) tg.close(); }, 2500);
-  } else if (j.error === 'TELEFON_KERAK' || (j.natija && j.natija.error === 'TANISHTIRILMAGAN')) {
-    xabar('Avval botda telefon raqamingizni yuboring — /start');
   } else {
-    xabar('Buyurtma yuborilmadi: ' + ((j.natija && j.natija.error) || j.error || 'xatolik'));
+    const kod = (j.natija && j.natija.error) || j.error || '';
+    xabar(XATO_MATN[kod] || ('Buyurtma yuborilmadi: ' + (kod || 'xatolik')));
+    savatniYangila();
   }
 };
 
@@ -618,6 +665,17 @@ document.getElementById('buyurtma').onclick = async () => {
 function xato(matn) {
   royxat.innerHTML = '<div class="bosh">❌ ' + (matn || 'Xatolik') + '</div>';
 }
+
+// Server kodlari mijoz tilida
+var XATO_MATN = {
+  QOLMADI: 'Bu dori omborda qolmadi',
+  DORI_TOPILMADI: 'Dori topilmadi',
+  MIQDOR_JUDA_KATTA: 'Miqdor juda katta',
+  MIQDOR_NOTOGRI: 'Miqdor noto‘g‘ri',
+  TELEFON_KERAK: 'Avval botda telefon raqamingizni yuboring — /start',
+  TANISHTIRILMAGAN: 'Avval botda telefon raqamingizni yuboring — /start',
+  SAVAT_BOSH: 'Savat bo‘sh',
+};
 
 // Ro'yxatni saqlab qolib, pastda qisqa xabar
 var xabarEl = null, xabarVaqt = null;

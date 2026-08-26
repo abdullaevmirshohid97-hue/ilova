@@ -6,6 +6,8 @@
 //    2. Praysni qayta yuklaganda ESKISI O'CHADI, ustiga yozilmaydi -
 //       va boshqa skladlarga tegilmaydi
 //    3. Buyurtma skladlarga to'g'ri taqsimlanadi (45 + 25 + 30 = 100)
+//    4. Sklad Telegramga ulanadi va faqat O'Z so'rovini ko'radi
+//    5. Qoldiqdan ortiq buyurtma berib bo'lmaydi
 //
 //  Sinov O'Z skladlarini ochadi (SINOV-*) va oxirida o'chiradi -
 //  haqiqiy katalogga tegmaydi.
@@ -63,6 +65,12 @@ async function tozala() {
   await sql(`delete from dori_warehouses where name like 'SINOV-%';`);
   await sql(`delete from dori_price_rules where note = 'sinov';`);
   await sql(`delete from dori_warehouse_telegram where chat_id in (555000222, 555000333, 555000444);`);
+  await sql(`delete from dori_cart where chat_id = 999000333;`);
+  await sql(`delete from dori_customers where chat_id = 999000333 or phone = '998000000001';`);
+  await sql(`delete from dori_products where name = 'SINOV TUGAGAN DORI';`);
+  // Sinov haqiqiy dorining qoldig'iga tegadi - katalog takliflardan
+  // qayta yig'ilsin, aks holda sinovdan keyin narx/qoldiq buzuq qoladi
+  await sql(`select dori_katalog_yigish(null);`);
 }
 
 const jsonQator = (o) => JSON.stringify(o).replace(/'/g, "''");
@@ -308,6 +316,93 @@ const jsonQator = (o) => JSON.stringify(o).replace(/'/g, "''");
       where order_id = '${o1}' and status in ('new', 'sent', 'accepted');`
   );
   tekshir('buyurtma bekor bo‘lsa so‘rovlar ham bekor', faol === 0, faol);
+
+  // ================================================== 5. QOLDIQ CHEKLOVI
+  console.log('\n5. Qoldiq cheklovi');
+
+  // Sinov mijozi (savat va zakaz uchun kerak)
+  await sql(`delete from dori_customers where chat_id = 999000333 or phone = '998000000001';`);
+  await sql(`insert into dori_customers (chat_id, phone, phone_norm, name, pharmacy)
+             values (999000333, '998000000001', '998000000001', 'Sinov mijoz', 'SINOV TAQSIM');`);
+  await sql(`delete from dori_cart where chat_id = 999000333;`);
+
+  // Katalogdagi qoldiq = faol skladlardagi jami (45 + 25 + 30 = 100)
+  await sql(`select dori_katalog_yigish(array['${pid}']::uuid[]);`);
+  const [{ stock: jamiQoldiq }] = await sql(`select stock from dori_products where id = '${pid}';`);
+  tekshir('katalog qoldig‘i skladlardan yig‘ildi', Number(jamiQoldiq) === 100, jamiQoldiq);
+
+  // Qoldiqdan ko'p so'ralsa - kesiladi
+  const [{ j: qosh }] = await sql(
+    `select dori_bot_cart_add(999000333, '${pid}', 500) as j;`
+  );
+  tekshir('qoldiqdan ko‘p so‘ralsa kesiladi', Number(qosh.qty) === 100, qosh.qty);
+  tekshir('kesilgani aytiladi', qosh.cheklandi === true, qosh.cheklandi);
+
+  // Tahrirlashda ham
+  const [{ j: set }] = await sql(
+    `select dori_bot_cart_set(999000333, '${pid}', 300) as j;`
+  );
+  tekshir('tahrirlashda ham kesiladi', Number(set.qty) === 100 && set.cheklandi === true, set.qty);
+
+  // Qolmagan doriga - umuman qo'shilmaydi
+  const [{ id: yoqDori }] = await sql(
+    `insert into dori_products (name, name_norm, is_active, price, stock)
+     values ('SINOV TUGAGAN DORI', dori_norm('SINOV TUGAGAN DORI'), true, 5000, 0)
+     returning id;`
+  );
+  const [{ j: yoq }] = await sql(`select dori_bot_cart_add(999000333, '${yoqDori}', 1) as j;`);
+  tekshir('qolmagan dori savatga tushmaydi', yoq.error === 'QOLMADI', yoq.error);
+
+  // Savatda turganda qoldiq kamayib ketsa - buyurtmada tuziladi
+  await sql(`select dori_bot_cart_set(999000333, '${pid}', 100);`);
+  await sql(`update dori_products set stock = 30 where id = '${pid}';`);
+
+  const [{ j: zakaz }] = await sql(
+    `select dori_bot_order_create(999000333, null) as j;`
+  );
+  tekshir('buyurtmada qoldiqqacha kesildi',
+    zakaz.ok === true && (zakaz.cheklangan ?? []).length === 1,
+    JSON.stringify(zakaz.cheklangan));
+
+  const [{ qty: berilgan }] = await sql(
+    `select qty from dori_order_items where order_id = '${zakaz.order_id}';`
+  );
+  tekshir('buyurtmaga faqat bori yozildi (30)', Number(berilgan) === 30, berilgan);
+
+  // Hammasi tugagan bo'lsa - buyurtma umuman yaratilmaydi
+  await sql(`select dori_bot_cart_set(999000333, '${pid}', 5);`);
+  await sql(`update dori_products set stock = 0 where id = '${pid}';`);
+  const [{ j: bosh }] = await sql(`select dori_bot_order_create(999000333, null) as j;`);
+  tekshir('hamma tugagan bo‘lsa buyurtma yaratilmaydi', bosh.error === 'QOLMADI', bosh.error);
+
+  // Katalogda qolmaganlar oxiriga suriladi, lekin yo'qolmaydi
+  const [{ j: sahifa }] = await sql(`select dori_catalog_page(null, 0, 5) as j;`);
+  tekshir('katalogda qolmagan ham ko‘rinadi (soni bilan)',
+    sahifa.items.every((x) => x.stock !== undefined),
+    'birinchi: ' + sahifa.items[0].stock);
+  tekshir('sotiladiganidan boshlanadi (aniq tugagan oxirida)',
+    sahifa.items[0].stock === null || Number(sahifa.items[0].stock) > 0,
+    sahifa.items[0].stock === null ? 'noma’lum' : sahifa.items[0].stock);
+
+  // Qoldiq NOMA'LUM bo'lsa cheklov ishlamasligi kerak: hozirgi prays
+  // fayllarida qoldiq ustuni yo'q, ya'ni bu ODATIY holat. Noma'lumni
+  // "nol" deb hisoblasak butun katalog sotuvdan chiqib ketardi.
+  await sql(`delete from dori_cart where chat_id = 999000333;`);
+  await sql(`update dori_products set stock = null where id = '${pid}';`);
+  const [{ j: nomalum }] = await sql(
+    `select dori_bot_cart_add(999000333, '${pid}', 500) as j;`
+  );
+  tekshir('qoldiq noma’lum bo‘lsa cheklanmaydi',
+    nomalum.ok === true && Number(nomalum.qty) === 500 && nomalum.cheklandi === false,
+    nomalum.qty);
+
+  const [{ j: zakaz2 }] = await sql(`select dori_bot_order_create(999000333, null) as j;`);
+  tekshir('noma’lum qoldiqda buyurtma o‘tadi',
+    zakaz2.ok === true && (zakaz2.cheklangan ?? []).length === 0, zakaz2.order_no);
+
+  await sql(`delete from dori_products where id = '${yoqDori}';`);
+  await sql(`delete from dori_cart where chat_id = 999000333;`);
+  await sql(`delete from dori_customers where chat_id = 999000333 or phone = '998000000001';`);
 
   // ================================================== tozalash
   await tozala();
