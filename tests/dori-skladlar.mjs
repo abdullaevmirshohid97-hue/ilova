@@ -67,7 +67,7 @@ async function tozala() {
   await sql(`delete from dori_warehouse_telegram where chat_id in (555000222, 555000333, 555000444);`);
   await sql(`delete from dori_cart where chat_id = 999000333;`);
   await sql(`delete from dori_customers where chat_id = 999000333 or phone = '998000000001';`);
-  await sql(`delete from dori_products where name in ('SINOV TUGAGAN DORI', 'SINOV YOLGIZ DORI');`);
+  await sql(`delete from dori_products where name in ('SINOV TUGAGAN DORI', 'SINOV YOLGIZ DORI') or name like 'SINOVDORIN%';`);
   // Sinov haqiqiy dorining qoldig'iga tegadi - katalog takliflardan
   // qayta yig'ilsin, aks holda sinovdan keyin narx/qoldiq buzuq qoladi
   await sql(`select dori_katalog_yigish(null);`);
@@ -469,6 +469,66 @@ const jsonQator = (o) => JSON.stringify(o).replace(/'/g, "''");
   tekshir('nol narxli sklad tanlanmaydi',
     !jNol.skladlar.some((x) => x.sklad === 'SINOV-3'),
     jNol.skladlar.map((x) => x.sklad).join(', '));
+
+  // ================================================== 7. MOSLASHTIRISH
+  console.log('\n7. Skladlar orasida dorini tanish');
+
+  // Ikki sklad bir xil dorini boshqacha yozadi. Ilgari ikkinchisi
+  // YANGI dori bo'lib tushardi va skladlar bir-birini ko'rmasdi.
+  const [{ id: wM1 }] = await sql(
+    "insert into dori_warehouses (name, priority) values ('SINOV-M1', 70) returning id;"
+  );
+  const [{ id: wM2 }] = await sql(
+    "insert into dori_warehouses (name, priority) values ('SINOV-M2', 71) returning id;"
+  );
+
+  await admin(`select dori_import_apply('${wM1}',
+    '${jsonQator([{ name: 'SINOVDORIN 0,5 г №10', manufacturer: 'Sinov ZMP/Rossiya', price: 1000, stock: 10 }])}'::jsonb,
+    'm1', null, true, 'm1.xlsx');`);
+
+  // Ayni dori, boshqacha yozilgan: 500мг = 0,5 г
+  await admin(`select dori_import_apply('${wM2}',
+    '${jsonQator([{ name: 'SINOVDORIN 500мг №10', manufacturer: 'Sinov ZMP/Uzbekistan', price: 900, stock: 5 }])}'::jsonb,
+    'm2', null, true, 'm2.xlsx');`);
+
+  const [{ n: nDori }] = await sql(
+    "select count(*)::int as n from dori_products where name like 'SINOVDORIN%';"
+  );
+  tekshir('bir xil dori bitta kartochkada birlashdi', nDori === 1, nDori + ' ta kartochka');
+
+  if (nDori === 1) {
+    const [{ id: mId, price: mNarx }] = await sql(
+      "select id, price from dori_products where name like 'SINOVDORIN%';"
+    );
+    const [{ n: nTaklif }] = await sql(
+      `select count(*)::int as n from dori_offers where product_id = '${mId}';`
+    );
+    tekshir('ikkala skladning taklifi ham bor', nTaklif === 2, nTaklif);
+    // 900 * 1.05 = 945, yaxlitlash 100 so'mgacha -> 900
+    tekshir('katalogda ARZONI ko‘rinadi', Number(mNarx) === 900, mNarx);
+  }
+
+  // Kalit: 0,5 г va 500мг bir xil bo‘lishi shart
+  const [{ a: k1, b: k2 }] = await sql(
+    "select dori_kalit('SINOVDORIN 0,5 г №10') as a, dori_kalit('SINOVDORIN 500мг №10') as b;"
+  );
+  tekshir('0,5 г va 500 мг bir xil kalit beradi', k1 === k2, k1 + ' / ' + k2);
+
+  // Ishlab chiqaruvchisi butunlay boshqa bo'lsa - navbatga tushsin
+  const [{ id: wM3 }] = await sql(
+    "insert into dori_warehouses (name, priority) values ('SINOV-M3', 72) returning id;"
+  );
+  await admin(`select dori_import_apply('${wM3}',
+    '${jsonQator([{ name: 'SINOVDORIN 500 мг №10', manufacturer: 'Boshqa Farm/Turkiya', price: 800, stock: 3 }])}'::jsonb,
+    'm3', null, true, 'm3.xlsx');`);
+
+  const [{ n: nNavbat }] = await sql(
+    "select count(*)::int as n from dori_moslik_navbat n join dori_products p on p.id = n.product_id where p.name like 'SINOVDORIN%' and n.holat = 'kutilmoqda';"
+  );
+  tekshir('ishonchsiz juftlik navbatga tushdi', nNavbat >= 1, nNavbat);
+
+  await sql("delete from dori_warehouses where name like 'SINOV-M%';");
+  await sql("delete from dori_products where name like 'SINOVDORIN%';");
 
   // ================================================== tozalash
   await tozala();
