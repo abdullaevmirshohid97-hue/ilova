@@ -62,6 +62,15 @@ type Ulangan = {
   linked_at: string;
 };
 
+type SkladUser = {
+  id: string;
+  email: string;
+  full_name: string | null;
+  is_active: boolean;
+  kirgan: boolean;
+  last_seen: string | null;
+};
+
 type Yuklash = {
   id: string;
   sklad: string | null;
@@ -113,6 +122,10 @@ export default function DoriSkladlar() {
   const [ulanganlar, setUlanganlar] = useState<Ulangan[]>([]);
   const [kodTel, setKodTel] = useState('');
   const [kod, setKod] = useState<{ code: string; phone: string } | null>(null);
+  const [userlar, setUserlar] = useState<SkladUser[]>([]);
+  const [uEmail, setUEmail] = useState('');
+  const [uNom, setUNom] = useState('');
+  const [uParol, setUParol] = useState('');
   const [ish, setIsh] = useState<string | null>(null);
   const [xato, setXato] = useState<string | null>(null);
   const [xabar, setXabar] = useState<string | null>(null);
@@ -155,6 +168,9 @@ export default function DoriSkladlar() {
     setKodTel('');
     const { data: u } = await supabase.rpc('dori_sklad_telegram_royxat', { p_warehouse_id: id });
     setUlanganlar((u ?? []) as Ulangan[]);
+    setUEmail(''); setUNom(''); setUParol('');
+    const { data: uu } = await supabase.rpc('dori_sklad_user_royxat', { p_warehouse_id: id });
+    setUserlar((uu ?? []) as SkladUser[]);
   }
 
   async function saqla() {
@@ -209,6 +225,48 @@ export default function DoriSkladlar() {
     const { error } = await supabase.rpc('dori_sklad_uzish', { p_chat_id: Number(chatId) });
     if (error) { setXato('Uzilmadi: ' + error.message); return; }
     setUlanganlar((p) => p.filter((x) => x.chat_id !== chatId));
+  }
+
+  // Parolsiz qo'shish: xodim Google bilan kiradi. Emaili ro'yxatda
+  // bo'lmasa Google tugmasi unga hech narsa ochmaydi.
+  async function userQosh(wh: string) {
+    if (!uEmail.includes('@')) { setXato('Email noto‘g‘ri'); return; }
+    setXato(null);
+    setIsh('Qo‘shilmoqda...');
+
+    if (uParol.trim()) {
+      if (uParol.trim().length < 8) { setIsh(null); setXato('Parol kamida 8 belgi bo‘lsin'); return; }
+      const { data, error } = await supabase.functions.invoke('dori-sklad-user', {
+        body: { warehouse_id: wh, email: uEmail.trim(), parol: uParol.trim(), full_name: uNom.trim() || null },
+      });
+      setIsh(null);
+      if (error) {
+        let sabab = error.message ?? '';
+        try { const j = await (error as any)?.context?.json?.(); if (j?.error) sabab = j.error; } catch { /* javob o'qilmadi */ }
+        setXato('Yaratilmadi: ' + sabab);
+        return;
+      }
+      void data;
+      setXabar('Login yaratildi — xodim email va parol bilan kira oladi');
+    } else {
+      const { error } = await supabase.rpc('dori_sklad_user_qosh', {
+        p_warehouse_id: wh, p_email: uEmail.trim(), p_full_name: uNom.trim() || null,
+      });
+      setIsh(null);
+      if (error) { setXato('Qo‘shilmadi: ' + error.message); return; }
+      setXabar('Email ro‘yxatga olindi — xodim Google bilan kira oladi');
+    }
+
+    setUEmail(''); setUNom(''); setUParol('');
+    const { data: uu } = await supabase.rpc('dori_sklad_user_royxat', { p_warehouse_id: wh });
+    setUserlar((uu ?? []) as SkladUser[]);
+  }
+
+  async function userOchir(id: string) {
+    if (!confirm('Bu hisob o‘chirilsinmi? Xodim kabinetga kira olmaydi.')) return;
+    const { error } = await supabase.rpc('dori_sklad_user_ochir', { p_id: id });
+    if (error) { setXato('O‘chirilmadi: ' + error.message); return; }
+    setUserlar((p) => p.filter((x) => x.id !== id));
   }
 
   function tahrirla(s: Sklad) {
@@ -435,6 +493,72 @@ export default function DoriSkladlar() {
               className="px-2 py-1.5 text-[12px] outline-none"
               style={{ ...inpStyle, width: 280 }}
             />
+          </div>
+
+          {/* ---------- Kabinet hisoblari ---------- */}
+          <div className="mb-4 p-3" style={{ background: C.panel2, border: `1px solid ${C.line}` }}>
+            <div className="mb-2 text-[10px] font-bold tracking-[0.16em]" style={{ color: sh(C.text, 80) }}>
+              KABINET — SKLAD XODIMI BRAUZERDAN KIRADI
+            </div>
+
+            {userlar.length > 0 ? (
+              <div className="mb-3 grid gap-1">
+                {userlar.map((u) => (
+                  <div key={u.id} className="flex items-center justify-between gap-3 text-[11px]">
+                    <span style={{ color: C.textBright }}>
+                      {u.email}
+                      <span style={{ color: C.text }}>
+                        {u.full_name ? ` · ${u.full_name}` : ''}
+                        {u.kirgan ? ' · kirgan' : ' · hali kirmagan'}
+                      </span>
+                    </span>
+                    <button onClick={() => userOchir(u.id)} className="px-2 py-0.5 text-[10px]"
+                            style={{ color: C.danger, border: `1px solid ${C.line}` }}>
+                      O‘CHIR
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="mb-3 text-[11px]" style={{ color: C.text }}>
+                Hali hisob yo‘q — sklad kabinetga kira olmaydi.
+              </div>
+            )}
+
+            <div className="flex flex-wrap items-end gap-2">
+              <label className="block">
+                <span className="mb-1 block text-[10px]" style={{ color: C.text }}>EMAIL</span>
+                <input value={uEmail} onChange={(e) => setUEmail(e.target.value)}
+                       placeholder="xodim@sklad.uz"
+                       className="px-2 py-1.5 text-[13px] outline-none"
+                       style={{ ...inpStyle, width: 210 }} />
+              </label>
+              <label className="block">
+                <span className="mb-1 block text-[10px]" style={{ color: C.text }}>ISM</span>
+                <input value={uNom} onChange={(e) => setUNom(e.target.value)}
+                       className="px-2 py-1.5 text-[13px] outline-none"
+                       style={{ ...inpStyle, width: 150 }} />
+              </label>
+              <label className="block">
+                <span className="mb-1 block text-[10px]" style={{ color: C.text }}>
+                  PAROL (bo‘sh = faqat Google)
+                </span>
+                <input value={uParol} onChange={(e) => setUParol(e.target.value)}
+                       type="text" placeholder="kamida 8 belgi"
+                       className="px-2 py-1.5 text-[13px] outline-none"
+                       style={{ ...inpStyle, width: 170 }} />
+              </label>
+              <button onClick={() => userQosh(joriy.id)} disabled={!!ish} className={btn}
+                      style={{ color: C.onAccent, background: C.neon, border: `1px solid ${C.neon}` }}>
+                QO‘SHISH
+              </button>
+            </div>
+
+            <div className="mt-2 text-[11px]" style={{ color: C.text }}>
+              Parol yozsangiz — xodim email va parol bilan kiradi. Bo‘sh qoldirsangiz —
+              faqat <b>Google bilan kirish</b> ishlaydi (emaili shu ro‘yxatda bo‘lgani uchun).
+              Kabinetda u o‘z so‘rovlarini, praysini va qoldig‘ini ko‘radi; mijoz narxini emas.
+            </div>
           </div>
 
           {/* ---------- Telegram ---------- */}

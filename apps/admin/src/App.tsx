@@ -24,6 +24,7 @@ const Settings = lazy(() => import('./pages/Settings'));
 const SuperAdminPanel = lazy(() => import('./pages/SuperAdminPanel'));
 const Managers = lazy(() => import('./pages/Managers'));
 const ManagerApp = lazy(() => import('./components/ManagerApp'));
+const SkladKabinet = lazy(() => import('./pages/SkladKabinet'));
 
 function Yuklanmoqda() {
   return (
@@ -50,9 +51,13 @@ function keshdanRol(userId: string): string | null {
   }
 }
 
+type Sklad = { warehouse_id: string; sklad: string; full_name?: string | null };
+
 export default function App() {
   const [session, setSession] = useState<Session | null>(null);
   const [role, setRole] = useState<string | null>(null);
+  // Sklad xodimi: undefined = hali tekshirilmadi, null = sklad emas
+  const [sklad, setSklad] = useState<Sklad | null | undefined>(undefined);
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
@@ -64,12 +69,29 @@ export default function App() {
     return () => sub.subscription.unsubscribe();
   }, []);
 
+  // Sklad xodimi TENANT EMAS: uning profiles yozuvi yo'q, shuning uchun
+  // rolni tekshirishdan OLDIN aniqlanadi. Aks holda pastdagi tekshiruv
+  // uni "roli yo'q" deb tizimdan chiqarib yuborardi.
+  useEffect(() => {
+    if (!session) {
+      setSklad(null);
+      return;
+    }
+    setSklad(undefined);
+    supabase.rpc('dori_sklad_men').then(({ data }) => {
+      setSklad((data as Sklad) ?? null);
+    });
+  }, [session]);
+
   useEffect(() => {
     if (!session) {
       setRole(null);
       localStorage.removeItem(ROLE_KEY);
       return;
     }
+    // Sklad xodimi ekani aniqlangan bo'lsa - profil so'ralmaydi
+    if (sklad) return;
+    if (sklad === undefined) return;
 
     // Kesh bo'lsa panelni darhol ko'rsatamiz, so'rov fonda ketaveradi
     const kesh = keshdanRol(session.user.id);
@@ -91,11 +113,29 @@ export default function App() {
           localStorage.setItem(ROLE_KEY, JSON.stringify({ id: session.user.id, role: r }));
         }
       });
-  }, [session]);
+  }, [session, sklad]);
 
   if (!ready) return null;
 
   if (!session) return <Login />;
+
+  if (sklad === undefined) {
+    return (
+      <div className="flex h-screen items-center justify-center text-gray-400">
+        Tekshirilmoqda...
+      </div>
+    );
+  }
+
+  // Sklad xodimi o'z kabinetini ko'radi — admin panelga umuman kirmaydi
+  if (sklad) {
+    return (
+      <Suspense fallback={<Yuklanmoqda />}>
+        <SkladKabinet sklad={sklad} />
+      </Suspense>
+    );
+  }
+
   if (role == null) {
     return (
       <div className="flex h-screen items-center justify-center text-gray-400">

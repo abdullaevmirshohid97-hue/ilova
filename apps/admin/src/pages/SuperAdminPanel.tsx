@@ -7,6 +7,7 @@ import NarxlarPaneli from './NarxlarPaneli';
 import DoriMijozlar from './DoriMijozlar';
 import DoriSkladlar from './DoriSkladlar';
 import DoriBuyurtmalar from './DoriBuyurtmalar';
+import DoriMoslik from './DoriMoslik';
 
 // ============================================================================
 // Super-admin "boshqaruv markazi" — eDEX-UI uslubidagi HUD.
@@ -16,7 +17,7 @@ import DoriBuyurtmalar from './DoriBuyurtmalar';
 // ============================================================================
 
 
-type Bolim = 'tenantlar' | 'nazorat' | 'dori' | 'skladlar' | 'buyurtmalar' | 'narxlar' | 'mijozlar';
+type Bolim = 'tenantlar' | 'nazorat' | 'dori' | 'skladlar' | 'buyurtmalar' | 'moslik' | 'narxlar' | 'mijozlar';
 
 const BOLIMLAR: { key: Bolim; belgi: string; nom: string; izoh: string }[] = [
   { key: 'tenantlar', belgi: '▤', nom: 'TENANTLAR', izoh: 'reestr va obuna' },
@@ -24,6 +25,7 @@ const BOLIMLAR: { key: Bolim; belgi: string; nom: string; izoh: string }[] = [
   { key: 'dori', belgi: '⚕', nom: 'DORI', izoh: 'faktura roboti' },
   { key: 'skladlar', belgi: '▥', nom: 'SKLADLAR', izoh: 'omborlar va prays' },
   { key: 'buyurtmalar', belgi: '⇄', nom: 'BUYURTMALAR', izoh: 'skladlarga taqsimot' },
+  { key: 'moslik', belgi: '⊜', nom: 'MOSLASHTIRISH', izoh: 'bir xil dorini tanish' },
   { key: 'narxlar', belgi: '₴', nom: 'NARX QO‘YISH', izoh: 'ustama va chegirma' },
   { key: 'mijozlar', belgi: '☎', nom: 'MIJOZLAR', izoh: 'dorixonalar va login' },
 ];
@@ -636,6 +638,7 @@ export default function SuperAdminPanel() {
           {bolim === 'dori' && <DoriModuli />}
           {bolim === 'skladlar' && <DoriSkladlar />}
           {bolim === 'buyurtmalar' && <DoriBuyurtmalar />}
+          {bolim === 'moslik' && <DoriMoslik />}
           {bolim === 'narxlar' && <NarxlarPaneli />}
           {bolim === 'mijozlar' && <DoriMijozlar />}
           {bolim === 'nazorat' && <NazoratMarkazi />}

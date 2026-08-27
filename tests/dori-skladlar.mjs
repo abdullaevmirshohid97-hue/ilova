@@ -65,6 +65,7 @@ async function tozala() {
   await sql(`delete from dori_warehouses where name like 'SINOV-%';`);
   await sql(`delete from dori_price_rules where note = 'sinov';`);
   await sql(`delete from dori_warehouse_telegram where chat_id in (555000222, 555000333, 555000444);`);
+  await sql("delete from dori_warehouse_users where email like 'sinov-k%';");
   await sql(`delete from dori_cart where chat_id = 999000333;`);
   await sql(`delete from dori_customers where chat_id = 999000333 or phone = '998000000001';`);
   await sql(`delete from dori_products where name in ('SINOV TUGAGAN DORI', 'SINOV YOLGIZ DORI') or name like 'SINOVDORIN%';`);
@@ -529,6 +530,62 @@ const jsonQator = (o) => JSON.stringify(o).replace(/'/g, "''");
 
   await sql("delete from dori_warehouses where name like 'SINOV-M%';");
   await sql("delete from dori_products where name like 'SINOVDORIN%';");
+
+  // ================================================== 8. KABINET RUXSATLARI
+  console.log('\n8. Sklad kabineti ruxsatlari');
+
+  const [{ id: wK }] = await sql(
+    "insert into dori_warehouses (name, priority) values ('SINOV-K', 80) returning id;"
+  );
+  const [{ id: wK2 }] = await sql(
+    "insert into dori_warehouses (name, priority) values ('SINOV-K2', 81) returning id;"
+  );
+
+  // Ikki sklad xodimi (auth foydalanuvchisisiz - faqat email bo'yicha)
+  await sql(`insert into dori_warehouse_users (warehouse_id, email, full_name)
+             values ('${wK}', 'sinov-k@sklad.test', 'Sinov K');`);
+  await sql(`insert into dori_warehouse_users (warehouse_id, email, full_name)
+             values ('${wK2}', 'sinov-k2@sklad.test', 'Sinov K2');`);
+
+  const [{ n: bogsiz }] = await sql(
+    "select count(*)::int as n from dori_warehouse_users where email like 'sinov-k%' and user_id is null;"
+  );
+  tekshir('email oldindan ro‘yxatga olindi (Google uchun)', bogsiz === 2, bogsiz);
+
+  // Sklad xodimi nomidan chaqiruv: hali bog'lanmagan bo'lsa - hech narsa
+  const [{ j: yoqSklad }] = await sql(
+    `select set_config('request.jwt.claims', json_build_object('sub', gen_random_uuid())::text, true) as x,
+            dori_sklad_men() as j;`
+  );
+  tekshir('ro‘yxatda yo‘q foydalanuvchiga sklad ochilmaydi', yoqSklad === null, JSON.stringify(yoqSklad));
+
+  // Kabinet RPC'lari sklad xodimi bo'lmaganga ishlamasin
+  let rad = false;
+  try {
+    await sql(`select set_config('request.jwt.claims', json_build_object('sub', gen_random_uuid())::text, true) as x;
+               select dori_kabinet_sorovlar(10);`);
+  } catch (e) {
+    rad = /RUXSAT_YOQ/.test(e.message);
+  }
+  tekshir('begona kabinet so‘rovlarini ocholmaydi', rad, rad ? 'RUXSAT_YOQ' : 'ochildi');
+
+  let rad2 = false;
+  try {
+    await sql(`select set_config('request.jwt.claims', json_build_object('sub', gen_random_uuid())::text, true) as x;
+               select dori_kabinet_narxlar(null, 0, 10);`);
+  } catch (e) {
+    rad2 = /RUXSAT_YOQ/.test(e.message);
+  }
+  tekshir('begona praysni ocholmaydi', rad2, rad2 ? 'RUXSAT_YOQ' : 'ochildi');
+
+  // Sklad xodimiga profil OCHILMAYDI (u tenant emas)
+  const [{ n: profil }] = await sql(
+    "select count(*)::int as n from profiles p join dori_warehouse_users u on u.user_id = p.id;"
+  );
+  tekshir('sklad xodimiga profil ochilmagan', profil === 0, profil);
+
+  await sql("delete from dori_warehouse_users where email like 'sinov-k%';");
+  await sql("delete from dori_warehouses where name like 'SINOV-K%';");
 
   // ================================================== tozalash
   await tozala();
