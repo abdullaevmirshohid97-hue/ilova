@@ -18,7 +18,11 @@ import { createClient } from 'npm:@supabase/supabase-js@2';
 
 const cors = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'content-type, authorization, apikey',
+  // supabase-js har so'rovga x-client-info qo'shadi. Ro'yxatda bo'lmasa
+  // brauzer preflight'ni rad etadi va panel "Failed to fetch" oladi -
+  // funksiyaning o'ziga so'rov umuman yetib bormaydi.
+  'Access-Control-Allow-Headers':
+    'content-type, authorization, apikey, x-client-info, x-supabase-api-version',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 

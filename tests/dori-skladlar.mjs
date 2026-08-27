@@ -67,7 +67,7 @@ async function tozala() {
   await sql(`delete from dori_warehouse_telegram where chat_id in (555000222, 555000333, 555000444);`);
   await sql(`delete from dori_cart where chat_id = 999000333;`);
   await sql(`delete from dori_customers where chat_id = 999000333 or phone = '998000000001';`);
-  await sql(`delete from dori_products where name = 'SINOV TUGAGAN DORI';`);
+  await sql(`delete from dori_products where name in ('SINOV TUGAGAN DORI', 'SINOV YOLGIZ DORI');`);
   // Sinov haqiqiy dorining qoldig'iga tegadi - katalog takliflardan
   // qayta yig'ilsin, aks holda sinovdan keyin narx/qoldiq buzuq qoladi
   await sql(`select dori_katalog_yigish(null);`);
@@ -220,11 +220,32 @@ const jsonQator = (o) => JSON.stringify(o).replace(/'/g, "''");
   tekshir('bitta skladda to‘liq bo‘lsa bo‘linmaydi', j2.skladlar.length === 1);
   tekshir('eng arzon sklad tanlandi', j2.skladlar[0]?.sklad === 'SINOV-2', j2.skladlar[0]?.sklad);
 
-  const o3 = await buyurtma(150);
+  // Bu dori boshqa hech qayerda yo'q: faqat sinov skladlarida
+  const [{ id: yolgiz }] = await sql(
+    `insert into dori_products (name, name_norm, is_active)
+     values ('SINOV YOLGIZ DORI', dori_norm('SINOV YOLGIZ DORI'), true) returning id;`
+  );
+  for (const [nom, narx, qoldiq] of [['SINOV-1', 9000, 45], ['SINOV-2', 8500, 25], ['SINOV-3', 9500, 30]]) {
+    await sql(`insert into dori_offers (warehouse_id, product_id, base_price, price, stock, last_import)
+               select id, '${yolgiz}', ${narx}, ${narx}, ${qoldiq}, 'sinov'
+               from dori_warehouses where name = '${nom}';`);
+  }
+  await sql(`select dori_katalog_yigish(array['${yolgiz}']::uuid[]);`);
+
+  const [{ id: o3 }] = await sql(
+    `insert into dori_orders (chat_id, name, phone, pharmacy, total)
+     values (999000222, 'Sinov', '998000000000', 'SINOV TAQSIM', 0) returning id;`
+  );
+  await sql(`insert into dori_order_items (order_id, product_id, name, price, qty, sum)
+             values ('${o3}', '${yolgiz}', 'SINOV YOLGIZ DORI', 10000, 150, 1500000);`);
+
   const { j: j3 } = await admin(`select dori_order_split('${o3}', true) as j;`);
   tekshir('yetishmagan miqdor ko‘rsatiladi (50)',
     j3.yetishmadi.length === 1 && Number(j3.yetishmadi[0].qty) === 50,
     JSON.stringify(j3.yetishmadi));
+  tekshir('bori uch skladga bo‘lindi (100)',
+    j3.skladlar.reduce((a, x) => a + Number(x.pozitsiyalar[0].qty), 0) === 100,
+    j3.skladlar.map((x) => x.sklad + ':' + x.pozitsiyalar[0].qty).join(', '));
 
   await admin(`select dori_order_split('${o1}', true) as j;`);
   const { j: t4 } = await admin(`select dori_order_taqsimot('${o1}') as j;`);
@@ -403,6 +424,51 @@ const jsonQator = (o) => JSON.stringify(o).replace(/'/g, "''");
   await sql(`delete from dori_products where id = '${yoqDori}';`);
   await sql(`delete from dori_cart where chat_id = 999000333;`);
   await sql(`delete from dori_customers where chat_id = 999000333 or phone = '998000000001';`);
+
+  // ================================================== 6. NOMA'LUM QOLDIQDA TAQSIMOT
+  console.log('\n6. Qoldiq noma’lum bo‘lganda taqsimot');
+
+  // Haqiqiy holat: prays fayllarida qoldiq ustuni yo'q, ya'ni HAMMA
+  // taklifda stock NULL. Ilgari taqsimlagich NULL ni 0 deb o'qib,
+  // hech narsani taqsimlamasdi - buyurtmani skladga yuborib bo'lmasdi.
+  await sql(`update dori_offers set stock = null where product_id = '${pid}';`);
+  await sql(`select dori_katalog_yigish(array['${pid}']::uuid[]);`);
+
+  const oNull = await buyurtma(70);
+  const { j: jNull } = await admin(`select dori_order_split('${oNull}', true) as j;`);
+  tekshir('noma’lum qoldiqda ham taqsimlanadi', jNull.skladlar.length >= 1,
+    jNull.skladlar.map((x) => x.sklad + ':' + x.pozitsiyalar[0].qty).join(', '));
+  tekshir('hammasi eng arzon skladga ketdi',
+    jNull.skladlar.length === 1 && Number(jNull.skladlar[0].pozitsiyalar[0].qty) === 70,
+    jNull.skladlar[0]?.sklad);
+  tekshir('yetishmadi deb belgilanmadi', jNull.yetishmadi.length === 0,
+    JSON.stringify(jNull.yetishmadi));
+
+  // Aralash holat: bittasida aniq qoldiq, boshqasida noma'lum
+  await sql(`update dori_offers o set stock = 20
+             from dori_warehouses w
+             where w.id = o.warehouse_id and w.name = 'SINOV-2' and o.product_id = '${pid}';`);
+  const oAralash = await buyurtma(70);
+  const { j: jAralash } = await admin(`select dori_order_split('${oAralash}', true) as j;`);
+  const miqAralash = Object.fromEntries(
+    jAralash.skladlar.map((x) => [x.sklad, Number(x.pozitsiyalar[0].qty)])
+  );
+  tekshir('aralashda arzoni cheklovi hisobga olinadi',
+    miqAralash['SINOV-2'] === undefined || miqAralash['SINOV-2'] <= 20,
+    JSON.stringify(miqAralash));
+  tekshir('qolgani noma’lum skladdan to‘ldirildi',
+    Object.values(miqAralash).reduce((a, b) => a + b, 0) === 70,
+    JSON.stringify(miqAralash));
+
+  // Nol narxli taklif taqsimotga tushmasin (bepul sotib yubormaylik)
+  await sql(`update dori_offers o set price = 0, base_price = 0
+             from dori_warehouses w
+             where w.id = o.warehouse_id and w.name = 'SINOV-3' and o.product_id = '${pid}';`);
+  const oNol = await buyurtma(10);
+  const { j: jNol } = await admin(`select dori_order_split('${oNol}', true) as j;`);
+  tekshir('nol narxli sklad tanlanmaydi',
+    !jNol.skladlar.some((x) => x.sklad === 'SINOV-3'),
+    jNol.skladlar.map((x) => x.sklad).join(', '));
 
   // ================================================== tozalash
   await tozala();

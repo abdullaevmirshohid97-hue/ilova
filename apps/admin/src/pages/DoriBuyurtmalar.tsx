@@ -92,7 +92,17 @@ export default function DoriBuyurtmalar() {
       );
       await yukla();
     } catch (e: any) {
-      setXato('Yuborilmadi: ' + (e?.message ?? ''));
+      // Edge funksiya xatosi ko'pincha javob ichida bo'ladi, e.message
+      // esa quruq "Edge Function returned a non-2xx status code" bo'lib
+      // qoladi - sababni ko'rsatmasak, tekshirib bo'lmaydi
+      let sabab = e?.message ?? 'nomalum xato';
+      try {
+        const j = await e?.context?.json?.();
+        if (j?.error) sabab = j.error;
+      } catch {
+        /* javobni o'qib bo'lmadi - asl xabar qoladi */
+      }
+      setXato('Yuborilmadi: ' + sabab);
     } finally {
       setIsh(null);
     }

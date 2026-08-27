@@ -37,6 +37,10 @@ type Korish = {
   dorilar: number;
   ozgaradi: number;
   namuna: { name: string; tannarx: number; hozirgi: number; yangi: number }[];
+  // Kuch tartibi: dori > guruh > SKLAD > umumiy. O'z ustamasi bor sklad
+  // umumiy foizni QABUL QILMAYDI — buni aytmasak, foydalanuvchi
+  // "foiz qo'shilmadi" deb o'ylaydi va sababini topolmaydi.
+  chetda_qolgan_skladlar?: { sklad: string; ustama_pct: number | null; ustama_sum: number | null }[];
 };
 
 type Dori = {
@@ -277,6 +281,24 @@ export default function NarxlarPaneli() {
             <div className="text-[12px]" style={{ color: C.textBright }}>
               {son(korish.dorilar)} dori · <b style={{ color: C.warn }}>{son(korish.ozgaradi)}</b> tasining narxi o‘zgaradi
             </div>
+
+            {(korish.chetda_qolgan_skladlar?.length ?? 0) > 0 && (
+              <div className="mt-2 p-2 text-[11px]"
+                   style={{ color: C.warn, border: `1px solid ${C.warn}`, background: sh(C.warn, 8) }}>
+                <b>Diqqat:</b> quyidagi skladlarda O‘Z ustamasi bor, shuning uchun umumiy foiz
+                ularga tegmaydi:{' '}
+                {korish.chetda_qolgan_skladlar!.map((w, i) => (
+                  <span key={w.sklad}>
+                    {i > 0 && ', '}
+                    <b>{w.sklad}</b>
+                    {w.ustama_pct != null ? ` (${w.ustama_pct}%)` : ''}
+                    {w.ustama_sum != null ? ` (+${son(w.ustama_sum)} so‘m)` : ''}
+                  </span>
+                ))}
+                . Ularning foizini <b>SKLADLAR</b> bo‘limidan o‘zgartiring yoki bo‘sh qoldiring —
+                shunda umumiy foiz ishlaydi.
+              </div>
+            )}
             <div className="mt-2 grid gap-1">
               {korish.namuna.map((n, i) => (
                 <div key={i} className="text-[11px]" style={{ color: C.text }}>
