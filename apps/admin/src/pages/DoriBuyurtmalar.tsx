@@ -24,6 +24,8 @@ type Taqsim = {
   sell_total: number;
   sent_at: string | null;
   ulangan: boolean;
+  faktura_no?: string | null;
+  qabul_at?: string | null;
   pozitsiyalar: { name: string; qty: number }[];
 };
 
@@ -106,6 +108,56 @@ export default function DoriBuyurtmalar() {
     } finally {
       setIsh(null);
     }
+  }
+
+  // Base64 -> fayl. Chekka funksiya hujjatni JSON ichida qaytaradi,
+  // chunki uni Telegramga emas, brauzerga berish kerak.
+  function faylniSaqla(b64: string, nom: string, tur: string) {
+    const xom = atob(b64);
+    const bayt = new Uint8Array(xom.length);
+    for (let i = 0; i < xom.length; i++) bayt[i] = xom.charCodeAt(i);
+    const url = URL.createObjectURL(new Blob([bayt], { type: tur }));
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = nom;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 4000);
+  }
+
+  async function faktura(t: Taqsim, tur: 'pdf' | 'xlsx') {
+    setIsh(`${t.sklad ?? 'Sklad'} fakturasi tayyorlanmoqda...`);
+    setXato(null);
+    try {
+      const { data, error } = await supabase.functions.invoke('dori-faktura', {
+        body: { rejim: 'sklad', split_id: t.split_id },
+      });
+      if (error) throw error;
+      const r = data as { nom: string; pdf: string; xlsx: string };
+      if (tur === 'pdf') faylniSaqla(r.pdf, `${r.nom}.pdf`, 'application/pdf');
+      else faylniSaqla(r.xlsx, `${r.nom}.xlsx`,
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    } catch (e: any) {
+      let sabab = e?.message ?? '';
+      try { const j = await e?.context?.json?.(); if (j?.error) sabab = j.error; } catch { /* javob o'qilmadi */ }
+      setXato('Faktura tayyorlanmadi: ' + sabab);
+    } finally {
+      setIsh(null);
+    }
+  }
+
+  // Sklad tovarni yubordi - super admin uni qabul qiladi va skladning
+  // o'z faktura raqamini yozib qo'yadi
+  async function qabulQil(t: Taqsim) {
+    const no = prompt(`${t.sklad ?? 'Sklad'} fakturasi raqami (ixtiyoriy):`, t.faktura_no ?? '');
+    if (no === null) return;
+    setIsh('Qabul qilinmoqda...');
+    const { error } = await supabase.rpc('dori_sklad_qabul', {
+      p_split_id: t.split_id, p_faktura_no: no.trim() || null,
+    });
+    setIsh(null);
+    if (error) { setXato('Qabul qilinmadi: ' + error.message); return; }
+    setXabar(`${t.sklad ?? 'Sklad'} tovari qabul qilindi`);
+    await yukla();
   }
 
   async function holatQoy(b: Buyurtma, status: string) {
@@ -240,6 +292,27 @@ export default function DoriBuyurtmalar() {
                             <div className="mt-1 text-[11px]" style={{ color: C.text }}>
                               skladga <b style={{ color: C.textBright }}>{son(t.base_total)}</b> ·
                               mijozga <b style={{ color: C.neon }}>{son(t.sell_total)}</b>
+                              {t.faktura_no ? <> · faktura {t.faktura_no}</> : null}
+                            </div>
+
+                            <div className="mt-2 flex flex-wrap gap-1.5">
+                              {t.status !== 'done' && (
+                                <button onClick={() => qabulQil(t)} disabled={!!ish}
+                                        className="px-2 py-1 text-[10px] font-bold"
+                                        style={{ color: C.onAccent, background: C.neon, border: `1px solid ${C.neon}` }}>
+                                  QABUL QILISH
+                                </button>
+                              )}
+                              <button onClick={() => faktura(t, 'pdf')} disabled={!!ish}
+                                      className="px-2 py-1 text-[10px] font-bold"
+                                      style={{ color: C.neon2, border: `1px solid ${C.line}` }}>
+                                FAKTURA PDF
+                              </button>
+                              <button onClick={() => faktura(t, 'xlsx')} disabled={!!ish}
+                                      className="px-2 py-1 text-[10px] font-bold"
+                                      style={{ color: C.text, border: `1px solid ${C.line}` }}>
+                                EXCEL
+                              </button>
                             </div>
                           </div>
                         ))}

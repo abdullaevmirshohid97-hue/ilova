@@ -126,6 +126,8 @@ export default function DoriSkladlar() {
   const [uEmail, setUEmail] = useState('');
   const [uNom, setUNom] = useState('');
   const [uParol, setUParol] = useState('');
+  const [tanlangan_dori, setTanlanganDori] = useState<Set<string>>(new Set());
+  const [cheklov, setCheklov] = useState<boolean | null>(null);
   const [ish, setIsh] = useState<string | null>(null);
   const [xato, setXato] = useState<string | null>(null);
   const [xabar, setXabar] = useState<string | null>(null);
@@ -137,6 +139,12 @@ export default function DoriSkladlar() {
   }, []);
 
   useEffect(() => { yukla(); }, [yukla]);
+
+  useEffect(() => {
+    supabase.rpc('dori_sozlama').then(({ data }) => {
+      setCheklov(Boolean((data as { qoldiq_cheklovi?: boolean } | null)?.qoldiq_cheklovi));
+    });
+  }, []);
 
   const narxlarniYukla = useCallback(
     async (wh: string, qidiruv: string, off: number) => {
@@ -161,6 +169,7 @@ export default function DoriSkladlar() {
     setQ('');
     setOfset(0);
     setQatorlar([]);
+    setTanlanganDori(new Set());
     await narxlarniYukla(id, '', 0);
     const { data } = await supabase.rpc('dori_import_tarix', { p_warehouse_id: id, p_limit: 10 });
     setTarix((data ?? []) as Yuklash[]);
@@ -200,8 +209,10 @@ export default function DoriSkladlar() {
   }
 
   async function ochir(s: Sklad) {
-    if (s.is_default) { setXato('Asosiy sklad o‘chirilmaydi'); return; }
-    if (!confirm(`"${s.name}" o‘chirilsinmi? Undagi ${son(s.pozitsiya)} pozitsiya ham o‘chadi.`)) return;
+    const ogoh = s.is_default
+      ? '\n\nBu ASOSIY sklad. O‘chirilsa, asosiylik keyingi skladga o‘tadi.'
+      : '';
+    if (!confirm(`"${s.name}" o‘chirilsinmi? Undagi ${son(s.pozitsiya)} pozitsiya ham o‘chadi.${ogoh}`)) return;
     const { error } = await supabase.rpc('dori_sklad_ochir', { p_id: s.id });
     if (error) { setXato('O‘chirilmadi: ' + error.message); return; }
     if (tanlangan === s.id) setTanlangan(null);
@@ -269,6 +280,55 @@ export default function DoriSkladlar() {
     setUserlar((p) => p.filter((x) => x.id !== id));
   }
 
+  async function cheklovniOzgartir(yangi: boolean) {
+    setXato(null);
+    const { error } = await supabase.rpc('dori_sozlama_qoy', { p_qoldiq_cheklovi: yangi });
+    if (error) { setXato('Saqlanmadi: ' + error.message); return; }
+    setCheklov(yangi);
+    setXabar(
+      yangi
+        ? 'Qoldiq cheklovi YOQILDI — qoldiqdan ortiq buyurtma berib bo‘lmaydi'
+        : 'Qoldiq cheklovi O‘CHIRILDI — qoldiq endi faqat ma’lumot, hech narsani to‘xtatmaydi'
+    );
+  }
+
+  async function asosiyQil(w: Sklad) {
+    const { error } = await supabase.rpc('dori_sklad_asosiy_qil', { p_id: w.id });
+    if (error) { setXato('O‘zgartirilmadi: ' + error.message); return; }
+    setXabar(`«${w.name}» endi asosiy sklad`);
+    await yukla();
+  }
+
+  // Dorining O'ZI o'chmaydi - faqat shu skladdagi taklifi. Dori boshqa
+  // skladda bo'lishi va eski buyurtmalarga bog'langan bo'lishi mumkin.
+  async function tanlanganlarniOchir(wh: string) {
+    const ids = [...tanlangan_dori];
+    if (ids.length === 0) return;
+    if (!confirm(`${ids.length} ta pozitsiya shu skladdan o‘chirilsinmi?\n\nDorining o‘zi katalogda qoladi.`)) return;
+    setIsh('O‘chirilmoqda...');
+    const { error } = await supabase.rpc('dori_taklif_ochir', {
+      p_warehouse_id: wh, p_product_ids: ids,
+    });
+    setIsh(null);
+    if (error) { setXato('O‘chirilmadi: ' + error.message); return; }
+    setQatorlar((p) => p.filter((x) => !tanlangan_dori.has(x.id)));
+    setJami((n) => Math.max(0, n - ids.length));
+    setTanlanganDori(new Set());
+    setXabar(`${ids.length} ta pozitsiya o‘chirildi`);
+    await yukla();
+  }
+
+  async function praysniTozala(w: Sklad) {
+    if (!confirm(`«${w.name}» skladining BUTUN praysi o‘chirilsinmi?\n\n${son(w.pozitsiya)} pozitsiya. Dorilar katalogda qoladi.`)) return;
+    setIsh('Tozalanmoqda...');
+    const { error } = await supabase.rpc('dori_sklad_prays_tozala', { p_warehouse_id: w.id });
+    setIsh(null);
+    if (error) { setXato('Tozalanmadi: ' + error.message); return; }
+    setQatorlar([]); setJami(0); setTanlanganDori(new Set());
+    setXabar('Prays tozalandi');
+    await yukla();
+  }
+
   function tahrirla(s: Sklad) {
     setShakl({
       id: s.id,
@@ -310,13 +370,30 @@ export default function DoriSkladlar() {
             har sklad o‘z narxi va o‘z qoldig‘i bilan · ustama shu yerda belgilanadi
           </div>
         </div>
-        <button
-          onClick={() => setShakl({ ...BOSH_SHAKL })}
-          className={btn}
-          style={{ color: C.onAccent, background: C.neon, border: `1px solid ${C.neon}`, borderRadius: RADIUS }}
-        >
-          + SKLAD QO‘SHISH
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          {cheklov !== null && (
+            <button
+              onClick={() => cheklovniOzgartir(!cheklov)}
+              className={btn}
+              title="O‘chirilganda qoldiq faqat ma’lumot bo‘lib qoladi va buyurtmani to‘xtatmaydi"
+              style={{
+                color: cheklov ? C.onAccent : C.text,
+                background: cheklov ? C.neon2 : 'transparent',
+                border: `1px solid ${cheklov ? C.neon2 : C.line}`,
+                borderRadius: RADIUS,
+              }}
+            >
+              QOLDIQ CHEKLOVI: {cheklov ? 'YOQILGAN' : 'O‘CHIQ'}
+            </button>
+          )}
+          <button
+            onClick={() => setShakl({ ...BOSH_SHAKL })}
+            className={btn}
+            style={{ color: C.onAccent, background: C.neon, border: `1px solid ${C.neon}`, borderRadius: RADIUS }}
+          >
+            + SKLAD QO‘SHISH
+          </button>
+        </div>
       </div>
 
       {/* ---------- shakl ---------- */}
@@ -463,11 +540,19 @@ export default function DoriSkladlar() {
                     TAHRIR
                   </button>
                   {!s.is_default && (
-                    <button onClick={() => ochir(s)} className="px-2 py-1 text-[10px] font-bold"
-                            style={{ color: C.danger, border: `1px solid ${C.line}` }}>
-                      O‘CHIR
+                    <button onClick={() => asosiyQil(s)} className="px-2 py-1 text-[10px] font-bold"
+                            style={{ color: C.text, border: `1px solid ${C.line}` }}>
+                      ASOSIY QIL
                     </button>
                   )}
+                  <button onClick={() => praysniTozala(s)} className="px-2 py-1 text-[10px] font-bold"
+                          style={{ color: C.warn, border: `1px solid ${C.line}` }}>
+                    PRAYSNI TOZALA
+                  </button>
+                  <button onClick={() => ochir(s)} className="px-2 py-1 text-[10px] font-bold"
+                          style={{ color: C.danger, border: `1px solid ${C.line}` }}>
+                    O‘CHIR
+                  </button>
                 </div>
               </div>
             </div>
@@ -635,12 +720,41 @@ export default function DoriSkladlar() {
             </div>
           )}
 
+          {tanlangan_dori.size > 0 && (
+            <div className="mb-2 flex flex-wrap items-center gap-3 p-2"
+                 style={{ border: `1px solid ${C.warn}`, background: sh(C.warn, 8) }}>
+              <span className="text-[11px]" style={{ color: C.textBright }}>
+                {son(tanlangan_dori.size)} ta pozitsiya belgilandi
+              </span>
+              <button onClick={() => tanlanganlarniOchir(joriy.id)} className="px-2 py-1 text-[10px] font-bold"
+                      style={{ color: C.danger, border: `1px solid ${C.danger}` }}>
+                SHU SKLADDAN O‘CHIRISH
+              </button>
+              <button onClick={() => setTanlanganDori(new Set())} className="px-2 py-1 text-[10px]"
+                      style={{ color: C.text, border: `1px solid ${C.line}` }}>
+                BEKOR
+              </button>
+              <span className="text-[11px]" style={{ color: C.text }}>
+                Dorining o‘zi katalogda qoladi — faqat shu skladdagi taklifi o‘chadi.
+              </span>
+            </div>
+          )}
+
           {ish && <div className="mb-2 text-[11px]" style={{ color: C.neon2 }}>{ish}</div>}
 
           <div className="overflow-x-auto">
             <table className="w-full text-[11px]" style={{ borderCollapse: 'collapse' }}>
               <thead>
                 <tr style={{ color: sh(C.text, 80) }}>
+                  <th className="px-2 py-1.5" style={{ borderBottom: `1px solid ${C.line}` }}>
+                    <input
+                      type="checkbox"
+                      checked={qatorlar.length > 0 && tanlangan_dori.size === qatorlar.length}
+                      onChange={(e) =>
+                        setTanlanganDori(e.target.checked ? new Set(qatorlar.map((r) => r.id)) : new Set())
+                      }
+                    />
+                  </th>
                   {['DORI', 'ISHLAB CHIQARUVCHI', 'QOLDIQ', 'TANNARX', 'SOTUV', 'SERIYA', 'MUDDAT'].map((h) => (
                     <th key={h} className="px-2 py-1.5 text-left text-[9px] font-bold tracking-[0.14em]"
                         style={{ borderBottom: `1px solid ${C.line}`, whiteSpace: 'nowrap' }}>
@@ -652,6 +766,17 @@ export default function DoriSkladlar() {
               <tbody>
                 {qatorlar.map((r, i) => (
                   <tr key={r.id} style={{ background: i % 2 ? C.zebra : 'transparent' }}>
+                    <td className="px-2 py-1.5">
+                      <input
+                        type="checkbox"
+                        checked={tanlangan_dori.has(r.id)}
+                        onChange={(e) => {
+                          const y = new Set(tanlangan_dori);
+                          if (e.target.checked) y.add(r.id); else y.delete(r.id);
+                          setTanlanganDori(y);
+                        }}
+                      />
+                    </td>
                     <td className="px-2 py-1.5" style={{ color: C.textBright, minWidth: 220 }}>{r.name}</td>
                     <td className="px-2 py-1.5" style={{ color: C.text }}>{r.manufacturer ?? '—'}</td>
                     <td className="px-2 py-1.5" style={{ color: Number(r.stock) > 0 ? C.text : C.danger }}>

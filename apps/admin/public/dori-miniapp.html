@@ -267,6 +267,8 @@ async function katalogniYukla(boshidan) {
   if (!j.ok) return xato(j.error);
 
   jamiTopilgan = j.jami || 0;
+  // Server aytadi: qoldiq cheklovi o‘chiq bo‘lsa "Qolmadi" yozilmaydi
+  cheklovYoq = j.cheklov === false;
   if (boshidan) royxat.innerHTML = '';
   if (!j.items.length && boshidan) {
     royxat.innerHTML = '<div class="bosh">Katalog hali to‘ldirilmagan.</div>';
@@ -354,7 +356,7 @@ function kartaAmali(el, d) {
   // Uch holat: null = noma'lum (prays faylida qoldiq ustuni yo'q),
   // 0 = tugagan, >0 = shuncha bor. Noma'lumni "tugagan" deb qarasak,
   // butun katalog sotuvdan chiqib ketardi.
-  const qoldiq = (d.stock === null || d.stock === undefined) ? null : Number(d.stock);
+  const qoldiq = cheklovYoq || d.stock === null || d.stock === undefined ? null : Number(d.stock);
 
   // Faqat ANIQ tugaganiga tugma qo'yilmaydi
   if (qoldiq !== null && qoldiq <= 0) {
@@ -394,6 +396,7 @@ function kartaAmali(el, d) {
 // Savatdagi miqdorlar: product_id -> qty. Katalog ham, savat ham shu
 // yerdan o'qiydi, shuning uchun ikki bo'lim doim bir xil ko'rsatadi.
 var savatMiqdor = {};
+var cheklovYoq = false;
 
 function miqdorlarniQayta() {
   savatMiqdor = {};

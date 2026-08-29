@@ -169,7 +169,7 @@ async function pdfYasa(inv: any): Promise<{ bayt: Uint8Array; kirill: boolean }>
   function sarlavhaChiz() {
     y = BO - M;
     yoz('IDAA FARM', M, y - 4, 16, bold, brand);
-    yoz(`FAKTURA № ${inv.order_no}`, EN - M - 150, y - 4, 13, bold);
+    yoz(`${inv.sarlavha ?? 'FAKTURA'} № ${inv.faktura_no ?? inv.order_no}`, EN - M - 150, y - 4, 13, bold);
     y -= 18;
     yoz('Dori vositalari ulgurji savdosi', M, y - 2, 8, font, grey);
     yoz(`Sana: ${sana(inv.created_at)}`, EN - M - 150, y - 2, 8.5, font, grey);
@@ -177,7 +177,7 @@ async function pdfYasa(inv: any): Promise<{ bayt: Uint8Array; kirill: boolean }>
     page.drawRectangle({ x: M, y: y - 2, width: EN - M * 2, height: 2, color: brand });
     y -= 16;
 
-    yoz('Mijoz:', M, y, 8, font, grey);
+    yoz(inv.taraf_nom ?? 'Mijoz:', M, y, 8, font, grey);
     yoz(inv.customer?.name ?? '—', M + 34, y, 9.5, bold);
     yoz('Telefon:', M + 210, y, 8, font, grey);
     yoz(inv.customer?.phone ?? '—', M + 252, y, 9);
@@ -378,7 +378,7 @@ async function excelYasa(inv: any): Promise<Uint8Array> {
   // ---------- sarlavha ----------
   ws.mergeCells('A1:I1');
   const s1 = ws.getCell('A1');
-  s1.value = 'IDAA FARM — FAKTURA';
+  s1.value = 'IDAA FARM — ' + (inv.sarlavha ?? 'FAKTURA');
   s1.font = { size: 16, bold: true, color: { argb: 'FF0D7D6B' } };
   s1.alignment = { horizontal: 'center' };
   ws.getRow(1).height = 24;
@@ -391,7 +391,7 @@ async function excelYasa(inv: any): Promise<Uint8Array> {
 
   ws.mergeCells('A3:I3');
   const s3 = ws.getCell('A3');
-  s3.value = `Mijoz: ${inv.customer?.name ?? '—'}    ·    Telefon: ${inv.customer?.phone ?? '—'}` +
+  s3.value = `${(inv.taraf_nom ?? 'Mijoz:').replace(':', '')}: ${inv.customer?.name ?? '—'}    ·    Telefon: ${inv.customer?.phone ?? '—'}` +
              (inv.customer?.pharmacy ? `    ·    ${inv.customer.pharmacy}` : '');
   s3.alignment = { horizontal: 'center' };
   s3.font = { size: 10 };
@@ -502,28 +502,96 @@ async function hujjatYubor(
   return j;
 }
 
+const CORS_JSON = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers':
+    'content-type, authorization, apikey, x-client-info, x-supabase-api-version',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Content-Type': 'application/json',
+};
+
+// Fayl brauzerga JSON ichida qaytadi: panel uni yuklab olib chop etadi.
+// Katta massivni spread bilan String.fromCharCode ga berish stek
+// to'lib ketishiga olib keladi - bo'lak-bo'lak o'giriladi.
+function base64ga(b: Uint8Array): string {
+  let s = '';
+  const bolak = 0x8000;
+  for (let i = 0; i < b.length; i += bolak) {
+    s += String.fromCharCode(...b.subarray(i, i + bolak));
+  }
+  return btoa(s);
+}
+
 Deno.serve(async (req) => {
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS_JSON });
+
   const token = Deno.env.get('TELEGRAM_DORI_BOT_TOKEN');
   const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 
   if (!token) return new Response('TOKEN_YOQ', { status: 500 });
 
-  const auth = req.headers.get('Authorization') ?? '';
-  if (!auth.includes(serviceKey)) return new Response('FORBIDDEN', { status: 403 });
+  const auth = (req.headers.get('Authorization') ?? '').replace(/^Bearer\s+/i, '');
+  const supabase = createClient(supabaseUrl, serviceKey);
 
-  let order_id: string | undefined;
-  let chat_id: number | undefined;
+  let body: any = {};
   try {
-    const b = await req.json();
-    order_id = b?.order_id;
-    chat_id = Number(b?.chat_id);
+    body = await req.json();
   } catch {
     return new Response('BAD_JSON', { status: 400 });
   }
-  if (!order_id || !chat_id) return new Response('PARAM_YOQ', { status: 400 });
 
-  const supabase = createClient(supabaseUrl, serviceKey);
+  // ================================================== SKLAD REJIMI
+  // Super admin sklad nomidan kirim fakturasini oladi. Telegramga
+  // yuborilmaydi - fayllar brauzerga qaytadi (chop etish uchun).
+  if (body?.rejim === 'sklad') {
+    if (!auth) return new Response('FORBIDDEN', { status: 403 });
+
+    // service_role kaliti yoki super admin JWT'si
+    let ruxsat = auth === serviceKey;
+    if (!ruxsat) {
+      const { data: u } = await supabase.auth.getUser(auth);
+      const uid = u?.user?.id;
+      if (uid) {
+        const { data: p } = await supabase.from('profiles').select('role').eq('id', uid).maybeSingle();
+        ruxsat = (p as any)?.role === 'super_admin';
+      }
+    }
+    if (!ruxsat) return new Response(JSON.stringify({ error: 'RUXSAT_YOQ' }), { status: 403, headers: CORS_JSON });
+
+    const splitId = String(body?.split_id ?? '');
+    if (!splitId) return new Response(JSON.stringify({ error: 'SPLIT_YOQ' }), { status: 400, headers: CORS_JSON });
+
+    const { data: inv2, error: xato2 } = await supabase.rpc('dori_sklad_faktura_srv', { p_split_id: splitId });
+    if (xato2) return new Response(JSON.stringify({ error: xato2.message }), { status: 500, headers: CORS_JSON });
+    if (!inv2) return new Response(JSON.stringify({ error: 'TOPILMADI' }), { status: 404, headers: CORS_JSON });
+
+    try {
+      const pdf = await pdfYasa(inv2 as any);
+      const xls = await excelYasa(inv2 as any);
+      const nom = `kirim-${(inv2 as any).faktura_no ?? (inv2 as any).order_no}`;
+      return new Response(
+        JSON.stringify({
+          ok: true,
+          nom,
+          pdf: base64ga(pdf.bayt),
+          xlsx: base64ga(xls),
+        }),
+        { headers: CORS_JSON }
+      );
+    } catch (e) {
+      return new Response(JSON.stringify({ error: String((e as any)?.message ?? e) }), {
+        status: 500, headers: CORS_JSON,
+      });
+    }
+  }
+
+  // ================================================== MIJOZ REJIMI
+  if (auth !== serviceKey) return new Response('FORBIDDEN', { status: 403 });
+
+  const order_id: string | undefined = body?.order_id;
+  const chat_id: number | undefined = Number(body?.chat_id);
+  if (!order_id || !chat_id) return new Response('PARAM_YOQ', { status: 400 });
 
   // Buyurtma AYNAN shu chatniki ekanini baza tekshiradi
   const { data, error } = await supabase.rpc('dori_invoice_for_chat', {
