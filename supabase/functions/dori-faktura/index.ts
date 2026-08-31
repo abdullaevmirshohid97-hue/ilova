@@ -541,6 +541,49 @@ Deno.serve(async (req) => {
     return new Response('BAD_JSON', { status: 400 });
   }
 
+  // ================================================== SOTUV REJIMI
+  // Operator paneldan sotdi - faktura brauzerga qaytadi (chop etish
+  // yoki PDF saqlash uchun). Telegram bu yerda qatnashmaydi.
+  if (body?.rejim === 'sotuv') {
+    if (!auth) return new Response('FORBIDDEN', { status: 403 });
+
+    let ruxsat2 = auth === serviceKey;
+    if (!ruxsat2) {
+      const { data: u2 } = await supabase.auth.getUser(auth);
+      const uid2 = u2?.user?.id;
+      if (uid2) {
+        const { data: p2 } = await supabase.from('profiles').select('role').eq('id', uid2).maybeSingle();
+        ruxsat2 = (p2 as any)?.role === 'super_admin';
+      }
+    }
+    if (!ruxsat2) return new Response(JSON.stringify({ error: 'RUXSAT_YOQ' }), { status: 403, headers: CORS_JSON });
+
+    const saleId = String(body?.sale_id ?? '');
+    if (!saleId) return new Response(JSON.stringify({ error: 'SALE_YOQ' }), { status: 400, headers: CORS_JSON });
+
+    const { data: inv3, error: xato3 } = await supabase.rpc('dori_sotuv_faktura_srv', { p_sale_id: saleId });
+    if (xato3) return new Response(JSON.stringify({ error: xato3.message }), { status: 500, headers: CORS_JSON });
+    if (!inv3) return new Response(JSON.stringify({ error: 'TOPILMADI' }), { status: 404, headers: CORS_JSON });
+
+    try {
+      const pdf3 = await pdfYasa(inv3 as any);
+      const xls3 = await excelYasa(inv3 as any);
+      return new Response(
+        JSON.stringify({
+          ok: true,
+          nom: `sotuv-${(inv3 as any).order_no}`,
+          pdf: base64ga(pdf3.bayt),
+          xlsx: base64ga(xls3),
+        }),
+        { headers: CORS_JSON }
+      );
+    } catch (e) {
+      return new Response(JSON.stringify({ error: String((e as any)?.message ?? e) }), {
+        status: 500, headers: CORS_JSON,
+      });
+    }
+  }
+
   // ================================================== SKLAD REJIMI
   // Super admin sklad nomidan kirim fakturasini oladi. Telegramga
   // yuborilmaydi - fayllar brauzerga qaytadi (chop etish uchun).

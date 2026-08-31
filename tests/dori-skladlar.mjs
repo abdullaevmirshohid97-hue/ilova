@@ -71,7 +71,8 @@ async function tozala() {
   await sql(`delete from dori_price_rules where note = 'sinov';`);
   await sql(`delete from dori_warehouse_telegram where chat_id in (555000222, 555000333, 555000444);`);
   await sql("delete from dori_warehouse_users where email like 'sinov-k%';");
-  await sql("delete from dori_products where name in ('SINOV TAHRIR DORI', 'SINOV ARZON DORI');");
+  await sql("delete from dori_products where name in ('SINOV TAHRIR DORI', 'SINOV ARZON DORI', 'SINOV SOTUV DORI');");
+  await sql("delete from dori_customers where phone = '998000000003';");
   await sql("delete from dori_customers where chat_id = 999000444 or phone = '998000000002';");
   await sql(`delete from dori_cart where chat_id = 999000333;`);
   await sql(`delete from dori_customers where chat_id = 999000333 or phone = '998000000001';`);
@@ -606,7 +607,8 @@ const jsonQator = (o) => JSON.stringify(o).replace(/'/g, "''");
   tekshir('sklad xodimiga profil ochilmagan', profil === 0, profil);
 
   await sql("delete from dori_warehouse_users where email like 'sinov-k%';");
-  await sql("delete from dori_products where name in ('SINOV TAHRIR DORI', 'SINOV ARZON DORI');");
+  await sql("delete from dori_products where name in ('SINOV TAHRIR DORI', 'SINOV ARZON DORI', 'SINOV SOTUV DORI');");
+  await sql("delete from dori_customers where phone = '998000000003';");
   await sql("delete from dori_customers where chat_id = 999000444 or phone = '998000000002';");
   await sql("delete from dori_warehouses where name like 'SINOV-K%';");
 
@@ -753,6 +755,84 @@ const jsonQator = (o) => JSON.stringify(o).replace(/'/g, "''");
   await sql("delete from dori_price_rules where note = 'sinov';");
   await sql(`delete from dori_warehouses where name = 'SINOV-S';`);
   await sql(`delete from dori_products where id = '${dS}';`);
+
+  // ================================================== 11. SOTUV
+  console.log('\n11. Sotuv moduli');
+
+  const [{ id: wSot }] = await sql(
+    "insert into dori_warehouses (name, priority) values ('SINOV-SOT', 96) returning id;"
+  );
+  const [{ id: dSot }] = await sql(
+    `insert into dori_products (name, name_norm, is_active)
+     values ('SINOV SOTUV DORI', dori_norm('SINOV SOTUV DORI'), true) returning id;`
+  );
+  await sql(`insert into dori_offers (warehouse_id, product_id, base_price, price, stock, last_import)
+             values ('${wSot}', '${dSot}', 5000, 6000, 10, 'sinov');`);
+
+  await sql("delete from dori_customers where phone = '998000000003';");
+  const [{ id: mSot }] = await sql(
+    `insert into dori_customers (phone, phone_norm, name, pharmacy)
+     values ('998000000003', '998000000003', 'Sinov mijoz', 'SINOV DORIXONA') returning id;`
+  );
+
+  // Qidiruv skladga bog'langan bo'lishi kerak
+  const { j: topilgan } = await admin(
+    `select dori_sotuv_qidir('${wSot}', 'SINOV SOTUV', 10) as j;`
+  );
+  tekshir('skladdan dori topildi', topilgan.length === 1 && Number(topilgan[0].price) === 6000,
+    topilgan.length ? topilgan[0].price : 'topilmadi');
+
+  // Sotuv
+  const { j: sotuv } = await admin(
+    `select dori_sotuv_yarat('${wSot}', '${mSot}',
+       '[{"product_id":"${dSot}","qty":3}]'::jsonb, 'sinov') as j;`
+  );
+  tekshir('sotuv rasmiylashtirildi', sotuv.ok === true, '№' + sotuv.sale_no);
+  tekshir('mijoz to‘laydigan summa', Number(sotuv.total) === 18000, sotuv.total);
+  tekshir('skladga tegishli summa', Number(sotuv.base_total) === 15000, sotuv.base_total);
+  tekshir('foyda hisoblandi', Number(sotuv.foyda) === 3000, sotuv.foyda);
+
+  const [{ qoldiq: qoldiqKeyin }] = await sql(
+    `select stock as qoldiq from dori_offers where warehouse_id = '${wSot}';`
+  );
+  tekshir('qoldiq kamaydi (10 -> 7)', Number(qoldiqKeyin) === 7, qoldiqKeyin);
+
+  // Narx MIJOZDAN olinmaydi: yuborilgan narx e'tiborga olinmaydi
+  const { j: sotuv2 } = await admin(
+    `select dori_sotuv_yarat('${wSot}', '${mSot}',
+       '[{"product_id":"${dSot}","qty":1,"price":1}]'::jsonb, null) as j;`
+  );
+  tekshir('narx skladdan olinadi, so‘rovdan emas', Number(sotuv2.total) === 6000, sotuv2.total);
+
+  // Qoldiqdan ortiq sotib bo'lmaydi
+  const { j: kop } = await admin(
+    `select dori_sotuv_yarat('${wSot}', '${mSot}',
+       '[{"product_id":"${dSot}","qty":999}]'::jsonb, null) as j;`
+  );
+  tekshir('qoldiqdan ortiq sotilmaydi', kop.ok === false && kop.error === 'QOLDIQ_YETMAYDI', kop.error);
+
+  // Faktura
+  const [{ j: fakt }] = await sql(`select dori_sotuv_faktura_srv('${sotuv.sale_id}') as j;`);
+  tekshir('faktura shakllandi', fakt.items.length === 1 && Number(fakt.total) === 18000,
+    'jami ' + fakt.total);
+  tekshir('fakturada sotuv sarlavhasi', fakt.sarlavha === 'SOTUV FAKTURASI', fakt.sarlavha);
+
+  // Bekor qilish qoldiqni qaytaradi
+  await admin(`select dori_sotuv_bekor('${sotuv.sale_id}');`);
+  const [{ qoldiq: qoldiqBekor }] = await sql(
+    `select stock as qoldiq from dori_offers where warehouse_id = '${wSot}';`
+  );
+  tekshir('bekor qilishda qoldiq qaytdi (6 -> 9)', Number(qoldiqBekor) === 9, qoldiqBekor);
+
+  const [{ st: sotuvHolat }] = await sql(
+    `select status as st from dori_sales where id = '${sotuv.sale_id}';`
+  );
+  tekshir('bekor qilingan sotuv tarixda qoladi', sotuvHolat === 'cancelled', sotuvHolat);
+
+  await sql(`delete from dori_sales where warehouse_id = '${wSot}';`);
+  await sql(`delete from dori_customers where id = '${mSot}';`);
+  await sql(`delete from dori_warehouses where id = '${wSot}';`);
+  await sql(`delete from dori_products where id = '${dSot}';`);
 
   // ================================================== tozalash
   await tozala();
