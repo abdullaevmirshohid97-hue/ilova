@@ -214,10 +214,17 @@ console.log('\n6. Menejer ustamasi adminga ochilmaydi');
     limit 1
   `);
 
+  // Shart bajarilmasa sinov YIQILMAYDI, ogohlantiradi: tenantda admin
+  // yo'qligi tekshiruvning emas, ma'lumotning muammosi. Jonli bazada
+  // shunday bo'ldi - yagona admin super_admin ga ko'tarilgach, bu blok
+  // "undefined" uuid bilan qulab tushdi va haqiqiy xato kabi ko'rindi.
+  if (!admin?.id) {
+    ogoh('menejer ustamasi tekshirilmadi', 'bu tenantda admin yo‘q — rol o‘zgargan bo‘lishi mumkin');
+  } else {
   const [{ narxlar }] = await sql(`
     begin;
     select set_config('request.jwt.claims',
-      json_build_object('sub','${admin?.id}','role','authenticated')::text, true);
+      json_build_object('sub','${admin.id}','role','authenticated')::text, true);
     set local role authenticated;
     select count(*)::int as narxlar from manager_prices;
     rollback;
@@ -245,6 +252,7 @@ console.log('\n6. Menejer ustamasi adminga ochilmaydi');
     );
   } else {
     ok('orders.total adminga ochilmaydi', true);
+  }
   }
 }
 

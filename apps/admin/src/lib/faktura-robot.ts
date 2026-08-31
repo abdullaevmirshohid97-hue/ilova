@@ -55,14 +55,22 @@ export const MAYDON_NOMI: Record<Maydon, string> = {
 // Ustun nomini tanish uchun kalit so'zlar. Uzbek (lotin/kirill), rus va
 // ingliz variantlari — postavshchiklar har xil yozadi.
 const KALITLAR: Record<Maydon, string[]> = {
-  name: ['nomi', 'nomlanishi', 'tovar', 'mahsulot', 'dori', 'preparat', 'наименование', 'название', 'товар', 'препарат', 'name', 'product', 'description'],
-  manufacturer: ['ishlab chiqaruvchi', 'zavod', 'firma', 'производитель', 'изготовитель', 'завод', 'manufacturer', 'maker', 'brand'],
-  series: ['seriya', 'seriyasi', 'partiya', 'серия', 'партия', 'series', 'batch', 'lot'],
-  expiry: ['muddat', 'yaroqlilik', 'amal qilish', 'срок', 'годен', 'годности', 'expiry', 'exp', 'shelf'],
-  qty: ['miqdor', 'soni', 'son', 'dona', 'kol-vo', 'количество', 'кол-во', 'кол', 'qty', 'quantity', 'amount'],
-  unit: ['birlik', "o'lchov", 'olchov', 'ед.изм', 'единица', 'изм', 'unit', 'uom'],
-  price: ['narx', 'narxi', 'baho', 'цена', 'price', 'unit price', 'стоимость за'],
-  sum: ['summa', 'jami', 'qiymat', 'сумма', 'стоимость', 'итого', 'total', 'amount'],
+  name: ['nomi', 'nomlanishi', 'tovar', 'mahsulot', 'dori', 'preparat', 'наименование', 'название', 'товар', 'препарат', 'name', 'product', 'description',
+         'номи', 'номланиши', 'дори', 'маҳсулот', 'махсулот', 'товари'],
+  manufacturer: ['ishlab chiqaruvchi', 'zavod', 'firma', 'производитель', 'изготовитель', 'завод', 'manufacturer', 'maker', 'brand',
+                 'ишлаб чиқарувчи', 'ишлаб чикарувчи', 'заводи', 'фирма'],
+  series: ['seriya', 'seriyasi', 'partiya', 'серия', 'партия', 'series', 'batch', 'lot',
+           'серияси', 'партияси'],
+  expiry: ['muddat', 'yaroqlilik', 'amal qilish', 'срок', 'годен', 'годности', 'expiry', 'exp', 'shelf',
+           'муддат', 'муддати', 'яроқлилик', 'яроклилик', 'тугаш'],
+  qty: ['miqdor', 'soni', 'son', 'dona', 'kol-vo', 'количество', 'кол-во', 'кол', 'qty', 'quantity', 'amount',
+        'миқдор', 'микдор', 'сони', 'дона'],
+  unit: ['birlik', "o'lchov", 'olchov', 'ед.изм', 'единица', 'изм', 'unit', 'uom',
+         'бирлик', 'ўлчов', 'улчов'],
+  price: ['narx', 'narxi', 'baho', 'цена', 'price', 'unit price', 'стоимость за',
+          'нарх', 'нархи', 'нарҳ', 'сотув нарх', 'сотиш нарх', 'баҳо', 'бахо'],
+  sum: ['summa', 'jami', 'qiymat', 'сумма', 'стоимость', 'итого', 'total', 'amount',
+        'сумма', 'жами', 'қиймат', 'киймат'],
   nds_rate: ['nds %', 'ndc %', 'qqs %', 'ндс %', 'ставка ндс', 'vat %', 'nds stavka'],
   nds_sum: ['nds summa', 'qqs summa', 'сумма ндс', 'ндс сумма', 'vat amount', 'nds'],
   // Katalog uchun kerak: dorini AYNAN tanish (shtrix-kod nomdan ishonchli —
@@ -70,8 +78,10 @@ const KALITLAR: Record<Maydon, string[]> = {
   // "Код" — haqiqiy fayllarda shtrix-kod o'rniga postavshchikning o'z
   // kodi ishlatiladi (masalan "A66458") va u ham xuddi shunday doimiy kalit
   barcode: ['shtrix', 'штрих', 'штрихкод', 'barcode', 'ean', 'sku', 'artikul', 'артикул', 'kod', 'код'],
-  stock: ['qoldiq', 'ombor', 'mavjud', 'остаток', 'остатки', 'наличие', 'склад', 'stock'],
-  group: ['guruh', 'kategoriya', "bo'lim", 'группа', 'категория', 'раздел', 'group', 'category'],
+  stock: ['qoldiq', 'ombor', 'mavjud', 'остаток', 'остатки', 'наличие', 'склад', 'stock',
+          'қолдиқ', 'колдик', 'омбор', 'мавжуд'],
+  group: ['guruh', 'kategoriya', "bo'lim", 'группа', 'категория', 'раздел', 'group', 'category',
+          'гуруҳ', 'гурух', 'категорияси', 'бўлим', 'булим'],
   // Ishlab chiqarilgan sana. DIQQAT: "производств" ni tanlaymiz, "производ"
   // emas — aks holda "Производитель" (ishlab chiqaruvchi) ham shunga tushib
   // ketardi va ikkala ustun chalkashardi.
@@ -449,8 +459,7 @@ export function qatorlarniYig(
   // narxlar ro'yxati (assortiment). Unda "miqdor yo'q" deb har bir qatorni
   // ogohlantirish ma'nosiz: 10 ming qator qizarib ketadi va haqiqiy
   // muammolar ko'rinmay qoladi.
-  const rejim: Rejim =
-    moslash.qty === undefined && moslash.sum === undefined ? 'narxlar' : 'faktura';
+  const rejim: Rejim = moslash.qty === undefined ? 'narxlar' : 'faktura';
 
   const moslanganIndekslar = new Set(Object.values(moslash));
 

@@ -71,6 +71,11 @@ export default function DoriModuli() {
   // "hammasi bitta omborda" degan eski xatoni qaytarardi
   const [skladlar, setSkladlar] = useState<{ id: string; name: string; is_default: boolean }[]>([]);
   const [sklad, setSklad] = useState<string>('');
+  // Robot fayl turini xato tanishi mumkin (kirill sarlavhalar, notanish
+  // ustunlar). Foydalanuvchi tiqilib qolmasin: turni QO'LDA almashtira
+  // olsin. Jonli bazada aynan shu bo'ldi — 3132 qatorli prays "faktura"
+  // deb saqlanib, katalogga umuman yetib bormadi.
+  const [rejimQol, setRejimQol] = useState<'faktura' | 'narxlar' | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const royxatYukla = useCallback(async () => {
@@ -288,6 +293,9 @@ export default function DoriModuli() {
 
   const btn = 'px-3 py-1.5 text-[11px] font-bold tracking-[0.14em]';
 
+  // Qo'lda tanlangani ustun, aks holda robot aytgani
+  const rejim = rejimQol ?? natija?.rejim;
+
   return (
     <div style={{ fontFamily: MONO }}>
       {/* ---------- fayl tashlash ---------- */}
@@ -339,8 +347,29 @@ export default function DoriModuli() {
                 {son(natija.jamiHisoblangan)}
               </span>
             </Quti>
-            <Quti sarlavha={natija.rejim === 'narxlar' ? 'FAYL TURI' : 'FAYLDAGI JAMI'}>
-              {natija.rejim === 'narxlar' ? (
+            <Quti sarlavha="FAYL TURI">
+              <div className="flex gap-1">
+                {(['narxlar', 'faktura'] as const).map((k) => (
+                  <button
+                    key={k}
+                    onClick={() => { setRejimQol(k); setFarq(null); }}
+                    className="px-2 py-1 text-[10px] font-bold tracking-[0.12em]"
+                    style={{
+                      color: rejim === k ? C.onAccent : C.text,
+                      background: rejim === k ? C.neon2 : 'transparent',
+                      border: `1px solid ${rejim === k ? C.neon2 : C.line}`,
+                    }}
+                  >
+                    {k === 'narxlar' ? 'PRAYS' : 'FAKTURA'}
+                  </button>
+                ))}
+              </div>
+              <div className="mt-1 text-[10px]" style={{ color: sh(C.text, 67) }}>
+                {rejimQol ? 'qo‘lda tanlandi' : 'robot aniqladi'} · noto‘g‘ri bo‘lsa almashtiring
+              </div>
+            </Quti>
+            <Quti sarlavha={rejim === 'narxlar' ? 'USTUNLAR' : 'FAYLDAGI JAMI'}>
+              {rejim === 'narxlar' ? (
                 <span className="text-[13px] font-extrabold" style={{ color: C.neon2 }}>
                   NARXLAR RO‘YXATI
                   <span className="ml-1 block text-[10px] font-normal" style={{ color: `${sh(C.text, 67)}` }}>
@@ -535,7 +564,7 @@ export default function DoriModuli() {
 
           {natijaXabar && <Xabar rang={C.neon}>{natijaXabar}</Xabar>}
 
-          {natija.rejim === 'narxlar' && (
+          {rejim === 'narxlar' && (
             <div
               className="mb-3 flex flex-wrap items-center gap-3 p-3"
               style={{ background: C.panel, border: `1px solid ${sklad ? C.line : C.warn}` }}
@@ -562,7 +591,7 @@ export default function DoriModuli() {
           )}
 
           <div className="mb-6 flex flex-wrap gap-2">
-            {natija.rejim === 'narxlar' ? (
+            {rejim === 'narxlar' ? (
               farq ? (
                 <button
                   onClick={kataloggaYukla}
@@ -588,12 +617,12 @@ export default function DoriModuli() {
               disabled={!!ish}
               className={btn}
               style={
-                natija.rejim === 'narxlar'
+                rejim === 'narxlar'
                   ? { color: C.text, background: 'transparent', border: `1px solid ${C.line}` }
                   : { color: C.onAccent, background: C.neon, border: `1px solid ${C.neon}` }
               }
             >
-              {natija.rejim === 'narxlar' ? 'FAKTURA SIFATIDA SAQLASH' : 'BAZAGA SAQLASH'}
+              {rejim === 'narxlar' ? 'FAKTURA SIFATIDA SAQLASH' : 'BAZAGA SAQLASH'}
             </button>
             <button
               onClick={yuklab}
@@ -606,6 +635,7 @@ export default function DoriModuli() {
               onClick={() => {
                 setNatija(null);
                 setBayt(null);
+                setRejimQol(null);
               }}
               className={btn}
               style={{ color: C.text, background: 'transparent', border: `1px solid ${C.line}` }}
