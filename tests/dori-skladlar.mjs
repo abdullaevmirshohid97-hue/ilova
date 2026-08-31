@@ -71,7 +71,7 @@ async function tozala() {
   await sql(`delete from dori_price_rules where note = 'sinov';`);
   await sql(`delete from dori_warehouse_telegram where chat_id in (555000222, 555000333, 555000444);`);
   await sql("delete from dori_warehouse_users where email like 'sinov-k%';");
-  await sql("delete from dori_products where name = 'SINOV TAHRIR DORI';");
+  await sql("delete from dori_products where name in ('SINOV TAHRIR DORI', 'SINOV ARZON DORI');");
   await sql("delete from dori_customers where chat_id = 999000444 or phone = '998000000002';");
   await sql(`delete from dori_cart where chat_id = 999000333;`);
   await sql(`delete from dori_customers where chat_id = 999000333 or phone = '998000000001';`);
@@ -88,9 +88,11 @@ const jsonQator = (o) => JSON.stringify(o).replace(/'/g, "''");
   // bo'lishiga tayanadi, shuning uchun aniq holatga qo'yamiz
   const [{ q: aslCheklov }] = await sql('select qoldiq_cheklovi as q from dori_settings where id;');
   CHEKLOV_ASL = aslCheklov;
-  await sql('update dori_settings set qoldiq_cheklovi = true where id;');
 
   await tozala();
+  // Cheklovni tozalashdan KEYIN yoqamiz: tozala() asl qiymatni qaytaradi,
+  // shuning uchun undan oldin yoqilsa darhol bekor bo'lardi
+  await sql('update dori_settings set qoldiq_cheklovi = true where id;');
   console.log('\n\x1b[1mSKLADLAR\x1b[0m');
 
   // ================================================== 1. NARX
@@ -518,8 +520,14 @@ const jsonQator = (o) => JSON.stringify(o).replace(/'/g, "''");
       `select count(*)::int as n from dori_offers where product_id = '${mId}';`
     );
     tekshir('ikkala skladning taklifi ham bor', nTaklif === 2, nTaklif);
-    // 900 * 1.05 = 945, yaxlitlash 100 so'mgacha -> 900
-    tekshir('katalogda ARZONI ko‘rinadi', Number(mNarx) === 900, mNarx);
+    // Aniq raqamga bog'lanmaymiz: ustama va yaxlitlash JONLI sozlama,
+    // ular o'zgarganda sinov yiqilib, kod buzilgandek ko'rinardi.
+    // Tekshiriladigan narsa - katalogda AYNAN eng arzon taklif turishi.
+    const [{ mn }] = await sql(
+      `select min(price) as mn from dori_offers where product_id = '${mId}';`
+    );
+    tekshir('katalogda ARZONI ko‘rinadi', Number(mNarx) === Number(mn),
+      `katalog ${mNarx}, eng arzon taklif ${mn}`);
   }
 
   // Kalit: 0,5 г va 500мг bir xil bo‘lishi shart
@@ -598,7 +606,7 @@ const jsonQator = (o) => JSON.stringify(o).replace(/'/g, "''");
   tekshir('sklad xodimiga profil ochilmagan', profil === 0, profil);
 
   await sql("delete from dori_warehouse_users where email like 'sinov-k%';");
-  await sql("delete from dori_products where name = 'SINOV TAHRIR DORI';");
+  await sql("delete from dori_products where name in ('SINOV TAHRIR DORI', 'SINOV ARZON DORI');");
   await sql("delete from dori_customers where chat_id = 999000444 or phone = '998000000002';");
   await sql("delete from dori_warehouses where name like 'SINOV-K%';");
 
@@ -689,6 +697,62 @@ const jsonQator = (o) => JSON.stringify(o).replace(/'/g, "''");
   await sql(`delete from dori_customers where chat_id = 999000444;`);
   await sql(`delete from dori_warehouses where name = 'SINOV-C';`);
   await sql(`delete from dori_products where id = '${dT}';`);
+
+  // ================================================== 10. SUMMALI USTAMA
+  console.log('\n10. Ustamani summada qo\'yish');
+
+  // Foiz kichik summalarda yo'qoladi: 900 so'mning 5% i = 45, yaxlitlash
+  // 100 so'mgacha bo'lsa natija 900 - foyda YO'Q. Summa esa aniq.
+  const [{ id: wS }] = await sql(
+    "insert into dori_warehouses (name, priority) values ('SINOV-S', 95) returning id;"
+  );
+  const [{ id: dS }] = await sql(
+    `insert into dori_products (name, name_norm, is_active)
+     values ('SINOV ARZON DORI', dori_norm('SINOV ARZON DORI'), true) returning id;`
+  );
+  await sql(`insert into dori_offers (warehouse_id, product_id, base_price, stock, last_import)
+             values ('${wS}', '${dS}', 900, 10, 'sinov');`);
+
+  const narxS = async () => {
+    await sql(`select dori_offer_narx('${wS}', null);`);
+    const [{ p }] = await sql(`select price as p from dori_offers where warehouse_id = '${wS}';`);
+    return Number(p);
+  };
+
+  // Foiz bilan: 900 * 1.05 = 945 -> yaxlitlash 100 -> 900. Foyda 0.
+  await admin(`select dori_price_rule_bulk(array['${dS}']::uuid[], 5, null, 'sinov', null, null);`);
+  tekshir('foiz arzon dorida yo‘qoladi (foyda 0)', (await narxS()) === 900, await narxS());
+
+  // Summa bilan: 900 + 2000 = 2900. Foyda aniq 2000.
+  await admin(`select dori_price_rule_bulk(array['${dS}']::uuid[], null, null, 'sinov', 2000, null);`);
+  const narxSum = await narxS();
+  tekshir('summali ustama aniq ishlaydi (900 + 2000)', narxSum === 2900, narxSum);
+
+  const [{ foyda }] = await sql(
+    `select (price - base_price) as foyda from dori_products where id = '${dS}';`
+  );
+  tekshir('katalogda foyda yaxlit ko‘rinadi', Number(foyda) === 2000, foyda);
+
+  // Foiz va summa birga: 900 * 1.05 + 2000 = 2945 -> 2900
+  await admin(`select dori_price_rule_bulk(array['${dS}']::uuid[], 5, null, 'sinov', 2000, null);`);
+  tekshir('foiz va summa birga qo‘shiladi', (await narxS()) === 2900, await narxS());
+
+  // Umumiy darajada ham summa qo'yish mumkin
+  await admin("select dori_price_rule_bulk(array[]::uuid[], null, null, 'sinov', null, null);");
+  await sql("delete from dori_price_rules where note = 'sinov';");
+  await admin(`select dori_price_rule_set('product', '${dS}', null, null, 'sinov', 500, null);`);
+  tekshir('dori qoidasi summada (900 + 500)', (await narxS()) === 1400, await narxS());
+
+  // Bo'sh qiymatlar qoidani o'chiradi
+  await admin(`select dori_price_rule_set('product', '${dS}', null, null, null, null, null);`);
+  const [{ n: qoidaQoldi }] = await sql(
+    `select count(*)::int as n from dori_price_rules where is_active and target_key = '${dS}';`
+  );
+  tekshir('bo‘sh qiymat qoidani o‘chiradi', qoidaQoldi === 0, qoidaQoldi);
+
+  await sql("delete from dori_price_rules where note = 'sinov';");
+  await sql(`delete from dori_warehouses where name = 'SINOV-S';`);
+  await sql(`delete from dori_products where id = '${dS}';`);
 
   // ================================================== tozalash
   await tozala();

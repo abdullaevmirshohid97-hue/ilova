@@ -19,7 +19,13 @@ type Umumiy = {
   yaxlitlash: number;
   umumiy_ustama: number | null;
   umumiy_chegirma: number | null;
+  umumiy_ustama_sum: number | null;
+  umumiy_chegirma_sum: number | null;
   ortacha_ustama: number | null;
+  // Foizni summaga almashtirishning butun ma'nosi shu ikki raqamda:
+  // bitta dorida o'rtacha necha so'm foyda va nechtasida foyda YO'Q
+  ortacha_foyda: number | null;
+  foydasiz: number | null;
   guruhlar: { grp: string; n: number }[];
 };
 
@@ -72,6 +78,10 @@ export default function NarxlarPaneli() {
   // umumiy ustama
   const [ustama, setUstama] = useState('');
   const [chegirma, setChegirma] = useState('');
+  // Foiz kichik summalarda yo'qoladi (900 so'mning 5% i yaxlitlashdan
+  // keyin 0), shuning uchun summada qo'yish ham kerak
+  const [ustamaSum, setUstamaSum] = useState('');
+  const [chegirmaSum, setChegirmaSum] = useState('');
   const [korish, setKorish] = useState<Korish | null>(null);
 
   // tanlangan dorilar
@@ -80,6 +90,8 @@ export default function NarxlarPaneli() {
   const [tanlangan, setTanlangan] = useState<Record<string, Dori>>({});
   const [tanlUstama, setTanlUstama] = useState('');
   const [tanlChegirma, setTanlChegirma] = useState('');
+  const [tanlUstamaSum, setTanlUstamaSum] = useState('');
+  const [tanlChegirmaSum, setTanlChegirmaSum] = useState('');
 
   const yukla = useCallback(async () => {
     const [o, r] = await Promise.all([
@@ -110,6 +122,8 @@ export default function NarxlarPaneli() {
       p_target_key: null,
       p_markup_pct: foiz(ustama),
       p_discount_pct: foiz(chegirma),
+      p_markup_sum: foiz(ustamaSum),
+      p_discount_sum: foiz(chegirmaSum),
     });
     setIsh(null);
     if (error) return setXato(error.message);
@@ -156,6 +170,8 @@ export default function NarxlarPaneli() {
       p_ids: ids,
       p_markup_pct: foiz(tanlUstama),
       p_discount_pct: foiz(tanlChegirma),
+      p_markup_sum: foiz(tanlUstamaSum),
+      p_discount_sum: foiz(tanlChegirmaSum),
       p_note: null,
     });
     setIsh(null);
@@ -166,6 +182,8 @@ export default function NarxlarPaneli() {
     setTanlangan({});
     setTanlUstama('');
     setTanlChegirma('');
+    setTanlUstamaSum('');
+    setTanlChegirmaSum('');
     if (q) qidir(q);
     yukla();
   }
@@ -231,6 +249,20 @@ export default function NarxlarPaneli() {
             <span className="text-2xl font-extrabold" style={{ color: C.neon2 }}>
               {umumiy.ortacha_ustama != null ? `${umumiy.ortacha_ustama}%` : '—'}
             </span>
+            <span className="mt-0.5 block text-[11px]" style={{ color: C.text }}>
+              bitta dorida <b style={{ color: C.textBright }}>{son(umumiy.ortacha_foyda)}</b> so‘m foyda
+            </span>
+          </Quti>
+          <Quti sarlavha="FOYDASIZ">
+            <span
+              className="text-2xl font-extrabold"
+              style={{ color: Number(umumiy.foydasiz) > 0 ? C.warn : C.neon }}
+            >
+              {son(umumiy.foydasiz)}
+            </span>
+            <span className="mt-0.5 block text-[11px]" style={{ color: C.text }}>
+              foiz kichik summada yo‘qolgan — summada qo‘ying
+            </span>
           </Quti>
           <Quti sarlavha="YAXLITLASH">
             <select
@@ -262,6 +294,16 @@ export default function NarxlarPaneli() {
           <label className="block">
             <span className="mb-1 block text-[10px]" style={{ color: C.text }}>CHEGIRMA %</span>
             <input value={chegirma} onChange={(e) => setChegirma(e.target.value)} placeholder="0"
+                   className={inp} style={inpStyle} />
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-[10px]" style={{ color: C.neon2 }}>USTAMA SO‘M</span>
+            <input value={ustamaSum} onChange={(e) => setUstamaSum(e.target.value)} placeholder="2000"
+                   className={inp} style={inpStyle} />
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-[10px]" style={{ color: C.text }}>CHEGIRMA SO‘M</span>
+            <input value={chegirmaSum} onChange={(e) => setChegirmaSum(e.target.value)} placeholder="0"
                    className={inp} style={inpStyle} />
           </label>
           <button onClick={oldindanKor} className={btn}
@@ -366,6 +408,16 @@ export default function NarxlarPaneli() {
           <label className="block">
             <span className="mb-1 block text-[10px]" style={{ color: C.text }}>CHEGIRMA %</span>
             <input value={tanlChegirma} onChange={(e) => setTanlChegirma(e.target.value)} placeholder="5"
+                   className={inp} style={inpStyle} />
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-[10px]" style={{ color: C.neon2 }}>USTAMA SO‘M</span>
+            <input value={tanlUstamaSum} onChange={(e) => setTanlUstamaSum(e.target.value)} placeholder="2000"
+                   className={inp} style={inpStyle} />
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-[10px]" style={{ color: C.text }}>CHEGIRMA SO‘M</span>
+            <input value={tanlChegirmaSum} onChange={(e) => setTanlChegirmaSum(e.target.value)} placeholder="—"
                    className={inp} style={inpStyle} />
           </label>
           <button
