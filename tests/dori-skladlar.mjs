@@ -72,7 +72,9 @@ async function tozala() {
   await sql(`delete from dori_warehouse_telegram where chat_id in (555000222, 555000333, 555000444);`);
   await sql("delete from dori_warehouse_users where email like 'sinov-k%';");
   await sql("delete from dori_products where name in ('SINOV TAHRIR DORI', 'SINOV ARZON DORI', 'SINOV SOTUV DORI');");
-  await sql("delete from dori_customers where phone = '998000000003';");
+  await sql("delete from dori_customers where phone in ('998000000003','998000000007','998000000008');");
+  await sql("delete from dori_products where name in ('SINOV BUYURTMA DORI', 'SINOV ARXIV DORI');");
+  await sql("delete from dori_invoices where supplier = 'SINOV';");
   await sql("delete from dori_customers where chat_id = 999000444 or phone = '998000000002';");
   await sql(`delete from dori_cart where chat_id = 999000333;`);
   await sql(`delete from dori_customers where chat_id = 999000333 or phone = '998000000001';`);
@@ -608,7 +610,9 @@ const jsonQator = (o) => JSON.stringify(o).replace(/'/g, "''");
 
   await sql("delete from dori_warehouse_users where email like 'sinov-k%';");
   await sql("delete from dori_products where name in ('SINOV TAHRIR DORI', 'SINOV ARZON DORI', 'SINOV SOTUV DORI');");
-  await sql("delete from dori_customers where phone = '998000000003';");
+  await sql("delete from dori_customers where phone in ('998000000003','998000000007','998000000008');");
+  await sql("delete from dori_products where name in ('SINOV BUYURTMA DORI', 'SINOV ARXIV DORI');");
+  await sql("delete from dori_invoices where supplier = 'SINOV';");
   await sql("delete from dori_customers where chat_id = 999000444 or phone = '998000000002';");
   await sql("delete from dori_warehouses where name like 'SINOV-K%';");
 
@@ -769,7 +773,9 @@ const jsonQator = (o) => JSON.stringify(o).replace(/'/g, "''");
   await sql(`insert into dori_offers (warehouse_id, product_id, base_price, price, stock, last_import)
              values ('${wSot}', '${dSot}', 5000, 6000, 10, 'sinov');`);
 
-  await sql("delete from dori_customers where phone = '998000000003';");
+  await sql("delete from dori_customers where phone in ('998000000003','998000000007','998000000008');");
+  await sql("delete from dori_products where name in ('SINOV BUYURTMA DORI', 'SINOV ARXIV DORI');");
+  await sql("delete from dori_invoices where supplier = 'SINOV';");
   const [{ id: mSot }] = await sql(
     `insert into dori_customers (phone, phone_norm, name, pharmacy)
      values ('998000000003', '998000000003', 'Sinov mijoz', 'SINOV DORIXONA') returning id;`
@@ -833,6 +839,125 @@ const jsonQator = (o) => JSON.stringify(o).replace(/'/g, "''");
   await sql(`delete from dori_customers where id = '${mSot}';`);
   await sql(`delete from dori_warehouses where id = '${wSot}';`);
   await sql(`delete from dori_products where id = '${dSot}';`);
+
+  // ============================ 12. ARXIV, BUYURTMA TAHRIRI, PUSH
+  console.log('\n12. Arxiv, buyurtma tahriri va push');
+
+  // ---- arxiv o'chirish katalogga tegmasligi kerak
+  const [{ id: arxiv }] = await sql(
+    `insert into dori_invoices (file_name, supplier, rows_count)
+     values ('sinov-arxiv.xlsx', 'SINOV', 1) returning id;`
+  );
+  await sql(`insert into dori_invoice_items (invoice_id, line_no, name, sum)
+             values ('${arxiv}', 1, 'SINOV ARXIV DORI', 0);`);
+  const [{ n: doriOldin }] = await sql('select count(*)::int as n from dori_products;');
+  await admin(`select dori_invoice_ochir(array['${arxiv}']::uuid[]);`);
+  const [{ n: arxivQoldi }] = await sql(
+    `select count(*)::int as n from dori_invoices where id = '${arxiv}';`
+  );
+  const [{ n: doriKeyin }] = await sql('select count(*)::int as n from dori_products;');
+  tekshir('arxiv yozuvi o‘chdi', arxivQoldi === 0, arxivQoldi);
+  tekshir('arxiv o‘chishi katalogga tegmadi', doriOldin === doriKeyin, doriOldin + ' -> ' + doriKeyin);
+
+  // ---- buyurtma tahriri va o'chirish
+  const [{ id: wB12 }] = await sql(
+    "insert into dori_warehouses (name, priority) values ('SINOV-B2', 98) returning id;"
+  );
+  const [{ id: dB }] = await sql(
+    `insert into dori_products (name, name_norm, is_active)
+     values ('SINOV BUYURTMA DORI', dori_norm('SINOV BUYURTMA DORI'), true) returning id;`
+  );
+  await sql(`insert into dori_offers (warehouse_id, product_id, base_price, price, stock, last_import)
+             values ('${wB12}', '${dB}', 4000, 5000, 100, 'sinov');`);
+
+  const [{ id: oB }] = await sql(
+    `insert into dori_orders (chat_id, name, phone, pharmacy, total)
+     values (999000555, 'Sinov', '998000000009', 'SINOV TAQSIM', 50000) returning id;`
+  );
+  const [{ id: iB }] = await sql(
+    `insert into dori_order_items (order_id, product_id, name, price, qty, sum)
+     values ('${oB}', '${dB}', 'SINOV BUYURTMA DORI', 5000, 10, 50000) returning id;`
+  );
+
+  // Miqdorni o'zgartirish: summa qayta hisoblanadi
+  await admin(`select dori_buyurtma_qator(${iB}, 4);`);
+  const [{ jami: jamiYangi }] = await sql(`select total as jami from dori_orders where id = '${oB}';`);
+  tekshir('miqdor o‘zgarganda summa qayta hisoblandi', Number(jamiYangi) === 20000, jamiYangi);
+
+  const [{ n: taqsim }] = await sql(
+    `select count(*)::int as n from dori_split_items si
+      join dori_order_splits s on s.id = si.split_id
+      where s.order_id = '${oB}' and si.qty = 4;`
+  );
+  tekshir('taqsimot yangi miqdorga qayta qurildi', taqsim === 1, taqsim);
+
+  // Pozitsiya id'si panelga qaytadimi
+  const { j: royxat } = await admin("select dori_buyurtmalar(30, null) as j;");
+  const buyurtmaB = royxat.find((x) => x.id === oB);
+  tekshir('pozitsiyada item_id bor', Number(buyurtmaB?.pozitsiyalar?.[0]?.item_id) === Number(iB),
+    buyurtmaB?.pozitsiyalar?.[0]?.item_id);
+
+  // Qaysi skladlarda bor
+  const { j: joylar } = await admin(`select dori_buyurtma_skladlar('${oB}') as j;`);
+  tekshir('dori qaysi skladda ekani ko‘rinadi',
+    joylar[0]?.skladlar?.some((w) => w.sklad === 'SINOV-B2'),
+    JSON.stringify(joylar[0]?.skladlar?.[0] ?? {}));
+
+  // Yig'ish varaqasi: sklad ustuni bilan, narxsiz
+  const [{ j: yigish }] = await sql(`select dori_yigish_faktura_srv('${oB}') as j;`);
+  tekshir('yig‘ish varaqasi sklad ustuni bilan', yigish.ustunlar === 'yigish', yigish.ustunlar);
+  tekshir('yig‘ish qatorida sklad nomi bor', yigish.items?.[0]?.sklad === 'SINOV-B2',
+    yigish.items?.[0]?.sklad);
+  tekshir('yig‘ish varaqasida narx yo‘q', yigish.items?.[0]?.price === undefined,
+    yigish.items?.[0]?.price ?? 'yo‘q');
+
+  // Pozitsiyani 0 qilib olib tashlash
+  await admin(`select dori_buyurtma_qator(${iB}, 0);`);
+  const [{ n: pozQoldi }] = await sql(
+    `select count(*)::int as n from dori_order_items where order_id = '${oB}';`
+  );
+  tekshir('0 miqdor pozitsiyani olib tashladi', pozQoldi === 0, pozQoldi);
+
+  // Buyurtmani o'chirish
+  await admin(`select dori_buyurtma_ochir('${oB}');`);
+  const [{ n: buyurtmaQoldi }] = await sql(
+    `select count(*)::int as n from dori_orders where id = '${oB}';`
+  );
+  tekshir('buyurtma o‘chdi', buyurtmaQoldi === 0, buyurtmaQoldi);
+
+  // ---- push xabar
+  await sql("delete from dori_customers where phone in ('998000000007', '998000000008');");
+  const [{ id: pm1 }] = await sql(
+    `insert into dori_customers (phone, phone_norm, name, chat_id)
+     values ('998000000007', '998000000007', 'Ulangan mijoz', 777000111) returning id;`
+  );
+  await sql(`insert into dori_customers (phone, phone_norm, name)
+             values ('998000000008', '998000000008', 'Ulanmagan mijoz');`);
+
+  const { j: pushRoyxat } = await admin("select dori_push_mijozlar('mijoz') as j;");
+  const ulangan = pushRoyxat.filter((x) => x.ulangan).length;
+  tekshir('push ro‘yxatida ulanish holati ko‘rinadi', ulangan >= 1, ulangan + ' ta ulangan');
+
+  const { j: tayyor } = await admin(
+    `select dori_push_tayyorla('Sinov xabari', array['${pm1}']::uuid[], true) as j;`
+  );
+  tekshir('xabar tayyorlandi', tayyor.ok === true && Number(tayyor.jami) === 1, tayyor.jami);
+
+  // Ulanmaganlar nishonga tushmasligi kerak
+  let radEtildi = false;
+  try {
+    await admin(
+      `select dori_push_tayyorla('Sinov 2', array[(select id from dori_customers where phone = '998000000008')]::uuid[], true) as j;`
+    );
+  } catch (e) {
+    radEtildi = /MIJOZ_YOQ/.test(e.message);
+  }
+  tekshir('botga ulanmaganga xabar tayyorlanmaydi', radEtildi, radEtildi ? 'MIJOZ_YOQ' : 'tayyorlandi');
+
+  await sql(`delete from dori_broadcasts where matn like 'Sinov%';`);
+  await sql("delete from dori_customers where phone in ('998000000007', '998000000008');");
+  await sql(`delete from dori_warehouses where name = 'SINOV-B2';`);
+  await sql(`delete from dori_products where id = '${dB}';`);
 
   // ================================================== tozalash
   await tozala();

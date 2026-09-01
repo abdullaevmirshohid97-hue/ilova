@@ -226,7 +226,12 @@ async function api(amal, qoshimcha = {}) {
     const matn = await r.text();
     let j;
     try { j = JSON.parse(matn); } catch { j = { ok: false, error: 'JAVOB_JSON_EMAS: ' + matn.slice(0, 120) }; }
-    if (!j.ok && j.error) jurnalga(amal + ' -> ' + j.error + ' (' + r.status + ')', amal);
+    // Kutilgan natijalar jurnalga tushmaydi: ular xato emas, oqim.
+    // Aks holda jurnal shovqinga to'lib, haqiqiy xato ko'rinmay qoladi.
+    var KUTILGAN = ['TELEFON_KERAK', 'TANISHTIRILMAGAN', 'SAVAT_BOSH', 'QOLMADI'];
+    if (!j.ok && j.error && KUTILGAN.indexOf(j.error) === -1) {
+      jurnalga(amal + ' -> ' + j.error + ' (' + r.status + ')', amal);
+    }
     return j;
   } catch (e) {
     jurnalga(amal + ' -> ' + (e && e.message), amal);
@@ -264,7 +269,7 @@ async function katalogniYukla(boshidan) {
     royxat.innerHTML = '<div class="yuklanmoqda">Yuklanmoqda...</div>';
   }
   const j = await api('katalog', { guruh, offset });
-  if (!j.ok) return xato(j.error);
+  if (!j.ok) return xato(XATO_MATN[j.error] || j.error);
 
   jamiTopilgan = j.jami || 0;
   // Server aytadi: qoldiq cheklovi o‘chiq bo‘lsa "Qolmadi" yozilmaydi
@@ -671,6 +676,7 @@ function xato(matn) {
 
 // Server kodlari mijoz tilida
 var XATO_MATN = {
+  IMZO_NOTOGRI: 'Sessiya eskirdi. Botga qayting va «🛍 Katalog» tugmasini qayta bosing.',
   QOLMADI: 'Bu dori omborda qolmadi',
   DORI_TOPILMADI: 'Dori topilmadi',
   MIQDOR_JUDA_KATTA: 'Miqdor juda katta',
@@ -701,7 +707,6 @@ if (!initData) {
     '<div class="bosh">Bu sahifa Telegram ichida ochilishi kerak.<br><br>' +
     'Botga qayting va <b>🛍 Katalog</b> tugmasini bosing.</div>';
 } else {
-  jurnalga('ochildi: ' + ((tg && tg.platform) || '?') + ' v' + ((tg && tg.version) || '?'), 'boshlash');
   savatniYangila();
   guruhlarniYukla();
   katalogniYukla(true);

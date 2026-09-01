@@ -82,7 +82,8 @@ const HOLAT: Record<string, string> = {
 };
 
 // Ustunlar: kengligi bilan (gorizontal A4 = 842pt)
-const USTUN = [
+// Oddiy faktura: narx va summa bilan
+const USTUN_ODDIY = [
   { kalit: 'n',     nom: '№',                 w: 26,  tik: 'chap' },
   { kalit: 'name',  nom: 'Dori nomi',         w: 232, tik: 'chap' },
   { kalit: 'manuf', nom: 'Ishlab chiqaruvchi', w: 132, tik: 'chap' },
@@ -94,8 +95,23 @@ const USTUN = [
   { kalit: 'sum',   nom: 'Summasi',           w: 78,  tik: 'ong'  },
 ];
 
+// Yig'ish varaqasi: omborchi uchun. NARX YO'Q - sklad bizning
+// ustamamizni ko'rmasligi kerak, omborchiga esa u umuman kerak emas.
+// O'rniga eng muhim ustun: QAYSI SKLADDAN olinadi.
+const USTUN_YIGISH = [
+  { kalit: 'n',     nom: '№',                  w: 26,  tik: 'chap' },
+  { kalit: 'name',  nom: 'Dori nomi',          w: 250, tik: 'chap' },
+  { kalit: 'manuf', nom: 'Ishlab chiqaruvchi', w: 150, tik: 'chap' },
+  { kalit: 'ser',   nom: 'Seriya',             w: 70,  tik: 'chap' },
+  { kalit: 'made',  nom: 'Ishlab chiq.',       w: 70,  tik: 'chap' },
+  { kalit: 'exp',   nom: 'Yaroqlilik',         w: 70,  tik: 'chap' },
+  { kalit: 'qty',   nom: 'Dona',               w: 50,  tik: 'ong'  },
+  { kalit: 'sklad', nom: 'Sklad',              w: 122, tik: 'chap' },
+];
+
 // ---------------------------------------------------------------- PDF
 async function pdfYasa(inv: any): Promise<{ bayt: Uint8Array; kirill: boolean }> {
+  const USTUN = inv?.ustunlar === 'yigish' ? USTUN_YIGISH : USTUN_ODDIY;
   const doc = await PDFDocument.create();
 
   let font: any;
@@ -253,6 +269,7 @@ async function pdfYasa(inv: any): Promise<{ bayt: Uint8Array; kirill: boolean }>
       qty: miqdor(it.qty),
       price: raqam(it.price),
       sum: raqam(it.sum),
+      sklad: it.sklad ? String(it.sklad) : '—',
     };
 
     USTUN.forEach((u, ci) => {
@@ -399,10 +416,14 @@ async function excelYasa(inv: any): Promise<Uint8Array> {
   ws.addRow([]);
 
   // ---------- jadval sarlavhasi ----------
-  const sarlavha = ws.addRow([
-    '№', 'Dori nomi', 'Ishlab chiqaruvchi', 'Seriya',
-    'Ishlab chiqarilgan', 'Yaroqlilik muddati', 'Soni', 'Narxi', 'Summasi',
-  ]);
+  const yigish = inv?.ustunlar === 'yigish';
+  const sarlavha = ws.addRow(
+    yigish
+      ? ['№', 'Dori nomi', 'Ishlab chiqaruvchi', 'Seriya',
+         'Ishlab chiqarilgan', 'Yaroqlilik muddati', 'Dona', 'Sklad']
+      : ['№', 'Dori nomi', 'Ishlab chiqaruvchi', 'Seriya',
+         'Ishlab chiqarilgan', 'Yaroqlilik muddati', 'Soni', 'Narxi', 'Summasi']
+  );
   sarlavha.height = 30;
   sarlavha.eachCell((c: any) => {
     c.font = { bold: true, size: 10 };
@@ -413,7 +434,7 @@ async function excelYasa(inv: any): Promise<Uint8Array> {
 
   // ---------- qatorlar ----------
   for (const [i, it] of (inv.items ?? []).entries()) {
-    const r = ws.addRow([
+    const asos = [
       i + 1,
       it.name ?? '',
       it.manufacturer ?? '—',
@@ -421,9 +442,11 @@ async function excelYasa(inv: any): Promise<Uint8Array> {
       it.made_at ? sana(it.made_at) : '—',
       it.expiry ? sana(it.expiry) : '—',
       Number(it.qty) || 0,
-      Number(it.price) || 0,
-      Number(it.sum) || 0,
-    ]);
+    ];
+    // Yig'ish varaqasida narx o'rniga SKLAD
+    const r = ws.addRow(
+      yigish ? [...asos, it.sklad ?? '—'] : [...asos, Number(it.price) || 0, Number(it.sum) || 0]
+    );
     r.eachCell((c: any, n: number) => {
       c.border = chegara;
       c.font = { size: 10 };
@@ -539,6 +562,52 @@ Deno.serve(async (req) => {
     body = await req.json();
   } catch {
     return new Response('BAD_JSON', { status: 400 });
+  }
+
+  // ============================== BUYURTMA / YIG'ISH REJIMI
+  // Ikkalasi ham bitta buyurtmadan yasaladi, farqi - qaysi hujjat:
+  //   buyurtma -> mijozga, narx bilan
+  //   yigish   -> omborchiga, narxsiz, lekin QAYSI SKLAD ustuni bilan
+  if (body?.rejim === 'buyurtma' || body?.rejim === 'yigish') {
+    if (!auth) return new Response('FORBIDDEN', { status: 403 });
+
+    let ruxsat4 = auth === serviceKey;
+    if (!ruxsat4) {
+      const { data: u4 } = await supabase.auth.getUser(auth);
+      const uid4 = u4?.user?.id;
+      if (uid4) {
+        const { data: p4 } = await supabase.from('profiles').select('role').eq('id', uid4).maybeSingle();
+        ruxsat4 = (p4 as any)?.role === 'super_admin';
+      }
+    }
+    if (!ruxsat4) return new Response(JSON.stringify({ error: 'RUXSAT_YOQ' }), { status: 403, headers: CORS_JSON });
+
+    const oId = String(body?.order_id ?? '');
+    if (!oId) return new Response(JSON.stringify({ error: 'ORDER_YOQ' }), { status: 400, headers: CORS_JSON });
+
+    const rpc = body.rejim === 'yigish' ? 'dori_yigish_faktura_srv' : 'dori_buyurtma_faktura_srv';
+    const { data: inv4, error: xato4 } = await supabase.rpc(rpc, { p_order_id: oId });
+    if (xato4) return new Response(JSON.stringify({ error: xato4.message }), { status: 500, headers: CORS_JSON });
+    if (!inv4) return new Response(JSON.stringify({ error: 'TOPILMADI' }), { status: 404, headers: CORS_JSON });
+
+    try {
+      const pdf4 = await pdfYasa(inv4 as any);
+      const xls4 = await excelYasa(inv4 as any);
+      const bosh = body.rejim === 'yigish' ? 'yigish' : 'buyurtma';
+      return new Response(
+        JSON.stringify({
+          ok: true,
+          nom: `${bosh}-${(inv4 as any).order_no}`,
+          pdf: base64ga(pdf4.bayt),
+          xlsx: base64ga(xls4),
+        }),
+        { headers: CORS_JSON }
+      );
+    } catch (e) {
+      return new Response(JSON.stringify({ error: String((e as any)?.message ?? e) }), {
+        status: 500, headers: CORS_JSON,
+      });
+    }
   }
 
   // ================================================== SOTUV REJIMI

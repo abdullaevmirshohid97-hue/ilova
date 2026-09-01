@@ -76,6 +76,7 @@ export default function DoriModuli() {
   // olsin. Jonli bazada aynan shu bo'ldi — 3132 qatorli prays "faktura"
   // deb saqlanib, katalogga umuman yetib bormadi.
   const [rejimQol, setRejimQol] = useState<'faktura' | 'narxlar' | null>(null);
+  const [belgilangan, setBelgilangan] = useState<Set<string>>(new Set());
   const fileRef = useRef<HTMLInputElement>(null);
 
   const royxatYukla = useCallback(async () => {
@@ -145,6 +146,21 @@ export default function DoriModuli() {
     const { satrlar } = satrlarniOl(bayt, varaq);
     const q = qatorlarniYig(satrlar, natija.sarlavhaQatori, natija.ustunlar, yangi);
     setNatija({ ...natija, moslash: yangi, ...q });
+  }
+
+  // Arxivdagi hujjatni o'chirish KATALOGGA TEGMAYDI: bu shunchaki
+  // o'qilgan faylning nusxasi. Bir marta katalogga yozilgan prays
+  // o'z joyida qoladi.
+  async function arxivniOchir() {
+    const ids = [...belgilangan];
+    if (!ids.length) return;
+    if (!confirm(`${ids.length} ta arxiv yozuvi o‘chirilsinmi?\n\nKatalogdagi dorilarga ta'sir qilmaydi.`)) return;
+    setIsh('O‘chirilmoqda...');
+    const { error } = await supabase.rpc('dori_invoice_ochir', { p_ids: ids });
+    setIsh(null);
+    if (error) { setXato('O‘chirilmadi: ' + error.message); return; }
+    setBelgilangan(new Set());
+    await royxatYukla();
   }
 
   async function shablonniEslab() {
@@ -650,6 +666,24 @@ export default function DoriModuli() {
       <div style={{ background: C.panel, border: `1px solid ${C.line}`, borderRadius: RADIUS }}>
         <div className="px-4 py-2 text-[10px] font-bold tracking-[0.16em]" style={{ color: `${sh(C.text, 80)}`, borderBottom: `1px solid ${C.line}` }}>
           SAQLANGAN FAKTURALAR — {saqlanganlar.length}
+          {belgilangan.size > 0 && (
+            <>
+              <button
+                onClick={arxivniOchir}
+                className="ml-3 px-2 py-1 text-[10px] font-bold"
+                style={{ color: C.danger, border: `1px solid ${C.danger}` }}
+              >
+                {belgilangan.size} TASINI O‘CHIRISH
+              </button>
+              <button
+                onClick={() => setBelgilangan(new Set())}
+                className="ml-1 px-2 py-1 text-[10px]"
+                style={{ color: C.text, border: `1px solid ${C.line}` }}
+              >
+                BEKOR
+              </button>
+            </>
+          )}
         </div>
         {saqlanganlar.length === 0 && (
           <div className="p-8 text-center text-[11px]" style={{ color: C.text }}>
@@ -661,10 +695,19 @@ export default function DoriModuli() {
             key={s.id}
             className="grid gap-3 px-4 py-2 text-[11px]"
             style={{
-              gridTemplateColumns: '110px 1fr 100px 110px 90px',
+              gridTemplateColumns: '26px 110px 1fr 100px 110px 90px',
               borderTop: i ? `1px solid ${sh(C.line, 27)}` : 'none',
             }}
           >
+            <input
+              type="checkbox"
+              checked={belgilangan.has(s.id)}
+              onChange={(e) => {
+                const y = new Set(belgilangan);
+                if (e.target.checked) y.add(s.id); else y.delete(s.id);
+                setBelgilangan(y);
+              }}
+            />
             <span style={{ color: `${sh(C.text, 80)}` }}>
               {new Date(s.created_at).toLocaleDateString('ru-RU')}
             </span>

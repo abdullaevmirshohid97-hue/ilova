@@ -14,7 +14,23 @@ import { supabase } from '../lib/supabase';
 // bizga nima berdi" degan savol javobsiz qoladi.
 // ============================================================================
 
-type Poz = { name: string; qty: number; price: number; sum: number; yetishmadi: number | null };
+type Poz = {
+  item_id: number;
+  name: string;
+  qty: number;
+  price: number;
+  sum: number;
+  yetishmadi: number | null;
+};
+
+// Mijoz tanlagan dori qaysi skladlarda bor — operator buyurtmani
+// ochganda darhol ko'rsin
+type Mavjud = {
+  item_id: number;
+  name: string;
+  qty: number;
+  skladlar: { sklad: string; price: number; base_price: number | null; stock: number | null }[];
+};
 
 type Taqsim = {
   split_id: string;
@@ -63,6 +79,7 @@ const HOLAT: Record<string, { nom: string; rang: string }> = {
 export default function DoriBuyurtmalar() {
   const [royxat, setRoyxat] = useState<Buyurtma[]>([]);
   const [ochiq, setOchiq] = useState<string | null>(null);
+  const [mavjud, setMavjud] = useState<Mavjud[]>([]);
   const [ish, setIsh] = useState<string | null>(null);
   const [xato, setXato] = useState<string | null>(null);
   const [xabar, setXabar] = useState<string | null>(null);
@@ -74,6 +91,14 @@ export default function DoriBuyurtmalar() {
   }, []);
 
   useEffect(() => { yukla(); }, [yukla]);
+
+  // Buyurtma ochilganda: har pozitsiya qaysi skladlarda bor
+  useEffect(() => {
+    if (!ochiq) { setMavjud([]); return; }
+    supabase.rpc('dori_buyurtma_skladlar', { p_order_id: ochiq }).then(({ data }) => {
+      setMavjud((data ?? []) as Mavjud[]);
+    });
+  }, [ochiq]);
 
   // Taqsimlash va yuborish edge funksiyada: u Telegramga xabar yozadi,
   // panel esa faqat natijani ko'rsatadi
@@ -158,6 +183,75 @@ export default function DoriBuyurtmalar() {
     if (error) { setXato('Qabul qilinmadi: ' + error.message); return; }
     setXabar(`${t.sklad ?? 'Sklad'} tovari qabul qilindi`);
     await yukla();
+  }
+
+  // Miqdorni o'zgartirish yoki pozitsiyani olib tashlash (0 kiritilsa).
+  // Summa qayta hisoblanadi va taqsimot qayta quriladi.
+  async function qatorniOzgartir(b: Buyurtma, p: Poz, yangiQty: string) {
+    const n = Number(String(yangiQty).replace(',', '.'));
+    if (!Number.isFinite(n) || n === Number(p.qty)) return;
+    if (n <= 0 && !confirm(`«${p.name}» buyurtmadan olib tashlansinmi?`)) return;
+
+    setIsh('Saqlanmoqda...');
+    const { error } = await supabase.rpc('dori_buyurtma_qator', {
+      p_item_id: p.item_id, p_qty: n,
+    });
+    setIsh(null);
+    if (error) { setXato('O‘zgartirilmadi: ' + error.message); return; }
+    setXabar(n <= 0 ? 'Pozitsiya olib tashlandi' : 'Miqdor yangilandi, taqsimot qayta hisoblandi');
+    await yukla();
+  }
+
+  async function buyurtmaniOchir(b: Buyurtma) {
+    if (!confirm(`Buyurtma №${b.order_no} butunlay o‘chirilsinmi?\n\nPozitsiyalari va skladlarga ketgan so‘rovlari ham o‘chadi. Qaytarib bo‘lmaydi.`)) return;
+    setIsh('O‘chirilmoqda...');
+    const { error } = await supabase.rpc('dori_buyurtma_ochir', { p_order_id: b.id });
+    setIsh(null);
+    if (error) { setXato('O‘chirilmadi: ' + error.message); return; }
+    setOchiq(null);
+    setXabar(`Buyurtma №${b.order_no} o‘chirildi`);
+    await yukla();
+  }
+
+  // Buyurtma hujjatlari: mijozga (narx bilan) va omborchiga (yig'ish
+  // varaqasi — narxsiz, lekin sklad ustuni bilan)
+  async function buyurtmaHujjat(b: Buyurtma, rejim: 'buyurtma' | 'yigish', amal: 'print' | 'pdf' | 'excel') {
+    setIsh('Hujjat tayyorlanmoqda...');
+    setXato(null);
+    try {
+      const { data, error } = await supabase.functions.invoke('dori-faktura', {
+        body: { rejim, order_id: b.id },
+      });
+      if (error) throw error;
+      const r = data as { nom: string; pdf: string; xlsx: string };
+      const b64 = amal === 'excel' ? r.xlsx : r.pdf;
+      const tur = amal === 'excel'
+        ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        : 'application/pdf';
+
+      const xom = atob(b64);
+      const bayt = new Uint8Array(xom.length);
+      for (let i = 0; i < xom.length; i++) bayt[i] = xom.charCodeAt(i);
+      const url = URL.createObjectURL(new Blob([bayt], { type: tur }));
+
+      if (amal === 'print') {
+        const w = window.open(url, '_blank');
+        if (w) w.addEventListener('load', () => w.print());
+        else setXato('Brauzer yangi oynani blokladi — PDF tugmasidan foydalaning');
+      } else {
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${r.nom}.${amal === 'excel' ? 'xlsx' : 'pdf'}`;
+        a.click();
+      }
+      setTimeout(() => URL.revokeObjectURL(url), 20000);
+    } catch (e: any) {
+      let sabab = e?.message ?? '';
+      try { const j = await e?.context?.json?.(); if (j?.error) sabab = j.error; } catch { /* javob o'qilmadi */ }
+      setXato('Hujjat tayyorlanmadi: ' + sabab);
+    } finally {
+      setIsh(null);
+    }
   }
 
   async function holatQoy(b: Buyurtma, status: string) {
@@ -245,15 +339,41 @@ export default function DoriBuyurtmalar() {
                   <div className="mb-1 text-[10px] font-bold tracking-[0.16em]" style={{ color: sh(C.text, 80) }}>
                     MIJOZ SO‘RAGANI
                   </div>
-                  {b.pozitsiyalar.map((p, i) => (
-                    <div key={i} className="text-[11px]" style={{ color: C.text }}>
-                      {p.name} · <b style={{ color: C.textBright }}>{son(p.qty)}</b> × {son(p.price)} ={' '}
-                      <b style={{ color: C.neon }}>{son(p.sum)}</b>
-                      {Number(p.yetishmadi) > 0 && (
-                        <span style={{ color: C.danger }}> · {son(p.yetishmadi)} ta YETISHMADI</span>
-                      )}
-                    </div>
-                  ))}
+                  {b.pozitsiyalar.map((p, i) => {
+                    const joy = mavjud.find((m) => m.item_id === p.item_id);
+                    return (
+                      <div key={p.item_id ?? i} className="py-1"
+                           style={{ borderBottom: `1px dashed ${sh(C.line, 40)}` }}>
+                        <div className="flex flex-wrap items-center gap-2 text-[11px]" style={{ color: C.text }}>
+                          <span style={{ color: C.textBright, minWidth: 220 }}>{p.name}</span>
+                          <input
+                            defaultValue={String(p.qty)}
+                            onBlur={(e) => qatorniOzgartir(b, p, e.target.value)}
+                            title="Miqdorni o‘zgartiring yoki 0 yozib olib tashlang"
+                            className="w-20 px-2 py-0.5 text-right text-[11px] outline-none"
+                            style={{ background: C.field, border: `1px solid ${C.line}`, color: C.textBright }}
+                          />
+                          <span>× {son(p.price)} = <b style={{ color: C.neon }}>{son(p.sum)}</b></span>
+                          {Number(p.yetishmadi) > 0 && (
+                            <span style={{ color: C.danger }}>· {son(p.yetishmadi)} ta YETISHMADI</span>
+                          )}
+                        </div>
+
+                        {/* Qaysi skladlarda bor — arzonidan */}
+                        <div className="text-[10px]" style={{ color: sh(C.text, 70) }}>
+                          {joy && joy.skladlar.length > 0
+                            ? joy.skladlar.map((w, k) => (
+                                <span key={k}>
+                                  {k > 0 && ' · '}
+                                  {w.sklad}: <b style={{ color: C.text }}>{son(w.price)}</b>
+                                  {w.stock != null && ` (${son(w.stock)} ta)`}
+                                </span>
+                              ))
+                            : 'hech bir skladda topilmadi'}
+                        </div>
+                      </div>
+                    );
+                  })}
 
                   {b.comment && (
                     <div className="mt-2 text-[11px]" style={{ color: C.text }}>Izoh: {b.comment}</div>
@@ -346,6 +466,36 @@ export default function DoriBuyurtmalar() {
                         BEKOR QILISH
                       </button>
                     )}
+                    <button onClick={() => buyurtmaniOchir(b)} className={btn}
+                            style={{ color: C.danger, background: 'transparent', border: `1px solid ${C.danger}` }}>
+                      O‘CHIRISH
+                    </button>
+                  </div>
+
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                    <span className="text-[10px] tracking-[0.14em]" style={{ color: sh(C.text, 70) }}>
+                      HUJJATLAR
+                    </span>
+                    <button onClick={() => buyurtmaHujjat(b, 'buyurtma', 'print')} className={btn}
+                            style={{ color: C.neon2, background: 'transparent', border: `1px solid ${C.neon2}` }}>
+                      FAKTURA — CHOP
+                    </button>
+                    <button onClick={() => buyurtmaHujjat(b, 'buyurtma', 'pdf')} className={btn}
+                            style={{ color: C.text, background: 'transparent', border: `1px solid ${C.line}` }}>
+                      FAKTURA PDF
+                    </button>
+                    <button onClick={() => buyurtmaHujjat(b, 'yigish', 'print')} className={btn}
+                            style={{ color: C.onAccent, background: C.neon, border: `1px solid ${C.neon}` }}>
+                      YIG‘ISH VARAQASI — CHOP
+                    </button>
+                    <button onClick={() => buyurtmaHujjat(b, 'yigish', 'pdf')} className={btn}
+                            style={{ color: C.text, background: 'transparent', border: `1px solid ${C.line}` }}>
+                      YIG‘ISH PDF
+                    </button>
+                    <button onClick={() => buyurtmaHujjat(b, 'yigish', 'excel')} className={btn}
+                            style={{ color: C.text, background: 'transparent', border: `1px solid ${C.line}` }}>
+                      YIG‘ISH EXCEL
+                    </button>
                   </div>
                 </div>
               )}
