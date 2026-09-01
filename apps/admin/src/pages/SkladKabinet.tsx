@@ -15,7 +15,15 @@ import { supabase } from '../lib/supabase';
 // Ranglar ataylab tinch: bu ekranda kun bo'yi ishlanadi.
 // ============================================================================
 
-type Poz = { name: string; qty: number; base_price: number | null; base_sum: number | null };
+type Poz = {
+  name: string;
+  qty: number;
+  base_price: number | null;
+  base_sum: number | null;
+  manufacturer: string | null;
+  series: string | null;
+  expiry: string | null;
+};
 
 type Sorov = {
   id: string;
@@ -40,15 +48,16 @@ type Narx = {
 const son = (n: number | null | undefined) =>
   n === null || n === undefined ? '—' : Number(n).toLocaleString('ru-RU', { maximumFractionDigits: 2 });
 
+const vaqtSana = (s: string) => new Date(s).toLocaleDateString('ru-RU');
 const vaqt = (s: string) =>
   new Date(s).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
 
 const HOLAT: Record<string, { nom: string; sinf: string }> = {
-  new: { nom: 'yangi', sinf: 'bg-blue-50 text-blue-700 border-blue-200' },
-  sent: { nom: 'yuborildi', sinf: 'bg-blue-50 text-blue-700 border-blue-200' },
-  accepted: { nom: 'qabul qilindi', sinf: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+  new: { nom: 'yangi zakaz', sinf: 'bg-blue-50 text-blue-700 border-blue-200' },
+  sent: { nom: 'yangi zakaz', sinf: 'bg-blue-50 text-blue-700 border-blue-200' },
+  accepted: { nom: 'yig‘ilmoqda', sinf: 'bg-amber-50 text-amber-700 border-amber-200' },
   rejected: { nom: 'rad etildi', sinf: 'bg-rose-50 text-rose-700 border-rose-200' },
-  done: { nom: 'bajarildi', sinf: 'bg-slate-100 text-slate-600 border-slate-200' },
+  done: { nom: 'tayyor', sinf: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
 };
 
 export default function SkladKabinet({ sklad }: { sklad: { warehouse_id: string; sklad: string; full_name?: string | null } }) {
@@ -169,18 +178,34 @@ export default function SkladKabinet({ sklad }: { sklad: { warehouse_id: string;
                   </span>
                 </div>
 
-                <table className="mt-3 w-full text-sm">
-                  <tbody>
-                    {s.pozitsiyalar.map((p, i) => (
-                      <tr key={i} className="border-t border-slate-100">
-                        <td className="py-1.5 pr-2 text-slate-700">{p.name}</td>
-                        <td className="w-20 py-1.5 text-right font-semibold text-slate-800">{son(p.qty)}</td>
-                        <td className="w-28 py-1.5 text-right text-slate-500">{son(p.base_price)}</td>
-                        <td className="w-32 py-1.5 text-right font-semibold text-slate-800">{son(p.base_sum)}</td>
+                <div className="mt-3 overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-slate-200 text-left text-xs text-slate-500">
+                        <th className="py-1 pr-2 font-semibold">DORI</th>
+                        <th className="py-1 pr-2 font-semibold">ISHLAB CHIQARUVCHI</th>
+                        <th className="py-1 pr-2 font-semibold">SERIYA</th>
+                        <th className="py-1 pr-2 font-semibold">MUDDAT</th>
+                        <th className="w-20 py-1 text-right font-semibold">DONA</th>
+                        <th className="w-28 py-1 text-right font-semibold">NARX</th>
+                        <th className="w-32 py-1 text-right font-semibold">SUMMA</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {s.pozitsiyalar.map((p, i) => (
+                        <tr key={i} className="border-t border-slate-100">
+                          <td className="py-1.5 pr-2 text-slate-800">{p.name}</td>
+                          <td className="py-1.5 pr-2 text-slate-500">{p.manufacturer ?? '—'}</td>
+                          <td className="py-1.5 pr-2 text-slate-500">{p.series ?? '—'}</td>
+                          <td className="py-1.5 pr-2 text-slate-500">{p.expiry ? vaqtSana(p.expiry) : '—'}</td>
+                          <td className="py-1.5 text-right font-bold text-slate-900">{son(p.qty)}</td>
+                          <td className="py-1.5 text-right text-slate-500">{son(p.base_price)}</td>
+                          <td className="py-1.5 text-right font-semibold text-slate-800">{son(p.base_sum)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
 
                 <div className="mt-2 flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-2">
                   <div className="text-sm text-slate-600">
@@ -199,11 +224,16 @@ export default function SkladKabinet({ sklad }: { sklad: { warehouse_id: string;
                         </button>
                       </>
                     )}
-                    {s.status === 'accepted' && (
+                    {s.status !== 'done' && s.status !== 'rejected' && (
                       <button onClick={() => javob(s, 'done')}
-                              className="rounded-lg bg-slate-700 px-3 py-1.5 text-xs font-bold text-white hover:opacity-90">
-                        Bajarildi
+                              className="rounded-lg bg-slate-800 px-3 py-1.5 text-xs font-bold text-white hover:opacity-90">
+                        ✅ TAYYOR
                       </button>
+                    )}
+                    {s.status === 'done' && (
+                      <span className="rounded-lg bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-700">
+                        ✅ Tayyor
+                      </span>
                     )}
                   </div>
                 </div>

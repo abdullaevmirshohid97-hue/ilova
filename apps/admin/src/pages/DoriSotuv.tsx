@@ -85,14 +85,20 @@ export default function DoriSotuv() {
     tarixYukla();
   }, [tarixYukla]);
 
+  // Ism yoki raqamdan 2 ta belgi yozilishi bilan mos keladiganlar
+  // chiqadi. Bo'sh bo'lsa - oxirgi mijozlar ro'yxati.
   useEffect(() => {
-    if (!mijozQ.trim() && mijozlar.length) return;
     const t = setTimeout(async () => {
-      const { data } = await supabase.rpc('dori_sotuv_mijozlar', { p_q: mijozQ || null, p_limit: 20 });
+      const q = mijozQ.trim();
+      if (q.length === 1) return;   // bitta belgidan foyda yo'q
+      const { data } = await supabase.rpc('dori_sotuv_mijozlar', {
+        p_q: q || null,
+        p_limit: 20,
+      });
       setMijozlar((data ?? []) as Mijoz[]);
-    }, 250);
+    }, 200);
     return () => clearTimeout(t);
-  }, [mijozQ, mijozlar.length]);
+  }, [mijozQ]);
 
   async function qidir(s: string) {
     setQ(s);
@@ -118,6 +124,16 @@ export default function DoriSotuv() {
     const n = Number(v.replace(',', '.'));
     setSavat((p) => p.map((x) => (x.id === id ? { ...x, qty: Number.isFinite(n) ? n : 0 } : x)));
   }
+
+  // Sotuvga nima yetishmayapti — ekranda ochiq turadi
+  const kamlik = !sklad
+    ? 'Sklad tanlang'
+    : savat.filter((x) => x.qty > 0).length === 0
+      ? 'Dori qo‘shing va miqdorini yozing'
+      : !mijoz
+        ? 'Mijoz tanlang — o‘ng tomonda ismi yoki raqamini yozing'
+        : '';
+  const tayyor = kamlik === '';
 
   const jami = savat.reduce((s, x) => s + x.price * (x.qty || 0), 0);
   const tannarx = savat.reduce((s, x) => s + Number(x.base_price ?? 0) * (x.qty || 0), 0);
@@ -358,8 +374,10 @@ export default function DoriSotuv() {
           ) : (
             <>
               <input value={mijozQ} onChange={(e) => setMijozQ(e.target.value)}
-                     placeholder="nomi yoki telefon"
-                     className="mb-2 w-full px-2 py-1.5 text-[12px] outline-none" style={inpStyle} />
+                     placeholder="ismi yoki telefon raqami — 2 ta belgidan"
+                     autoComplete="off"
+                     className="mb-2 w-full px-2 py-1.5 text-[12px] outline-none"
+                     style={{ ...inpStyle, borderColor: mijoz ? C.line : C.warn }} />
               <div className="mb-3 grid gap-1" style={{ maxHeight: 180, overflowY: 'auto' }}>
                 {mijozlar.map((m) => (
                   <button key={m.id} onClick={() => setMijoz(m)} className="p-2 text-left"
@@ -371,7 +389,11 @@ export default function DoriSotuv() {
                   </button>
                 ))}
                 {mijozlar.length === 0 && (
-                  <span className="text-[11px]" style={{ color: C.text }}>Mijoz topilmadi</span>
+                  <span className="text-[11px]" style={{ color: C.warn }}>
+                    {mijozQ.trim()
+                      ? 'Bunday mijoz topilmadi — MIJOZLAR bo‘limida qo‘shing'
+                      : 'Mijoz yo‘q — MIJOZLAR bo‘limida qo‘shing'}
+                  </span>
                 )}
               </div>
             </>
@@ -389,15 +411,22 @@ export default function DoriSotuv() {
             <Qator nom="Foyda" qiymat={son(jami - tannarx)} rang={jami - tannarx > 0 ? C.neon2 : C.warn} katta />
           </div>
 
-          <button onClick={sot} disabled={!!ish || savat.length === 0 || !mijoz}
+          <button onClick={sot} disabled={!!ish}
                   className="mt-3 w-full py-2.5 text-[12px] font-bold tracking-[0.14em]"
                   style={{
                     color: C.onAccent,
-                    background: savat.length && mijoz ? C.neon : sh(C.neon, 30),
+                    background: tayyor ? C.neon : sh(C.neon, 30),
                     border: `1px solid ${C.neon}`,
                   }}>
             SOTUV
           </button>
+
+          {/* Nega bosib bo'lmasligini AYTAMIZ: tugma jim turmasin */}
+          {!tayyor && (
+            <div className="mt-1 text-[11px]" style={{ color: C.warn }}>
+              {kamlik}
+            </div>
+          )}
         </div>
       </div>
 
