@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { C, MONO, RADIUS, sh } from '../lib/sa-tema';
 import { supabase } from '../lib/supabase';
+import PraysYuklash from '../components/PraysYuklash';
 
 // ============================================================================
 // SKLADLAR
@@ -122,6 +123,9 @@ export default function DoriSkladlar() {
   const [ulanganlar, setUlanganlar] = useState<Ulangan[]>([]);
   const [kodTel, setKodTel] = useState('');
   const [kod, setKod] = useState<{ code: string; phone: string } | null>(null);
+  // Prays AYNAN shu skladga yuklanadi: sklad tanlangan bo'lgani uchun
+  // "qaysi skladga" degan savol tug'ilmaydi va xato ham bo'lmaydi
+  const [praysOchiq, setPraysOchiq] = useState(false);
   const [userlar, setUserlar] = useState<SkladUser[]>([]);
   const [uEmail, setUEmail] = useState('');
   const [uNom, setUNom] = useState('');
@@ -175,6 +179,7 @@ export default function DoriSkladlar() {
     setTarix((data ?? []) as Yuklash[]);
     setKod(null);
     setKodTel('');
+    setPraysOchiq(false);
     const { data: u } = await supabase.rpc('dori_sklad_telegram_royxat', { p_warehouse_id: id });
     setUlanganlar((u ?? []) as Ulangan[]);
     setUEmail(''); setUNom(''); setUParol('');
@@ -578,6 +583,36 @@ export default function DoriSkladlar() {
               className="px-2 py-1.5 text-[12px] outline-none"
               style={{ ...inpStyle, width: 280 }}
             />
+          </div>
+
+          {/* ---------- Prays yuklash ---------- */}
+          <div className="mb-4">
+            <button
+              onClick={() => setPraysOchiq((v) => !v)}
+              className={btn}
+              style={{
+                color: praysOchiq ? C.onAccent : C.neon,
+                background: praysOchiq ? C.neon : 'transparent',
+                border: `1px solid ${C.neon}`,
+                borderRadius: RADIUS,
+              }}
+            >
+              {praysOchiq ? '▾ PRAYS YUKLASH' : '▸ PRAYS YUKLASH'}
+            </button>
+
+            {praysOchiq && (
+              <div className="mt-3 p-3" style={{ border: `1px solid ${C.neon}`, background: C.panel2 }}>
+                <PraysYuklash
+                  warehouseId={joriy.id}
+                  skladNomi={joriy.name}
+                  onYakun={async () => {
+                    await yukla();
+                    await narxlarniYukla(joriy.id, q, 0);
+                    setXabar(`${joriy.name}: prays yangilandi`);
+                  }}
+                />
+              </div>
+            )}
           </div>
 
           {/* ---------- Kabinet hisoblari ---------- */}
