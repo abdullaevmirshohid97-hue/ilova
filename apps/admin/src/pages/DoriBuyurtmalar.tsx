@@ -310,7 +310,7 @@ export default function DoriBuyurtmalar() {
                     </span>
                   </div>
                   <div className="text-[11px]" style={{ color: C.text }}>
-                    {vaqt(b.created_at)} · {b.pozitsiyalar.length} pozitsiya · mijoz{' '}
+                    {ochilgan ? '▾' : '▸'} {vaqt(b.created_at)} · {b.pozitsiyalar.length} pozitsiya · mijoz{' '}
                     <b style={{ color: C.neon }}>{son(b.total)}</b>
                     {skladJami > 0 && <> · sklad {son(skladJami)} · farq {son(Number(b.total) - skladJami)}</>}
                   </div>
@@ -327,6 +327,17 @@ export default function DoriBuyurtmalar() {
                       </span>
                     ))
                   )}
+                  {/* Eng kerakli ikkita hujjat YOPIQ holatda ham turadi:
+                      ilgari ular faqat kartochka ochilganda ko'rinardi va
+                      topilmay qolgan edi */}
+                  <button onClick={() => buyurtmaHujjat(b, 'yigish', 'print')} disabled={!!ish} className={btn}
+                          style={{ color: C.neon2, background: 'transparent', border: `1px solid ${C.neon2}` }}>
+                    YIG‘ISH VARAQASI
+                  </button>
+                  <button onClick={() => buyurtmaHujjat(b, 'buyurtma', 'print')} disabled={!!ish} className={btn}
+                          style={{ color: C.text, background: 'transparent', border: `1px solid ${C.line}` }}>
+                    FAKTURA
+                  </button>
                   <button onClick={() => skladlargaYubor(b)} disabled={!!ish} className={btn}
                           style={{ color: C.onAccent, background: C.neon, border: `1px solid ${C.neon}` }}>
                     SKLADLARGA YUBORISH
