@@ -60,12 +60,12 @@ function tekshir(nom, ok, qosh) {
   if (!ok) yiqildi++;
 }
 
-let CHEKLOV_ASL = null;
-
 async function tozala() {
-  if (CHEKLOV_ASL !== null) {
-    await sql(`update dori_settings set qoldiq_cheklovi = ${CHEKLOV_ASL} where id;`);
-  }
+  // Sinov qoldiq cheklovini yoqib-o'chirib ko'radi. Oxirida HAR DOIM
+  // YOQIQ holatda qoldiramiz: "asl qiymatni qaytarish" ikki yurish
+  // bir-birining ustiga tushganda buzilardi va jonli bazada cheklov
+  // o'chiq qolib ketardi (uch marta takrorlandi). Yoqiq - xavfsiz holat.
+  await sql('update dori_settings set qoldiq_cheklovi = true where id;');
   await sql(`delete from dori_orders where pharmacy = 'SINOV TAQSIM';`);
   await sql(`delete from dori_warehouses where name like 'SINOV-%';`);
   await sql(`delete from dori_price_rules where note = 'sinov';`);
@@ -89,10 +89,6 @@ async function tozala() {
 const jsonQator = (o) => JSON.stringify(o).replace(/'/g, "''");
 
 (async () => {
-  // Asl sozlamani eslab qolamiz; taqsimot testlari cheklov YOQIQ
-  // bo'lishiga tayanadi, shuning uchun aniq holatga qo'yamiz
-  const [{ q: aslCheklov }] = await sql('select qoldiq_cheklovi as q from dori_settings where id;');
-  CHEKLOV_ASL = aslCheklov;
 
   await tozala();
   // Cheklovni tozalashdan KEYIN yoqamiz: tozala() asl qiymatni qaytaradi,
