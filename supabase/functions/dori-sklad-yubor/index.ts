@@ -91,6 +91,69 @@ Deno.serve(async (req) => {
     return json({ error: 'BAD_JSON' }, 400);
   }
 
+  async function tg(method: string, payload: unknown) {
+    const r = await fetch(`https://api.telegram.org/bot${token}/${method}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    return await r.json();
+  }
+
+  // ============================== SOTUV
+  // Sotuvda sklad ALLAQACHON tanlangan - taqsimlash kerak emas, so'rov
+  // to'g'ridan-to'g'ri o'sha skladga ketadi.
+  //
+  // Omborchiga NARX EMAS, TERISH ma'lumoti kerak: nom, ishlab
+  // chiqaruvchi, seriya, muddat va dona.
+  const saleId = String(body.sale_id ?? '');
+  if (saleId) {
+    const { data: sot, error: xs } = await supabase.rpc('dori_sotuv_yuborilsin', { p_sale_id: saleId });
+    if (xs) return json({ error: xs.message }, 500);
+    if (!sot) return json({ error: 'SOTUV_TOPILMADI' }, 404);
+
+    const s2 = sot as any;
+    const chatlar = (s2.chatlar ?? []) as string[];
+    if (chatlar.length === 0) {
+      return json({ ok: true, yuborildi: 0, ulanmagan_sklad: 1 });
+    }
+
+    const poz = (s2.pozitsiyalar ?? []) as any[];
+    const matn =
+      `🧾 <b>Terish uchun — sotuv №${esc(s2.sale_no)}</b>\n` +
+      `Mijoz: ${esc(s2.mijoz)}${s2.telefon ? ' · ' + esc(s2.telefon) : ''}\n\n` +
+      poz
+        .map((it, i) => {
+          const qism = [
+            it.manufacturer ? esc(it.manufacturer) : null,
+            it.series ? 'seriya ' + esc(it.series) : null,
+            it.expiry ? 'muddat ' + esc(String(it.expiry).split('-').reverse().join('.')) : null,
+          ].filter(Boolean).join(' · ');
+          return `${i + 1}. <b>${esc(it.name)}</b> — <b>${miqdor(it.qty)} dona</b>` +
+                 (qism ? `\n   ${qism}` : '');
+        })
+        .join('\n\n') +
+      `\n\nJami: <b>${pul(s2.base_total)}</b>` +
+      (s2.izoh ? `\n\nIzoh: ${esc(s2.izoh)}` : '');
+
+    let ketdi = false;
+    for (const chat of chatlar) {
+      const r = await tg('sendMessage', {
+        chat_id: Number(chat),
+        text: matn,
+        parse_mode: 'HTML',
+        reply_markup: s2.yigildi
+          ? undefined
+          : { inline_keyboard: [[{ text: '✅ Terib bo‘ldim', callback_data: `st:${saleId}` }]] },
+      });
+      if ((r as any)?.ok) ketdi = true;
+    }
+
+    if (ketdi) await supabase.rpc('dori_sotuv_yuborildi', { p_sale_id: saleId });
+
+    return json({ ok: true, yuborildi: ketdi ? 1 : 0, ulanmagan_sklad: 0 });
+  }
+
   const orderId = String(body.order_id ?? '');
   if (!orderId) return json({ error: 'ORDER_ID_YOQ' }, 400);
 
@@ -107,15 +170,6 @@ Deno.serve(async (req) => {
   if (xato2) return json({ error: xato2.message }, 500);
 
   // ---------- yuborish ----------
-  async function tg(method: string, payload: unknown) {
-    const r = await fetch(`https://api.telegram.org/bot${token}/${method}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
-    return await r.json();
-  }
-
   let yuborildi = 0;
   let chatsiz = 0;
 

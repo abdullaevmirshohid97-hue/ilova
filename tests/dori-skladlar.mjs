@@ -72,7 +72,9 @@ async function tozala() {
   await sql(`delete from dori_warehouse_telegram where chat_id in (555000222, 555000333, 555000444);`);
   await sql("delete from dori_warehouse_users where email like 'sinov-k%';");
   await sql("delete from dori_products where name in ('SINOV TAHRIR DORI', 'SINOV ARZON DORI', 'SINOV SOTUV DORI');");
-  await sql("delete from dori_customers where phone in ('998000000003','998000000007','998000000008');");
+  await sql("delete from dori_customers where phone in ('998000000003','998000000007','998000000008','998000000010');");
+  await sql("delete from dori_warehouse_telegram where chat_id in (555000999, 555000888);");
+  await sql("delete from dori_products where name = 'SINOV TERISH DORI';");
   await sql("delete from dori_products where name in ('SINOV BUYURTMA DORI', 'SINOV ARXIV DORI');");
   await sql("delete from dori_invoices where supplier = 'SINOV';");
   await sql("delete from dori_customers where chat_id = 999000444 or phone = '998000000002';");
@@ -610,7 +612,9 @@ const jsonQator = (o) => JSON.stringify(o).replace(/'/g, "''");
 
   await sql("delete from dori_warehouse_users where email like 'sinov-k%';");
   await sql("delete from dori_products where name in ('SINOV TAHRIR DORI', 'SINOV ARZON DORI', 'SINOV SOTUV DORI');");
-  await sql("delete from dori_customers where phone in ('998000000003','998000000007','998000000008');");
+  await sql("delete from dori_customers where phone in ('998000000003','998000000007','998000000008','998000000010');");
+  await sql("delete from dori_warehouse_telegram where chat_id in (555000999, 555000888);");
+  await sql("delete from dori_products where name = 'SINOV TERISH DORI';");
   await sql("delete from dori_products where name in ('SINOV BUYURTMA DORI', 'SINOV ARXIV DORI');");
   await sql("delete from dori_invoices where supplier = 'SINOV';");
   await sql("delete from dori_customers where chat_id = 999000444 or phone = '998000000002';");
@@ -773,7 +777,9 @@ const jsonQator = (o) => JSON.stringify(o).replace(/'/g, "''");
   await sql(`insert into dori_offers (warehouse_id, product_id, base_price, price, stock, last_import)
              values ('${wSot}', '${dSot}', 5000, 6000, 10, 'sinov');`);
 
-  await sql("delete from dori_customers where phone in ('998000000003','998000000007','998000000008');");
+  await sql("delete from dori_customers where phone in ('998000000003','998000000007','998000000008','998000000010');");
+  await sql("delete from dori_warehouse_telegram where chat_id in (555000999, 555000888);");
+  await sql("delete from dori_products where name = 'SINOV TERISH DORI';");
   await sql("delete from dori_products where name in ('SINOV BUYURTMA DORI', 'SINOV ARXIV DORI');");
   await sql("delete from dori_invoices where supplier = 'SINOV';");
   const [{ id: mSot }] = await sql(
@@ -958,6 +964,85 @@ const jsonQator = (o) => JSON.stringify(o).replace(/'/g, "''");
   await sql("delete from dori_customers where phone in ('998000000007', '998000000008');");
   await sql(`delete from dori_warehouses where name = 'SINOV-B2';`);
   await sql(`delete from dori_products where id = '${dB}';`);
+
+  // ============================ 13. SOTUV SKLADGA TERISH UCHUN BORADI
+  console.log('\n13. Sotuv skladga terish uchun boradi');
+
+  const [{ id: wTer }] = await sql(
+    "insert into dori_warehouses (name, priority) values ('SINOV-TER', 99) returning id;"
+  );
+  const [{ id: dTer }] = await sql(
+    `insert into dori_products (name, name_norm, manufacturer, is_active)
+     values ('SINOV TERISH DORI', dori_norm('SINOV TERISH DORI'), 'Sinov zavod', true) returning id;`
+  );
+  await sql(`insert into dori_offers (warehouse_id, product_id, base_price, price, stock, last_import)
+             values ('${wTer}', '${dTer}', 3000, 4000, 50, 'sinov');`);
+  await sql(`insert into dori_batches (warehouse_id, product_id, series, expiry, qty, last_import)
+             values ('${wTer}', '${dTer}', 'TER-1', '2029-05-31', 50, 'sinov');`);
+
+  await sql("delete from dori_customers where phone = '998000000010';");
+  const [{ id: mTer }] = await sql(
+    `insert into dori_customers (phone, phone_norm, name, pharmacy)
+     values ('998000000010', '998000000010', 'Terish mijoz', 'TERISH DORIXONA') returning id;`
+  );
+
+  // Sklad xodimi botga ulangan
+  await sql(`delete from dori_warehouse_telegram where chat_id = 555000999;`);
+  await sql(`insert into dori_warehouse_telegram (chat_id, warehouse_id, phone, name)
+             values (555000999, '${wTer}', '998000000011', 'Omborchi');`);
+
+  const { j: sot13 } = await admin(
+    `select dori_sotuv_yarat('${wTer}', '${mTer}',
+       '[{"product_id":"${dTer}","qty":5}]'::jsonb, 'terish sinovi') as j;`
+  );
+  tekshir('sotuv yaratildi', sot13.ok === true, '№' + sot13.sale_no);
+
+  // Terish fakturasi: chat, seriya, muddat, ishlab chiqaruvchi
+  const [{ j: yub13 }] = await sql(`select dori_sotuv_yuborilsin('${sot13.sale_id}') as j;`);
+  tekshir('skladning chati topildi', (yub13.chatlar ?? []).includes('555000999'),
+    JSON.stringify(yub13.chatlar));
+  const poz = yub13.pozitsiyalar[0];
+  tekshir('terish uchun seriya bor', poz.series === 'TER-1', poz.series);
+  tekshir('terish uchun muddat bor', String(poz.expiry).startsWith('2029'), poz.expiry);
+  tekshir('ishlab chiqaruvchi bor', poz.manufacturer === 'Sinov zavod', poz.manufacturer);
+  tekshir('dona to‘g‘ri', Number(poz.qty) === 5, poz.qty);
+  tekshir('mijoz narxi YO‘Q (faqat tannarx)', poz.price === undefined,
+    poz.price ?? 'yo‘q');
+
+  // Omborchi Telegramdan "terib bo'ldim" bosadi
+  const [{ j: tayyor13 }] = await sql(
+    `select dori_sotuv_tayyor(555000999, '${sot13.sale_id}') as j;`
+  );
+  tekshir('omborchi terildi deb belgiladi', tayyor13.ok === true, '№' + tayyor13.sale_no);
+
+  const [{ yig }] = await sql(
+    `select yigildi_at is not null as yig from dori_sales where id = '${sot13.sale_id}';`
+  );
+  tekshir('bazada terilgan deb yozildi', yig === true, yig);
+
+  // BEGONA sklad xodimi bu sotuvni yopa olmasligi kerak
+  await sql(`delete from dori_warehouse_telegram where chat_id = 555000888;`);
+  const [{ id: wBegona }] = await sql(
+    "insert into dori_warehouses (name, priority) values ('SINOV-BEGONA', 99) returning id;"
+  );
+  await sql(`insert into dori_warehouse_telegram (chat_id, warehouse_id, phone, name)
+             values (555000888, '${wBegona}', '998000000012', 'Begona');`);
+  const [{ j: begona13 }] = await sql(
+    `select dori_sotuv_tayyor(555000888, '${sot13.sale_id}') as j;`
+  );
+  tekshir('BEGONA sklad sotuvni yopolmaydi', begona13.ok === false, begona13.error);
+
+  // Skladning o'z sotuvlari ro'yxati
+  const [{ j: royxatSot }] = await sql(`select dori_sklad_sotuvlar(555000999, 10) as j;`);
+  tekshir('sklad o‘z sotuvlarini ko‘radi',
+    royxatSot.ok === true && royxatSot.sotuvlar.length >= 1,
+    royxatSot.sotuvlar?.length);
+
+  await sql(`delete from dori_warehouse_telegram where chat_id in (555000999, 555000888);`);
+  await sql(`delete from dori_sales where warehouse_id = '${wTer}';`);
+  await sql(`delete from dori_customers where id = '${mTer}';`);
+  await sql(`delete from dori_warehouses where name in ('SINOV-TER', 'SINOV-BEGONA');`);
+  await sql(`delete from dori_products where id = '${dTer}';`);
 
   // ================================================== tozalash
   await tozala();

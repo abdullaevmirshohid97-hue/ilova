@@ -51,7 +51,10 @@ const MENYU = {
 
 // Sklad xodimi uchun boshqa menyu: u dori qidirmaydi, so'rov oladi
 const SKLAD_MENYU = {
-  keyboard: [[{ text: '📥 So‘rovlar' }, { text: 'ℹ️ Sklad' }]],
+  keyboard: [
+    [{ text: '📥 So‘rovlar' }, { text: '🧾 Sotuvlar' }],
+    [{ text: 'ℹ️ Sklad' }],
+  ],
   resize_keyboard: true,
 };
 
@@ -191,6 +194,33 @@ Deno.serve(async (req) => {
     );
   }
 
+  // Terish uchun sotuv: omborchiga nom, ishlab chiqaruvchi, seriya,
+  // muddat va DONA kerak. Mijoz narxi bu yerda ham yo'q.
+  async function sotuvniKorsat(chatId: number, sot: any) {
+    const p = (sot.pozitsiyalar ?? []) as any[];
+    const matn = p
+      .map((it, i) => {
+        const qism = [
+          it.manufacturer ? esc(it.manufacturer) : null,
+          it.series ? 'seriya ' + esc(it.series) : null,
+          it.expiry ? 'muddat ' + esc(String(it.expiry).split('-').reverse().join('.')) : null,
+        ].filter(Boolean).join(' · ');
+        return `${i + 1}. <b>${esc(it.name)}</b> — <b>${miqdor(it.qty)} dona</b>` +
+               (qism ? `\n   ${qism}` : '');
+      })
+      .join('\n\n');
+
+    await yubor(
+      chatId,
+      `🧾 <b>Sotuv №${esc(sot.sale_no)}</b>${sot.yigildi ? ' · ✅ terilgan' : ''}\n` +
+        `Mijoz: ${esc(sot.mijoz)}\n\n${matn}\n\nJami: <b>${pul(sot.base_total)}</b>` +
+        (sot.izoh ? `\n\nIzoh: ${esc(sot.izoh)}` : ''),
+      sot.yigildi
+        ? {}
+        : { reply_markup: { inline_keyboard: [[{ text: '✅ Terib bo‘ldim', callback_data: `st:${sot.sale_id}` }]] } }
+    );
+  }
+
   // Skladga ko'rinadigan so'rov. DIQQAT: bu yerda faqat TANNARX bor -
   // mijozga qo'yilgan ustama skladga ko'rinmasligi kerak.
   async function sorovniKorsat(chatId: number, sor: any) {
@@ -263,6 +293,40 @@ Deno.serve(async (req) => {
     const nuqta = data.indexOf(':');
     const amal = nuqta === -1 ? data : data.slice(0, nuqta);
     const id = nuqta === -1 ? '' : data.slice(nuqta + 1);
+
+    // ---------- sotuv: terib bo'ldim / ochish ----------
+    // Tekshiruv RPC ichida: chat_id -> sklad bog'lanishi qayta o'qiladi,
+    // ya'ni begona skladning sotuvini yopib bo'lmaydi.
+    if (amal === 'st' || amal === 'ss') {
+      if (amal === 'ss') {
+        const { data: sot } = await supabase.rpc('dori_sklad_sotuv', {
+          p_chat_id: chatId,
+          p_sale_id: id,
+        });
+        await tg('answerCallbackQuery', { callback_query_id: cq.id });
+        if ((sot as any)?.ok) await sotuvniKorsat(chatId, sot as any);
+        else await yubor(chatId, '❌ Sotuv topilmadi.');
+        return new Response('ok');
+      }
+
+      const { data: jav } = await supabase.rpc('dori_sotuv_tayyor', {
+        p_chat_id: chatId,
+        p_sale_id: id,
+      });
+      const ok = (jav as any)?.ok;
+      await tg('answerCallbackQuery', {
+        callback_query_id: cq.id,
+        text: ok ? 'Terildi deb belgilandi' : 'Bajarilmadi',
+      });
+      if (ok) {
+        await yubor(
+          chatId,
+          `✅ Sotuv №${esc((jav as any).sale_no)} — <b>terib bo‘lindi</b>. Rahmat!`,
+          { reply_markup: SKLAD_MENYU }
+        );
+      }
+      return new Response('ok');
+    }
 
     // ---------- sklad javobi ----------
     // Bu tugmalar SKLAD xodimiga tegishli, mijozga emas. Tekshiruv RPC
@@ -451,6 +515,31 @@ Deno.serve(async (req) => {
           reply_markup: {
             inline_keyboard: list.slice(0, 8).map((x) => [
               { text: `№${x.order_no} — ochish`, callback_data: `ws:${x.id}` },
+            ]),
+          },
+        }
+      );
+      return new Response('ok');
+    }
+
+    if (text.includes('Sotuvlar') || text.startsWith('/sotuvlar')) {
+      const { data } = await supabase.rpc('dori_sklad_sotuvlar', { p_chat_id: chatId, p_limit: 10 });
+      const r = (data as any) ?? {};
+      const list = (r.sotuvlar ?? []) as any[];
+      if (!r.ok || list.length === 0) {
+        await yubor(chatId, '📭 Hozircha sotuv yo‘q.', { reply_markup: SKLAD_MENYU });
+        return new Response('ok');
+      }
+      await yubor(
+        chatId,
+        `🧾 <b>Sotuvlar</b>\n\n` +
+          list
+            .map((x) => `${x.yigildi ? '✅' : '🆕'} №${esc(x.sale_no)} · ${esc(x.mijoz)} · ${x.pozitsiya} pozitsiya · <b>${pul(x.base_total)}</b>`)
+            .join('\n'),
+        {
+          reply_markup: {
+            inline_keyboard: list.slice(0, 8).map((x) => [
+              { text: `${x.yigildi ? '✅' : '🧾'} №${x.sale_no} — ochish`, callback_data: `ss:${x.id}` },
             ]),
           },
         }

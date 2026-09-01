@@ -167,7 +167,24 @@ export default function DoriSotuv() {
     }
 
     setOxirgi({ sale_id: r.sale_id, sale_no: r.sale_no, total: r.total, foyda: r.foyda });
-    setXabar(`Sotuv №${r.sale_no} rasmiylashtirildi · ${son(r.total)} so‘m · foyda ${son(r.foyda)} so‘m`);
+
+    // Omborchiga TERISH uchun faktura Telegramga ketadi. Javobini
+    // kutamiz: sklad botga ulanmagan bo'lsa buni darhol aytish kerak,
+    // aks holda tovar terilmay qolib ketardi.
+    let skladXabar = '';
+    try {
+      const { data: yub } = await supabase.functions.invoke('dori-sklad-yubor', {
+        body: { sale_id: r.sale_id },
+      });
+      const y = yub as { yuborildi: number; ulanmagan_sklad: number };
+      skladXabar = y?.yuborildi
+        ? ' · skladga terish uchun yuborildi'
+        : ' · ⚠️ sklad Telegramga ulanmagan, terish so‘rovi bormadi';
+    } catch {
+      skladXabar = ' · ⚠️ skladga yuborilmadi';
+    }
+
+    setXabar(`Sotuv №${r.sale_no} rasmiylashtirildi · ${son(r.total)} so‘m · foyda ${son(r.foyda)} so‘m${skladXabar}`);
     setSavat([]);
     setIzoh('');
     tarixYukla();
@@ -211,6 +228,26 @@ export default function DoriSotuv() {
       let sabab = e?.message ?? '';
       try { const j = await e?.context?.json?.(); if (j?.error) sabab = j.error; } catch { /* javob o'qilmadi */ }
       setXato('Faktura tayyorlanmadi: ' + sabab);
+    } finally {
+      setIsh(null);
+    }
+  }
+
+  // Sklad keyinroq ulangan bo'lsa yoki xabar yo'qolgan bo'lsa - qayta
+  async function skladgaQaytaYubor(s: Sotuv) {
+    setIsh('Skladga yuborilmoqda...');
+    setXato(null);
+    try {
+      const { data, error } = await supabase.functions.invoke('dori-sklad-yubor', {
+        body: { sale_id: s.id },
+      });
+      if (error) throw error;
+      const y = data as { yuborildi: number };
+      setXabar(y?.yuborildi
+        ? `№${s.sale_no} skladga yuborildi`
+        : `№${s.sale_no}: sklad Telegramga ulanmagan`);
+    } catch (e: any) {
+      setXato('Yuborilmadi: ' + (e?.message ?? ''));
     } finally {
       setIsh(null);
     }
@@ -451,6 +488,8 @@ export default function DoriSotuv() {
                 <span className="text-[11px]" style={{ color: C.text }}>
                   <b style={{ color: C.neon }}>{son(s.total)}</b> · foyda {son(s.foyda)}
                 </span>
+                <button onClick={() => skladgaQaytaYubor(s)} className="px-2 py-1 text-[10px] font-bold"
+                        style={{ color: C.neon, border: `1px solid ${C.line}` }}>SKLADGA</button>
                 <button onClick={() => faktura(s.id, 'print')} className="px-2 py-1 text-[10px] font-bold"
                         style={{ color: C.neon2, border: `1px solid ${C.line}` }}>CHOP</button>
                 <button onClick={() => faktura(s.id, 'pdf')} className="px-2 py-1 text-[10px] font-bold"

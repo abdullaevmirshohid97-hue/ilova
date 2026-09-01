@@ -36,6 +36,27 @@ type Sorov = {
   pozitsiyalar: Poz[];
 };
 
+type SotuvPoz = {
+  name: string;
+  qty: number;
+  manufacturer: string | null;
+  series: string | null;
+  expiry: string | null;
+  base_price: number | null;
+  base_sum: number | null;
+};
+
+type KabSotuv = {
+  id: string;
+  sale_no: number;
+  created_at: string;
+  base_total: number;
+  mijoz: string;
+  comment: string | null;
+  yigildi_at: string | null;
+  pozitsiyalar: SotuvPoz[];
+};
+
 type Narx = {
   id: string;
   name: string;
@@ -61,7 +82,8 @@ const HOLAT: Record<string, { nom: string; sinf: string }> = {
 };
 
 export default function SkladKabinet({ sklad }: { sklad: { warehouse_id: string; sklad: string; full_name?: string | null } }) {
-  const [bolim, setBolim] = useState<'sorovlar' | 'prays'>('sorovlar');
+  const [bolim, setBolim] = useState<'sorovlar' | 'sotuvlar' | 'prays'>('sorovlar');
+  const [sotuvlar, setSotuvlar] = useState<KabSotuv[]>([]);
   const [sorovlar, setSorovlar] = useState<Sorov[]>([]);
   const [narxlar, setNarxlar] = useState<Narx[]>([]);
   const [jami, setJami] = useState(0);
@@ -87,7 +109,21 @@ export default function SkladKabinet({ sklad }: { sklad: { warehouse_id: string;
     setNarxlar(d?.items ?? []);
   }, []);
 
-  useEffect(() => { sorovlarniYukla(); }, [sorovlarniYukla]);
+  const sotuvlarniYukla = useCallback(async () => {
+    const { data, error } = await supabase.rpc('dori_kabinet_sotuvlar', { p_limit: 30 });
+    if (error) { setXato('Sotuvlarni o‘qib bo‘lmadi: ' + error.message); return; }
+    setSotuvlar((data ?? []) as KabSotuv[]);
+  }, []);
+
+  async function sotuvTayyor(x: KabSotuv) {
+    setIsh('Belgilanmoqda...');
+    const { error } = await supabase.rpc('dori_kabinet_sotuv_tayyor', { p_sale_id: x.id });
+    setIsh(null);
+    if (error) { setXato('Bajarilmadi: ' + error.message); return; }
+    await sotuvlarniYukla();
+  }
+
+  useEffect(() => { sorovlarniYukla(); sotuvlarniYukla(); }, [sorovlarniYukla, sotuvlarniYukla]);
   useEffect(() => { if (bolim === 'prays' && narxlar.length === 0) narxlarniYukla(''); }, [bolim, narxlar.length, narxlarniYukla]);
 
   async function javob(s: Sorov, status: string) {
@@ -108,6 +144,7 @@ export default function SkladKabinet({ sklad }: { sklad: { warehouse_id: string;
   }
 
   const kutilayotgan = sorovlar.filter((s) => s.status === 'new' || s.status === 'sent').length;
+  const terilmagan = sotuvlar.filter((s) => !s.yigildi_at).length;
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -128,11 +165,15 @@ export default function SkladKabinet({ sklad }: { sklad: { warehouse_id: string;
         </div>
 
         <div className="mx-auto flex max-w-5xl gap-1 px-4">
-          {([['sorovlar', `So‘rovlar${kutilayotgan ? ` (${kutilayotgan})` : ''}`], ['prays', 'Mening praysim']] as const).map(
+          {([
+            ['sorovlar', `So‘rovlar${kutilayotgan ? ` (${kutilayotgan})` : ''}`],
+            ['sotuvlar', `Sotuvlar${terilmagan ? ` (${terilmagan})` : ''}`],
+            ['prays', 'Mening praysim'],
+          ] as const).map(
             ([k, nom]) => (
               <button
                 key={k}
-                onClick={() => setBolim(k as 'sorovlar' | 'prays')}
+                onClick={() => setBolim(k as 'sorovlar' | 'sotuvlar' | 'prays')}
                 className={`-mb-px border-b-2 px-4 py-2.5 text-sm font-semibold transition ${
                   bolim === k
                     ? 'border-teal-600 text-teal-700'
@@ -239,6 +280,75 @@ export default function SkladKabinet({ sklad }: { sklad: { warehouse_id: string;
                 </div>
 
                 {s.comment && <div className="mt-2 text-xs text-slate-500">Izoh: {s.comment}</div>}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {bolim === 'sotuvlar' && (
+          <div className="grid gap-3">
+            {sotuvlar.length === 0 && (
+              <div className="rounded-xl border border-dashed border-slate-300 p-10 text-center text-sm text-slate-500">
+                Hozircha sotuv yo‘q. Operator sotuv qilganda shu yerda ko‘rinadi.
+              </div>
+            )}
+
+            {sotuvlar.map((x) => (
+              <div key={x.id} className="rounded-xl border border-slate-200 bg-white p-4">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <div className="font-bold text-slate-800">
+                      Sotuv №{x.sale_no}
+                      <span className="font-normal text-slate-500"> · {x.mijoz}</span>
+                    </div>
+                    <div className="text-xs text-slate-500">{vaqt(x.created_at)}</div>
+                  </div>
+                  <span className={`rounded-full border px-2.5 py-1 text-xs font-semibold ${
+                    x.yigildi_at
+                      ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                      : 'bg-blue-50 text-blue-700 border-blue-200'
+                  }`}>
+                    {x.yigildi_at ? 'terilgan' : 'terish kerak'}
+                  </span>
+                </div>
+
+                <div className="mt-3 overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-slate-200 text-left text-xs text-slate-500">
+                        <th className="py-1 pr-2 font-semibold">DORI</th>
+                        <th className="py-1 pr-2 font-semibold">ISHLAB CHIQARUVCHI</th>
+                        <th className="py-1 pr-2 font-semibold">SERIYA</th>
+                        <th className="py-1 pr-2 font-semibold">MUDDAT</th>
+                        <th className="w-20 py-1 text-right font-semibold">DONA</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {x.pozitsiyalar.map((p, i) => (
+                        <tr key={i} className="border-t border-slate-100">
+                          <td className="py-1.5 pr-2 text-slate-800">{p.name}</td>
+                          <td className="py-1.5 pr-2 text-slate-500">{p.manufacturer ?? '—'}</td>
+                          <td className="py-1.5 pr-2 text-slate-500">{p.series ?? '—'}</td>
+                          <td className="py-1.5 pr-2 text-slate-500">{p.expiry ? vaqtSana(p.expiry) : '—'}</td>
+                          <td className="py-1.5 text-right font-bold text-slate-900">{son(p.qty)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="mt-2 flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-2">
+                  <div className="text-sm text-slate-600">
+                    Jami: <b className="text-slate-900">{son(x.base_total)} so‘m</b>
+                    {x.comment ? <span className="ml-2 text-xs text-slate-500">· {x.comment}</span> : null}
+                  </div>
+                  {!x.yigildi_at && (
+                    <button onClick={() => sotuvTayyor(x)}
+                            className="rounded-lg bg-slate-800 px-3 py-1.5 text-xs font-bold text-white hover:opacity-90">
+                      ✅ TERIB BO‘LDIM
+                    </button>
+                  )}
+                </div>
               </div>
             ))}
           </div>
