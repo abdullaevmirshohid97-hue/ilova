@@ -77,6 +77,10 @@ export default function DoriModuli() {
   // deb saqlanib, katalogga umuman yetib bormadi.
   const [rejimQol, setRejimQol] = useState<'faktura' | 'narxlar' | null>(null);
   const [belgilangan, setBelgilangan] = useState<Set<string>>(new Set());
+  // Faylda necha qator bo'lsa - hammasini ko'rsata olamiz. Boshida 500 ta:
+  // 3000+ qatorni birdan chizish sahifani sekinlashtiradi, shuning uchun
+  // qolganini foydalanuvchining o'zi ochadi.
+  const [korinadi, setKorinadi] = useState(500);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const royxatYukla = useCallback(async () => {
@@ -128,6 +132,7 @@ export default function DoriModuli() {
       setVaraqRoyxat(varaqlar(buf));
       setVaraq(sheetIndex);
       setNatija(yakuniy);
+      setKorinadi(500);
       setSupplier(shablon?.supplier ?? yakuniy.faktura.supplier ?? '');
     } catch (e: any) {
       setXato('Fayl o‘qilmadi: ' + (e?.message ?? ''));
@@ -351,6 +356,71 @@ export default function DoriModuli() {
 
       {natija && natija.sarlavhaQatori >= 0 && (
         <>
+          {/* AMALLAR ENG YUQORIDA va yopishib turadi: 3000 qatorli
+              jadvalni oxirigacha aylantirib tugma qidirish kerak emas */}
+          <div
+            className="mb-3 flex flex-wrap items-center gap-2 p-2"
+            style={{
+              position: 'sticky',
+              top: 0,
+              zIndex: 5,
+              background: C.panel2,
+              border: `1px solid ${C.line}`,
+              borderRadius: RADIUS,
+            }}
+          >
+            {rejim === 'narxlar' ? (
+              farq ? (
+                <button
+                  onClick={kataloggaYukla}
+                  disabled={!!ish}
+                  className={btn}
+                  style={{ color: C.onAccent, background: C.neon, border: `1px solid ${C.neon}` }}
+                >
+                  TASDIQLAB KATALOGGA YOZISH
+                </button>
+              ) : (
+                <button
+                  onClick={farqniKorsat}
+                  disabled={!!ish}
+                  className={btn}
+                  style={{ color: C.neon, background: 'transparent', border: `1px solid ${C.neon}` }}
+                >
+                  KATALOG FARQINI KO‘RSATISH
+                </button>
+              )
+            ) : null}
+            <button
+              onClick={saqla}
+              disabled={!!ish}
+              className={btn}
+              style={
+                rejim === 'narxlar'
+                  ? { color: C.text, background: 'transparent', border: `1px solid ${C.line}` }
+                  : { color: C.onAccent, background: C.neon, border: `1px solid ${C.neon}` }
+              }
+            >
+              {rejim === 'narxlar' ? 'FAKTURA SIFATIDA SAQLASH' : 'BAZAGA SAQLASH'}
+            </button>
+            <button
+              onClick={yuklab}
+              className={btn}
+              style={{ color: C.neon2, background: 'transparent', border: `1px solid ${C.neon2}` }}
+            >
+              EXCEL QILIB YUKLAB OLISH
+            </button>
+            <button
+              onClick={() => {
+                setNatija(null);
+                setBayt(null);
+                setRejimQol(null);
+              }}
+              className={btn}
+              style={{ color: C.text, background: 'transparent', border: `1px solid ${C.line}` }}
+            >
+              BEKOR QILISH
+            </button>
+          </div>
           {/* ---------- xulosa ---------- */}
           <div className="mb-3 grid gap-3 md:grid-cols-4">
             <Quti sarlavha="QATORLAR">
@@ -508,7 +578,7 @@ export default function DoriModuli() {
                 </tr>
               </thead>
               <tbody>
-                {natija.qatorlar.slice(0, 300).map((q, i) => (
+                {natija.qatorlar.slice(0, korinadi).map((q, i) => (
                   <tr
                     key={q.line_no}
                     style={{
@@ -535,9 +605,26 @@ export default function DoriModuli() {
                 ))}
               </tbody>
             </table>
-            {natija.qatorlar.length > 300 && (
-              <div className="px-3 py-2 text-[11px]" style={{ color: C.text }}>
-                {natija.qatorlar.length} qatordan birinchi 300 tasi ko‘rsatildi — saqlashda hammasi ketadi
+            {natija.qatorlar.length > korinadi && (
+              <div className="flex flex-wrap items-center gap-2 px-4 py-3">
+                <span className="text-[11px]" style={{ color: C.text }}>
+                  {natija.qatorlar.length} qatordan {korinadi} tasi ko‘rsatildi —
+                  saqlashda baribir HAMMASI ketadi
+                </span>
+                <button
+                  onClick={() => setKorinadi((n) => n + 1000)}
+                  className="px-2 py-1 text-[10px] font-bold"
+                  style={{ color: C.neon2, border: `1px solid ${C.line}` }}
+                >
+                  YANA 1000 TA
+                </button>
+                <button
+                  onClick={() => setKorinadi(natija.qatorlar.length)}
+                  className="px-2 py-1 text-[10px] font-bold"
+                  style={{ color: C.textBright, border: `1px solid ${C.neon2}` }}
+                >
+                  HAMMASINI KO‘RSATISH ({natija.qatorlar.length})
+                </button>
               </div>
             )}
           </div>
@@ -606,59 +693,6 @@ export default function DoriModuli() {
             </div>
           )}
 
-          <div className="mb-6 flex flex-wrap gap-2">
-            {rejim === 'narxlar' ? (
-              farq ? (
-                <button
-                  onClick={kataloggaYukla}
-                  disabled={!!ish}
-                  className={btn}
-                  style={{ color: C.onAccent, background: C.neon, border: `1px solid ${C.neon}` }}
-                >
-                  TASDIQLAB KATALOGGA YOZISH
-                </button>
-              ) : (
-                <button
-                  onClick={farqniKorsat}
-                  disabled={!!ish}
-                  className={btn}
-                  style={{ color: C.neon, background: 'transparent', border: `1px solid ${C.neon}` }}
-                >
-                  KATALOG FARQINI KO‘RSATISH
-                </button>
-              )
-            ) : null}
-            <button
-              onClick={saqla}
-              disabled={!!ish}
-              className={btn}
-              style={
-                rejim === 'narxlar'
-                  ? { color: C.text, background: 'transparent', border: `1px solid ${C.line}` }
-                  : { color: C.onAccent, background: C.neon, border: `1px solid ${C.neon}` }
-              }
-            >
-              {rejim === 'narxlar' ? 'FAKTURA SIFATIDA SAQLASH' : 'BAZAGA SAQLASH'}
-            </button>
-            <button
-              onClick={yuklab}
-              className={btn}
-              style={{ color: C.neon2, background: 'transparent', border: `1px solid ${C.neon2}` }}
-            >
-              EXCEL QILIB YUKLAB OLISH
-            </button>
-            <button
-              onClick={() => {
-                setNatija(null);
-                setBayt(null);
-                setRejimQol(null);
-              }}
-              className={btn}
-              style={{ color: C.text, background: 'transparent', border: `1px solid ${C.line}` }}
-            >
-              BEKOR QILISH
-            </button>
-          </div>
         </>
       )}
 
