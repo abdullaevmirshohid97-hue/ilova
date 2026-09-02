@@ -1,53 +1,59 @@
 #!/bin/bash
-# Panel serverda YANGILANGANMI - kod bo'yicha tekshiradi.
+# Serverdagi panel qaysi commit'dan qurilgan - shuni aytadi.
 #
-# NEGA HASH EMAS: mahalliy build va serverdagi build bir xil manbadan
-# HAR XIL hash beradi (Windows CRLF, node/pnpm versiyasi, install tartibi).
-# Ya'ni "index-XXXX.js mos kelmadi" degani "deploy bo'lmadi" degani EMAS -
-# bir marta shu adashtirdi. Ishonchli belgi: yangi kod chaqiradigan RPC
-# nomlari jonli bundle ichida bormi.
+# NEGA BU YO'L: avval fayl nomidagi hash solishtirilgan edi - mahalliy va
+# serverdagi build bir xil manbadan har xil hash beradi (Windows CRLF, node
+# versiyasi), ya'ni "eski" degan yolg'on xulosa chiqardi. Keyin kod ichidan
+# belgi qidirildi - u ham aldadi: supabase-js kutubxonasining o'z funksiyasi
+# "mening yangi kodim" deb hisoblanib, deploy bo'lmagan holda "OK" berdi.
 #
-# Ishlatish: bash infra/tekshir.sh   (istalgan kompyuterdan)
+# Endi build o'zi commit hashini versiya.json ga yozib qo'yadi
+# (apps/admin/vite.config.ts). Taxmin qiladigan joy qolmadi.
+#
+# Ishlatish: bash infra/tekshir.sh              (4020.yukchibolla.com)
+#            bash infra/tekshir.sh https://...  (boshqa manzil)
 
 set -uo pipefail
 S=${1:-https://4020.yukchibolla.com}
 
-IDX=$(curl -s "$S/" | grep -o '/assets/index-[A-Za-z0-9_-]*\.js' | head -1)
-[ -z "$IDX" ] && { echo "  x index.html'da bundle topilmadi - sayt ochilmayaptimi?"; exit 1; }
+javob=$(curl -s "$S/versiya.json?t=$(date +%s)")
 
-# Panel lazy-chunk'larga bo'lingan: yangi kod asosiy bundle'da emas,
-# SuperAdminPanel chunk'ida. Uning nomini asosiy bundle'dan olamiz.
-CH=$(curl -s "$S$IDX" | grep -o 'SuperAdminPanel-[A-Za-z0-9_-]*\.js' | head -1)
-[ -z "$CH" ] && { echo "  x SuperAdminPanel chunk topilmadi"; exit 1; }
-JS=$(curl -s "$S/assets/$CH")
+# SPA fallback: mavjud bo'lmagan fayl so'ralsa Caddy index.html qaytaradi
+case "$javob" in
+  *'"commit"'*) ;;
+  *)
+    echo "  x versiya.json yo'q — serverda build tamg'asisiz eski panel turibdi"
+    echo "    serverda: bash /opt/ilova/infra/deploy.sh"
+    exit 1
+    ;;
+esac
 
-# Har biri bitta modulning yangi ishiga tegishli:
-#   DORI-DORIXONA          - 5 ta yo'nalishli ikki bosqichli panel
-#   dori_sotuv_mijozlar    - SOTUV: mijoz avtoto'ldirish
-#   dori_katalog_royxat    - DORI: sklad ustunlari
-#   dori_sklad_prays       - SKLAD: prays sklad ichida yuklanadi
-#   dori_push_tayyorla     - MIJOZLAR: push xabar
-#   dori_buyurtma_ochir    - BUYURTMALAR: tahrir va o'chirish
-#   dori_buyurtma_skladlar - BUYURTMALAR: qaysi skladda
-yiqildi=0
-for f in DORI-DORIXONA dori_sotuv_mijozlar dori_katalog_royxat dori_sklad_prays \
-         dori_push_tayyorla dori_buyurtma_ochir dori_buyurtma_skladlar
-do
-  # Quvur ishlatmaymiz: `grep -q` moslikni topgach darrov chiqadi, uni
-  # oziqlantirayotgan buyruq SIGPIPE oladi va `pipefail` buni "topilmadi"
-  # deb ko'rsatib qo'yardi - natija har safar boshqacha chiqardi.
-  if [[ $JS == *"$f"* ]]; then
-    echo "  OK  $f"
-  else
-    echo "  YO'Q $f"
-    yiqildi=$((yiqildi + 1))
-  fi
-done
+serverda=$(printf '%s' "$javob" | tr -d ' "' | sed -n 's/.*commit:\([a-z0-9]*\).*/\1/p')
+sana=$(printf '%s' "$javob" | tr -d ' "' | sed -n 's/.*sana:\([^,}]*\).*/\1/p')
 
+mahalliy=$(git rev-parse --short HEAD 2>/dev/null || echo '?')
+uzoq=$(git rev-parse --short origin/main 2>/dev/null || echo '?')
+
+echo "  serverda : $serverda   ($sana)"
+echo "  origin   : $uzoq"
+echo "  mahalliy : $mahalliy"
 echo ""
-if [ $yiqildi -eq 0 ]; then
+
+if [ "$serverda" = "$uzoq" ]; then
   echo "PANEL YANGI"
+  ORTDA=0
 else
-  echo "$yiqildi ta yo'q -> serverda: bash /opt/ilova/infra/deploy.sh"
+  # Nechta commit ortda qolganini ham aytamiz - "biroz eski" bilan
+  # "bir hafta eski" o'rtasida katta farq bor
+  n=$(git rev-list --count "$serverda..$uzoq" 2>/dev/null || echo '?')
+  echo "PANEL ESKI — $n ta commit ortda"
+  echo "  serverda: bash /opt/ilova/infra/deploy.sh"
+  ORTDA=1
 fi
-exit $yiqildi
+
+if [ "$mahalliy" != "$uzoq" ]; then
+  echo ""
+  echo "  ! mahalliy HEAD origin/main bilan bir xil emas — push qilinmagan ish bor"
+fi
+
+exit $ORTDA
