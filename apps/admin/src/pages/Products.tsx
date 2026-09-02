@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { formatSum, imageUrl, resizeImage, supabase } from '../lib/supabase';
+import { altbilgi, blank, hujjatniYoz, logoniOl, oynaOch, sozlamaniOl, uslub } from '../lib/hujjat';
 import StockModal from '../components/StockModal';
 
 type Group = { id: string; name: string };
@@ -631,33 +632,42 @@ function ProductModal({
   );
 }
 
-// Katalogni bitta A4/PDF hujjat sifatida chop etish (brauzer "Saqlash PDF")
-// — Orders.tsx dagi yig'ish varaqasi bilan bir xil usul (window.print()).
-function printCatalog(products: Product[], groups: Group[]) {
+// Katalogni bitta hujjat sifatida chop etish. Ko'rinish (qog'oz, chekka,
+// shrift, logo, rekvizit) tenantning sozlamasidan keladi — avval bu yerda
+// qattiq yozilgan edi va boshqa uch hujjatdan farq qilardi.
+async function printCatalog(products: Product[], groups: Group[]) {
+  // Oyna DARHOL ochiladi — await'dan keyin ochilsa brauzer bloklaydi
+  const w = oynaOch();
+  if (!w) return;
+  const s = await sozlamaniOl();
+  const logo = await logoniOl(s);
+
   const stdGroup = groups.find((g) => g.name === 'Standart');
   const withVariants = products.filter((p) => p.variants.length > 0);
-  const dateStr = new Date().toLocaleDateString('uz-UZ', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-  });
+  // Locale nomini qattiq yozmaymiz: ba'zi muhitlarda RangeError beradi
+  const dateStr = new Date().toLocaleDateString();
+
+  const rasmBor = s.ustun_rasm !== false;
+  const skuBor = s.ustun_sku !== false;
 
   const productsHtml = withVariants
     .map((p) => {
       const img = p.images[0];
-      const thumbHtml = img
-        ? `<img class="thumb" src="${imageUrl(img.thumbPath || img.storagePath)}" />`
-        : `<div class="thumb thumb-ph">${p.name.slice(0, 1).toUpperCase()}</div>`;
+      const thumbHtml = !rasmBor
+        ? ''
+        : img
+          ? `<img class="thumb" src="${imageUrl(img.thumbPath || img.storagePath)}" />`
+          : `<div class="thumb thumb-ph">${p.name.slice(0, 1).toUpperCase()}</div>`;
       const variantRows = p.variants
         .map((v) => {
           const avail = v.qty - v.reserved;
           const price =
             stdGroup && v.prices[stdGroup.id] != null ? formatSum(v.prices[stdGroup.id]) : '—';
           return `<tr>
-            <td>${v.sku}</td>
+            ${skuBor ? `<td>${v.sku}</td>` : ''}
             <td>${[v.size, v.color].filter(Boolean).join(' / ') || '—'}</td>
             <td class="num">${price}</td>
-            <td class="num ${avail === 0 ? 'out' : ''}">${avail.toLocaleString()}</td>
+            <td class="num ${avail === 0 ? 'out' : ''}">${avail}</td>
           </tr>`;
         })
         .join('');
@@ -669,7 +679,7 @@ function printCatalog(products: Product[], groups: Group[]) {
             <div class="sub">${p.material ?? ''}</div>
             <table>
               <thead>
-                <tr><th>SKU</th><th>Razmer / Rang</th><th class="num">Narx</th><th class="num">Mavjud</th></tr>
+                <tr>${skuBor ? '<th>SKU</th>' : ''}<th>Razmer / Rang</th><th class="num">Narx</th><th class="num">Mavjud</th></tr>
               </thead>
               <tbody>${variantRows}</tbody>
             </table>
@@ -678,35 +688,36 @@ function printCatalog(products: Product[], groups: Group[]) {
     })
     .join('');
 
-  const w = window.open('', '_blank');
-  if (!w) return;
-  w.document.write(`
-    <html><head><title>Mahsulotlar katalogi</title>
-    <style>
-      @page { size: A4; margin: 14mm; }
-      body { font-family: -apple-system, Arial, sans-serif; color: #14151A; }
-      h1 { font-size: 20px; margin: 0 0 4px; }
-      .meta { color: #8E92A3; font-size: 12px; margin-bottom: 20px; }
-      .product { display: flex; gap: 14px; padding: 14px 0; border-bottom: 1px solid #E9EAF2; break-inside: avoid; }
-      .thumb { width: 84px; height: 84px; border-radius: 10px; object-fit: cover; border: 1px solid #E9EAF2; flex-shrink: 0; }
-      .thumb-ph { background: #F3EBFF; color: #7000FF; display: flex; align-items: center; justify-content: center; font-size: 26px; font-weight: 800; }
-      .info { flex: 1; min-width: 0; }
-      .name { font-size: 14px; font-weight: 800; }
-      .sub { color: #8E92A3; font-size: 11px; margin-top: 2px; }
-      table { width: 100%; border-collapse: collapse; margin-top: 8px; }
-      th, td { text-align: left; padding: 3px 10px 3px 0; font-size: 11px; }
-      th { color: #8E92A3; font-weight: 700; text-transform: uppercase; font-size: 9px; }
-      td.num, th.num { text-align: right; }
-      td.out { color: #F0384A; font-weight: 700; }
-    </style></head>
-    <body>
-      <h1>YUKCHIBOLLA — Mahsulotlar katalogi</h1>
-      <div class="meta">${dateStr} · Jami ${withVariants.length} mahsulot</div>
-      ${productsHtml}
-      <script>window.onload = function() { window.print(); };</script>
-    </body></html>
-  `);
-  w.document.close();
+  // Katalogga xos qo'shimcha uslub — kartochka ko'rinishi umumiy asosda yo'q
+  const katalogUslubi = `
+    ${uslub(s)}
+    .product { display: flex; gap: 14px; padding: 12px 0; border-bottom: 1px solid #e9eaf2; break-inside: avoid; }
+    .thumb { width: 76px; height: 76px; border-radius: 8px; object-fit: cover;
+             border: 1px solid #e9eaf2; flex-shrink: 0; }
+    .thumb-ph { background: ${s.rang ?? '#7000FF'}1a; color: ${s.rang ?? '#7000FF'};
+                display: flex; align-items: center; justify-content: center;
+                font-size: 24px; font-weight: 800; }
+    .info { flex: 1; min-width: 0; }
+    .name { font-weight: 800; }
+    .sub { color: #8e92a3; font-size: .85em; margin-top: 2px; }
+    .product table { margin-top: 6px; }
+    .product th, .product td { border: 0; padding: 2px 10px 2px 0; background: none; }
+    td.out { color: #f0384a; font-weight: 700; }
+  `;
+
+  const tana = `
+    ${blank(s, null, logo, { turi: 'Mahsulotlar katalogi', sana: dateStr })}
+    <div class="meta"><div>Jami <b>${withVariants.length}</b> mahsulot</div></div>
+    ${productsHtml}
+    ${altbilgi(s)}
+  `;
+
+  hujjatniYoz(w, {
+    nom: 'Mahsulotlar katalogi',
+    uslub: katalogUslubi,
+    tana,
+    avtoChop: true,
+  });
 }
 
 // ---------------- Asosiy sahifa ----------------

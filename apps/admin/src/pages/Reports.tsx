@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { formatSum, supabase } from '../lib/supabase';
+import { altbilgi, blank, hujjatniYoz, logoniOl, oynaOch, sozlamaniOl, uslub } from '../lib/hujjat';
 
 const SOLD_STATUSES = ['confirmed', 'picking', 'done'];
 
@@ -89,7 +90,10 @@ function RankBars({ rows, formatValue }: { rows: { name: string; value: number }
   );
 }
 
-function printReport(opts: {
+// Umumiy hisobot. Ko'rinish tenantning sozlamasidan keladi — avval bu
+// yerda o'z chekkasi (16mm) va o'z shrifti qattiq yozilgan edi, ya'ni
+// bir biznesning to'rt hujjati to'rt xil chiqardi.
+async function printReport(opts: {
   days: number;
   periodTotal: number;
   ordersCount: number;
@@ -101,66 +105,63 @@ function printReport(opts: {
   topManagers: ManagerRow[];
   topCustomers: CustomerRow[];
 }) {
-  const dateStr = new Date().toLocaleDateString('uz-UZ', { day: '2-digit', month: '2-digit', year: 'numeric' });
-  const row = (cells: (string | number)[]) => `<tr>${cells.map((c) => `<td>${c}</td>`).join('')}</tr>`;
-
-  const w = window.open('', '_blank');
+  // Oyna DARHOL ochiladi — await'dan keyin ochilsa brauzer bloklaydi
+  const w = oynaOch();
   if (!w) return;
-  w.document.write(`
-    <html><head><meta charset="utf-8" /><title>Umumiy hisobot</title>
-    <style>
-      @page { size: A4; margin: 16mm; }
-      body { font-family: sans-serif; padding: 0; color: #14151A; }
-      h1 { font-size: 22px; margin-bottom: 2px; }
-      .meta { color: #555; font-size: 13px; margin-top: 2px; }
-      .kpis { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 18px; }
-      .kpi { border: 1px solid #ddd; border-radius: 8px; padding: 10px 14px; min-width: 150px; }
-      .kpi .label { font-size: 11px; color: #777; text-transform: uppercase; }
-      .kpi .value { font-size: 18px; font-weight: 800; margin-top: 2px; }
-      h2 { font-size: 15px; margin-top: 26px; margin-bottom: 6px; }
-      table { width: 100%; border-collapse: collapse; }
-      th, td { border: 1px solid #999; padding: 5px 8px; text-align: left; font-size: 12px; }
-      th { background: #F2F3F7; }
-      td:last-child, th:last-child { text-align: right; }
-    </style></head><body>
-    <h1>YUKCHIBOLLA — Umumiy hisobot</h1>
-    <div class="meta">Davr: so'nggi ${opts.days} kun · Chop etilgan sana: ${dateStr}</div>
+  const s = await sozlamaniOl();
+  const logo = await logoniOl(s);
+
+  // Locale nomini qattiq yozmaymiz: ba'zi muhitlarda RangeError beradi
+  const dateStr = new Date().toLocaleDateString();
+  const row = (cells: (string | number)[]) => `<tr>${cells.map((c) => `<td>${c}</td>`).join('')}</tr>`;
+  const kpi = (label: string, value: string) =>
+    `<div class="kpi"><div class="label">${label}</div><div class="value">${value}</div></div>`;
+
+  const hisobotUslubi = `
+    ${uslub(s)}
+    .kpis { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 16px; }
+    .kpi { border: 1px solid #ddd; border-radius: 8px; padding: 9px 13px; min-width: 145px; }
+    .kpi .label { font-size: .75em; color: #777; text-transform: uppercase; }
+    .kpi .value { font-size: 1.5em; font-weight: 800; margin-top: 2px; }
+    h2 { font-size: 1.15em; margin: 22px 0 4px; }
+  `;
+
+  const tana = `
+    ${blank(s, null, logo, { turi: 'Umumiy hisobot', sana: dateStr })}
+
+    <div class="meta"><div>Davr: so'nggi <b>${opts.days}</b> kun</div></div>
 
     <div class="kpis">
-      <div class="kpi"><div class="label">Davr sotuvi</div><div class="value">${formatSum(opts.periodTotal)}</div></div>
-      <div class="kpi"><div class="label">Buyurtmalar soni</div><div class="value">${opts.ordersCount.toLocaleString()}</div></div>
-      <div class="kpi"><div class="label">O'rtacha buyurtma</div><div class="value">${formatSum(opts.avgOrder)}</div></div>
-      <div class="kpi"><div class="label">Faol mijozlar</div><div class="value">${opts.activeCustomers.toLocaleString()}</div></div>
-      <div class="kpi"><div class="label">Jami qarzdorlik</div><div class="value">${formatSum(opts.totalDebt)}</div></div>
-      <div class="kpi"><div class="label">Ombor qiymati</div><div class="value">${formatSum(opts.inventoryValue)}</div></div>
+      ${kpi('Davr sotuvi', formatSum(opts.periodTotal))}
+      ${kpi('Buyurtmalar soni', String(opts.ordersCount))}
+      ${kpi("O'rtacha buyurtma", formatSum(opts.avgOrder))}
+      ${kpi('Faol mijozlar', String(opts.activeCustomers))}
+      ${kpi('Jami qarzdorlik', formatSum(opts.totalDebt))}
+      ${kpi('Ombor qiymati', formatSum(opts.inventoryValue))}
     </div>
 
     <h2>Top-${opts.topProducts.length} mahsulot</h2>
     <table>
       <thead>${row(['#', 'Mahsulot', 'Sotilgan dona', 'Summa'])}</thead>
-      <tbody>${opts.topProducts.map((p, i) => row([i + 1, p.name, p.qty.toLocaleString(), formatSum(p.revenue)])).join('')}</tbody>
+      <tbody>${opts.topProducts.map((p, i) => row([i + 1, p.name, p.qty, formatSum(p.revenue)])).join('')}</tbody>
     </table>
 
     <h2>Top menejerlar</h2>
     <table>
       <thead>${row(['#', 'Menejer', 'Buyurtmalar', 'Summa'])}</thead>
-      <tbody>${
-        opts.topManagers.length > 0
-          ? opts.topManagers.map((m, i) => row([i + 1, m.name, m.orders.toLocaleString(), formatSum(m.revenue)])).join('')
-          : row(['—', "Menejerlar orqali sotuv yo'q", '', ''])
-      }</tbody>
+      <tbody>${opts.topManagers.map((m, i) => row([i + 1, m.name, m.orders, formatSum(m.revenue)])).join('')}</tbody>
     </table>
 
     <h2>Top mijozlar</h2>
     <table>
       <thead>${row(['#', 'Mijoz', 'Telefon', 'Buyurtmalar', 'Summa'])}</thead>
-      <tbody>${opts.topCustomers.map((c, i) => row([i + 1, c.name, c.phone, c.orders.toLocaleString(), formatSum(c.revenue)])).join('')}</tbody>
+      <tbody>${opts.topCustomers.map((c, i) => row([i + 1, c.name, c.phone, c.orders, formatSum(c.revenue)])).join('')}</tbody>
     </table>
 
-    <script>window.onload = function() { window.print(); };</script>
-    </body></html>
-  `);
-  w.document.close();
+    ${altbilgi(s)}
+  `;
+
+  hujjatniYoz(w, { nom: 'Umumiy hisobot', uslub: hisobotUslubi, tana, avtoChop: true });
 }
 
 export default function Reports() {

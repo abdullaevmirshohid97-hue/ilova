@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { ORDER_STATUS, formatDate, formatSum, imageUrl, supabase, fnXato } from '../lib/supabase';
 import { openInvoice } from '../lib/invoice';
+import { altbilgi, blank, hujjatniYoz, imzo, logoniOl, oynaOch, sozlamaniOl, uslub } from '../lib/hujjat';
 import AdminOrderModal from '../components/AdminOrderModal';
 import DesignOrderModal from '../components/DesignOrderModal';
 import OrderEditModal from '../components/OrderEditModal';
@@ -152,40 +153,66 @@ export default function Orders() {
     load();
   }
 
-  function printPickList(o: Order) {
-    const w = window.open('', '_blank');
+  // Yig'ish varaqasi — omborchiga qog'ozda beriladi: narx yo'q, rasm va
+  // miqdor kattaroq, oxirida belgilash ustuni. Ko'rinish (qog'oz, chekka,
+  // shrift, logo) tenantning sozlamasidan keladi.
+  async function printPickList(o: Order) {
+    // Oyna DARHOL ochiladi — await'dan keyin ochilsa brauzer bloklaydi
+    const w = oynaOch();
     if (!w) return;
-    w.document.write(`
-      <html><head><title>Yig'ish varaqasi №${o.order_number}</title>
-      <style>
-        body { font-family: sans-serif; padding: 24px; }
-        h1 { font-size: 20px; } table { width: 100%; border-collapse: collapse; margin-top: 16px; }
-        th, td { border: 1px solid #999; padding: 8px 10px; text-align: left; font-size: 14px; vertical-align: middle; }
-        td img { display: block; }
-        .meta { color: #444; font-size: 14px; margin-top: 4px; }
-      </style></head><body>
-      <h1>YIG'ISH VARAQASI — Buyurtma №${o.order_number}</h1>
-      <div class="meta">Mijoz: <b>${o.customer}</b> · ${o.phone}</div>
-      <div class="meta">Sana: ${formatDate(o.created_at)}</div>
-      <table><thead><tr><th>Rasm</th><th>SKU</th><th>Mahsulot</th><th>Razmer/Rang</th><th>Miqdor</th></tr></thead><tbody>
-      ${o.items
-        .map(
-          (it) =>
-            `<tr><td>${
-              it.image
-                ? `<img src="${it.image}" style="width:50px;height:50px;object-fit:cover;border-radius:4px" />`
-                : ''
-            }</td><td>${it.sku}</td><td>${it.name}</td><td>${[it.size, it.color]
-              .filter(Boolean)
-              .join(' / ')}</td><td><b>${it.qty.toLocaleString()} dona</b></td></tr>`
-        )
-        .join('')}
-      </tbody></table>
-      <p style="margin-top:24px">Jami: <b>${formatSum(o.total)}</b></p>
-      <script>window.onload = function() { window.print(); };</script>
-      </body></html>
-    `);
-    w.document.close();
+    const s = await sozlamaniOl();
+    const logo = await logoniOl(s);
+
+    const rasmBor = s.ustun_rasm !== false;
+    const skuBor = s.ustun_sku !== false;
+    const razmerBor = s.ustun_razmer !== false;
+
+    const qatorlar = o.items
+      .map((it) => {
+        const rasm = rasmBor
+          ? `<td>${it.image ? `<img src="${it.image}" style="width:48px;height:48px;object-fit:cover;border-radius:4px;display:block" />` : ''}</td>`
+          : '';
+        const sku = skuBor ? `<td>${it.sku}</td>` : '';
+        const razmer = razmerBor ? `<td>${[it.size, it.color].filter(Boolean).join(' / ')}</td>` : '';
+        return `<tr>${rasm}${sku}<td><b>${it.name}</b></td>${razmer}<td class="num"><b>${it.qty} dona</b></td><td></td></tr>`;
+      })
+      .join('');
+
+    const tana = `
+      ${blank(s, orgName, logo, {
+        turi: "Yig'ish varaqasi",
+        raqam: o.order_number,
+        sana: formatDate(o.created_at),
+      })}
+
+      <div class="meta">
+        <div><span class="yorliq">Mijoz</span><br><b>${o.customer}</b></div>
+        <div><span class="yorliq">Telefon</span><br><b>${o.phone ?? '—'}</b></div>
+        <div><span class="yorliq">Pozitsiya</span><br><b>${o.items.length}</b></div>
+      </div>
+
+      <table>
+        <thead><tr>
+          ${rasmBor ? '<th style="width:58px">Rasm</th>' : ''}
+          ${skuBor ? '<th>SKU</th>' : ''}
+          <th>Mahsulot</th>
+          ${razmerBor ? '<th>Razmer / Rang</th>' : ''}
+          <th class="num">Miqdor</th>
+          <th style="width:46px">✓</th>
+        </tr></thead>
+        <tbody>${qatorlar}</tbody>
+      </table>
+
+      ${imzo(s)}
+      ${altbilgi(s, orgName)}
+    `;
+
+    hujjatniYoz(w, {
+      nom: `Yig'ish varaqasi №${o.order_number}`,
+      uslub: uslub(s),
+      tana,
+      avtoChop: true,
+    });
   }
 
   const FILTERS = [
