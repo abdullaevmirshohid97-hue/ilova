@@ -109,6 +109,13 @@ const JADVALLAR = [
     egasi: 'select c.org_id from payments pm join customers c on c.id = pm.customer_id where pm.id = t.id',
   },
   { nom: 'organizations', pk: 'id', egasi: 'select id from organizations where id = t.id' },
+  // Hujjat sozlamasi: ichida biznesning rekvizitlari (manzil, STIR,
+  // bank hisobi) turadi - mijoz ro'yxatidan kam maxfiy emas.
+  {
+    nom: 'org_hujjat_sozlama',
+    pk: 'org_id',
+    egasi: 'select org_id from org_hujjat_sozlama where org_id = t.id',
+  },
 ];
 
 console.log('\n\x1b[1mTENANT AJRATILISHI\x1b[0m');
@@ -225,6 +232,43 @@ if (begonaAvatar[0]?.photo_path) {
   tekshir('surat ochiq havola bilan ochilmaydi', ochiq.status !== 200, 'HTTP ' + ochiq.status);
 } else {
   console.log('  \x1b[33m!\x1b[0m begona tenantda suratli mijoz yo‘q — o‘tkazib yuborildi');
+}
+
+// Logo bucket'i: yo'l tenant id bilan boshlanadi, ya'ni begona yo'lga
+// fayl qo'yib bo'lmasligi kerak. Bu sinov yozadi - shuning uchun
+// oxirida o'zidan keyin tozalaydi.
+const begonaOrg = await sql(`select id from organizations where id <> '${orgId}' limit 1`);
+if (begonaOrg[0]?.id) {
+  const png = Buffer.from(
+    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+    'base64',
+  );
+  async function yukla(yol) {
+    const r = await fetch(`${URL}/storage/v1/object/org-logos/${yol}`, {
+      method: 'POST',
+      headers: { apikey: K.anon_key, Authorization: 'Bearer ' + token, 'Content-Type': 'image/png' },
+      body: png,
+    });
+    return r.status;
+  }
+
+  const begonaYol = `${begonaOrg[0].id}/__sinov__.png`;
+  tekshir('logo: begona tenant yo‘liga yozib bo‘lmaydi', (await yukla(begonaYol)) !== 200);
+  tekshir('logo: tenantsiz yo‘lga yozib bo‘lmaydi', (await yukla('__sinov__.png')) !== 200);
+
+  const ozYol = `${orgId}/__sinov__.png`;
+  const ozHolat = await yukla(ozYol);
+  tekshir('logo: o‘z yo‘liga yozadi', ozHolat === 200, 'HTTP ' + ozHolat);
+
+  if (ozHolat === 200) {
+    const ochiq = await fetch(`${URL}/storage/v1/object/public/org-logos/${ozYol}?t=${Date.now()}`);
+    tekshir('logo: ochiq havola bilan ochilmaydi', ochiq.status !== 200, 'HTTP ' + ochiq.status);
+    // Sinov bazada iz qoldirmasin
+    await fetch(`${URL}/storage/v1/object/org-logos/${ozYol}`, {
+      method: 'DELETE',
+      headers: { apikey: K.anon_key, Authorization: 'Bearer ' + token },
+    });
+  }
 }
 
 // Begona tenantning mahsulot rasmini o'chirib ko'ramiz
