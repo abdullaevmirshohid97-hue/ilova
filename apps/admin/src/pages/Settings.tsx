@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { formatDate, formatSum, genPassword, supabase, fnXato } from '../lib/supabase';
 import ChangePasswordPanel from '../components/ChangePasswordPanel';
 import XodimlarPanel from '../components/XodimlarPanel';
+import HujjatSozlamaPanel from '../components/HujjatSozlamaPanel';
 import StaffTelegramPanel from '../components/StaffTelegramPanel';
 
 type Category = { id: string; name: string; sort_order: number };
@@ -401,12 +402,13 @@ function DangerZonePanel() {
 
 export default function Settings() {
   return (
-    <div className="mx-auto max-w-3xl space-y-6">
+    <div className="mx-auto max-w-5xl space-y-6">
       <ChangePasswordPanel />
       <StaffTelegramPanel />
       <OrgProfilePanel />
       <CategoriesPanel />
       <PriceGroupsPanel />
+      <HujjatSozlamaPanel />
       <XodimlarPanel />
       <StaffPanel />
       <DangerZonePanel />

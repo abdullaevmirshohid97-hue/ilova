@@ -16,7 +16,14 @@
 set -uo pipefail
 S=${1:-https://4020.yukchibolla.com}
 
-javob=$(curl -s "$S/versiya.json?t=$(date +%s)")
+# Uch marta urinamiz: javob vaqti-vaqti bilan bo'sh kelar ekan
+# (uchdan birida). Bir marta so'rasak, tekshiruv tasodifan "panel eski"
+# deb yolg'on ogohlantirish berardi.
+javob=''
+for _ in 1 2 3; do
+  javob=$(curl -s --max-time 15 "$S/versiya.json?t=$RANDOM$$")
+  [ -n "$javob" ] && break
+done
 
 # SPA fallback: mavjud bo'lmagan fayl so'ralsa Caddy index.html qaytaradi
 case "$javob" in

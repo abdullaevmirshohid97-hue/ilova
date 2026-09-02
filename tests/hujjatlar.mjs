@@ -188,5 +188,118 @@ for (const [fayl, fn, nom] of [...FUNKSIYALAR, ['apps/admin/src/lib/hujjat.ts', 
   tekshir(`${nom}: locale nomi qattiq yozilmagan`, !bor, bor ? 'RangeError xavfi' : 'ok');
 }
 
+// ---------- 4. Jonli zanjir: panel -> baza -> hujjat ----------
+// Yuqoridagi sinovlar sozlamani QO'LDA berib tekshirdi. Bu bo'lim esa
+// haqiqiy yo'lni bosib ko'radi: panel saqlaydigan RPC chaqiriladi,
+// keyin o'sha qiymatlar qaytib keladimi.
+//
+// EHTIYOT: bu jonli baza. Sinov mavjud sozlamani AVVAL SAQLAB OLADI va
+// oxirida aynan tiklaydi - aks holda sinov ishlab turgan biznesning
+// hujjat ko'rinishini o'zgartirib qo'yardi.
+let K = null;
+try {
+  K = JSON.parse(readFileSync(join(ROOT, 'kodchi/kalitlar.json'), 'utf8'));
+} catch {
+  /* kalitlar yo'q - jonli bo'lim o'tkazib yuboriladi */
+}
+
+if (!K?.admin?.email) {
+  console.log('\n4. Jonli zanjir\n  \x1b[33m!\x1b[0m kalitlar yo‘q — o‘tkazib yuborildi');
+} else {
+  console.log('\n4. Jonli zanjir: panel → baza → hujjat');
+  const URL = `https://${K.ref}.supabase.co`;
+
+  const kirish = await fetch(`${URL}/auth/v1/token?grant_type=password`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', apikey: K.anon_key },
+    body: JSON.stringify({ email: K.admin.email, password: K.admin.password }),
+  });
+  const tok = (await kirish.json()).access_token;
+
+  async function rpc(nom, args) {
+    const r = await fetch(`${URL}/rest/v1/rpc/${nom}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', apikey: K.anon_key, Authorization: 'Bearer ' + tok },
+      body: JSON.stringify(args ?? {}),
+    });
+    const t = await r.text();
+    return { status: r.status, j: (() => { try { return JSON.parse(t); } catch { return t; } })() };
+  }
+
+  // 1) Hozirgi holatni saqlab qo'yamiz
+  const oldingi = (await rpc('hujjat_sozlama')).j;
+  const bordi = await fetch(`${URL}/rest/v1/org_hujjat_sozlama?select=org_id`, {
+    headers: { apikey: K.anon_key, Authorization: 'Bearer ' + tok },
+  });
+  const qatorBorMi = ((await bordi.json()) ?? []).length > 0;
+
+  try {
+    const sinov = {
+      qogoz: 'A5', chekka_tepa: 8, olcham_matn: 13,
+      rang: '#0B7A55', ustun_rasm: false, altbilgi: '__sinov__',
+    };
+    const yoz = await rpc('hujjat_sozlama_saqla', { p: sinov });
+    tekshir('sozlama saqlanadi', yoz.status < 400, 'HTTP ' + yoz.status);
+
+    const qayta = (await rpc('hujjat_sozlama')).j;
+    for (const [kalit, kutilgan] of Object.entries(sinov)) {
+      tekshir(`qaytib keldi: ${kalit}`, String(qayta[kalit]) === String(kutilgan), String(qayta[kalit]));
+    }
+
+    // Sozlama HUJJATGA yetib boradimi — CSS ni shu qiymatlardan quramiz
+    const jonliCss = H.uslub(qayta);
+    tekshir('hujjatda A5', jonliCss.includes('size: A5'));
+    tekshir('hujjatda 8mm tepa chekka', jonliCss.includes('margin: 8mm'));
+    tekshir('hujjatda yashil rang', jonliCss.includes('#0B7A55'));
+
+    // Baza chegaralari: panelda xato bo'lsa ham axlat tushmasin
+    for (const [nom, p] of [
+      ['chekka 999mm', { chekka_tepa: 999 }],
+      ['rang “qizil”', { rang: 'qizil' }],
+      ['qog‘oz A3', { qogoz: 'A3' }],
+      ['shrift 100pt', { olcham_matn: 100 }],
+    ]) {
+      const r = await rpc('hujjat_sozlama_saqla', { p });
+      tekshir(`to‘siladi: ${nom}`, r.status >= 400, 'HTTP ' + r.status);
+    }
+  } finally {
+    // 2) Qanday bo'lsa - shunday tiklaymiz
+    if (qatorBorMi) {
+      await rpc('hujjat_sozlama_saqla', {
+        p: {
+          logo_path: oldingi.logo_path, manzil: oldingi.manzil, telefon: oldingi.telefon,
+          stir: oldingi.stir, bank: oldingi.bank, hisob_raqam: oldingi.hisob_raqam,
+          qogoz: oldingi.qogoz, chekka_tepa: oldingi.chekka_tepa, chekka_past: oldingi.chekka_past,
+          chekka_chap: oldingi.chekka_chap, chekka_ong: oldingi.chekka_ong,
+          shrift: oldingi.shrift, olcham_matn: oldingi.olcham_matn,
+          olcham_sarlavha: oldingi.olcham_sarlavha, olcham_jadval: oldingi.olcham_jadval,
+          rang: oldingi.rang, ustun_rasm: oldingi.ustun_rasm, ustun_sku: oldingi.ustun_sku,
+          ustun_razmer: oldingi.ustun_razmer, imzo_topshirdi: oldingi.imzo_topshirdi,
+          imzo_qabul: oldingi.imzo_qabul, altbilgi: oldingi.altbilgi,
+        },
+      });
+      const tiklandi = (await rpc('hujjat_sozlama')).j;
+      tekshir(
+        'oldingi sozlama tiklandi',
+        String(tiklandi.qogoz) === String(oldingi.qogoz) &&
+          String(tiklandi.rang) === String(oldingi.rang),
+        `${tiklandi.qogoz} · ${tiklandi.rang}`,
+      );
+    } else {
+      // Qator yo'q edi — sinov yaratganini o'chiramiz
+      const mgmt = `https://api.supabase.com/v1/projects/${K.ref}/database/query`;
+      await fetch(mgmt, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + K.mgmt_token },
+        body: JSON.stringify({
+          query: `delete from org_hujjat_sozlama where altbilgi = '__sinov__'`,
+        }),
+      });
+      const qoldi = (await rpc('hujjat_sozlama')).j;
+      tekshir('sinov qatori o‘chirildi', qoldi.altbilgi !== '__sinov__', 'toza');
+    }
+  }
+}
+
 console.log('\n' + (yiqildi === 0 ? '\x1b[32mHAMMASI O‘TDI\x1b[0m' : `\x1b[31m${yiqildi} TA XATO\x1b[0m`) + '\n');
 process.exit(yiqildi === 0 ? 0 : 1);
