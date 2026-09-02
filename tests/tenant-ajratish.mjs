@@ -172,7 +172,99 @@ for (const j of JADVALLAR) {
   );
 }
 
+// ---------- Fayllar ----------
+// 2026-09-02: avatars bucket'i OCHIQ edi. Ro'yxati olinardi, keyin
+// o'sha yo'l bilan mijozning surati hech qanday login'siz yuklab
+// olindi (86 KB, boshqa tenantning haqiqiy mijozi). Mahsulot rasmlari
+// ro'yxati ham ochiq edi - raqobatchi butun katalogni ko'chirib
+// olishi mumkin edi. O'chirish siyosati esa org_id ni tekshirmasdi.
+console.log('\n  fayllar:');
+
+const bucketlar = await sql("select id, public from storage.buckets where id in ('avatars','product-images')");
+const avatarB = bucketlar.find((b) => b.id === 'avatars');
+tekshir(
+  'avatars bucket yopiq',
+  avatarB?.public === false,
+  avatarB?.public === false ? 'public=false' : 'OCHIQ — surat internetda',
+);
+
+async function royxat(tok, bucket) {
+  const r = await fetch(`${URL}/storage/v1/object/list/${bucket}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      apikey: K.anon_key,
+      ...(tok ? { Authorization: 'Bearer ' + tok } : {}),
+    },
+    body: JSON.stringify({ prefix: '', limit: 100, offset: 0 }),
+  });
+  const j = await r.json();
+  return Array.isArray(j) ? j.length : 0;
+}
+
+for (const b of ['avatars', 'product-images']) {
+  const n = await royxat(null, b);
+  tekshir(`${b}: anon ro‘yxat ololmaydi`, n === 0, n ? `${n} ta fayl ko‘rindi` : 'bo‘sh');
+}
+
+// Begona tenantning suratiga havola so'raymiz
+const begonaAvatar = await sql(`
+  select c.photo_path from customers c
+  where c.photo_path is not null and c.org_id <> '${orgId}' limit 1
+`);
+if (begonaAvatar[0]?.photo_path) {
+  const yol = begonaAvatar[0].photo_path;
+  const imzo = await fetch(`${URL}/storage/v1/object/sign/avatars/${encodeURI(yol)}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', apikey: K.anon_key, Authorization: 'Bearer ' + token },
+    body: JSON.stringify({ expiresIn: 60 }),
+  });
+  tekshir('begona tenant surati imzolanmaydi', imzo.status !== 200, 'HTTP ' + imzo.status);
+
+  const ochiq = await fetch(`${URL}/storage/v1/object/public/avatars/${encodeURI(yol)}?t=${Date.now()}`);
+  tekshir('surat ochiq havola bilan ochilmaydi', ochiq.status !== 200, 'HTTP ' + ochiq.status);
+} else {
+  console.log('  \x1b[33m!\x1b[0m begona tenantda suratli mijoz yo‘q — o‘tkazib yuborildi');
+}
+
+// Begona tenantning mahsulot rasmini o'chirib ko'ramiz
+const begonaRasm = await sql(`
+  select s.name from storage.objects s
+  join products p on p.id::text = split_part(s.name, '/', 1)
+  where s.bucket_id = 'product-images' and p.org_id <> '${orgId}' limit 1
+`);
+if (begonaRasm[0]?.name) {
+  const ochir = await fetch(`${URL}/storage/v1/object/product-images/${encodeURI(begonaRasm[0].name)}`, {
+    method: 'DELETE',
+    headers: { apikey: K.anon_key, Authorization: 'Bearer ' + token },
+  });
+  tekshir('begona tenant rasmi o‘chirilmaydi', ochir.status !== 200, 'HTTP ' + ochir.status);
+}
+
+// ---------- Har bir view security_invoker bilanmi ----------
+// Yuqoridagi sinov sizishni ANIQ ushlaydi, lekin faqat ma'lumot mavjud
+// bo'lsa: yangi, hali bo'sh jadval ustidagi view sinovdan o'tib ketadi.
+// Shuning uchun sababning o'zini ham tekshiramiz - bu arzon va yangi
+// view qo'shilgan kunning o'zida ogohlantiradi.
+console.log('\n  view sozlamalari:');
+const viewlar = await sql(`
+  select c.relname as nom,
+         coalesce((select option_value from pg_options_to_table(c.reloptions)
+                   where option_name = 'security_invoker'), 'yo''q') as si
+  from pg_class c join pg_namespace n on n.oid = c.relnamespace
+  where n.nspname = 'public' and c.relkind = 'v'
+  order by 1
+`);
+for (const v of viewlar) {
+  const yoqilgan = v.si === 'true' || v.si === 'on';
+  tekshir(
+    `${v.nom}: security_invoker`,
+    yoqilgan,
+    yoqilgan ? v.si : 'YO‘Q — view RLS ni chetlab o‘tadi',
+  );
+}
+
 console.log(
-  '\n' + (yiqildi === 0 ? '\x1b[32mTENANTLAR AJRATILGAN\x1b[0m' : `\x1b[31m${yiqildi} TA JADVALDAN SIZMOQDA\x1b[0m`) + '\n',
+  '\n' + (yiqildi === 0 ? '\x1b[32mTENANTLAR AJRATILGAN\x1b[0m' : `\x1b[31m${yiqildi} TA JOYDAN SIZMOQDA\x1b[0m`) + '\n',
 );
 process.exit(yiqildi === 0 ? 0 : 1);

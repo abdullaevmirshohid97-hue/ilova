@@ -8,10 +8,9 @@ import {
   genPassword,
   supabase,
   fnXato,
+  avatarHavola,
 } from '../lib/supabase';
 import PaymentModal from '../components/PaymentModal';
-
-const AVATAR_BASE = `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/avatars/`;
 
 type Group = { id: string; name: string };
 type Manager = { id: string; name: string };
@@ -169,7 +168,8 @@ export default function CustomerDetail() {
       ]);
     if (cust) {
       setCustomer(cust as any);
-      setPreview((cust as any).photo_path ? AVATAR_BASE + (cust as any).photo_path : null);
+      // Bucket yopiq: ochiq havola o'rniga muddati o'tadigan imzolangan havola
+      setPreview(await avatarHavola((cust as any).photo_path));
       setNewPhone((cust as any).phone ?? '');
     }
     setGroups((grps ?? []) as Group[]);

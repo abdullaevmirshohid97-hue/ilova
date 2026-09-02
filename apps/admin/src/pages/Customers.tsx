@@ -1,9 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { formatSum, supabase } from '../lib/supabase';
+import { avatarHavolalari, formatSum, supabase } from '../lib/supabase';
 import PaymentModal from '../components/PaymentModal';
-
-const AVATAR_BASE = `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/avatars/`;
 
 type Row = {
   id: string;
@@ -39,13 +37,16 @@ export default function Customers() {
       (balances ?? []).map((b: any) => [b.customer_id, Number(b.balance)])
     );
     const groupMap = new Map((groups ?? []).map((g: any) => [g.id, g.name]));
+    // Suratlar yopiq bucket'da — hamma qator uchun bitta so'rovda
+    // imzolangan havola olamiz (har qatorga alohida so'rov yubormaymiz)
+    const rasm = await avatarHavolalari((customers ?? []).map((c: any) => c.photo_path));
     setRows(
       (customers ?? []).map((c: any) => ({
         id: c.id,
         name: c.name,
         phone: c.phone,
         email: c.email,
-        photo: c.photo_path ? AVATAR_BASE + c.photo_path : null,
+        photo: c.photo_path ? rasm.get(c.photo_path) ?? null : null,
         region: c.region,
         group: groupMap.get(c.price_group_id) ?? '—',
         balance: balMap.get(c.id) ?? 0,

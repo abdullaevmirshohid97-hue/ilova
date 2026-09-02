@@ -108,3 +108,36 @@ export async function fnXato(xato: unknown, zaxira = 'Xatolik'): Promise<string>
   }
   return e?.message ?? zaxira;
 }
+
+/**
+ * Mijoz suratining vaqtinchalik havolasi.
+ *
+ * NEGA IMZOLANGAN HAVOLA: avatars bucket'i avval OCHIQ edi va surat
+ * yo'lini bilgan har qanday odam — hatto tizimga kirmagan begona ham —
+ * uni yuklab olardi. Tekshiruvda haqiqiy mijozning surati hech qanday
+ * kalitsiz olindi. Endi bucket yopiq, surat esa faqat shu odamga
+ * ochiladigan, muddati o'tadigan havola orqali ko'rsatiladi.
+ *
+ * Ko'p qatorli ro'yxat uchun `avatarHavolalari` ishlatiladi — har
+ * qatorga alohida so'rov yubormaslik uchun.
+ */
+export async function avatarHavola(yol: string | null, sekund = 3600): Promise<string | null> {
+  if (!yol) return null;
+  const { data } = await supabase.storage.from('avatars').createSignedUrl(yol, sekund);
+  return data?.signedUrl ?? null;
+}
+
+/** Bir nechta surat uchun bitta so'rov: yo'l -> havola jadvali */
+export async function avatarHavolalari(
+  yollar: (string | null)[],
+  sekund = 3600,
+): Promise<Map<string, string>> {
+  const toza = [...new Set(yollar.filter((y): y is string => !!y))];
+  const xarita = new Map<string, string>();
+  if (!toza.length) return xarita;
+  const { data } = await supabase.storage.from('avatars').createSignedUrls(toza, sekund);
+  for (const d of data ?? []) {
+    if (d.signedUrl && d.path) xarita.set(d.path, d.signedUrl);
+  }
+  return xarita;
+}
