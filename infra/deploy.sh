@@ -30,7 +30,32 @@ if [ ! -d "$REPO_DIR/.git" ]; then
 fi
 
 cd "$REPO_DIR"
-git pull --ff-only
+
+# Git parol so'rab qotib qolmasin.
+#
+# Bir marta shunday bo'ldi: remote manzili noto'g'ri bo'lgani uchun
+# GitHub 401 qaytardi, git esa "Username for..." deb so'radi va
+# terminalga keyingi yozilgan BUYRUQ username bo'lib ketdi. Repozitoriy
+# ochiq bo'lgani uchun bu yerda hech qanday parol kerak emas - so'rov
+# chiqishining o'zi xato belgisi.
+export GIT_TERMINAL_PROMPT=0
+export GIT_ASKPASS=/bin/true
+
+if ! git pull --ff-only; then
+  echo ""
+  echo "!! git pull ishlamadi. Tekshiring:"
+  echo "   git -C $REPO_DIR remote -v"
+  echo ""
+  echo "   To'g'ri manzil (ochiq repozitoriy, parol kerak emas):"
+  echo "   https://github.com/abdullaevmirshohid97-hue/ilova.git"
+  echo ""
+  echo "   Tuzatish:"
+  echo "   git -C $REPO_DIR remote set-url origin https://github.com/abdullaevmirshohid97-hue/ilova.git"
+  echo ""
+  echo "   Mahalliy o'zgarish xalaqit berayotgan bo'lsa:"
+  echo "   git -C $REPO_DIR status"
+  exit 1
+fi
 
 # apps/admin/.env va apps/mobile/.env — gitignore'da, shuning uchun shu skript
 # HAR SAFAR ustidan yozadi. Bu yerdagi kalit PUBLISHABLE (anon) — client
