@@ -22,6 +22,7 @@ CH=$(curl -s "$S$IDX" | grep -o 'SuperAdminPanel-[A-Za-z0-9_-]*\.js' | head -1)
 JS=$(curl -s "$S/assets/$CH")
 
 # Har biri bitta modulning yangi ishiga tegishli:
+#   DORI-DORIXONA          - 5 ta yo'nalishli ikki bosqichli panel
 #   dori_sotuv_mijozlar    - SOTUV: mijoz avtoto'ldirish
 #   dori_katalog_royxat    - DORI: sklad ustunlari
 #   dori_sklad_prays       - SKLAD: prays sklad ichida yuklanadi
@@ -29,7 +30,7 @@ JS=$(curl -s "$S/assets/$CH")
 #   dori_buyurtma_ochir    - BUYURTMALAR: tahrir va o'chirish
 #   dori_buyurtma_skladlar - BUYURTMALAR: qaysi skladda
 yiqildi=0
-for f in dori_sotuv_mijozlar dori_katalog_royxat dori_sklad_prays \
+for f in DORI-DORIXONA dori_sotuv_mijozlar dori_katalog_royxat dori_sklad_prays \
          dori_push_tayyorla dori_buyurtma_ochir dori_buyurtma_skladlar
 do
   # Quvur ishlatmaymiz: `grep -q` moslikni topgach darrov chiqadi, uni

@@ -20,17 +20,63 @@ import DoriSotuv from './DoriSotuv';
 
 type Bolim = 'tenantlar' | 'nazorat' | 'dori' | 'skladlar' | 'sotuv' | 'buyurtmalar' | 'moslik' | 'narxlar' | 'mijozlar';
 
-const BOLIMLAR: { key: Bolim; belgi: string; nom: string; izoh: string }[] = [
-  { key: 'tenantlar', belgi: '▤', nom: 'TENANTLAR', izoh: 'reestr va obuna' },
-  { key: 'nazorat', belgi: '◉', nom: 'NAZORAT', izoh: 'harakatlar va xatolar' },
-  { key: 'dori', belgi: '⚕', nom: 'DORI', izoh: 'faktura roboti' },
-  { key: 'skladlar', belgi: '▥', nom: 'SKLADLAR', izoh: 'omborlar va prays' },
-  { key: 'sotuv', belgi: '₮', nom: 'SOTUV', izoh: 'sklad -> mijoz, faktura' },
-  { key: 'buyurtmalar', belgi: '⇄', nom: 'BUYURTMALAR', izoh: 'skladlarga taqsimot' },
-  { key: 'moslik', belgi: '⊜', nom: 'MOSLASHTIRISH', izoh: 'bir xil dorini tanish' },
-  { key: 'narxlar', belgi: '₴', nom: 'NARX QO‘YISH', izoh: 'ustama va chegirma' },
-  { key: 'mijozlar', belgi: '☎', nom: 'MIJOZLAR', izoh: 'dorixonalar va login' },
+type Modul = { key: Bolim; belgi: string; nom: string; izoh: string };
+
+type Yonalish = {
+  key: string;
+  belgi: string;
+  nom: string;
+  izoh: string;
+  rang: string;
+  /** Bo'sh ro'yxat = yo'nalish hali ochilmagan (kartochka "tez orada" bo'lib turadi) */
+  modullar: Modul[];
+};
+
+// ---------------------------------------------------------------------------
+// Panel IKKI BOSQICHLI: avval yo'nalish tanlanadi, keyin uning ichidagi modul.
+//
+// Sabab: bitta yassi ro'yxatda to'qqizta bo'lim bor edi va ularning yettitasi
+// faqat dorixona biznesiga tegishli. Boshqa yo'nalishlar qo'shilganda bu
+// ro'yxat aralashib ketardi — qaysi modul qaysi biznesniki ekani bilinmasdi.
+// ---------------------------------------------------------------------------
+const YONALISHLAR: Yonalish[] = [
+  {
+    key: 'dorixona',
+    belgi: '⚕',
+    nom: 'DORI-DORIXONA',
+    izoh: 'ulgurji dori savdosi',
+    rang: C.neon,
+    modullar: [
+      { key: 'dori', belgi: '⚕', nom: 'DORI', izoh: 'katalog, sklad ustunlari' },
+      { key: 'skladlar', belgi: '▥', nom: 'SKLADLAR', izoh: 'omborlar va prays' },
+      { key: 'sotuv', belgi: '₮', nom: 'SOTUV', izoh: 'sklad -> mijoz, faktura' },
+      { key: 'buyurtmalar', belgi: '⇄', nom: 'BUYURTMALAR', izoh: 'skladlarga taqsimot' },
+      { key: 'moslik', belgi: '⊜', nom: 'MOSLASHTIRISH', izoh: 'bir xil dorini tanish' },
+      { key: 'narxlar', belgi: '₴', nom: 'NARX QO‘YISH', izoh: 'ustama va chegirma' },
+      { key: 'mijozlar', belgi: '☎', nom: 'MIJOZLAR', izoh: 'dorixonalar va login' },
+    ],
+  },
+  {
+    key: 'tizim',
+    belgi: '▤',
+    nom: 'TIZIM',
+    izoh: 'platforma boshqaruvi',
+    rang: C.neon2,
+    modullar: [
+      { key: 'tenantlar', belgi: '▤', nom: 'TENANTLAR', izoh: 'reestr va obuna' },
+      { key: 'nazorat', belgi: '◉', nom: 'NAZORAT', izoh: 'harakatlar va xatolar' },
+    ],
+  },
+  { key: 'y3', belgi: '◻', nom: '3-YO‘NALISH', izoh: 'tez orada', rang: C.text, modullar: [] },
+  { key: 'y4', belgi: '◻', nom: '4-YO‘NALISH', izoh: 'tez orada', rang: C.text, modullar: [] },
+  { key: 'y5', belgi: '◻', nom: '5-YO‘NALISH', izoh: 'tez orada', rang: C.text, modullar: [] },
 ];
+
+// Qaysi yo'nalishda turgani SESSIYA xotirasida saqlanadi (localStorage emas).
+// Farqi muhim: F5 bosilganda yoki sahifa qayta yuklanganda odam o'z joyida
+// qoladi, lekin PANELGA QAYTA KIRGANDA doim yo'nalishlar ekrani chiqadi —
+// aynan shu so'ralgan edi.
+const XOTIRA = 'sa-yonalish';
 
 
 type Org = {
@@ -422,8 +468,46 @@ export default function SuperAdminPanel() {
   const [editOrg, setEditOrg] = useState<Org | null>(null);
   const [search, setSearch] = useState('');
   const [clock, setClock] = useState(new Date());
-  // Sidebar bo'limi — panel bitta uzun varaq bo'lib ketmasin
-  const [bolim, setBolim] = useState<Bolim>('tenantlar');
+  // Tanlangan yo'nalish. null = yo'nalish tanlash ekrani (birinchi bosqich).
+  // Oxirgi tanlov brauzerda saqlanadi: sahifa yangilanganda odam har safar
+  // boshidan yo'l topib yurmasin.
+  const [yonalish, setYonalish] = useState<string | null>(() => {
+    try {
+      const y = sessionStorage.getItem(XOTIRA);
+      return y && YONALISHLAR.some((x) => x.key === y && x.modullar.length) ? y : null;
+    } catch {
+      return null;
+    }
+  });
+  // Sidebar bo'limi — panel bitta uzun varaq bo'lib ketmasin.
+  // Saqlangan yo'nalish tiklansa, uning BIRINCHI moduli ochiladi: aks holda
+  // dorixonaga kirib turib TENANTLAR ro'yxatini ko'rib qolish mumkin edi.
+  const [bolim, setBolim] = useState<Bolim>(
+    () => YONALISHLAR.find((y) => y.key === yonalish)?.modullar[0].key ?? 'tenantlar',
+  );
+
+  const joriy = YONALISHLAR.find((y) => y.key === yonalish) ?? null;
+
+  /** Yo'nalishga kirish — ichidagi birinchi modul ochiladi */
+  function yonalishgaKir(y: Yonalish) {
+    if (!y.modullar.length) return; // "tez orada" — hali ochilmaydi
+    setYonalish(y.key);
+    setBolim(y.modullar[0].key);
+    try {
+      sessionStorage.setItem(XOTIRA, y.key);
+    } catch {
+      /* shaxsiy oyna — eslab qolmasa ham panel ishlayveradi */
+    }
+  }
+
+  function yonalishlargaQayt() {
+    setYonalish(null);
+    try {
+      sessionStorage.removeItem(XOTIRA);
+    } catch {
+      /* xotira yopiq bo'lsa ham qaytish ishlaydi */
+    }
+  }
   // Dizayn tanlovi brauzerda eslab qolinadi — har kim o'ziga qulayida ishlaydi
   const [tema, setTema] = useState<Tema>(() => temaniOl());
 
@@ -586,14 +670,109 @@ export default function SuperAdminPanel() {
           </div>
         </header>
 
-        {/* ------------------------------------------------------------ main */}
+        {/* -------------------------------------------- 1-bosqich: yo'nalish */}
+        {!joriy && (
+          <div className="mx-auto max-w-[1100px] px-6 py-10">
+            <div className="mb-6">
+              <h1 className="text-lg font-extrabold tracking-[0.24em]" style={{ color: C.textBright }}>
+                YO‘NALISHLAR
+              </h1>
+              <p className="mt-1 text-[11px] tracking-[0.14em]" style={{ color: sh(C.text, 70) }}>
+                qaysi biznes bilan ishlaysiz
+              </p>
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {YONALISHLAR.map((y) => {
+                const ochiq = y.modullar.length > 0;
+                return (
+                  <button
+                    key={y.key}
+                    onClick={() => yonalishgaKir(y)}
+                    disabled={!ochiq}
+                    className="p-5 text-left transition-transform"
+                    style={{
+                      background: C.panel,
+                      border: `1px solid ${ochiq ? sh(y.rang, 45) : C.line}`,
+                      clipPath: KESIM,
+                      borderRadius: RADIUS,
+                      cursor: ochiq ? 'pointer' : 'default',
+                      opacity: ochiq ? 1 : 0.45,
+                    }}
+                  >
+                    <div
+                      className="text-3xl"
+                      style={{ color: y.rang, textShadow: ochiq ? `0 0 22px ${sh(y.rang, 40)}` : 'none' }}
+                    >
+                      {y.belgi}
+                    </div>
+                    <div
+                      className="mt-3 text-[13px] font-extrabold tracking-[0.18em]"
+                      style={{ color: ochiq ? C.textBright : C.text, fontFamily: MONO }}
+                    >
+                      {y.nom}
+                    </div>
+                    <div className="mt-1 text-[10px] tracking-[0.12em]" style={{ color: sh(C.text, 70) }}>
+                      {y.izoh}
+                    </div>
+
+                    {ochiq ? (
+                      <div className="mt-4 flex flex-wrap gap-1.5">
+                        {y.modullar.map((m) => (
+                          <span
+                            key={m.key}
+                            className="px-2 py-1 text-[9px] font-bold tracking-[0.1em]"
+                            style={{
+                              color: C.text,
+                              border: `1px solid ${C.line}`,
+                              borderRadius: 'var(--sa-radius)',
+                            }}
+                          >
+                            {m.nom}
+                          </span>
+                        ))}
+                      </div>
+                    ) : (
+                      <div
+                        className="mt-4 inline-block px-2 py-1 text-[9px] font-bold tracking-[0.16em]"
+                        style={{ color: sh(C.text, 60), border: `1px dashed ${C.line}`, borderRadius: 'var(--sa-radius)' }}
+                      >
+                        TEZ ORADA
+                      </div>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* ------------------------------------------- 2-bosqich: modullar */}
+        {joriy && (
         <div className="mx-auto flex max-w-[1600px] flex-col gap-0 lg:flex-row">
         {/* ---------------------------------------------------------- sidebar */}
         <aside
           className="hidden w-52 shrink-0 flex-col gap-1 p-4 lg:flex"
           style={{ borderRight: `1px solid ${C.line}` }}
         >
-          {BOLIMLAR.map((b) => {
+          {/* Yo'nalishlarga qaytish — qaysi yo'nalishda turganini ham ko'rsatadi */}
+          <button
+            onClick={yonalishlargaQayt}
+            className="mb-2 flex items-center gap-2 px-3 py-2 text-left"
+            style={{ color: C.text, border: `1px solid ${C.line}`, borderRadius: 'var(--sa-radius)' }}
+          >
+            <span className="text-sm">◀</span>
+            <span className="min-w-0">
+              <span className="block text-[9px] tracking-[0.16em]" style={{ color: sh(C.text, 60) }}>
+                YO‘NALISH
+              </span>
+              <span className="block text-[11px] font-bold tracking-[0.12em]" style={{ color: joriy.rang }}>
+                {joriy.nom}
+              </span>
+            </span>
+          </button>
+
+          {joriy.modullar.map((b) => {
             const faol = bolim === b.key;
             return (
               <button
@@ -620,7 +799,14 @@ export default function SuperAdminPanel() {
 
         {/* telefon/planshet uchun gorizontal tanlov */}
         <div className="flex gap-1 overflow-x-auto p-3 lg:hidden" style={{ borderBottom: `1px solid ${C.line}` }}>
-          {BOLIMLAR.map((b) => (
+          <button
+            onClick={yonalishlargaQayt}
+            className="whitespace-nowrap px-3 py-1.5 text-[11px] font-bold tracking-[0.12em]"
+            style={{ color: joriy.rang, border: `1px solid ${C.line}` }}
+          >
+            ◀ {joriy.nom}
+          </button>
+          {joriy.modullar.map((b) => (
             <button
               key={b.key}
               onClick={() => setBolim(b.key)}
@@ -783,6 +969,7 @@ export default function SuperAdminPanel() {
           </>)}
         </main>
         </div>
+        )}
       </div>
 
       {modalOpen && <NewOrgModal onClose={() => setModalOpen(false)} onCreated={load} />}
