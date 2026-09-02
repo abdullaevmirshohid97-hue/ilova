@@ -21,7 +21,7 @@ export function YonalishEkrani({
       <header className="flex items-center justify-between border-b border-gray-200 bg-white px-6 py-4">
         <div>
           <div className="text-lg font-extrabold tracking-wide text-navy">YUKCHIBOLLA</div>
-          <div className="text-xs text-gray-400">Administrator</div>
+          <div className="text-xs text-gray-500">Administrator</div>
         </div>
         <button
           onClick={() => supabase.auth.signOut()}
@@ -66,13 +66,13 @@ export function YonalishEkrani({
                       </span>
                     ))}
                     {y.modullar.length > 5 && (
-                      <span className="rounded-lg px-2 py-1 text-xs text-gray-400">
+                      <span className="rounded-lg px-2 py-1 text-xs text-gray-500">
                         +{y.modullar.length - 5}
                       </span>
                     )}
                   </div>
                 ) : (
-                  <div className="mt-4 inline-block rounded-lg border border-dashed border-gray-300 px-2 py-1 text-xs text-gray-400">
+                  <div className="mt-4 inline-block rounded-lg border border-dashed border-gray-300 px-2 py-1 text-xs text-gray-500">
                     TEZ ORADA
                   </div>
                 )}

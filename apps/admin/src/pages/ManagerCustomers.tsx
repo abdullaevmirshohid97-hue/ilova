@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { tasdiqlaSoz } from '../components/Xabar';
 import { genPassword, supabase, fnXato } from '../lib/supabase';
 
 type Group = { id: string; name: string };
@@ -262,7 +263,7 @@ function EditCustomerModal({
   async function toggleActive() {
     if (!customer) return;
     const goingActive = !customer.is_active;
-    if (!goingActive && !confirm(`${customer.name} bloklansinmi? Bloklangan mijoz buyurtma berolmaydi.`)) return;
+    if (!goingActive && !await tasdiqlaSoz(`${customer.name} bloklansinmi? Bloklangan mijoz buyurtma berolmaydi.`)) return;
     setBusyAction('active');
     setError(null);
     try {
@@ -278,7 +279,7 @@ function EditCustomerModal({
 
   async function resetPassword() {
     if (!customer) return;
-    if (!confirm(`${customer.name} uchun yangi parol o'rnatilsinmi?`)) return;
+    if (!await tasdiqlaSoz(`${customer.name} uchun yangi parol o'rnatilsinmi?`)) return;
     setBusyAction('password');
     setError(null);
     try {
@@ -295,7 +296,7 @@ function EditCustomerModal({
   if (!customer) {
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-        <div className="rounded-2xl bg-white p-8 text-sm text-gray-400">Yuklanmoqda...</div>
+        <div className="rounded-2xl bg-white p-8 text-sm text-gray-500">Yuklanmoqda...</div>
       </div>
     );
   }
@@ -328,7 +329,7 @@ function EditCustomerModal({
             <label className="text-xs font-semibold text-gray-500">TELEFON (LOGIN)</label>
             {!phoneEdit ? (
               <div className="flex items-center gap-2">
-                <input value={customer.phone} disabled className={inputCls + ' text-gray-400'} />
+                <input value={customer.phone} disabled className={inputCls + ' text-gray-500'} />
                 <button
                   onClick={() => setPhoneEdit(true)}
                   className="shrink-0 rounded-xl border border-gray-200 px-3 py-3 text-xs font-bold text-gray-500 hover:border-brand hover:text-brand"
@@ -475,7 +476,7 @@ export default function ManagerCustomers() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <p className="max-w-2xl text-sm text-gray-400">
+        <p className="max-w-2xl text-sm text-gray-500">
           Bu — sizga biriktirilgan mijozlar. Yangisini o'zingiz yaratishingiz, mavjudini
           tahrirlashingiz yoki bloklashingiz mumkin (boshqa menejerlar va admin bu
           mijozlaringizning telefon raqamini ko'rmaydi).
@@ -492,7 +493,7 @@ export default function ManagerCustomers() {
         <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="bg-gray-50">
-            <tr className="text-left text-xs uppercase tracking-wide text-gray-400">
+            <tr className="text-left text-xs uppercase tracking-wide text-gray-500">
               <th className="px-6 py-3">Mijoz</th>
               <th className="px-6 py-3">Telefon</th>
               <th className="px-6 py-3"></th>
@@ -513,7 +514,7 @@ export default function ManagerCustomers() {
                     <div className="font-semibold text-gray-900">
                       {r.name}
                       {!r.is_active && (
-                        <span className="ml-2 rounded bg-gray-100 px-2 py-0.5 text-xs text-gray-400">bloklangan</span>
+                        <span className="ml-2 rounded bg-gray-100 px-2 py-0.5 text-xs text-gray-500">bloklangan</span>
                       )}
                     </div>
                   </div>
@@ -524,7 +525,7 @@ export default function ManagerCustomers() {
             ))}
             {rows.length === 0 && (
               <tr>
-                <td colSpan={3} className="px-6 py-10 text-center text-gray-400">
+                <td colSpan={3} className="px-6 py-10 text-center text-gray-500">
                   Hali mijozingiz yo'q — «➕ Mijoz yaratish» bilan birinchisini qo'shing
                 </td>
               </tr>

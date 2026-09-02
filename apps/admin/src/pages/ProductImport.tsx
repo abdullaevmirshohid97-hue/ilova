@@ -250,13 +250,13 @@ export default function ProductImport() {
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">
-      <Link to="/products" className="text-sm font-semibold text-gray-400 hover:text-brand">
+      <Link to="/products" className="text-sm font-semibold text-gray-500 hover:text-brand">
         ← Mahsulotlarga qaytish
       </Link>
 
       <div className="rounded-2xl border border-gray-200 bg-white p-8">
         <h2 className="text-xl font-extrabold text-gray-900">📥 Excel orqali mahsulot import qilish</h2>
-        <p className="mt-1 text-sm text-gray-400">
+        <p className="mt-1 text-sm text-gray-500">
           Shablonni yuklab oling, to'ldiring, so'ng shu yerga qayta yuklang. Mavjud SKU — yangilanadi,
           yangi SKU — yaratiladi. Bir xil nomi+model qatorlari bitta mahsulotning variantlari sifatida birlashadi.
         </p>
@@ -300,7 +300,7 @@ export default function ProductImport() {
             <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="sticky top-0 bg-gray-50">
-                <tr className="text-left text-xs uppercase tracking-wide text-gray-400">
+                <tr className="text-left text-xs uppercase tracking-wide text-gray-500">
                   <th className="px-4 py-2">#</th>
                   <th className="px-4 py-2">Nomi</th>
                   <th className="px-4 py-2">Model</th>
@@ -312,7 +312,7 @@ export default function ProductImport() {
               <tbody>
                 {rows.map((r) => (
                   <tr key={r.rowNum} className={`border-t border-gray-50 ${r.status === 'error' ? 'bg-red-50' : ''}`}>
-                    <td className="px-4 py-2 text-gray-400">{r.rowNum}</td>
+                    <td className="px-4 py-2 text-gray-500">{r.rowNum}</td>
                     <td className="px-4 py-2 font-semibold text-gray-900">{r.name || '—'}</td>
                     <td className="px-4 py-2 text-gray-600">{r.model || '—'}</td>
                     <td className="px-4 py-2 text-gray-600">{[r.size, r.color].filter(Boolean).join(' / ') || '—'}</td>

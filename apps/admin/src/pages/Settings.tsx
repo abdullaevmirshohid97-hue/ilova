@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { xabarKorsat, tasdiqlaSoz } from '../components/Xabar';
 import { formatDate, formatSum, genPassword, supabase, fnXato } from '../lib/supabase';
 import ChangePasswordPanel from '../components/ChangePasswordPanel';
 import XodimlarPanel from '../components/XodimlarPanel';
@@ -67,7 +68,7 @@ function OrgProfilePanel() {
   return (
     <div className="rounded-2xl border border-gray-200 bg-white p-6">
       <h2 className="font-bold text-gray-900">🏢 Biznes ma'lumotlari</h2>
-      <p className="mt-1 text-xs text-gray-400">
+      <p className="mt-1 text-xs text-gray-500">
         Bu nom fakturalarda va hisobotlarda chiqadi
       </p>
 
@@ -130,13 +131,13 @@ function CategoriesPanel() {
   }
   async function rename(id: string, name: string) {
     const { error: e } = await supabase.from('categories').update({ name }).eq('id', id);
-    if (e) alert('Xatolik: ' + e.message);
+    if (e) xabarKorsat('Xatolik: ' + e.message);
     load();
   }
   async function remove(id: string, name: string) {
-    if (!confirm(`"${name}" kategoriyasi o'chirilsinmi? Bu kategoriyadagi mahsulotlar "kategoriyasiz" bo'lib qoladi.`)) return;
+    if (!await tasdiqlaSoz(`"${name}" kategoriyasi o'chirilsinmi? Bu kategoriyadagi mahsulotlar "kategoriyasiz" bo'lib qoladi.`)) return;
     const { error: e } = await supabase.from('categories').delete().eq('id', id);
-    if (e) alert('Xatolik: ' + e.message);
+    if (e) xabarKorsat('Xatolik: ' + e.message);
     load();
   }
 
@@ -159,7 +160,7 @@ function CategoriesPanel() {
             </button>
           </div>
         ))}
-        {rows.length === 0 && <p className="text-sm text-gray-400">Kategoriya yo'q</p>}
+        {rows.length === 0 && <p className="text-sm text-gray-500">Kategoriya yo'q</p>}
       </div>
       <div className="mt-4 flex gap-2">
         <input
@@ -201,14 +202,14 @@ function PriceGroupsPanel() {
   }
   async function rename(id: string, name: string) {
     const { error: e } = await supabase.from('price_groups').update({ name }).eq('id', id);
-    if (e) alert('Xatolik: ' + e.message);
+    if (e) xabarKorsat('Xatolik: ' + e.message);
     load();
   }
   async function remove(id: string, name: string) {
-    if (!confirm(`"${name}" narx tarifi o'chirilsinmi?`)) return;
+    if (!await tasdiqlaSoz(`"${name}" narx tarifi o'chirilsinmi?`)) return;
     const { error: e } = await supabase.from('price_groups').delete().eq('id', id);
     if (e) {
-      alert("O'chirib bo'lmadi — bu tarifda mijoz yoki narxlar bor. Avval ularni boshqa tarifga o'tkazing.");
+      xabarKorsat("O'chirib bo'lmadi — bu tarifda mijoz yoki narxlar bor. Avval ularni boshqa tarifga o'tkazing.");
       return;
     }
     load();
@@ -233,7 +234,7 @@ function PriceGroupsPanel() {
             </button>
           </div>
         ))}
-        {rows.length === 0 && <p className="text-sm text-gray-400">Narx tarifi yo'q</p>}
+        {rows.length === 0 && <p className="text-sm text-gray-500">Narx tarifi yo'q</p>}
       </div>
       <div className="mt-4 flex gap-2">
         <input
@@ -284,7 +285,7 @@ function StaffPanel() {
   return (
     <div className="rounded-2xl border border-gray-200 bg-white p-6">
       <h3 className="font-bold text-gray-900">👤 Xodim (admin) qo'shish</h3>
-      <p className="mt-1 text-sm text-gray-400">
+      <p className="mt-1 text-sm text-gray-500">
         Yangi administrator hisobi — email + parol bilan admin panelga kiradi.
       </p>
       <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -355,14 +356,14 @@ function DangerZonePanel() {
 
   async function permanentlyDelete(row: CancelledDesignOrder) {
     if (
-      !confirm(
+      !await tasdiqlaSoz(
         `DIQQAT: "${row.customer}" ning bekor qilingan dizayn buyurtmasi BUTUNLAY o'chiriladi — bu amalni qaytarib bo'lmaydi. Davom etilsinmi?`
       )
     )
       return;
     setBusy(row.id);
     const { error } = await supabase.from('design_orders').delete().eq('id', row.id);
-    if (error) alert('Xatolik: ' + error.message);
+    if (error) xabarKorsat('Xatolik: ' + error.message);
     setBusy(null);
     load();
   }
@@ -375,14 +376,14 @@ function DangerZonePanel() {
         qaytarib bo'lmaydigan tarzda o'chirish mumkin.
       </p>
       <div className="mt-4 space-y-2">
-        {rows.length === 0 && <p className="text-sm text-gray-400">Bekor qilingan buyurtma yo'q</p>}
+        {rows.length === 0 && <p className="text-sm text-gray-500">Bekor qilingan buyurtma yo'q</p>}
         {rows.map((r) => (
           <div key={r.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-white px-4 py-3 text-sm">
             <div>
               <div className="font-semibold text-gray-800">
-                {r.customer} <span className="font-normal text-gray-400">· {r.phone}</span>
+                {r.customer} <span className="font-normal text-gray-500">· {r.phone}</span>
               </div>
-              <div className="text-xs text-gray-400">
+              <div className="text-xs text-gray-500">
                 {r.qty.toLocaleString()} dona · {formatSum(r.total)} · {formatDate(r.createdAt)}
               </div>
             </div>

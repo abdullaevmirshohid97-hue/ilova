@@ -51,13 +51,13 @@ export default function Finance() {
     <div className="space-y-6">
       <div className="grid grid-cols-2 gap-4 max-w-xl">
         <div className="rounded-2xl border border-gray-200 bg-white p-6">
-          <div className="text-xs font-semibold uppercase text-gray-400">Jami qarzdorlik</div>
+          <div className="text-xs font-semibold uppercase text-gray-500">Jami qarzdorlik</div>
           <div className="mt-2 text-2xl font-extrabold text-red-500">
             {totals ? formatSum(totals.debt) : '…'}
           </div>
         </div>
         <div className="rounded-2xl border border-gray-200 bg-white p-6">
-          <div className="text-xs font-semibold uppercase text-gray-400">Bugungi to'lovlar</div>
+          <div className="text-xs font-semibold uppercase text-gray-500">Bugungi to'lovlar</div>
           <div className="mt-2 text-2xl font-extrabold text-emerald-600">
             {totals ? formatSum(totals.paidToday) : '…'}
           </div>
@@ -71,7 +71,7 @@ export default function Finance() {
         <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="bg-gray-50">
-            <tr className="text-left text-xs uppercase tracking-wide text-gray-400">
+            <tr className="text-left text-xs uppercase tracking-wide text-gray-500">
               <th className="px-6 py-3">Sana</th>
               <th className="px-6 py-3">Mijoz</th>
               <th className="px-6 py-3">Turi</th>
@@ -82,13 +82,13 @@ export default function Finance() {
           <tbody>
             {entries.map((e) => (
               <tr key={e.id} className="border-t border-gray-50">
-                <td className="px-6 py-3 text-gray-400">{formatDate(e.created_at)}</td>
+                <td className="px-6 py-3 text-gray-500">{formatDate(e.created_at)}</td>
                 <td className="px-6 py-3 font-semibold text-gray-900">{e.customer}</td>
                 <td className="px-6 py-3 text-gray-600">
                   {LEDGER_KIND_LABEL[e.kind] ?? e.kind}
                   {e.order_number != null && ` №${e.order_number}`}
                 </td>
-                <td className="px-6 py-3 text-gray-400">{e.note ?? '—'}</td>
+                <td className="px-6 py-3 text-gray-500">{e.note ?? '—'}</td>
                 <td
                   className={`px-6 py-3 text-right font-bold ${
                     e.amount > 0 ? 'text-red-500' : 'text-emerald-600'
@@ -101,7 +101,7 @@ export default function Finance() {
             ))}
             {entries.length === 0 && (
               <tr>
-                <td colSpan={5} className="px-6 py-10 text-center text-gray-400">
+                <td colSpan={5} className="px-6 py-10 text-center text-gray-500">
                   Yozuvlar yo'q
                 </td>
               </tr>

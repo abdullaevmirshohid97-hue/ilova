@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { tasdiqlaSoz } from '../components/Xabar';
 import { C, MONO, RADIUS, sh } from '../lib/sa-tema';
 import { fnXato, supabase } from '../lib/supabase';
 import PraysYuklash from '../components/PraysYuklash';
@@ -217,7 +218,7 @@ export default function DoriSkladlar() {
     const ogoh = s.is_default
       ? '\n\nBu ASOSIY sklad. O‘chirilsa, asosiylik keyingi skladga o‘tadi.'
       : '';
-    if (!confirm(`"${s.name}" o‘chirilsinmi? Undagi ${son(s.pozitsiya)} pozitsiya ham o‘chadi.${ogoh}`)) return;
+    if (!await tasdiqlaSoz(`"${s.name}" o‘chirilsinmi? Undagi ${son(s.pozitsiya)} pozitsiya ham o‘chadi.${ogoh}`)) return;
     const { error } = await supabase.rpc('dori_sklad_ochir', { p_id: s.id });
     if (error) { setXato('O‘chirilmadi: ' + error.message); return; }
     if (tanlangan === s.id) setTanlangan(null);
@@ -237,7 +238,7 @@ export default function DoriSkladlar() {
   }
 
   async function uz(chatId: string) {
-    if (!confirm('Bu Telegram akkaunt skladdan uzilsinmi?')) return;
+    if (!await tasdiqlaSoz('Bu Telegram akkaunt skladdan uzilsinmi?')) return;
     const { error } = await supabase.rpc('dori_sklad_uzish', { p_chat_id: Number(chatId) });
     if (error) { setXato('Uzilmadi: ' + error.message); return; }
     setUlanganlar((p) => p.filter((x) => x.chat_id !== chatId));
@@ -278,7 +279,7 @@ export default function DoriSkladlar() {
   }
 
   async function userOchir(id: string) {
-    if (!confirm('Bu hisob o‘chirilsinmi? Xodim kabinetga kira olmaydi.')) return;
+    if (!await tasdiqlaSoz('Bu hisob o‘chirilsinmi? Xodim kabinetga kira olmaydi.')) return;
     const { error } = await supabase.rpc('dori_sklad_user_ochir', { p_id: id });
     if (error) { setXato('O‘chirilmadi: ' + error.message); return; }
     setUserlar((p) => p.filter((x) => x.id !== id));
@@ -308,7 +309,7 @@ export default function DoriSkladlar() {
   async function tanlanganlarniOchir(wh: string) {
     const ids = [...tanlangan_dori];
     if (ids.length === 0) return;
-    if (!confirm(`${ids.length} ta pozitsiya shu skladdan o‘chirilsinmi?\n\nDorining o‘zi katalogda qoladi.`)) return;
+    if (!await tasdiqlaSoz(`${ids.length} ta pozitsiya shu skladdan o‘chirilsinmi?\n\nDorining o‘zi katalogda qoladi.`)) return;
     setIsh('O‘chirilmoqda...');
     const { error } = await supabase.rpc('dori_taklif_ochir', {
       p_warehouse_id: wh, p_product_ids: ids,
@@ -323,7 +324,7 @@ export default function DoriSkladlar() {
   }
 
   async function praysniTozala(w: Sklad) {
-    if (!confirm(`«${w.name}» skladining BUTUN praysi o‘chirilsinmi?\n\n${son(w.pozitsiya)} pozitsiya. Dorilar katalogda qoladi.`)) return;
+    if (!await tasdiqlaSoz(`«${w.name}» skladining BUTUN praysi o‘chirilsinmi?\n\n${son(w.pozitsiya)} pozitsiya. Dorilar katalogda qoladi.`)) return;
     setIsh('Tozalanmoqda...');
     const { error } = await supabase.rpc('dori_sklad_prays_tozala', { p_warehouse_id: w.id });
     setIsh(null);

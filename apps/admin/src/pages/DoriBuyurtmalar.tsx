@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { tasdiqlaSoz } from '../components/Xabar';
 import { C, MONO, RADIUS, sh } from '../lib/sa-tema';
 import { supabase, fnXato } from '../lib/supabase';
 
@@ -190,7 +191,7 @@ export default function DoriBuyurtmalar() {
   async function qatorniOzgartir(b: Buyurtma, p: Poz, yangiQty: string) {
     const n = Number(String(yangiQty).replace(',', '.'));
     if (!Number.isFinite(n) || n === Number(p.qty)) return;
-    if (n <= 0 && !confirm(`«${p.name}» buyurtmadan olib tashlansinmi?`)) return;
+    if (n <= 0 && !await tasdiqlaSoz(`«${p.name}» buyurtmadan olib tashlansinmi?`)) return;
 
     setIsh('Saqlanmoqda...');
     const { error } = await supabase.rpc('dori_buyurtma_qator', {
@@ -203,7 +204,7 @@ export default function DoriBuyurtmalar() {
   }
 
   async function buyurtmaniOchir(b: Buyurtma) {
-    if (!confirm(`Buyurtma №${b.order_no} butunlay o‘chirilsinmi?\n\nPozitsiyalari va skladlarga ketgan so‘rovlari ham o‘chadi. Qaytarib bo‘lmaydi.`)) return;
+    if (!await tasdiqlaSoz(`Buyurtma №${b.order_no} butunlay o‘chirilsinmi?\n\nPozitsiyalari va skladlarga ketgan so‘rovlari ham o‘chadi. Qaytarib bo‘lmaydi.`)) return;
     setIsh('O‘chirilmoqda...');
     const { error } = await supabase.rpc('dori_buyurtma_ochir', { p_order_id: b.id });
     setIsh(null);

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { xabarKorsat } from '../components/Xabar';
 import { C, KESIM, KESIM_KICHIK, MONO, RADIUS, TEMALAR, sh, temaCssniUlash, temaniOl, temaniQoy, type Tema } from '../lib/sa-tema';
 import { formatDate, genPassword, supabase, fnXato } from '../lib/supabase';
 import NazoratMarkazi from '../components/NazoratMarkazi';
@@ -640,7 +641,7 @@ export default function SuperAdminPanel() {
 
   async function changeStatus(org: Org, status: string) {
     const { error } = await supabase.from('organizations').update({ subscription_status: status }).eq('id', org.id);
-    if (error) alert('Xatolik: ' + error.message);
+    if (error) xabarKorsat('Xatolik: ' + error.message);
     load();
   }
 

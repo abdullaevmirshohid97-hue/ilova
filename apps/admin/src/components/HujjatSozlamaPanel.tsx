@@ -218,7 +218,7 @@ export default function HujjatSozlamaPanel() {
                   {logo ? (
                     <img src={logo} alt="" className="max-h-full max-w-full object-contain" />
                   ) : (
-                    <span className="text-xs text-gray-400">logo yo‘q</span>
+                    <span className="text-xs text-gray-500">logo yo‘q</span>
                   )}
                 </div>
                 <input

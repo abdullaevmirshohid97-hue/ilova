@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { xabarKorsat, tasdiqlaSoz } from '../components/Xabar';
 import { Link } from 'react-router-dom';
 import { formatSum, imageUrl, resizeImage, supabase } from '../lib/supabase';
 import { altbilgi, blank, hujjatniYoz, logoniOl, oynaOch, sozlamaniOl, uslub } from '../lib/hujjat';
@@ -132,18 +133,18 @@ function ProductModal({
       .from('product_variants')
       .update({ is_active: !v.is_active })
       .eq('id', v.id);
-    if (e) return alert('Xatolik: ' + e.message);
+    if (e) return xabarKorsat('Xatolik: ' + e.message);
     patchVariant(v.id, { is_active: !v.is_active });
     onSaved();
   }
 
   async function deleteVariant(v: Variant) {
-    if (!confirm(`${v.sku} butunlay o'chirilsinmi?\nEslatma: buyurtma yoki ombor tarixida ishlatilgan bo'lsa, o'chirib bo'lmaydi — shunda "yashirish"dan foydalaning.`)) {
+    if (!await tasdiqlaSoz(`${v.sku} butunlay o'chirilsinmi?\nEslatma: buyurtma yoki ombor tarixida ishlatilgan bo'lsa, o'chirib bo'lmaydi — shunda "yashirish"dan foydalaning.`)) {
       return;
     }
     const { error: e } = await supabase.from('product_variants').delete().eq('id', v.id);
     if (e) {
-      alert("O'chirib bo'lmadi — bu variant buyurtma yoki ombor tarixida ishlatilgan. Uni yashiring.");
+      xabarKorsat("O'chirib bo'lmadi — bu variant buyurtma yoki ombor tarixida ishlatilgan. Uni yashiring.");
       return;
     }
     setVariants((prev) => prev.filter((x) => x.id !== v.id));
@@ -161,11 +162,11 @@ function ProductModal({
   }
 
   async function deleteImage(img: ProductImageRow) {
-    if (!confirm("Bu rasm o'chirilsinmi?")) return;
+    if (!await tasdiqlaSoz("Bu rasm o'chirilsinmi?")) return;
     const paths = [img.storagePath, img.thumbPath].filter((p): p is string => !!p);
     await supabase.storage.from('product-images').remove(paths);
     const { error: e } = await supabase.from('product_images').delete().eq('id', img.id);
-    if (e) return alert('Xatolik: ' + e.message);
+    if (e) return xabarKorsat('Xatolik: ' + e.message);
 
     const wasPrimary = img.isPrimary;
     const remaining = images.filter((x) => x.id !== img.id);
@@ -404,7 +405,7 @@ function ProductModal({
                 </div>
               ))}
             </div>
-            <label className="mt-2 flex h-16 w-full cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-gray-300 bg-gray-50 text-gray-400 hover:border-brand hover:text-brand">
+            <label className="mt-2 flex h-16 w-full cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-gray-300 bg-gray-50 text-gray-500 hover:border-brand hover:text-brand">
               <span className="text-lg">🖼</span>
               <span className="text-xs font-semibold">Rasm qo'shish</span>
               <input
@@ -468,7 +469,7 @@ function ProductModal({
             </button>
           </div>
           {newRows.length > 0 && (
-            <p className="mt-2 text-xs text-gray-400">
+            <p className="mt-2 text-xs text-gray-500">
               O'lcham uchta maydonga alohida kiritiladi, mijozga "Balandligi×Eni×Bo'yi" ko'rinishida chiqadi (masalan 8×26×36)
             </p>
           )}
@@ -497,7 +498,7 @@ function ProductModal({
               <div className="mt-2 grid grid-cols-2 gap-2 md:grid-cols-4">
                 {groups.map((g) => (
                   <div key={g.id}>
-                    <label className="text-xs font-semibold text-gray-400">{g.name}</label>
+                    <label className="text-xs font-semibold text-gray-500">{g.name}</label>
                     <input
                       value={groupPrices[g.id] ?? ''}
                       onChange={(e) =>
@@ -520,7 +521,7 @@ function ProductModal({
             <div className="mt-2 overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="text-left text-xs uppercase text-gray-400">
+                  <tr className="text-left text-xs uppercase text-gray-500">
                     <th className="py-2 pr-2">Balandligi</th>
                     <th className="py-2 pr-2">Eni</th>
                     <th className="py-2 pr-2">Bo'yi</th>
@@ -804,17 +805,17 @@ export default function Products() {
 
   async function toggleProductActive(p: Product) {
     const { error } = await supabase.from('products').update({ is_active: !p.is_active }).eq('id', p.id);
-    if (error) return alert('Xatolik: ' + error.message);
+    if (error) return xabarKorsat('Xatolik: ' + error.message);
     load();
   }
 
   async function deleteProduct(p: Product) {
-    if (!confirm(`"${p.name}" butunlay o'chirilsinmi?\nBuyurtma yoki ombor tarixida ishlatilgan bo'lsa, o'chirib bo'lmaydi — shunda "yashirish"dan foydalaning.`)) {
+    if (!await tasdiqlaSoz(`"${p.name}" butunlay o'chirilsinmi?\nBuyurtma yoki ombor tarixida ishlatilgan bo'lsa, o'chirib bo'lmaydi — shunda "yashirish"dan foydalaning.`)) {
       return;
     }
     const { error } = await supabase.from('products').delete().eq('id', p.id);
     if (error) {
-      alert("O'chirib bo'lmadi — bu mahsulot buyurtma yoki ombor tarixida ishlatilgan. Uni yashiring.");
+      xabarKorsat("O'chirib bo'lmadi — bu mahsulot buyurtma yoki ombor tarixida ishlatilgan. Uni yashiring.");
       return;
     }
     load();
@@ -880,12 +881,12 @@ export default function Products() {
             <div className="min-w-0">
               <div className="font-extrabold text-gray-900">
                 {p.name}
-                {p.model && <span className="ml-1 font-semibold text-gray-400">· {p.model}</span>}
+                {p.model && <span className="ml-1 font-semibold text-gray-500">· {p.model}</span>}
                 {!p.is_active && (
-                  <span className="ml-2 rounded bg-gray-100 px-2 py-0.5 text-xs font-semibold text-gray-400">yashirilgan</span>
+                  <span className="ml-2 rounded bg-gray-100 px-2 py-0.5 text-xs font-semibold text-gray-500">yashirilgan</span>
                 )}
               </div>
-              <div className="text-xs text-gray-400">{p.material ?? ''}</div>
+              <div className="text-xs text-gray-500">{p.material ?? ''}</div>
             </div>
             <div className="ml-auto flex gap-2">
               <button
@@ -914,7 +915,7 @@ export default function Products() {
           <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-gray-50/60">
-              <tr className="text-left text-xs uppercase tracking-wide text-gray-400">
+              <tr className="text-left text-xs uppercase tracking-wide text-gray-500">
                 <th className="px-6 py-2">SKU</th>
                 <th className="px-6 py-2">Razmer / Rang</th>
                 <th className="px-6 py-2 text-right">Fizik</th>
@@ -934,7 +935,7 @@ export default function Products() {
                     <td className="px-6 py-2.5 font-mono text-xs text-gray-500">{v.sku}</td>
                     <td className="px-6 py-2.5 text-gray-700">
                       {[v.size, v.color].filter(Boolean).join(' / ') || '—'}
-                      {!v.is_active && <span className="ml-2 text-xs text-gray-400">(yashirilgan)</span>}
+                      {!v.is_active && <span className="ml-2 text-xs text-gray-500">(yashirilgan)</span>}
                     </td>
                     <td className="px-6 py-2.5 text-right font-semibold">{v.qty.toLocaleString()}</td>
                     <td className="px-6 py-2.5 text-right text-amber-600">
@@ -983,7 +984,7 @@ export default function Products() {
       ))}
 
       {filtered.length === 0 && (
-        <div className="rounded-2xl border border-gray-200 bg-white p-12 text-center text-gray-400">
+        <div className="rounded-2xl border border-gray-200 bg-white p-12 text-center text-gray-500">
           Mahsulot topilmadi. «➕ Yangi kirim» bilan birinchisini qo'shing.
         </div>
       )}

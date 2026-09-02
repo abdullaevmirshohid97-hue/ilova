@@ -120,7 +120,7 @@ export default function StockModal({
             ✕
           </button>
         </div>
-        <p className="mt-1 text-sm text-gray-400">{label}</p>
+        <p className="mt-1 text-sm text-gray-500">{label}</p>
 
         <div className="mt-6 space-y-4">
           <div>
@@ -183,7 +183,7 @@ export default function StockModal({
               <div className="mt-1 grid grid-cols-2 gap-2">
                 {groups.map((g) => (
                   <div key={g.id}>
-                    <label className="text-[11px] font-semibold text-gray-400">{g.name}</label>
+                    <label className="text-[11px] font-semibold text-gray-500">{g.name}</label>
                     <input
                       value={prices[g.id] ?? ''}
                       onChange={(e) =>
@@ -195,7 +195,7 @@ export default function StockModal({
                   </div>
                 ))}
               </div>
-              <p className="mt-1.5 text-[11px] text-gray-400">
+              <p className="mt-1.5 text-[11px] text-gray-500">
                 Bo'sh qoldirsangiz eski narx o'zgarmaydi.
               </p>
             </div>

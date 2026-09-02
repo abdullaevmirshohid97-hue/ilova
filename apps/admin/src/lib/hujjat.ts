@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { xabarKorsat } from '../components/Xabar';
 
 // ============================================================================
 // CHOP ETILADIGAN HUJJATLAR — umumiy asos
@@ -244,7 +245,7 @@ export function altbilgi(s: HujjatSozlama, orgNomi?: string | null): string {
 export function oynaOch(): Window | null {
   const w = window.open('', '_blank');
   if (!w) {
-    alert("Hujjat oynasi ochilmadi — brauzer pop-up'ni bloklagan bo'lishi mumkin.");
+    xabarKorsat("Hujjat oynasi ochilmadi — brauzer pop-up'ni bloklagan bo'lishi mumkin.");
     return null;
   }
   w.document.write(

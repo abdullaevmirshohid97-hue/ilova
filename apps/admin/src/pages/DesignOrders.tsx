@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { xabarKorsat, tasdiqlaSoz } from '../components/Xabar';
 import { DESIGN_STATUS, formatDate, formatSum, supabase } from '../lib/supabase';
 import DesignOrderModal from '../components/DesignOrderModal';
 
@@ -84,16 +85,16 @@ export default function DesignOrders() {
     if (!next) return;
     setBusy(row.id);
     const { error } = await supabase.from('design_orders').update({ status: next.key }).eq('id', row.id);
-    if (error) alert('Xatolik: ' + error.message);
+    if (error) xabarKorsat('Xatolik: ' + error.message);
     setBusy(null);
     load();
   }
 
   async function cancelRow(row: Row) {
-    if (!confirm("Bu dizayn buyurtmasi bekor qilinsinmi?")) return;
+    if (!await tasdiqlaSoz("Bu dizayn buyurtmasi bekor qilinsinmi?")) return;
     setBusy(row.id);
     const { error } = await supabase.from('design_orders').update({ status: 'cancelled' }).eq('id', row.id);
-    if (error) alert('Xatolik: ' + error.message);
+    if (error) xabarKorsat('Xatolik: ' + error.message);
     setBusy(null);
     load();
   }
@@ -110,7 +111,7 @@ export default function DesignOrders() {
       </div>
 
       {rows.length === 0 && (
-        <div className="rounded-2xl border border-gray-200 bg-white p-12 text-center text-gray-400">
+        <div className="rounded-2xl border border-gray-200 bg-white p-12 text-center text-gray-500">
           Hali shaxsiy dizayn buyurtmasi yo'q
         </div>
       )}
@@ -123,38 +124,38 @@ export default function DesignOrders() {
           <div key={r.id} className="rounded-2xl border border-gray-200 bg-white p-6">
             <div className="flex flex-wrap items-center gap-3">
               <span className="font-extrabold text-gray-900">{r.customer}</span>
-              <span className="text-sm text-gray-400">{r.phone}</span>
+              <span className="text-sm text-gray-500">{r.phone}</span>
               <span className={`rounded-full px-3 py-1 text-xs font-semibold ${st.cls}`}>{st.label}</span>
-              <span className="text-xs text-gray-400">{formatDate(r.createdAt)}</span>
+              <span className="text-xs text-gray-500">{formatDate(r.createdAt)}</span>
               <span className="ml-auto text-lg font-extrabold text-gray-900">{formatSum(r.total)}</span>
             </div>
 
             <div className="mt-3 grid grid-cols-2 gap-x-6 gap-y-1.5 border-t border-gray-100 pt-3 text-sm md:grid-cols-4">
               {r.size && (
-                <div><span className="text-gray-400">O'lcham:</span> <span className="font-semibold text-gray-700">{r.size}</span></div>
+                <div><span className="text-gray-500">O'lcham:</span> <span className="font-semibold text-gray-700">{r.size}</span></div>
               )}
               {r.bottomMaterial && (
-                <div><span className="text-gray-400">Tag qismi:</span> <span className="font-semibold text-gray-700">{r.bottomMaterial}</span></div>
+                <div><span className="text-gray-500">Tag qismi:</span> <span className="font-semibold text-gray-700">{r.bottomMaterial}</span></div>
               )}
               {r.topMaterial && (
-                <div><span className="text-gray-400">Ustki qismi:</span> <span className="font-semibold text-gray-700">{r.topMaterial}</span></div>
+                <div><span className="text-gray-500">Ustki qismi:</span> <span className="font-semibold text-gray-700">{r.topMaterial}</span></div>
               )}
               {r.bagMaterial && (
-                <div><span className="text-gray-400">Sumka qog'ozi:</span> <span className="font-semibold text-gray-700">{r.bagMaterial}</span></div>
+                <div><span className="text-gray-500">Sumka qog'ozi:</span> <span className="font-semibold text-gray-700">{r.bagMaterial}</span></div>
               )}
               {r.ropeColor && (
-                <div><span className="text-gray-400">Ip rangi:</span> <span className="font-semibold text-gray-700">{r.ropeColor}</span></div>
+                <div><span className="text-gray-500">Ip rangi:</span> <span className="font-semibold text-gray-700">{r.ropeColor}</span></div>
               )}
               {r.printType && (
-                <div><span className="text-gray-400">Bosma:</span> <span className="font-semibold text-gray-700">{r.printType === 'tesneniya' ? 'Tesneniyali' : 'Oddiy pechatnoy'}</span></div>
+                <div><span className="text-gray-500">Bosma:</span> <span className="font-semibold text-gray-700">{r.printType === 'tesneniya' ? 'Tesneniyali' : 'Oddiy pechatnoy'}</span></div>
               )}
-              <div><span className="text-gray-400">Miqdor:</span> <span className="font-semibold text-gray-700">{r.qty.toLocaleString()} dona</span></div>
-              <div><span className="text-gray-400">Dona narxi:</span> <span className="font-semibold text-gray-700">{formatSum(r.unitPrice)}</span></div>
+              <div><span className="text-gray-500">Miqdor:</span> <span className="font-semibold text-gray-700">{r.qty.toLocaleString()} dona</span></div>
+              <div><span className="text-gray-500">Dona narxi:</span> <span className="font-semibold text-gray-700">{formatSum(r.unitPrice)}</span></div>
               {r.readyDate && (
-                <div><span className="text-gray-400">Tayyor bo'lish:</span> <span className="font-semibold text-gray-700">{r.readyDate}</span></div>
+                <div><span className="text-gray-500">Tayyor bo'lish:</span> <span className="font-semibold text-gray-700">{r.readyDate}</span></div>
               )}
               {r.notes && (
-                <div className="col-span-2"><span className="text-gray-400">Izoh:</span> <span className="font-semibold text-gray-700">{r.notes}</span></div>
+                <div className="col-span-2"><span className="text-gray-500">Izoh:</span> <span className="font-semibold text-gray-700">{r.notes}</span></div>
               )}
             </div>
 

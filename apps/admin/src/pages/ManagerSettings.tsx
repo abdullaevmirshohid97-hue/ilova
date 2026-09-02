@@ -40,7 +40,7 @@ export default function ManagerSettings() {
     <div className="mx-auto max-w-2xl space-y-6">
       <div className="rounded-2xl border border-gray-200 bg-white p-6">
         <h3 className="font-bold text-gray-900">💵 Dollar kursi</h3>
-        <p className="mt-1 text-sm text-gray-400">
+        <p className="mt-1 text-sm text-gray-500">
           Dollarda ($) qo'ygan narxlaringiz mijozga shu kurs bo'yicha so'mda ko'rinadi va shu
           bo'yicha hisoblanadi. Kursni istagan vaqt yangilab turishingiz mumkin.
         </p>
@@ -51,7 +51,7 @@ export default function ManagerSettings() {
             placeholder="Masalan: 12700"
             className="w-40 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm outline-none focus:border-brand"
           />
-          <span className="text-sm text-gray-400">so'm / 1$</span>
+          <span className="text-sm text-gray-500">so'm / 1$</span>
           <button
             onClick={saveRate}
             disabled={saving}

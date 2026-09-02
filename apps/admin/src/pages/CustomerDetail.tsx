@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { tasdiqlaSoz } from '../components/Xabar';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import {
   LEDGER_KIND_LABEL,
@@ -87,7 +88,7 @@ function StornoModal({
     <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-6">
       <div className="w-full max-w-md rounded-2xl bg-white p-8 shadow-2xl">
         <h2 className="text-xl font-extrabold text-gray-900">↩️ To'lovni storno qilish</h2>
-        <p className="mt-1 text-sm text-gray-400">
+        <p className="mt-1 text-sm text-gray-500">
           Bu to'lov bekor qilinadi (qarz qaytadi). Asl yozuv o'chirilmaydi — jurnalda teskari
           yozuv qo'shiladi.
         </p>
@@ -260,7 +261,7 @@ export default function CustomerDetail() {
   async function toggleActive() {
     if (!customer) return;
     const goingActive = !customer.is_active;
-    if (!goingActive && !confirm(`${customer.name} bloklansinmi? Bloklangan mijoz buyurtma berolmaydi.`)) return;
+    if (!goingActive && !await tasdiqlaSoz(`${customer.name} bloklansinmi? Bloklangan mijoz buyurtma berolmaydi.`)) return;
     setBusyAction('active');
     setError(null);
     try {
@@ -275,7 +276,7 @@ export default function CustomerDetail() {
 
   async function resetPassword() {
     if (!customer) return;
-    if (!confirm(`${customer.name} uchun yangi parol o'rnatilsinmi? Eski parol ishlamay qoladi.`)) return;
+    if (!await tasdiqlaSoz(`${customer.name} uchun yangi parol o'rnatilsinmi? Eski parol ishlamay qoladi.`)) return;
     setBusyAction('password');
     setError(null);
     try {
@@ -303,7 +304,7 @@ export default function CustomerDetail() {
     'w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm outline-none focus:border-brand';
 
   if (!customer) {
-    return <div className="p-8 text-center text-gray-400">Yuklanmoqda...</div>;
+    return <div className="p-8 text-center text-gray-500">Yuklanmoqda...</div>;
   }
 
   const reversedPaymentIds = new Set(
@@ -312,7 +313,7 @@ export default function CustomerDetail() {
 
   return (
     <div className="mx-auto max-w-4xl space-y-6">
-      <Link to="/customers" className="text-sm font-semibold text-gray-400 hover:text-brand">
+      <Link to="/customers" className="text-sm font-semibold text-gray-500 hover:text-brand">
         ← Mijozlar ro'yxatiga qaytish
       </Link>
 
@@ -324,7 +325,7 @@ export default function CustomerDetail() {
               {preview ? (
                 <img src={preview} className="h-32 w-32 rounded-2xl border border-gray-200 object-cover" />
               ) : (
-                <div className="flex h-32 w-32 flex-col items-center justify-center rounded-2xl border-2 border-dashed border-gray-300 bg-gray-50 text-gray-400 hover:border-brand hover:text-brand">
+                <div className="flex h-32 w-32 flex-col items-center justify-center rounded-2xl border-2 border-dashed border-gray-300 bg-gray-50 text-gray-500 hover:border-brand hover:text-brand">
                   <span className="text-2xl">📷</span>
                   <span className="mt-1 text-xs font-semibold">Rasm</span>
                 </div>
@@ -352,7 +353,7 @@ export default function CustomerDetail() {
                 <label className="text-xs font-semibold text-gray-500">TELEFON (LOGIN)</label>
                 {!phoneEdit ? (
                   <div className="flex items-center gap-2">
-                    <input value={customer.phone ?? '🔒 menejer mijozi — yashirin'} disabled className={inputCls + ' text-gray-400'} />
+                    <input value={customer.phone ?? '🔒 menejer mijozi — yashirin'} disabled className={inputCls + ' text-gray-500'} />
                     <button
                       onClick={() => setPhoneEdit(true)}
                       className="shrink-0 rounded-xl border border-gray-200 px-3 py-3 text-xs font-bold text-gray-500 hover:border-brand hover:text-brand"
@@ -513,7 +514,7 @@ export default function CustomerDetail() {
           balance > 0 ? 'border-red-200 bg-red-50' : balance < 0 ? 'border-emerald-200 bg-emerald-50' : 'border-gray-200 bg-white'
         }`}
       >
-        <div className="text-xs font-semibold uppercase text-gray-400">Joriy balans</div>
+        <div className="text-xs font-semibold uppercase text-gray-500">Joriy balans</div>
         <div className={`mt-1 text-2xl font-extrabold ${balance > 0 ? 'text-red-500' : balance < 0 ? 'text-emerald-600' : 'text-gray-900'}`}>
           {balance > 0 ? `Qarz: ${formatSum(balance)}` : balance < 0 ? `Haqi: ${formatSum(-balance)}` : '0'}
         </div>
@@ -525,7 +526,7 @@ export default function CustomerDetail() {
         <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="bg-gray-50">
-            <tr className="text-left text-xs uppercase tracking-wide text-gray-400">
+            <tr className="text-left text-xs uppercase tracking-wide text-gray-500">
               <th className="px-6 py-3">№</th>
               <th className="px-6 py-3">Sana</th>
               <th className="px-6 py-3">Holat</th>
@@ -538,7 +539,7 @@ export default function CustomerDetail() {
               return (
                 <tr key={o.id} className="border-t border-gray-50">
                   <td className="px-6 py-3 font-semibold text-gray-900">№{o.order_number}</td>
-                  <td className="px-6 py-3 text-gray-400">{formatDate(o.created_at)}</td>
+                  <td className="px-6 py-3 text-gray-500">{formatDate(o.created_at)}</td>
                   <td className="px-6 py-3">
                     <span className={`rounded-full px-3 py-1 text-xs font-semibold ${st.cls}`}>{st.label}</span>
                   </td>
@@ -548,7 +549,7 @@ export default function CustomerDetail() {
             })}
             {orders.length === 0 && (
               <tr>
-                <td colSpan={4} className="px-6 py-10 text-center text-gray-400">Buyurtma yo'q</td>
+                <td colSpan={4} className="px-6 py-10 text-center text-gray-500">Buyurtma yo'q</td>
               </tr>
             )}
           </tbody>
@@ -562,7 +563,7 @@ export default function CustomerDetail() {
         <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="bg-gray-50">
-            <tr className="text-left text-xs uppercase tracking-wide text-gray-400">
+            <tr className="text-left text-xs uppercase tracking-wide text-gray-500">
               <th className="px-6 py-3">Sana</th>
               <th className="px-6 py-3">Turi</th>
               <th className="px-6 py-3">Izoh</th>
@@ -573,12 +574,12 @@ export default function CustomerDetail() {
           <tbody>
             {ledger.map((e) => (
               <tr key={e.id} className="border-t border-gray-50">
-                <td className="px-6 py-3 text-gray-400">{formatDate(e.created_at)}</td>
+                <td className="px-6 py-3 text-gray-500">{formatDate(e.created_at)}</td>
                 <td className="px-6 py-3 text-gray-600">
                   {LEDGER_KIND_LABEL[e.kind] ?? e.kind}
                   {e.order_number != null && ` №${e.order_number}`}
                 </td>
-                <td className="px-6 py-3 text-gray-400">{e.note ?? '—'}</td>
+                <td className="px-6 py-3 text-gray-500">{e.note ?? '—'}</td>
                 <td className={`px-6 py-3 text-right font-bold ${e.amount > 0 ? 'text-red-500' : 'text-emerald-600'}`}>
                   {e.amount > 0 ? '+' : '−'}{formatSum(Math.abs(e.amount))}
                 </td>
@@ -600,7 +601,7 @@ export default function CustomerDetail() {
             ))}
             {ledger.length === 0 && (
               <tr>
-                <td colSpan={5} className="px-6 py-10 text-center text-gray-400">Yozuvlar yo'q</td>
+                <td colSpan={5} className="px-6 py-10 text-center text-gray-500">Yozuvlar yo'q</td>
               </tr>
             )}
           </tbody>

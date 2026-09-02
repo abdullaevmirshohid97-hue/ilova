@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { tasdiqlaSoz } from '../components/Xabar';
 import { C, MONO, RADIUS, sh } from '../lib/sa-tema';
 import { genPassword, supabase, fnXato } from '../lib/supabase';
 
@@ -120,7 +121,7 @@ export default function DoriMijozlar() {
 
   async function parolniAlmashtir(m: Mijoz) {
     const yangi = genPassword();
-    if (!confirm(`${m.name ?? m.phone} uchun yangi parol: ${yangi}\n\nO‘rnatilsinmi?`)) return;
+    if (!await tasdiqlaSoz(`${m.name ?? m.phone} uchun yangi parol: ${yangi}\n\nO‘rnatilsinmi?`)) return;
     setIsh('Parol almashtirilmoqda...');
     const { data, error } = await supabase.functions.invoke('dori-mijoz', {
       body: { amal: 'parol', phone: m.phone, password: yangi },
@@ -133,13 +134,13 @@ export default function DoriMijozlar() {
   }
 
   async function bloklash(m: Mijoz) {
-    if (!confirm(`${m.name ?? m.phone} ${m.is_blocked ? 'blokdan chiqarilsinmi' : 'bloklansinmi'}?`)) return;
+    if (!await tasdiqlaSoz(`${m.name ?? m.phone} ${m.is_blocked ? 'blokdan chiqarilsinmi' : 'bloklansinmi'}?`)) return;
     await supabase.rpc('dori_customer_block', { p_id: m.id, p_blocked: !m.is_blocked });
     yukla();
   }
 
   async function uzish(m: Mijoz) {
-    if (!confirm(`${m.name ?? m.phone} ning Telegram ulanishi uzilsinmi?`)) return;
+    if (!await tasdiqlaSoz(`${m.name ?? m.phone} ning Telegram ulanishi uzilsinmi?`)) return;
     await supabase.rpc('dori_customer_unlink', { p_id: m.id });
     yukla();
   }
@@ -165,7 +166,7 @@ export default function DoriMijozlar() {
     if (!hammasi && (!ids || ids.length === 0)) { setXato('Mijoz tanlang'); return; }
 
     const nechta = hammasi ? pushMijozlar.filter((m) => m.ulangan && !m.is_blocked).length : ids!.length;
-    if (!confirm(`${nechta} ta mijozga xabar yuborilsinmi?\n\n${matn.slice(0, 200)}`)) return;
+    if (!await tasdiqlaSoz(`${nechta} ta mijozga xabar yuborilsinmi?\n\n${matn.slice(0, 200)}`)) return;
 
     setXato(null);
     setIsh('Xabar tayyorlanmoqda...');

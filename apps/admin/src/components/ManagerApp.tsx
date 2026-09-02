@@ -32,7 +32,7 @@ function SidebarNav({
     <>
       <div className="px-6 py-6">
         <div className="text-xl font-extrabold tracking-wide">YUKCHIBOLLA</div>
-        <div className="mt-1 text-xs text-white/40">Menejer{name ? ` — ${name}` : ''}</div>
+        <div className="mt-1 text-xs text-white/55">Menejer{name ? ` — ${name}` : ''}</div>
       </div>
       <nav className="flex-1 space-y-1 px-3">
         {TABS.map((t) => (
@@ -112,7 +112,7 @@ export default function ManagerApp() {
         <main className="flex-1 overflow-y-auto p-4 md:p-8">
           <Suspense
             fallback={
-              <div className="flex min-h-[50vh] items-center justify-center text-gray-400">
+              <div className="flex min-h-[50vh] items-center justify-center text-gray-500">
                 Yuklanmoqda...
               </div>
             }

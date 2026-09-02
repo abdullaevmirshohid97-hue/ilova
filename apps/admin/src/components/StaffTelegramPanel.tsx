@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { tasdiqlaSoz } from './Xabar';
 import { supabase } from '../lib/supabase';
 
 // Xodimlar boti — admin va menejer paneli uchun bitta panel.
@@ -38,7 +39,7 @@ export default function StaffTelegramPanel() {
   }
 
   async function uzish() {
-    if (!confirm('Telegram ulanishi uzilsinmi? Yangi buyurtmalar haqida xabar kelmay qoladi.')) return;
+    if (!await tasdiqlaSoz('Telegram ulanishi uzilsinmi? Yangi buyurtmalar haqida xabar kelmay qoladi.')) return;
     setBusy(true);
     const { error } = await supabase.rpc('staff_telegram_unlink');
     setBusy(false);

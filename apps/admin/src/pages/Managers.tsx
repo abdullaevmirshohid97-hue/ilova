@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { xabarKorsat, tasdiqlaSoz } from '../components/Xabar';
 import { genPassword, supabase, fnXato } from '../lib/supabase';
 
 type Row = {
@@ -182,7 +183,7 @@ export default function Managers() {
       setInvite({ id: r.id, url: `https://t.me/${STAFF_BOT}?start=${kod}` });
       load();
     } catch (e: any) {
-      alert(
+      xabarKorsat(
         e?.message === 'MENEJER_HISOBI_YOQ'
           ? "Bu menejerda hali login yo'q — avval unga parol yarating."
           : 'Xatolik: ' + (e?.message ?? '')
@@ -193,14 +194,14 @@ export default function Managers() {
   }
 
   async function botdanUzish(r: Row) {
-    if (!confirm(`${r.name}ning Telegram ulanishi uzilsinmi?`)) return;
+    if (!await tasdiqlaSoz(`${r.name}ning Telegram ulanishi uzilsinmi?`)) return;
     setBusy(r.id);
     try {
       const { error } = await supabase.rpc('staff_telegram_admin_unlink', { p_manager_id: r.id });
       if (error) throw error;
       load();
     } catch (e: any) {
-      alert('Xatolik: ' + (e?.message ?? ''));
+      xabarKorsat('Xatolik: ' + (e?.message ?? ''));
     } finally {
       setBusy(null);
     }
@@ -211,27 +212,27 @@ export default function Managers() {
   }, [load]);
 
   async function toggleActive(r: Row) {
-    if (r.is_active && !confirm(`${r.name} bloklansinmi?`)) return;
+    if (r.is_active && !await tasdiqlaSoz(`${r.name} bloklansinmi?`)) return;
     setBusy(r.id);
     try {
       await callFn('set_active', { manager_id: r.id, is_active: !r.is_active });
       load();
     } catch (e: any) {
-      alert('Xatolik: ' + e.message);
+      xabarKorsat('Xatolik: ' + e.message);
     } finally {
       setBusy(null);
     }
   }
 
   async function resetPassword(r: Row) {
-    if (!confirm(`${r.name} uchun yangi parol o'rnatilsinmi?`)) return;
+    if (!await tasdiqlaSoz(`${r.name} uchun yangi parol o'rnatilsinmi?`)) return;
     setBusy(r.id);
     try {
       const pw = genPassword();
       await callFn('reset_password', { manager_id: r.id, new_password: pw });
       setNewPasswordFor({ id: r.id, password: pw });
     } catch (e: any) {
-      alert('Xatolik: ' + e.message);
+      xabarKorsat('Xatolik: ' + e.message);
     } finally {
       setBusy(null);
     }
@@ -240,7 +241,7 @@ export default function Managers() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <p className="max-w-2xl text-sm text-gray-400">
+        <p className="max-w-2xl text-sm text-gray-500">
           Menejerlar o'ziga biriktirilgan mijozlarga o'z narxi bo'yicha sotadi (Narxlarim bo'limi
           orqali). Bir menejerning narxi va mijozlari boshqa menejerlarga ko'rinmaydi.
         </p>
@@ -256,7 +257,7 @@ export default function Managers() {
         <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="bg-gray-50">
-            <tr className="text-left text-xs uppercase tracking-wide text-gray-400">
+            <tr className="text-left text-xs uppercase tracking-wide text-gray-500">
               <th className="px-6 py-3">Menejer</th>
               <th className="px-6 py-3">Telefon</th>
               <th className="px-6 py-3">Telegram</th>
@@ -274,7 +275,7 @@ export default function Managers() {
                     <div className="font-semibold text-gray-900">
                       {r.name}
                       {!r.is_active && (
-                        <span className="ml-2 rounded bg-gray-100 px-2 py-0.5 text-xs text-gray-400">
+                        <span className="ml-2 rounded bg-gray-100 px-2 py-0.5 text-xs text-gray-500">
                           bloklangan
                         </span>
                       )}
@@ -289,12 +290,12 @@ export default function Managers() {
                         🟢 Ulangan
                       </span>
                       {tgStatus[r.id]?.username && (
-                        <span className="text-xs text-gray-400">@{tgStatus[r.id]?.username}</span>
+                        <span className="text-xs text-gray-500">@{tgStatus[r.id]?.username}</span>
                       )}
                       <button
                         onClick={() => botdanUzish(r)}
                         disabled={busy === r.id}
-                        className="text-xs font-bold text-gray-400 hover:text-red-500 disabled:opacity-50"
+                        className="text-xs font-bold text-gray-500 hover:text-red-500 disabled:opacity-50"
                         title="Telegram ulanishini uzish"
                       >
                         ✕
@@ -318,7 +319,7 @@ export default function Managers() {
                     </div>
                   ) : (
                     <div className="flex items-center gap-2">
-                      <span className="rounded-full bg-gray-100 px-2.5 py-1 text-xs font-semibold text-gray-400">
+                      <span className="rounded-full bg-gray-100 px-2.5 py-1 text-xs font-semibold text-gray-500">
                         ⚪ Ulanmagan
                       </span>
                       <button
@@ -373,7 +374,7 @@ export default function Managers() {
             ))}
             {rows.length === 0 && (
               <tr>
-                <td colSpan={4} className="px-6 py-10 text-center text-gray-400">
+                <td colSpan={4} className="px-6 py-10 text-center text-gray-500">
                   Menejerlar yo'q — «➕ Menejer yaratish» bilan birinchisini qo'shing
                 </td>
               </tr>

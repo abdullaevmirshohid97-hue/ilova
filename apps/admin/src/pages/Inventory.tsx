@@ -114,7 +114,7 @@ export default function Inventory() {
         <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="bg-gray-50">
-            <tr className="text-left text-xs uppercase tracking-wide text-gray-400">
+            <tr className="text-left text-xs uppercase tracking-wide text-gray-500">
               <th className="px-6 py-3">Sana</th>
               <th className="px-6 py-3">Mahsulot / variant</th>
               <th className="px-6 py-3">Turi</th>
@@ -126,10 +126,10 @@ export default function Inventory() {
           <tbody>
             {filtered.map((r) => (
               <tr key={r.id} className="border-t border-gray-50">
-                <td className="px-6 py-3 text-gray-400">{formatDate(r.created_at)}</td>
+                <td className="px-6 py-3 text-gray-500">{formatDate(r.created_at)}</td>
                 <td className="px-6 py-3 text-gray-900">
                   <div className="font-semibold">{r.variant_label || '—'}</div>
-                  <div className="font-mono text-xs text-gray-400">{r.sku}</div>
+                  <div className="font-mono text-xs text-gray-500">{r.sku}</div>
                 </td>
                 <td className="px-6 py-3 text-gray-600">
                   {REASON_LABEL[r.reason] ?? r.reason}
@@ -139,13 +139,13 @@ export default function Inventory() {
                   {r.qty > 0 ? '+' : ''}
                   {r.qty.toLocaleString()}
                 </td>
-                <td className="px-6 py-3 text-gray-400">{r.note ?? '—'}</td>
+                <td className="px-6 py-3 text-gray-500">{r.note ?? '—'}</td>
                 <td className="px-6 py-3 text-gray-500">{r.by}</td>
               </tr>
             ))}
             {!loading && filtered.length === 0 && (
               <tr>
-                <td colSpan={6} className="px-6 py-10 text-center text-gray-400">
+                <td colSpan={6} className="px-6 py-10 text-center text-gray-500">
                   Bu davrda harakat topilmadi
                 </td>
               </tr>

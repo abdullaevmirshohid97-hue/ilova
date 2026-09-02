@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { tasdiqlaSoz } from '../components/Xabar';
 import { C, MONO, RADIUS, sh } from '../lib/sa-tema';
 import { supabase, fnXato } from '../lib/supabase';
 
@@ -254,7 +255,7 @@ export default function DoriSotuv() {
   }
 
   async function bekorQil(s: Sotuv) {
-    if (!confirm(`Sotuv №${s.sale_no} bekor qilinsinmi? Qoldiq skladga qaytariladi.`)) return;
+    if (!await tasdiqlaSoz(`Sotuv №${s.sale_no} bekor qilinsinmi? Qoldiq skladga qaytariladi.`)) return;
     const { error } = await supabase.rpc('dori_sotuv_bekor', { p_sale_id: s.id });
     if (error) { setXato('Bekor qilinmadi: ' + error.message); return; }
     setXabar(`Sotuv №${s.sale_no} bekor qilindi`);

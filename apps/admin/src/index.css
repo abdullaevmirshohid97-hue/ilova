@@ -12,3 +12,17 @@ body {
   font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   background: var(--color-page);
 }
+
+/* Barmoq bilan bosiladigan qurilmalarda tugma eng kamida 44px bo'lsin.
+   Jadval ichidagi amal tugmalari `py-1 text-xs` bilan 26px atrofida
+   chiqardi va telefonda yonidagi tugma bosilardi.
+
+   `pointer: coarse` — faqat sensorli ekran. Sichqoncha bilan ishlaydigan
+   kompyuterda ko'rinish o'zgarmaydi, ya'ni zich jadval zich qolaveradi. */
+@media (pointer: coarse) {
+  button,
+  [role='button'],
+  select {
+    min-height: 44px;
+  }
+}

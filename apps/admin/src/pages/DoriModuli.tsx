@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { tasdiqlaSoz } from '../components/Xabar';
 import { C, MONO, RADIUS, sh } from '../lib/sa-tema';
 import { supabase } from '../lib/supabase';
 
@@ -104,7 +105,7 @@ export default function DoriModuli() {
   async function arxivniOchir() {
     const ids = [...belgilangan];
     if (!ids.length) return;
-    if (!confirm(`${ids.length} ta arxiv yozuvi o‘chirilsinmi?\n\nKatalogdagi dorilarga ta'sir qilmaydi.`)) return;
+    if (!await tasdiqlaSoz(`${ids.length} ta arxiv yozuvi o‘chirilsinmi?\n\nKatalogdagi dorilarga ta'sir qilmaydi.`)) return;
     setIsh('O‘chirilmoqda...');
     const { error } = await supabase.rpc('dori_invoice_ochir', { p_ids: ids });
     setIsh(null);

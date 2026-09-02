@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { tasdiqlaSoz } from '../components/Xabar';
 import { C, MONO, RADIUS, sh } from '../lib/sa-tema';
 import { supabase } from '../lib/supabase';
 
@@ -189,7 +190,7 @@ export default function NarxlarPaneli() {
   }
 
   async function qoidaniOchir(r: Qoida) {
-    if (!confirm(`${SCOPE_NOM[r.scope]}${r.nishon ? ' · ' + r.nishon : ''} qoidasi o‘chirilsinmi?`)) return;
+    if (!await tasdiqlaSoz(`${SCOPE_NOM[r.scope]}${r.nishon ? ' · ' + r.nishon : ''} qoidasi o‘chirilsinmi?`)) return;
     setIsh('O‘chirilmoqda...');
     // Qoidani o'chirish = foizlarni bo'sh qilib yuborish. RPC shuni
     // "o'chirish" deb tushunadi va narxlarni qayta hisoblaydi.

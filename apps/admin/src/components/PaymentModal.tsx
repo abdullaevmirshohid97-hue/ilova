@@ -67,7 +67,7 @@ export default function PaymentModal({
             ✕
           </button>
         </div>
-        <p className="mt-1 text-sm text-gray-400">{customerName}</p>
+        <p className="mt-1 text-sm text-gray-500">{customerName}</p>
 
         <div className="mt-6 space-y-4">
           <div>

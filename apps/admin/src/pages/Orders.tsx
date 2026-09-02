@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { xabarKorsat, tasdiqlaSoz } from '../components/Xabar';
 import { ORDER_STATUS, formatDate, formatSum, imageUrl, supabase, fnXato } from '../lib/supabase';
 import { openInvoice } from '../lib/invoice';
 import { altbilgi, blank, hujjatniYoz, imzo, logoniOl, oynaOch, sozlamaniOl, uslub } from '../lib/hujjat';
@@ -52,7 +53,7 @@ export default function Orders() {
   // (telegram-notify edge funksiyasida) yasaladi — bot ham, admin panel ham
   // bitta manbadan foydalanadi.
   async function sendTelegram(o: Order) {
-    if (!confirm(`№${o.order_number} fakturasi ${o.customer}ga Telegram orqali yuborilsinmi?`)) return;
+    if (!await tasdiqlaSoz(`№${o.order_number} fakturasi ${o.customer}ga Telegram orqali yuborilsinmi?`)) return;
     setTgBusy(o.id);
     try {
       const { data, error } = await supabase.functions.invoke('telegram-notify', {
@@ -61,10 +62,10 @@ export default function Orders() {
       // Edge funksiya xato holatida ham tushunarli matn qaytaradi (masalan
       // mijoz botga hali ulanmagan bo'lsa) — uni ko'rsatamiz
       const xato = (data as any)?.error ? ((data as any).message ?? (data as any).error) : error ? await fnXato(error) : null;
-      if (xato) alert('❌ ' + xato);
-      else alert('✅ Faktura Telegramga yuborildi');
+      if (xato) xabarKorsat('❌ ' + xato);
+      else xabarKorsat('✅ Faktura Telegramga yuborildi');
     } catch (e: any) {
-      alert('❌ ' + (e?.message ?? 'Xatolik'));
+      xabarKorsat('❌ ' + (e?.message ?? 'Xatolik'));
     } finally {
       setTgBusy(null);
     }
@@ -148,7 +149,7 @@ export default function Orders() {
     const params: any = { p_order_id: id };
     if (fn === 'set_order_status') params.p_status = status;
     const { error } = await supabase.rpc(fn, params);
-    if (error) alert('Xatolik: ' + error.message);
+    if (error) xabarKorsat('Xatolik: ' + error.message);
     setBusy(null);
     load();
   }
@@ -273,7 +274,7 @@ export default function Orders() {
       </div>
 
       {orders.length === 0 && (
-        <div className="rounded-2xl border border-gray-200 bg-white p-12 text-center text-gray-400">
+        <div className="rounded-2xl border border-gray-200 bg-white p-12 text-center text-gray-500">
           Bu bo'limda buyurtma yo'q
         </div>
       )}
@@ -290,7 +291,7 @@ export default function Orders() {
               <span className="text-sm text-gray-500">
                 {o.customer} · {o.phone}
               </span>
-              <span className="text-xs text-gray-400">{formatDate(o.created_at)}</span>
+              <span className="text-xs text-gray-500">{formatDate(o.created_at)}</span>
               <span className="ml-auto text-lg font-extrabold text-gray-900">
                 {formatSum(o.total)}
               </span>
@@ -301,7 +302,7 @@ export default function Orders() {
                 <div key={i} className="flex justify-between text-sm">
                   <span className="text-gray-700">
                     {it.name} {[it.size, it.color].filter(Boolean).join(' · ')}
-                    <span className="ml-2 text-xs text-gray-400">{it.sku}</span>
+                    <span className="ml-2 text-xs text-gray-500">{it.sku}</span>
                   </span>
                   <span className="font-semibold text-gray-900">
                     {it.qty.toLocaleString()} × {formatSum(it.unit_price)}
@@ -328,7 +329,9 @@ export default function Orders() {
                   </button>
                   <button
                     disabled={busy === o.id}
-                    onClick={() => confirm(`№${o.order_number} bekor qilinsinmi?`) && act(o.id, 'cancel_order')}
+                    onClick={async () => {
+                      if (await tasdiqlaSoz(`№${o.order_number} bekor qilinsinmi?`)) act(o.id, 'cancel_order');
+                    }}
                     className="rounded-xl border border-red-200 px-5 py-2 text-sm font-bold text-red-500 hover:bg-red-50 disabled:opacity-50"
                   >
                     ✕ Bekor qilish
@@ -392,7 +395,7 @@ export default function Orders() {
           >
             ← Oldingi
           </button>
-          <span className="text-sm text-gray-400">{page + 1}-sahifa</span>
+          <span className="text-sm text-gray-500">{page + 1}-sahifa</span>
           <button
             onClick={() => setPage((p) => p + 1)}
             disabled={!hasMore}

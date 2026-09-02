@@ -74,7 +74,7 @@ export default function Customers() {
       <div className="overflow-x-auto">
       <table className="w-full text-sm">
         <thead className="bg-gray-50">
-          <tr className="text-left text-xs uppercase tracking-wide text-gray-400">
+          <tr className="text-left text-xs uppercase tracking-wide text-gray-500">
             <th className="px-6 py-3">Mijoz</th>
             <th className="px-6 py-3">Telefon</th>
             <th className="px-6 py-3">Hudud</th>
@@ -103,12 +103,12 @@ export default function Customers() {
                     <div className="font-semibold text-gray-900">
                       {r.name}
                       {!r.active && (
-                        <span className="ml-2 rounded bg-gray-100 px-2 py-0.5 text-xs text-gray-400">
+                        <span className="ml-2 rounded bg-gray-100 px-2 py-0.5 text-xs text-gray-500">
                           bloklangan
                         </span>
                       )}
                     </div>
-                    {r.email && <div className="text-xs text-gray-400">{r.email}</div>}
+                    {r.email && <div className="text-xs text-gray-500">{r.email}</div>}
                   </div>
                 </div>
               </td>
@@ -121,7 +121,7 @@ export default function Customers() {
               </td>
               <td
                 className={`px-6 py-3 text-right font-bold ${
-                  r.balance > 0 ? 'text-red-500' : r.balance < 0 ? 'text-emerald-600' : 'text-gray-400'
+                  r.balance > 0 ? 'text-red-500' : r.balance < 0 ? 'text-emerald-600' : 'text-gray-500'
                 }`}
               >
                 {r.balance > 0
@@ -145,7 +145,7 @@ export default function Customers() {
           ))}
           {rows.length === 0 && (
             <tr>
-              <td colSpan={6} className="px-6 py-10 text-center text-gray-400">
+              <td colSpan={6} className="px-6 py-10 text-center text-gray-500">
                 Mijozlar yo'q — «➕ Mijoz yaratish» bilan birinchisini qo'shing
               </td>
             </tr>

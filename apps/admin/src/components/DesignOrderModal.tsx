@@ -80,7 +80,7 @@ export default function DesignOrderModal({
             ✕
           </button>
         </div>
-        <p className="mt-1 text-sm text-gray-400">
+        <p className="mt-1 text-sm text-gray-500">
           Individual qadoqlash (karopka + sumka) uchun texnik topshiriq va to'lov shartlari
         </p>
 

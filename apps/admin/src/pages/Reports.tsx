@@ -60,7 +60,7 @@ function BarChart({ points }: { points: DayPoint[] }) {
           );
         })}
       </div>
-      <div className="mt-2 flex justify-between text-xs text-gray-400">
+      <div className="mt-2 flex justify-between text-xs text-gray-500">
         <span>{points[0] ? new Date(points[0].date).toLocaleDateString('uz-UZ', { day: '2-digit', month: '2-digit' }) : ''}</span>
         <span>{points.length > 0 ? new Date(points[points.length - 1].date).toLocaleDateString('uz-UZ', { day: '2-digit', month: '2-digit' }) : ''}</span>
       </div>
@@ -345,27 +345,27 @@ export default function Reports() {
       </div>
 
       {loading ? (
-        <div className="p-12 text-center text-gray-400">Yuklanmoqda...</div>
+        <div className="p-12 text-center text-gray-500">Yuklanmoqda...</div>
       ) : (
         <>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
             <div className="rounded-2xl border border-gray-200 bg-white p-6">
-              <div className="text-xs font-semibold uppercase text-gray-400">Davr bo'yicha sotuv ({days} kun)</div>
+              <div className="text-xs font-semibold uppercase text-gray-500">Davr bo'yicha sotuv ({days} kun)</div>
               <div className="mt-2 text-2xl font-extrabold text-gray-900">{formatSum(periodTotal)}</div>
             </div>
             <div className="rounded-2xl border border-gray-200 bg-white p-6">
-              <div className="text-xs font-semibold uppercase text-gray-400">Buyurtmalar / o'rtacha</div>
+              <div className="text-xs font-semibold uppercase text-gray-500">Buyurtmalar / o'rtacha</div>
               <div className="mt-2 text-2xl font-extrabold text-gray-900">
-                {ordersCount.toLocaleString()} <span className="text-sm font-semibold text-gray-400">ta</span>
+                {ordersCount.toLocaleString()} <span className="text-sm font-semibold text-gray-500">ta</span>
               </div>
-              <div className="mt-1 text-xs text-gray-400">O'rtacha: {formatSum(avgOrder)}</div>
+              <div className="mt-1 text-xs text-gray-500">O'rtacha: {formatSum(avgOrder)}</div>
             </div>
             <div className="rounded-2xl border border-gray-200 bg-white p-6">
-              <div className="text-xs font-semibold uppercase text-gray-400">Jami qarzdorlik</div>
+              <div className="text-xs font-semibold uppercase text-gray-500">Jami qarzdorlik</div>
               <div className="mt-2 text-2xl font-extrabold text-red-500">{formatSum(totalDebt)}</div>
             </div>
             <div className="rounded-2xl border border-gray-200 bg-white p-6">
-              <div className="text-xs font-semibold uppercase text-gray-400">Ombor qiymati (Standart narxda, taxminiy)</div>
+              <div className="text-xs font-semibold uppercase text-gray-500">Ombor qiymati (Standart narxda, taxminiy)</div>
               <div className="mt-2 text-2xl font-extrabold text-gray-900">{formatSum(inventoryValue)}</div>
             </div>
           </div>
@@ -379,7 +379,7 @@ export default function Reports() {
             </div>
             <div className="mt-4">
               {dailySales.every((d) => d.total === 0) ? (
-                <p className="py-8 text-center text-sm text-gray-400">Bu davrda tasdiqlangan sotuv yo'q</p>
+                <p className="py-8 text-center text-sm text-gray-500">Bu davrda tasdiqlangan sotuv yo'q</p>
               ) : (
                 <BarChart points={dailySales} />
               )}
@@ -395,7 +395,7 @@ export default function Reports() {
             </div>
             <div className="mt-4">
               {topProducts.length === 0 ? (
-                <p className="py-8 text-center text-sm text-gray-400">Ma'lumot yo'q</p>
+                <p className="py-8 text-center text-sm text-gray-500">Ma'lumot yo'q</p>
               ) : (
                 <RankBars rows={topProducts.map((p) => ({ name: `${p.name} · ${formatSum(p.revenue)}`, value: p.qty }))} formatValue={(n) => `${n.toLocaleString()} dona`} />
               )}
@@ -405,10 +405,10 @@ export default function Reports() {
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
             <div className="rounded-2xl border border-gray-200 bg-white p-6">
               <h3 className="font-bold text-gray-900">Top menejerlar</h3>
-              <p className="mt-1 text-xs text-gray-400">Rasmiy (baza) narxda hisoblangan sotuv hajmi bo'yicha</p>
+              <p className="mt-1 text-xs text-gray-500">Rasmiy (baza) narxda hisoblangan sotuv hajmi bo'yicha</p>
               <div className="mt-4">
                 {topManagers.length === 0 ? (
-                  <p className="py-8 text-center text-sm text-gray-400">Menejerlar orqali sotuv yo'q</p>
+                  <p className="py-8 text-center text-sm text-gray-500">Menejerlar orqali sotuv yo'q</p>
                 ) : (
                   <RankBars rows={topManagers.map((m) => ({ name: `${m.name} · ${m.orders} buyurtma`, value: m.revenue }))} formatValue={formatSum} />
                 )}
@@ -417,10 +417,10 @@ export default function Reports() {
 
             <div className="rounded-2xl border border-gray-200 bg-white p-6">
               <h3 className="font-bold text-gray-900">Top mijozlar</h3>
-              <p className="mt-1 text-xs text-gray-400">Davr ichidagi xarid hajmi bo'yicha</p>
+              <p className="mt-1 text-xs text-gray-500">Davr ichidagi xarid hajmi bo'yicha</p>
               <div className="mt-4">
                 {topCustomers.length === 0 ? (
-                  <p className="py-8 text-center text-sm text-gray-400">Ma'lumot yo'q</p>
+                  <p className="py-8 text-center text-sm text-gray-500">Ma'lumot yo'q</p>
                 ) : (
                   <RankBars rows={topCustomers.map((c) => ({ name: `${c.name} · ${c.orders} buyurtma`, value: c.revenue }))} formatValue={formatSum} />
                 )}
@@ -437,7 +437,7 @@ export default function Reports() {
             </div>
             <div className="mt-4">
               {debtors.length === 0 ? (
-                <p className="py-8 text-center text-sm text-gray-400">Qarzdor mijoz yo'q</p>
+                <p className="py-8 text-center text-sm text-gray-500">Qarzdor mijoz yo'q</p>
               ) : (
                 <RankBars rows={debtors.map((d) => ({ name: d.name, value: d.balance }))} formatValue={formatSum} />
               )}

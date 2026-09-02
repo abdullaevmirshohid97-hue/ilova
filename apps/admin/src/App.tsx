@@ -32,7 +32,7 @@ const SkladKabinet = lazy(() => import('./pages/SkladKabinet'));
 
 function Yuklanmoqda() {
   return (
-    <div className="flex h-full min-h-[60vh] items-center justify-center text-gray-400">
+    <div className="flex h-full min-h-[60vh] items-center justify-center text-gray-500">
       Yuklanmoqda...
     </div>
   );
@@ -185,7 +185,7 @@ export default function App() {
 
   if (sklad === undefined) {
     return (
-      <div className="flex h-screen items-center justify-center text-gray-400">
+      <div className="flex h-screen items-center justify-center text-gray-500">
         Tekshirilmoqda...
       </div>
     );
@@ -202,7 +202,7 @@ export default function App() {
 
   if (role == null) {
     return (
-      <div className="flex h-screen items-center justify-center text-gray-400">
+      <div className="flex h-screen items-center justify-center text-gray-500">
         Tekshirilmoqda...
       </div>
     );
@@ -249,7 +249,7 @@ export default function App() {
   // ---- Tenant: qaysi tizim(lar) berilgan ----
   if (yonalishlar === undefined) {
     return (
-      <div className="flex h-screen items-center justify-center text-gray-400">
+      <div className="flex h-screen items-center justify-center text-gray-500">
         Tekshirilmoqda...
       </div>
     );

@@ -102,14 +102,14 @@ export default function ManagerAnalytics() {
       </div>
 
       {loading ? (
-        <div className="p-12 text-center text-gray-400">Yuklanmoqda...</div>
+        <div className="p-12 text-center text-gray-500">Yuklanmoqda...</div>
       ) : (
         <>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
             <div className="rounded-2xl border border-gray-200 bg-white p-6">
-              <div className="text-xs font-semibold uppercase text-gray-400">Aylanmam (topgan pulim)</div>
+              <div className="text-xs font-semibold uppercase text-gray-500">Aylanmam (topgan pulim)</div>
               <div className="mt-2 text-2xl font-extrabold text-gray-900">{formatSum(turnover)}</div>
-              <div className="mt-1 text-xs text-gray-400">Mijozlarim to'lagan/to'laydigan jami summa</div>
+              <div className="mt-1 text-xs text-gray-500">Mijozlarim to'lagan/to'laydigan jami summa</div>
             </div>
             <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-6">
               <div className="text-xs font-semibold uppercase text-emerald-700">Sof foydam</div>
@@ -128,7 +128,7 @@ export default function ManagerAnalytics() {
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead className="bg-gray-50">
-                  <tr className="text-left text-xs uppercase tracking-wide text-gray-400">
+                  <tr className="text-left text-xs uppercase tracking-wide text-gray-500">
                     <th className="px-6 py-3">Mijoz</th>
                     <th className="px-6 py-3">Telefon</th>
                     <th className="px-6 py-3 text-right">Qarz</th>
@@ -144,7 +144,7 @@ export default function ManagerAnalytics() {
                   ))}
                   {debtors.length === 0 && (
                     <tr>
-                      <td colSpan={3} className="px-6 py-10 text-center text-gray-400">
+                      <td colSpan={3} className="px-6 py-10 text-center text-gray-500">
                         Qarzdor mijozingiz yo'q
                       </td>
                     </tr>
@@ -159,7 +159,7 @@ export default function ManagerAnalytics() {
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead className="bg-gray-50">
-                  <tr className="text-left text-xs uppercase tracking-wide text-gray-400">
+                  <tr className="text-left text-xs uppercase tracking-wide text-gray-500">
                     <th className="px-6 py-3">№</th>
                     <th className="px-6 py-3">Mijoz</th>
                     <th className="px-6 py-3">Sana</th>
@@ -172,9 +172,9 @@ export default function ManagerAnalytics() {
                     <tr key={r.id} className="border-t border-gray-50">
                       <td className="px-6 py-3 font-semibold text-gray-900">№{r.orderNumber}</td>
                       <td className="px-6 py-3 text-gray-700">{r.customer}</td>
-                      <td className="px-6 py-3 text-gray-400">{formatDate(r.createdAt)}</td>
+                      <td className="px-6 py-3 text-gray-500">{formatDate(r.createdAt)}</td>
                       <td className="px-6 py-3 text-right font-bold text-gray-900">{formatSum(r.total)}</td>
-                      <td className={`px-6 py-3 text-right font-bold ${r.profit > 0 ? 'text-emerald-600' : 'text-gray-400'}`}>
+                      <td className={`px-6 py-3 text-right font-bold ${r.profit > 0 ? 'text-emerald-600' : 'text-gray-500'}`}>
                         {r.profit > 0 ? '+' : ''}
                         {formatSum(r.profit)}
                       </td>
@@ -182,7 +182,7 @@ export default function ManagerAnalytics() {
                   ))}
                   {sales.length === 0 && (
                     <tr>
-                      <td colSpan={5} className="px-6 py-10 text-center text-gray-400">
+                      <td colSpan={5} className="px-6 py-10 text-center text-gray-500">
                         Bu davrda savdo yo'q
                       </td>
                     </tr>

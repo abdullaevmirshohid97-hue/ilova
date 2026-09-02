@@ -41,7 +41,7 @@ export default function CustomerPicker({ onPick }: { onPick: (c: PickedCustomer)
       />
       <div className="mt-2 max-h-72 overflow-y-auto rounded-xl border border-gray-100">
         {filtered.length === 0 && (
-          <div className="p-4 text-center text-sm text-gray-400">Mijoz topilmadi</div>
+          <div className="p-4 text-center text-sm text-gray-500">Mijoz topilmadi</div>
         )}
         {filtered.map((c) => (
           <button
@@ -50,7 +50,7 @@ export default function CustomerPicker({ onPick }: { onPick: (c: PickedCustomer)
             className="flex w-full items-center justify-between border-b border-gray-50 px-4 py-3 text-left text-sm last:border-0 hover:bg-brand-soft"
           >
             <span className="font-semibold text-gray-800">{c.name}</span>
-            <span className="text-gray-400">{c.phone ?? '🔒 menejer mijozi'}</span>
+            <span className="text-gray-500">{c.phone ?? '🔒 menejer mijozi'}</span>
           </button>
         ))}
       </div>

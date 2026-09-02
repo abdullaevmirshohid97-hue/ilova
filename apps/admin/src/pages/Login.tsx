@@ -39,7 +39,7 @@ export default function Login() {
         <div className="text-center text-2xl font-extrabold tracking-wide text-gray-900">
           ILOVA <span className="text-brand">B2B</span>
         </div>
-        <p className="mt-1 text-center text-sm text-gray-400">Boshqaruv paneli</p>
+        <p className="mt-1 text-center text-sm text-gray-500">Boshqaruv paneli</p>
 
         <label className="mt-8 block text-xs font-semibold text-gray-500">EMAIL YOKI TELEFON</label>
         <input
@@ -73,7 +73,7 @@ export default function Login() {
 
         <div className="my-5 flex items-center gap-3">
           <div className="h-px flex-1 bg-gray-200" />
-          <span className="text-[11px] text-gray-400">yoki</span>
+          <span className="text-[11px] text-gray-500">yoki</span>
           <div className="h-px flex-1 bg-gray-200" />
         </div>
 
@@ -91,7 +91,7 @@ export default function Login() {
           Google bilan kirish
         </button>
 
-        <p className="mt-4 text-center text-[11px] leading-relaxed text-gray-400">
+        <p className="mt-4 text-center text-[11px] leading-relaxed text-gray-500">
           Google bilan kirish sklad xodimlari uchun — emailingiz administrator
           tomonidan ro‘yxatga olingan bo‘lishi kerak.
         </p>

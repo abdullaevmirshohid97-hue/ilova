@@ -63,7 +63,7 @@ function SidebarContent({
     <>
       <div className="px-6 py-6">
         <div className="text-xl font-extrabold tracking-wide">YUKCHIBOLLA</div>
-        <div className="mt-1 text-xs text-white/40">
+        <div className="mt-1 text-xs text-white/55">
           {role === 'super_admin' ? 'Super administrator' : 'Administrator'}
         </div>
       </div>
@@ -80,10 +80,10 @@ function SidebarContent({
         >
           <span className="text-base">{yonalish.belgi}</span>
           <span className="min-w-0 flex-1">
-            <span className="block text-[10px] uppercase tracking-widest text-white/40">Tizim</span>
+            <span className="block text-[10px] uppercase tracking-widest text-white/55">Tizim</span>
             <span className="block truncate text-sm font-bold text-white">{yonalish.nom}</span>
           </span>
-          {koproqYonalish && <span className="text-white/40">⇄</span>}
+          {koproqYonalish && <span className="text-white/55">⇄</span>}
         </button>
       </div>
 
@@ -212,7 +212,7 @@ export default function Layout({
           <h1 className="flex-1 truncate text-base font-bold text-gray-900 md:text-lg">
             {TITLES[pathname] ?? ''}
           </h1>
-          <div className="hidden shrink-0 text-sm text-gray-400 sm:block">
+          <div className="hidden shrink-0 text-sm text-gray-500 sm:block">
             {new Date().toLocaleDateString('uz-UZ', {
               weekday: 'long',
               day: 'numeric',

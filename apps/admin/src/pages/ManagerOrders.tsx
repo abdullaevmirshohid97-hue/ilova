@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { xabarKorsat, tasdiqlaSoz } from '../components/Xabar';
 import { ORDER_STATUS, formatDate, formatSum, formatUsd, imageUrl, supabase, fnXato } from '../lib/supabase';
 import { openInvoice } from '../lib/invoice';
 import OrderEditModal from '../components/OrderEditModal';
@@ -65,17 +66,17 @@ export default function ManagerOrders() {
   // (telegram-notify) yasaladi va u yerda menejerning o'z narxi ishlatiladi —
   // mijoz aynan o'zi to'laydigan summani ko'radi.
   async function sendTelegram(o: Order) {
-    if (!confirm(`№${o.order_number} fakturasi ${o.customer}ga Telegram orqali yuborilsinmi?`)) return;
+    if (!await tasdiqlaSoz(`№${o.order_number} fakturasi ${o.customer}ga Telegram orqali yuborilsinmi?`)) return;
     setTgBusy(o.id);
     try {
       const { data, error } = await supabase.functions.invoke('telegram-notify', {
         body: { order_id: o.id },
       });
       const xato = (data as any)?.error ? ((data as any).message ?? (data as any).error) : error ? await fnXato(error) : null;
-      if (xato) alert('❌ ' + xato);
-      else alert('✅ Faktura Telegramga yuborildi');
+      if (xato) xabarKorsat('❌ ' + xato);
+      else xabarKorsat('✅ Faktura Telegramga yuborildi');
     } catch (e: any) {
-      alert('❌ ' + (e?.message ?? 'Xatolik'));
+      xabarKorsat('❌ ' + (e?.message ?? 'Xatolik'));
     } finally {
       setTgBusy(null);
     }
@@ -165,7 +166,7 @@ export default function ManagerOrders() {
     const params: any = { p_order_id: id };
     if (fn === 'set_order_status') params.p_status = status;
     const { error } = await supabase.rpc(fn, params);
-    if (error) alert('Xatolik: ' + error.message);
+    if (error) xabarKorsat('Xatolik: ' + error.message);
     setBusy(null);
     load();
   }
@@ -215,7 +216,7 @@ export default function ManagerOrders() {
       </div>
 
       {orders.length === 0 && (
-        <div className="rounded-2xl border border-gray-200 bg-white p-12 text-center text-gray-400">
+        <div className="rounded-2xl border border-gray-200 bg-white p-12 text-center text-gray-500">
           Bu bo'limda buyurtma yo'q
         </div>
       )}
@@ -230,7 +231,7 @@ export default function ManagerOrders() {
               <span className="text-sm text-gray-500">
                 {o.customer} · {o.phone}
               </span>
-              <span className="text-xs text-gray-400">{formatDate(o.created_at)}</span>
+              <span className="text-xs text-gray-500">{formatDate(o.created_at)}</span>
               <span className="ml-auto text-lg font-extrabold text-gray-900">{pul(o, o.total)}</span>
             </div>
 
@@ -263,7 +264,9 @@ export default function ManagerOrders() {
                   </button>
                   <button
                     disabled={busy === o.id}
-                    onClick={() => confirm(`№${o.order_number} bekor qilinsinmi?`) && act(o.id, 'cancel_order')}
+                    onClick={async () => {
+                      if (await tasdiqlaSoz(`№${o.order_number} bekor qilinsinmi?`)) act(o.id, 'cancel_order');
+                    }}
                     className="rounded-xl border border-red-200 px-5 py-2 text-sm font-bold text-red-500 hover:bg-red-50 disabled:opacity-50"
                   >
                     ✕ Bekor qilish

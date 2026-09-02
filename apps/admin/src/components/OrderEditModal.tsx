@@ -212,7 +212,7 @@ export default function OrderEditModal({
   if (loading) {
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-        <div className="rounded-2xl bg-white p-8 text-sm text-gray-400">Yuklanmoqda...</div>
+        <div className="rounded-2xl bg-white p-8 text-sm text-gray-500">Yuklanmoqda...</div>
       </div>
     );
   }
@@ -243,7 +243,7 @@ export default function OrderEditModal({
             />
             <div className="mt-3 max-h-[420px] space-y-4 overflow-y-auto">
               {filteredProducts.length === 0 && (
-                <p className="p-6 text-center text-sm text-gray-400">Mahsulot topilmadi</p>
+                <p className="p-6 text-center text-sm text-gray-500">Mahsulot topilmadi</p>
               )}
               {filteredProducts.map((p) => (
                 <div key={p.id} className="rounded-xl border border-gray-100 p-3">
@@ -257,7 +257,7 @@ export default function OrderEditModal({
                     )}
                     <div className="font-bold text-gray-900">
                       {p.name}
-                      {p.model && <span className="ml-1 font-semibold text-gray-400">· {p.model}</span>}
+                      {p.model && <span className="ml-1 font-semibold text-gray-500">· {p.model}</span>}
                     </div>
                   </div>
                   <div className="mt-2 space-y-1.5">
@@ -265,7 +265,7 @@ export default function OrderEditModal({
                       <div key={v.id} className="flex items-center gap-2 rounded-lg bg-gray-50 px-3 py-2 text-sm">
                         <span className="flex-1 text-gray-600">
                           {[v.size, v.color].filter(Boolean).join(' / ') || v.sku}
-                          <span className="ml-2 text-xs text-gray-400">{v.available.toLocaleString()} dona</span>
+                          <span className="ml-2 text-xs text-gray-500">{v.available.toLocaleString()} dona</span>
                         </span>
                         <span className="font-bold text-gray-900">{formatSum(v.price)}</span>
                         <input
@@ -292,7 +292,7 @@ export default function OrderEditModal({
           <div className="rounded-xl border border-gray-200 p-4">
             <h3 className="font-bold text-gray-900">Savat</h3>
             {cart.length === 0 && (
-              <p className="mt-3 text-sm text-gray-400">
+              <p className="mt-3 text-sm text-gray-500">
                 Bo'sh — mahsulot qo'shing (buyurtmani butunlay bekor qilish uchun "Bekor qilish"
                 tugmasidan foydalaning)
               </p>
@@ -303,7 +303,7 @@ export default function OrderEditModal({
                   <div className="flex items-center justify-between">
                     <div className="min-w-0">
                       <div className="truncate font-semibold text-gray-800">{l.productName}</div>
-                      <div className="text-xs text-gray-400">
+                      <div className="text-xs text-gray-500">
                         {[l.size, l.color].filter(Boolean).join(' / ')} · {l.qty} ×{' '}
                         {l.discount > 0 ? (
                           <>

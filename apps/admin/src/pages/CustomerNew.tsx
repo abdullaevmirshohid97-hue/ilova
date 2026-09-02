@@ -102,7 +102,7 @@ export default function CustomerNew() {
           <div className="text-4xl">✅</div>
           <h2 className="mt-3 text-xl font-extrabold text-gray-900">Mijoz yaratildi!</h2>
           <div className="mt-6 rounded-xl bg-white p-6 text-left">
-            <div className="text-xs font-semibold uppercase text-gray-400">Ilovaga kirish</div>
+            <div className="text-xs font-semibold uppercase text-gray-500">Ilovaga kirish</div>
             <div className="mt-2 flex justify-between text-sm">
               <span className="text-gray-500">Telefon (login):</span>
               <b className="text-gray-900">{done.phone}</b>
@@ -113,7 +113,7 @@ export default function CustomerNew() {
             </div>
             <div className="mt-1 flex justify-between text-sm">
               <span className="text-gray-500">Gmail havolasi:</span>
-              <b className={done.invite === 'yuborildi' ? 'text-emerald-600' : 'text-gray-400'}>
+              <b className={done.invite === 'yuborildi' ? 'text-emerald-600' : 'text-gray-500'}>
                 {done.invite === 'yuborildi'
                   ? '✉️ Yuborildi'
                   : done.invite === 'gmail_kiritilmagan'
@@ -155,13 +155,13 @@ export default function CustomerNew() {
   // ---------- Forma ----------
   return (
     <div className="mx-auto max-w-2xl">
-      <Link to="/customers" className="text-sm font-semibold text-gray-400 hover:text-brand">
+      <Link to="/customers" className="text-sm font-semibold text-gray-500 hover:text-brand">
         ← Mijozlar ro'yxatiga qaytish
       </Link>
 
       <div className="mt-4 rounded-2xl border border-gray-200 bg-white p-8">
         <h2 className="text-xl font-extrabold text-gray-900">➕ Yangi mijoz yaratish</h2>
-        <p className="mt-1 text-sm text-gray-400">
+        <p className="mt-1 text-sm text-gray-500">
           Mijoz siz bergan telefon + parol bilan mobil ilovaga kiradi. Gmail kiritsangiz, unga
           taklif havolasi ham boradi.
         </p>
@@ -173,7 +173,7 @@ export default function CustomerNew() {
               {preview ? (
                 <img src={preview} className="h-32 w-32 rounded-2xl border border-gray-200 object-cover" />
               ) : (
-                <div className="flex h-32 w-32 flex-col items-center justify-center rounded-2xl border-2 border-dashed border-gray-300 bg-gray-50 text-gray-400 hover:border-brand hover:text-brand">
+                <div className="flex h-32 w-32 flex-col items-center justify-center rounded-2xl border-2 border-dashed border-gray-300 bg-gray-50 text-gray-500 hover:border-brand hover:text-brand">
                   <span className="text-2xl">📷</span>
                   <span className="mt-1 text-xs font-semibold">Rasm</span>
                 </div>

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { xabarKorsat, tasdiqlaSoz } from '../components/Xabar';
 import { formatSum, formatUsd, imageUrl, supabase } from '../lib/supabase';
 
 type Currency = 'UZS' | 'USD';
@@ -268,20 +269,20 @@ export default function ManagerPrices() {
   async function applyBulk() {
     // Avval bu shartlar jimgina `return` qilardi — foydalanuvchi tugmani
     // bosardi va mutlaqo hech narsa bo'lmasdi, sababi ham ko'rinmasdi.
-    if (!managerId) return alert('Menejer profili topilmadi.');
+    if (!managerId) return xabarKorsat('Menejer profili topilmadi.');
     if (!refGroupId)
-      return alert(
+      return xabarKorsat(
         "Baza narx topilmadi.\n\nMahsulotlarga hali kompaniya narxi qo'yilmagan " +
           "(admin panel > Mahsulotlar > '+ Kirim' orqali narx qo'yiladi). " +
           "Baza narxsiz ustama hisoblab bo'lmaydi."
       );
     const markup = parseFloat(bulkMarkup);
-    if (Number.isNaN(markup)) return alert('Ustama sonini kiriting.');
-    if (visibleVariants.length === 0) return alert("Ro'yxatda mahsulot yo'q.");
+    if (Number.isNaN(markup)) return xabarKorsat('Ustama sonini kiriting.');
+    if (visibleVariants.length === 0) return xabarKorsat("Ro'yxatda mahsulot yo'q.");
     const unit = markupMode === 'percent' ? '%' : bulkCurrency === 'USD' ? '$' : "so'm";
     const verb = markupMode === 'percent' ? 'foiz qo`shilsinmi' : "qo'shilsinmi";
     if (
-      !confirm(
+      !await tasdiqlaSoz(
         `Ko'rinayotgan ${visibleVariants.length} ta mahsulotning bazasi ustiga ${markup.toLocaleString()}${unit} ${verb}?`
       )
     )
@@ -304,7 +305,7 @@ export default function ManagerPrices() {
     // saqlamaslik eng chalg'ituvchi holat edi.
     if (rows.length === 0) {
       setBulkBusy(false);
-      return alert(
+      return xabarKorsat(
         `Hech bir mahsulotga qo'llanmadi.\n\nKo'rinayotgan ${visibleVariants.length} ta mahsulotning ` +
           `hech birida "${refGroupName ?? '—'}" guruhida kompaniya baza narxi yo'q.\n\n` +
           "Avval admin panelda o'sha mahsulotlarga narx qo'ying."
@@ -325,7 +326,7 @@ export default function ManagerPrices() {
         .upsert(payload, { onConflict: 'manager_id,customer_id,variant_id' });
       if (error) {
         setBulkBusy(false);
-        return alert('Saqlashda xatolik: ' + error.message);
+        return xabarKorsat('Saqlashda xatolik: ' + error.message);
       }
       {
         setCustomerPrices((p) => {
@@ -339,7 +340,7 @@ export default function ManagerPrices() {
       const { error } = await supabase.from('manager_prices').upsert(payload, { onConflict: 'manager_id,variant_id' });
       if (error) {
         setBulkBusy(false);
-        return alert('Saqlashda xatolik: ' + error.message);
+        return xabarKorsat('Saqlashda xatolik: ' + error.message);
       }
       {
         setGeneralPrices((p) => {
@@ -351,7 +352,7 @@ export default function ManagerPrices() {
     }
     setBulkMarkup('');
     setBulkBusy(false);
-    alert(
+    xabarKorsat(
       `✅ ${rows.length} ta mahsulotga qo'llandi.` +
         (otkazildi > 0 ? `\n\n${otkazildi} tasi o'tkazib yuborildi — ularda baza narx yo'q.` : '')
     );
@@ -365,7 +366,7 @@ export default function ManagerPrices() {
   return (
     <div>
       <h1 className="text-xl font-extrabold text-gray-900">🏷️ Narxlarim</h1>
-      <p className="mt-1 text-sm text-gray-400">
+      <p className="mt-1 text-sm text-gray-500">
         Har bir qatorda kompaniya baza narxi ko'rinadi — tanlagan valyutangizda (so'm yoki $).
         Siz kiritgan son shu BAZA USTIGA QO'SHILADI — summa yoki foiz sifatida (pastda tanlang).
         Dollarda ishlasangiz, baza avtomatik dollarga o'giriladi (Sozlamalardagi kursingiz
@@ -489,11 +490,11 @@ export default function ManagerPrices() {
       />
 
       {loading ? (
-        <p className="mt-8 text-center text-sm text-gray-400">Yuklanmoqda...</p>
+        <p className="mt-8 text-center text-sm text-gray-500">Yuklanmoqda...</p>
       ) : (
         <div className="mt-4 space-y-4">
           {filtered.length === 0 && (
-            <p className="p-6 text-center text-sm text-gray-400">Mahsulot topilmadi</p>
+            <p className="p-6 text-center text-sm text-gray-500">Mahsulot topilmadi</p>
           )}
           {filtered.map((p) => (
             <div key={p.id} className="rounded-xl border border-gray-100 bg-white p-4">
@@ -507,7 +508,7 @@ export default function ManagerPrices() {
                 )}
                 <div className="font-bold text-gray-900">
                   {p.name}
-                  {p.model && <span className="ml-1 font-semibold text-gray-400">· {p.model}</span>}
+                  {p.model && <span className="ml-1 font-semibold text-gray-500">· {p.model}</span>}
                 </div>
               </div>
               <div className="mt-2 space-y-1.5">
@@ -521,7 +522,7 @@ export default function ManagerPrices() {
                       <span className="min-w-0 flex-1 text-gray-600">
                         {[v.size, v.color].filter(Boolean).join(' / ') || v.sku}
                         {baseInCur != null && (
-                          <span className="ml-2 text-xs text-gray-400">(baza: {fmtCurrency(baseInCur, currency)})</span>
+                          <span className="ml-2 text-xs text-gray-500">(baza: {fmtCurrency(baseInCur, currency)})</span>
                         )}
                       </span>
                       {mine != null && (
@@ -555,7 +556,7 @@ export default function ManagerPrices() {
                         <button
                           onClick={() => clearPrice(v.id)}
                           disabled={saving === v.id}
-                          className="shrink-0 rounded-lg border border-gray-200 px-2 py-1.5 text-xs font-bold text-gray-400 hover:border-red-300 hover:text-red-400"
+                          className="shrink-0 rounded-lg border border-gray-200 px-2 py-1.5 text-xs font-bold text-gray-500 hover:border-red-300 hover:text-red-400"
                         >
                           ✕
                         </button>

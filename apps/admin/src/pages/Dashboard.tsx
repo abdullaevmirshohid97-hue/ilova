@@ -32,9 +32,9 @@ function Kpi({
 }) {
   return (
     <div className="rounded-2xl border border-gray-200 bg-white p-6">
-      <div className="text-xs font-semibold uppercase tracking-wide text-gray-400">{title}</div>
+      <div className="text-xs font-semibold uppercase tracking-wide text-gray-500">{title}</div>
       <div className={`mt-2 text-2xl font-extrabold ${accent ?? 'text-gray-900'}`}>{value}</div>
-      {hint && <div className="mt-1 text-xs text-gray-400">{hint}</div>}
+      {hint && <div className="mt-1 text-xs text-gray-500">{hint}</div>}
     </div>
   );
 }
@@ -129,7 +129,7 @@ export default function Dashboard() {
         <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
-            <tr className="text-left text-xs uppercase tracking-wide text-gray-400">
+            <tr className="text-left text-xs uppercase tracking-wide text-gray-500">
               <th className="px-6 py-3">№</th>
               <th className="px-6 py-3">Mijoz</th>
               <th className="px-6 py-3">Sana</th>
@@ -144,7 +144,7 @@ export default function Dashboard() {
                 <tr key={o.id} className="border-t border-gray-50">
                   <td className="px-6 py-3 font-bold text-gray-900">№{o.order_number}</td>
                   <td className="px-6 py-3 text-gray-700">{o.customer}</td>
-                  <td className="px-6 py-3 text-gray-400">{formatDate(o.created_at)}</td>
+                  <td className="px-6 py-3 text-gray-500">{formatDate(o.created_at)}</td>
                   <td className="px-6 py-3">
                     <span className={`rounded-full px-3 py-1 text-xs font-semibold ${st.cls}`}>
                       {st.label}
@@ -158,7 +158,7 @@ export default function Dashboard() {
             })}
             {recent.length === 0 && (
               <tr>
-                <td colSpan={5} className="px-6 py-8 text-center text-gray-400">
+                <td colSpan={5} className="px-6 py-8 text-center text-gray-500">
                   Hozircha buyurtma yo'q
                 </td>
               </tr>
