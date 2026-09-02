@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { genPassword, supabase } from '../lib/supabase';
+import { fnXato, genPassword, supabase } from '../lib/supabase';
 
 type Group = { id: string; name: string };
 type Manager = { id: string; name: string };
@@ -79,7 +79,7 @@ export default function CustomerNew() {
           display_currency: displayCurrency,
         },
       });
-      if (fnErr) throw new Error(fnErr.message);
+      if (fnErr) throw new Error(await fnXato(fnErr));
       if (data?.error) throw new Error(data.error);
 
       setDone({ phone: phone.trim(), password, invite: data.invite });

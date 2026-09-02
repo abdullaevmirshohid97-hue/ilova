@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { C, MONO, RADIUS, sh } from '../lib/sa-tema';
-import { supabase } from '../lib/supabase';
+import { supabase, fnXato } from '../lib/supabase';
 
 // ============================================================================
 // BUYURTMALAR VA SKLADLARGA TAQSIMOT
@@ -109,7 +109,7 @@ export default function DoriBuyurtmalar() {
       const { data, error } = await supabase.functions.invoke('dori-sklad-yubor', {
         body: { order_id: b.id },
       });
-      if (error) throw error;
+      if (error) throw new Error(await fnXato(error));
       const r = data as { yuborildi: number; ulanmagan_sklad: number; taqsimot: any };
       const yetishmadi = (r.taqsimot?.yetishmadi ?? []) as { name: string; qty: number }[];
       setXabar(
@@ -156,7 +156,7 @@ export default function DoriBuyurtmalar() {
       const { data, error } = await supabase.functions.invoke('dori-faktura', {
         body: { rejim: 'sklad', split_id: t.split_id },
       });
-      if (error) throw error;
+      if (error) throw new Error(await fnXato(error));
       const r = data as { nom: string; pdf: string; xlsx: string };
       if (tur === 'pdf') faylniSaqla(r.pdf, `${r.nom}.pdf`, 'application/pdf');
       else faylniSaqla(r.xlsx, `${r.nom}.xlsx`,
@@ -222,7 +222,7 @@ export default function DoriBuyurtmalar() {
       const { data, error } = await supabase.functions.invoke('dori-faktura', {
         body: { rejim, order_id: b.id },
       });
-      if (error) throw error;
+      if (error) throw new Error(await fnXato(error));
       const r = data as { nom: string; pdf: string; xlsx: string };
       const b64 = amal === 'excel' ? r.xlsx : r.pdf;
       const tur = amal === 'excel'

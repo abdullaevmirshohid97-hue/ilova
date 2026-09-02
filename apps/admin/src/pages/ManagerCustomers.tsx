@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { genPassword, supabase } from '../lib/supabase';
+import { genPassword, supabase, fnXato } from '../lib/supabase';
 
 type Group = { id: string; name: string };
 type Row = { id: string; name: string; phone: string; is_active: boolean };
@@ -20,7 +20,7 @@ async function callFn(action: string, extra: Record<string, unknown>) {
   const { data, error } = await supabase.functions.invoke('manager-update-customer', {
     body: { action, ...extra },
   });
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(await fnXato(error));
   if (data?.error) throw new Error(data.error);
   return data;
 }
@@ -61,7 +61,7 @@ function NewCustomerModal({ onClose, onCreated }: { onClose: () => void; onCreat
       const { data, error: fnErr } = await supabase.functions.invoke('manager-create-customer', {
         body: { name: name.trim(), phone: phone.trim(), price_group_id: groupId, password, display_currency: displayCurrency },
       });
-      if (fnErr) throw new Error(fnErr.message);
+      if (fnErr) throw new Error(await fnXato(fnErr));
       if (data?.error) throw new Error(data.error);
       setDone({ phone: phone.trim(), password });
     } catch (e: any) {

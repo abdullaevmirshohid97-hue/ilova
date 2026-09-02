@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { formatDate, formatSum, genPassword, supabase } from '../lib/supabase';
+import { formatDate, formatSum, genPassword, supabase, fnXato } from '../lib/supabase';
 import ChangePasswordPanel from '../components/ChangePasswordPanel';
 import StaffTelegramPanel from '../components/StaffTelegramPanel';
 
@@ -266,7 +266,7 @@ function StaffPanel() {
       const { data, error: e } = await supabase.functions.invoke('admin-create-staff', {
         body: { email: email.trim(), password, full_name: fullName.trim() },
       });
-      if (e) throw new Error(e.message);
+      if (e) throw new Error(await fnXato(e));
       if (data?.error) throw new Error(data.error);
       setDone(`${email.trim()} / ${password}`);
       setEmail('');

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { C, KESIM, KESIM_KICHIK, MONO, RADIUS, TEMALAR, sh, temaCssniUlash, temaniOl, temaniQoy, type Tema } from '../lib/sa-tema';
-import { formatDate, genPassword, supabase } from '../lib/supabase';
+import { formatDate, genPassword, supabase, fnXato } from '../lib/supabase';
 import NazoratMarkazi from '../components/NazoratMarkazi';
 import DoriModuli from './DoriModuli';
 import NarxlarPaneli from './NarxlarPaneli';
@@ -362,7 +362,7 @@ function NewOrgModal({ onClose, onCreated }: { onClose: () => void; onCreated: (
           yonalishlar,
         },
       });
-      if (e) throw new Error(e.message);
+      if (e) throw new Error(await fnXato(e));
       if (data?.error) throw new Error(data.error);
       setDone({ email: adminEmail.trim(), password });
       onCreated();

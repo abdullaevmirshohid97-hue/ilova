@@ -7,6 +7,7 @@ import {
   formatSum,
   genPassword,
   supabase,
+  fnXato,
 } from '../lib/supabase';
 import PaymentModal from '../components/PaymentModal';
 
@@ -52,7 +53,7 @@ async function callFn(action: string, extra: Record<string, unknown>) {
   const { data, error } = await supabase.functions.invoke('admin-update-customer', {
     body: { action, ...extra },
   });
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(await fnXato(error));
   if (data?.error) throw new Error(data.error);
   return data;
 }

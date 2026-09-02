@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ORDER_STATUS, formatDate, formatSum, formatUsd, imageUrl, supabase } from '../lib/supabase';
+import { ORDER_STATUS, formatDate, formatSum, formatUsd, imageUrl, supabase, fnXato } from '../lib/supabase';
 import { openInvoice } from '../lib/invoice';
 import OrderEditModal from '../components/OrderEditModal';
 import AdminOrderModal from '../components/AdminOrderModal';
@@ -71,7 +71,7 @@ export default function ManagerOrders() {
       const { data, error } = await supabase.functions.invoke('telegram-notify', {
         body: { order_id: o.id },
       });
-      const xato = (data as any)?.error ? ((data as any).message ?? (data as any).error) : error?.message;
+      const xato = (data as any)?.error ? ((data as any).message ?? (data as any).error) : error ? await fnXato(error) : null;
       if (xato) alert('❌ ' + xato);
       else alert('✅ Faktura Telegramga yuborildi');
     } catch (e: any) {

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { genPassword, supabase } from '../lib/supabase';
+import { genPassword, supabase, fnXato } from '../lib/supabase';
 
 type Row = {
   id: string;
@@ -25,7 +25,7 @@ async function callFn(action: string, extra: Record<string, unknown>) {
   const { data, error } = await supabase.functions.invoke('admin-update-manager', {
     body: { action, ...extra },
   });
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(await fnXato(error));
   if (data?.error) throw new Error(data.error);
   return data;
 }
@@ -52,7 +52,7 @@ function ManagerNewModal({ onClose, onCreated }: { onClose: () => void; onCreate
       const { data, error: fnErr } = await supabase.functions.invoke('admin-create-manager', {
         body: { name: name.trim(), phone: phone.trim(), password },
       });
-      if (fnErr) throw new Error(fnErr.message);
+      if (fnErr) throw new Error(await fnXato(fnErr));
       if (data?.error) throw new Error(data.error);
       setDone({ phone: phone.trim(), password });
     } catch (e: any) {

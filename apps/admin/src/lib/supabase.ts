@@ -85,3 +85,26 @@ export async function resizeImage(file: File, maxWidth: number, quality = 0.82):
     );
   });
 }
+
+/**
+ * Edge funksiya xatosining HAQIQIY matni.
+ *
+ * supabase-js non-2xx javobni ko'rganda hamma holat uchun bitta gap
+ * qaytaradi: "Edge Function returned a non-2xx status code". Serverning
+ * o'z xabari esa javob tanasida qolib ketadi. Natijada panelda "bu email
+ * allaqachon band" ham, "ruxsat yo'q" ham, "parol qisqa" ham bir xil
+ * ko'rinadi va odam nima qilishni bilmaydi.
+ *
+ * Shu funksiya javob tanasini ochib, ichidagi xabarni oladi.
+ */
+export async function fnXato(xato: unknown, zaxira = 'Xatolik'): Promise<string> {
+  const e = xato as any;
+  try {
+    const j = await e?.context?.json?.();
+    if (j?.error) return String(j.error);
+    if (j?.message) return String(j.message);
+  } catch {
+    // Javob tanasi JSON emas yoki allaqachon o'qilgan — pastdagi zaxiraga tushamiz
+  }
+  return e?.message ?? zaxira;
+}

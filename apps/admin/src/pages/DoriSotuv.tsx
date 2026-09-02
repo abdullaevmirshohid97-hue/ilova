@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { C, MONO, RADIUS, sh } from '../lib/sa-tema';
-import { supabase } from '../lib/supabase';
+import { supabase, fnXato } from '../lib/supabase';
 
 // ============================================================================
 // SOTUV
@@ -198,7 +198,7 @@ export default function DoriSotuv() {
       const { data, error } = await supabase.functions.invoke('dori-faktura', {
         body: { rejim: 'sotuv', sale_id: saleId },
       });
-      if (error) throw error;
+      if (error) throw new Error(await fnXato(error));
       const r = data as { nom: string; pdf: string; xlsx: string };
       const b64 = amal === 'excel' ? r.xlsx : r.pdf;
       const tur = amal === 'excel'
@@ -241,7 +241,7 @@ export default function DoriSotuv() {
       const { data, error } = await supabase.functions.invoke('dori-sklad-yubor', {
         body: { sale_id: s.id },
       });
-      if (error) throw error;
+      if (error) throw new Error(await fnXato(error));
       const y = data as { yuborildi: number };
       setXabar(y?.yuborildi
         ? `№${s.sale_no} skladga yuborildi`

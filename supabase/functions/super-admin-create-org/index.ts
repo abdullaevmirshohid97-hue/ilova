@@ -70,7 +70,19 @@ Deno.serve(async (req) => {
     });
     if (uErr) {
       await admin.from('organizations').delete().eq('id', org.id);
-      return json({ error: 'LOGIN: ' + uErr.message }, 400);
+      // Eng ko'p uchraydigan holat - email allaqachon band. Supabase buni
+      // ingliz tilida va texnik atama bilan aytadi; panelda odam nima
+      // qilishini bilishi uchun sababni ochiq yozamiz.
+      const m = (uErr.message ?? '').toLowerCase();
+      const band = m.includes('already been registered') || m.includes('already registered') || m.includes('duplicate');
+      return json(
+        {
+          error: band
+            ? `Bu email allaqachon band: ${admin_email.trim()}. Boshqa email kiriting yoki eski hisobni o'chiring.`
+            : 'LOGIN: ' + uErr.message,
+        },
+        400,
+      );
     }
 
     return json({ ok: true, org_id: org.id, admin_email: admin_email.trim() });

@@ -15,7 +15,7 @@
 //  Ishga tushirish:  node tests/yonalishlar.mjs
 // =============================================================
 
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
@@ -182,6 +182,29 @@ const sa = readFileSync(join(ROOT, 'apps/admin/src/pages/SuperAdminPanel.tsx'), 
 tekshir('tenant yaratishda yo‘nalish tanlanadi', /<YonalishTanlagich/.test(sa));
 tekshir('yo‘nalish alohida RPC bilan saqlanadi', /org_yonalish_qoy/.test(sa));
 tekshir('oxirgi yo‘nalishni olib tashlab bo‘lmaydi', /oxirgisi/.test(sa));
+
+// ---------- 5. Edge funksiya xatosi yo'qolmasin ----------
+// Panel har qanday xatoda bitta quruq gap ko'rsatardi: "Edge Function
+// returned a non-2xx status code". Sabab javob tanasida qolib ketardi,
+// ya'ni "email band" ham, "ruxsat yo'q" ham bir xil ko'rinardi va odam
+// nima qilishni bilmasdi. fnXato javobni ochib asl xabarni oladi.
+console.log('\n5. Edge funksiya xatolari');
+
+const libSb = readFileSync(join(ROOT, 'apps/admin/src/lib/supabase.ts'), 'utf8');
+tekshir('fnXato yordamchisi bor', /export async function fnXato/.test(libSb));
+
+const sahifalar = readdirSync(join(ROOT, 'apps/admin/src/pages')).filter((f) => f.endsWith('.tsx'));
+const xomJoy = [];
+for (const f of sahifalar) {
+  const t = readFileSync(join(ROOT, 'apps/admin/src/pages', f), 'utf8');
+  if (!/functions\.invoke/.test(t)) continue;
+  if (!/fnXato/.test(t)) xomJoy.push(f);
+}
+tekshir(
+  'invoke ishlatgan hamma sahifa fnXato bilan',
+  xomJoy.length === 0,
+  xomJoy.length ? 'xato matni yo‘qoladi: ' + xomJoy.join(', ') : 'hammasi',
+);
 
 console.log('\n' + (yiqildi === 0 ? '\x1b[32mHAMMASI O‘TDI\x1b[0m' : `\x1b[31m${yiqildi} TA XATO\x1b[0m`) + '\n');
 process.exit(yiqildi === 0 ? 0 : 1);

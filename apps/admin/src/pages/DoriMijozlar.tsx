@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { C, MONO, RADIUS, sh } from '../lib/sa-tema';
-import { genPassword, supabase } from '../lib/supabase';
+import { genPassword, supabase, fnXato } from '../lib/supabase';
 
 // ============================================================================
 // DORI MIJOZLARI — adminni yaratadi.
@@ -105,7 +105,7 @@ export default function DoriMijozlar() {
     });
     setIsh(null);
 
-    const x = (data as any)?.error ?? error?.message;
+    const x = (data as any)?.error ?? (error ? await fnXato(error) : null);
     if (x) return setXato(x === 'TELEFON_BAND' ? 'Bu raqam allaqachon ro‘yxatda' : x);
 
     setNatija({ phone: phone.trim(), password });
@@ -126,7 +126,7 @@ export default function DoriMijozlar() {
       body: { amal: 'parol', phone: m.phone, password: yangi },
     });
     setIsh(null);
-    const x = (data as any)?.error ?? error?.message;
+    const x = (data as any)?.error ?? (error ? await fnXato(error) : null);
     if (x) return setXato(x);
     setNatija({ phone: m.phone, password: yangi });
     yukla();
@@ -183,7 +183,7 @@ export default function DoriMijozlar() {
       const { data, error } = await supabase.functions.invoke('dori-push', {
         body: { broadcast_id: bId },
       });
-      if (error) throw error;
+      if (error) throw new Error(await fnXato(error));
       const r = data as { jami: number; yuborildi: number; xato: number };
       setPushXabar(`${r.yuborildi} ta yuborildi${r.xato ? `, ${r.xato} tasiga yetmadi` : ''}`);
       setPushMatn('');

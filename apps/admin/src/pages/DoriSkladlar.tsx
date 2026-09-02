@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { C, MONO, RADIUS, sh } from '../lib/sa-tema';
-import { supabase } from '../lib/supabase';
+import { fnXato, supabase } from '../lib/supabase';
 import PraysYuklash from '../components/PraysYuklash';
 
 // ============================================================================
@@ -257,8 +257,7 @@ export default function DoriSkladlar() {
       });
       setIsh(null);
       if (error) {
-        let sabab = error.message ?? '';
-        try { const j = await (error as any)?.context?.json?.(); if (j?.error) sabab = j.error; } catch { /* javob o'qilmadi */ }
+        const sabab = await fnXato(error);
         setXato('Yaratilmadi: ' + sabab);
         return;
       }
