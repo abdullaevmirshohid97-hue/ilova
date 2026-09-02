@@ -40,8 +40,12 @@ tekshir('Bolim turi topildi', turlar.length > 0, turlar.length + ' ta modul');
 // ---------- 2. Yo'nalishlar ichidagi modullar ----------
 const yonBlok = src.match(/const YONALISHLAR: Yonalish\[\] = \[([\s\S]*?)\n\];/);
 const yonMatn = yonBlok ? yonBlok[1] : '';
-const modullar = [...yonMatn.matchAll(/\{ key: '([a-z]+)', belgi:/g)].map((m) => m[1]);
-const yonalishlar = [...yonMatn.matchAll(/\n  \{\s*\n?\s*key: '([a-z0-9]+)'/g)].map((m) => m[1]);
+// Modul kalitlarini FAQAT `modullar: [...]` ro'yxatlaridan olamiz.
+// Avval butun blok bo'ylab qidirilgan edi va yo'nalishning o'z kaliti ham
+// (masalan 'sklad') modul deb hisoblanib, yolg'on xato berardi.
+const modullar = [...yonMatn.matchAll(/modullar: \[([\s\S]*?)\n {4}\]/g)]
+  .flatMap((blok) => [...blok[1].matchAll(/\{ key: '([a-z_]+)'/g)].map((m) => m[1]));
+const yonalishlar = [...yonMatn.matchAll(/\n  \{\s*\n?\s*key: '([a-z0-9_]+)'/g)].map((m) => m[1]);
 
 tekshir('yo‘nalish soni 5 ta', yonalishlar.length === 5, yonalishlar.join(', '));
 tekshir('DORI-DORIXONA bor', /nom: 'DORI-DORIXONA'/.test(yonMatn));

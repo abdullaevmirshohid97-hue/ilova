@@ -9,6 +9,7 @@ import DoriSkladlar from './DoriSkladlar';
 import DoriBuyurtmalar from './DoriBuyurtmalar';
 import DoriMoslik from './DoriMoslik';
 import DoriSotuv from './DoriSotuv';
+import { TENANT_YONALISHLAR, yonalishTop } from '../lib/yonalishlar';
 
 // ============================================================================
 // Super-admin "boshqaruv markazi" — eDEX-UI uslubidagi HUD.
@@ -67,9 +68,13 @@ const YONALISHLAR: Yonalish[] = [
       { key: 'nazorat', belgi: '◉', nom: 'NAZORAT', izoh: 'harakatlar va xatolar' },
     ],
   },
-  { key: 'y3', belgi: '◻', nom: '3-YO‘NALISH', izoh: 'tez orada', rang: C.text, modullar: [] },
-  { key: 'y4', belgi: '◻', nom: '4-YO‘NALISH', izoh: 'tez orada', rang: C.text, modullar: [] },
-  { key: 'y5', belgi: '◻', nom: '5-YO‘NALISH', izoh: 'tez orada', rang: C.text, modullar: [] },
+  // Qolgan uchtasi — platformaning boshqa biznes tizimlari. Nomlari
+  // lib/yonalishlar.ts dagi tenant ro'yxati bilan bir xil: super admin
+  // tenantga aynan shu tizimlarni beradi, shuning uchun ikki joyda boshqacha
+  // atalsa chalkashlik bo'lardi.
+  { key: 'sklad', belgi: '📦', nom: 'SKLAD', izoh: 'tez orada', rang: C.text, modullar: [] },
+  { key: 'ishlab_chiqarish', belgi: '🏭', nom: 'ISHLAB CHIQARISH', izoh: 'tez orada', rang: C.text, modullar: [] },
+  { key: 'marketplace', belgi: '🛒', nom: 'MARKETPLACE', izoh: 'tez orada', rang: C.text, modullar: [] },
 ];
 
 // Qaysi yo'nalishda turgani SESSIYA xotirasida saqlanadi (localStorage emas).
@@ -87,6 +92,7 @@ type Org = {
   subscription_status: string;
   plan: string;
   created_at: string;
+  yonalishlar: string[] | null;
   customers_count: number;
   products_count: number;
   orders_count: number;
@@ -256,6 +262,75 @@ function Overlay({ children }: { children: React.ReactNode }) {
 
 // ------------------------------------------------------------- yangi tenant
 
+/**
+ * Tenantga qaysi tizim(lar) berilishi.
+ *
+ * Kamida bittasi tanlangan bo'lishi shart: yo'nalishsiz tenant paneli bo'sh
+ * ochiladi va odam nima qilishni bilmay qoladi. Shuning uchun oxirgi
+ * belgini olib tashlab bo'lmaydi.
+ */
+function YonalishTanlagich({
+  tanlangan,
+  onChange,
+}: {
+  tanlangan: string[];
+  onChange: (v: string[]) => void;
+}) {
+  return (
+    <div>
+      <span className="text-[10px] font-bold uppercase tracking-[0.18em]" style={{ color: C.text, fontFamily: MONO }}>
+        Yo‘nalish (tizim) *
+      </span>
+      <div className="mt-2 space-y-1.5">
+        {TENANT_YONALISHLAR.map((y) => {
+          const belgilangan = tanlangan.includes(y.key);
+          const oxirgisi = belgilangan && tanlangan.length === 1;
+          return (
+            <button
+              key={y.key}
+              onClick={() =>
+                onChange(
+                  belgilangan
+                    ? tanlangan.filter((k) => k !== y.key)
+                    : [...tanlangan, y.key],
+                )
+              }
+              disabled={oxirgisi}
+              title={oxirgisi ? 'Kamida bitta yo‘nalish qolishi kerak' : undefined}
+              className="flex w-full items-center gap-3 px-3 py-2 text-left"
+              style={{
+                background: belgilangan ? sh(C.neon, 12) : 'transparent',
+                border: `1px solid ${belgilangan ? C.neon : C.line}`,
+                borderRadius: 'var(--sa-radius)',
+                cursor: oxirgisi ? 'default' : 'pointer',
+              }}
+            >
+              <span
+                className="grid h-4 w-4 shrink-0 place-items-center text-[10px] font-bold"
+                style={{
+                  border: `1px solid ${belgilangan ? C.neon : C.line}`,
+                  background: belgilangan ? C.neon : 'transparent',
+                  color: C.onAccent,
+                }}
+              >
+                {belgilangan ? '✓' : ''}
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-[11px] font-bold tracking-[0.1em]" style={{ color: C.textBright }}>
+                  {y.nom}
+                </span>
+                <span className="block text-[9px]" style={{ color: sh(C.text, 65) }}>
+                  {y.modullar.length ? y.izoh : y.izoh + ' · hali qurilmagan'}
+                </span>
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function NewOrgModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
   const [orgName, setOrgName] = useState('');
   const [contactName, setContactName] = useState('');
@@ -263,6 +338,8 @@ function NewOrgModal({ onClose, onCreated }: { onClose: () => void; onCreated: (
   const [adminFullName, setAdminFullName] = useState('');
   const [adminEmail, setAdminEmail] = useState('');
   const [password, setPassword] = useState(genPassword());
+  // Standart — ulgurji savdo: hozir to'liq ishlaydigan yagona tizim
+  const [yonalishlar, setYonalishlar] = useState<string[]>(['b2b']);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<{ email: string; password: string } | null>(null);
@@ -271,6 +348,7 @@ function NewOrgModal({ onClose, onCreated }: { onClose: () => void; onCreated: (
     setError(null);
     if (!orgName.trim()) return setError('Tenant nomi majburiy');
     if (!adminEmail.trim()) return setError('Admin email majburiy');
+    if (!yonalishlar.length) return setError('Kamida bitta yo‘nalish tanlang');
     setSaving(true);
     try {
       const { data, error: e } = await supabase.functions.invoke('super-admin-create-org', {
@@ -281,6 +359,7 @@ function NewOrgModal({ onClose, onCreated }: { onClose: () => void; onCreated: (
           admin_full_name: adminFullName.trim() || null,
           admin_email: adminEmail.trim(),
           admin_password: password,
+          yonalishlar,
         },
       });
       if (e) throw new Error(e.message);
@@ -347,6 +426,8 @@ function NewOrgModal({ onClose, onCreated }: { onClose: () => void; onCreated: (
               <Field label="Kontakt telefon" value={contactPhone} onChange={setContactPhone} placeholder="+998 90 123 45 67" />
             </div>
 
+            <YonalishTanlagich tanlangan={yonalishlar} onChange={setYonalishlar} />
+
             <div style={{ borderTop: `1px dashed ${C.line}` }} className="pt-4">
               <div
                 className="text-[10px] font-bold uppercase tracking-[0.22em]"
@@ -397,6 +478,7 @@ function EditOrgModal({ org, onClose, onSaved }: { org: Org; onClose: () => void
   const [name, setName] = useState(org.name);
   const [contactName, setContactName] = useState(org.contact_name ?? '');
   const [contactPhone, setContactPhone] = useState(org.contact_phone ?? '');
+  const [yonalishlar, setYonalishlar] = useState<string[]>(org.yonalishlar ?? ['b2b']);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -412,6 +494,13 @@ function EditOrgModal({ org, onClose, onSaved }: { org: Org; onClose: () => void
         p_contact_phone: contactPhone.trim() || null,
       });
       if (e) throw e;
+      // Yo'nalish alohida RPC: update_org_profile'ni tenant admin ham
+      // chaqira oladi, yo'nalishni esa faqat super admin o'zgartirsin.
+      const { error: e2 } = await supabase.rpc('org_yonalish_qoy', {
+        p_org_id: org.id,
+        p_yonalishlar: yonalishlar,
+      });
+      if (e2) throw e2;
       onSaved();
       onClose();
     } catch (e: any) {
@@ -436,6 +525,7 @@ function EditOrgModal({ org, onClose, onSaved }: { org: Org; onClose: () => void
             <Field label="Tenant (biznes) nomi *" value={name} onChange={setName} />
             <Field label="Kontakt ism" value={contactName} onChange={setContactName} />
             <Field label="Kontakt telefon" value={contactPhone} onChange={setContactPhone} placeholder="+998 90 123 45 67" />
+            <YonalishTanlagich tanlangan={yonalishlar} onChange={setYonalishlar} />
           </div>
 
           {error && (
@@ -865,6 +955,7 @@ export default function SuperAdminPanel() {
                   <tr style={{ background: C.panel2, color: C.text }}>
                     <th className={th + ' text-left'}>Tenant</th>
                     <th className={th + ' text-left'}>Kontakt</th>
+                    <th className={th + ' text-left'}>Tizim</th>
                     <th className={th + ' text-left'}>Obuna</th>
                     <th className={th + ' text-right'}>Admin</th>
                     <th className={th + ' text-right'}>Mijoz</th>
@@ -902,6 +993,20 @@ export default function SuperAdminPanel() {
                               {o.contact_phone}
                             </div>
                           )}
+                        </td>
+                        <td className={td}>
+                          {/* Tenant qaysi tizimda ishlaydi — ro'yxatdan darrov ko'rinsin */}
+                          <div className="flex flex-wrap gap-1">
+                            {(o.yonalishlar ?? []).map((k) => (
+                              <span
+                                key={k}
+                                className="px-1.5 py-0.5 text-[9px] font-bold tracking-[0.08em]"
+                                style={{ color: C.text, border: `1px solid ${C.line}`, borderRadius: 'var(--sa-radius)' }}
+                              >
+                                {yonalishTop(k)?.nom ?? k}
+                              </span>
+                            ))}
+                          </div>
                         </td>
                         <td className={td}>
                           <select
@@ -951,7 +1056,7 @@ export default function SuperAdminPanel() {
                   })}
                   {korinadigan.length === 0 && (
                     <tr>
-                      <td colSpan={9} className="px-4 py-14 text-center text-sm" style={{ color: C.text }}>
+                      <td colSpan={10} className="px-4 py-14 text-center text-sm" style={{ color: C.text }}>
                         {orgs.length === 0
                           ? "// tenant yo'q — «+ YANGI TENANT» bilan birinchisini qo'shing"
                           : '// qidiruvga mos tenant topilmadi'}

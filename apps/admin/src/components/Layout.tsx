@@ -1,6 +1,7 @@
 import { ReactNode, useEffect, useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
+import type { TenantYonalish } from '../lib/yonalishlar';
 
 // Qisqa "bip" ovozi — audio fayl kerak emas, Web Audio API bilan yasaladi
 function beep() {
@@ -22,18 +23,9 @@ function beep() {
   }
 }
 
-const NAV = [
-  { to: '/', icon: '📊', label: 'Boshqaruv' },
-  { to: '/orders', icon: '🧾', label: 'Buyurtmalar' },
-  { to: '/design-orders', icon: '🎨', label: 'Dizayn buyurtmalari' },
-  { to: '/products', icon: '📦', label: 'Mahsulotlar & Ombor' },
-  { to: '/inventory', icon: '📋', label: 'Ombor jurnali' },
-  { to: '/customers', icon: '👥', label: 'Mijozlar' },
-  { to: '/managers', icon: '🧑‍💼', label: 'Menejerlar' },
-  { to: '/finance', icon: '💰', label: 'Moliya' },
-  { to: '/reports', icon: '📈', label: 'Hisobotlar' },
-  { to: '/settings', icon: '⚙️', label: 'Sozlamalar' },
-];
+// Menyu ro'yxati endi shu faylda emas: u tenantga BERILGAN yo'nalishdan
+// keladi (lib/yonalishlar.ts). Sabab: bir tenantga ulgurji savdo, boshqasiga
+// ishlab chiqarish berilishi mumkin va menyu shunga qarab o'zgaradi.
 
 const TITLES: Record<string, string> = {
   '/': 'Boshqaruv paneli',
@@ -52,10 +44,16 @@ const TITLES: Record<string, string> = {
 // ham telefon drawer'ida ishlatiladi (mobil ilovadagi DrawerBody naqshi)
 function SidebarContent({
   role,
+  yonalish,
+  koproqYonalish,
+  onYonalishlar,
   newCount,
   onNavigate,
 }: {
   role: string;
+  yonalish: TenantYonalish;
+  koproqYonalish: boolean;
+  onYonalishlar: () => void;
   newCount: number;
   onNavigate?: () => void;
 }) {
@@ -68,8 +66,27 @@ function SidebarContent({
         </div>
       </div>
 
+      {/* Qaysi tizimda ishlayotgani. Bir nechta yo'nalish berilgan bo'lsa
+          shu yerdan almashtiriladi; bittagina bo'lsa tugma keraksiz. */}
+      <div className="px-3 pb-3">
+        <button
+          onClick={koproqYonalish ? onYonalishlar : undefined}
+          className={`flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left ${
+            koproqYonalish ? 'hover:bg-white/5' : 'cursor-default'
+          }`}
+          style={{ background: 'rgba(255,255,255,0.05)' }}
+        >
+          <span className="text-base">{yonalish.belgi}</span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-[10px] uppercase tracking-widest text-white/40">Tizim</span>
+            <span className="block truncate text-sm font-bold text-white">{yonalish.nom}</span>
+          </span>
+          {koproqYonalish && <span className="text-white/40">⇄</span>}
+        </button>
+      </div>
+
       <nav className="flex-1 space-y-1 overflow-y-auto px-3">
-        {NAV.map((n) => (
+        {yonalish.modullar.map((n) => (
           <NavLink
             key={n.to}
             to={n.to}
@@ -104,7 +121,19 @@ function SidebarContent({
   );
 }
 
-export default function Layout({ role, children }: { role: string; children: ReactNode }) {
+export default function Layout({
+  role,
+  yonalish,
+  koproqYonalish,
+  onYonalishlar,
+  children,
+}: {
+  role: string;
+  yonalish: TenantYonalish;
+  koproqYonalish: boolean;
+  onYonalishlar: () => void;
+  children: ReactNode;
+}) {
   const { pathname } = useLocation();
   const [newCount, setNewCount] = useState(0);
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -155,7 +184,7 @@ export default function Layout({ role, children }: { role: string; children: Rea
     <div className="flex h-screen overflow-hidden">
       {/* Planshet/kompyuter — doimiy ko'rinadigan yon panel */}
       <aside className="hidden w-60 shrink-0 flex-col bg-navy text-white md:flex lg:w-64">
-        <SidebarContent role={role} newCount={newCount} />
+        <SidebarContent role={role} yonalish={yonalish} koproqYonalish={koproqYonalish} onYonalishlar={onYonalishlar} newCount={newCount} />
       </aside>
 
       {/* Telefon — gamburger bilan ochiladigan drawer */}
@@ -163,7 +192,7 @@ export default function Layout({ role, children }: { role: string; children: Rea
         <div className="fixed inset-0 z-50 md:hidden">
           <div className="absolute inset-0 bg-black/40" onClick={() => setDrawerOpen(false)} />
           <aside className="absolute left-0 top-0 flex h-full w-72 max-w-[80vw] flex-col bg-navy text-white shadow-2xl">
-            <SidebarContent role={role} newCount={newCount} onNavigate={() => setDrawerOpen(false)} />
+            <SidebarContent role={role} yonalish={yonalish} koproqYonalish={koproqYonalish} onYonalishlar={onYonalishlar} newCount={newCount} onNavigate={() => setDrawerOpen(false)} />
           </aside>
         </div>
       )}

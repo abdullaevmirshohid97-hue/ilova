@@ -39,7 +39,7 @@ Deno.serve(async (req) => {
     }
 
     const body = await req.json();
-    const { org_name, contact_name, contact_phone, admin_email, admin_password, admin_full_name } = body;
+    const { org_name, contact_name, contact_phone, admin_email, admin_password, admin_full_name, yonalishlar } = body;
     if (!org_name?.trim() || !admin_email?.trim() || !admin_password || admin_password.length < 6) {
       return json({ error: 'MAJBURIY_MAYDONLAR: tenant nomi, admin email, parol(6+)' }, 400);
     }
@@ -53,6 +53,9 @@ Deno.serve(async (req) => {
         name: org_name.trim(),
         contact_name: contact_name?.trim() || null,
         contact_phone: contact_phone?.trim() || null,
+        // Tenant qaysi tizimda ishlashi. Yuborilmasa - ulgurji savdo:
+        // hozircha to'liq qurilgan yagona tizim shu.
+        yonalishlar: Array.isArray(yonalishlar) && yonalishlar.length ? yonalishlar : ['b2b'],
       })
       .select('id')
       .single();

@@ -1,9 +1,11 @@
 import { lazy, Suspense, useEffect, useState } from 'react';
-import { Navigate, Route, Routes } from 'react-router-dom';
+import { Navigate, Route, Routes, useNavigate } from 'react-router-dom';
 import type { Session } from '@supabase/supabase-js';
 import { supabase } from './lib/supabase';
 import Layout from './components/Layout';
 import Login from './pages/Login';
+import { NotogriManzil, YonalishEkrani } from './components/YonalishEkrani';
+import { tenantYonalishlari } from './lib/yonalishlar';
 
 // Sahifalar KERAK BO'LGANDA yuklanadi (lazy). Avval hammasi statik import
 // qilinardi — natijada login ekranini ko'rish uchun ham butun ilova (~1 MB,
@@ -39,6 +41,28 @@ function Yuklanmoqda() {
 // haqiqiy ruxsat baribir serverda RLS bilan tekshiriladi, shuning uchun bu
 // qiymatni o'zgartirib qo'yish hech kimga ortiqcha huquq bermaydi.
 const ROLE_KEY = 'ilova.role';
+const YONALISH_KEY = 'ilova.yonalish';
+
+// ---------------------------------------------------------------------------
+// MANZILLAR
+//
+// Ikkala domen bitta fayldan yuklanadi (Caddy'da bitta blok), lekin ular
+// ikki xil ish uchun:
+//   4020.yukchibolla.com  — super admin konsoli (faqat super admin)
+//   admin.yukchibolla.com — tenantlar paneli
+//
+// Boshqa manzillar (localhost, IP, sinov domeni) cheklanmaydi: aks holda
+// dasturchi kompyuterida panel umuman ochilmasdi.
+//
+// Bu AJRATISH, himoya emas. Himoya bazada: tenant admin super admin
+// funksiyalarini chaqira olmaydi, super admin ma'lumotlari RLS bilan yopiq.
+// ---------------------------------------------------------------------------
+const SUPER_HOST = '4020.yukchibolla.com';
+const TENANT_HOST = 'admin.yukchibolla.com';
+
+const host = typeof location !== 'undefined' ? location.hostname : '';
+const superManzil = host === SUPER_HOST;
+const tenantManzil = host === TENANT_HOST;
 
 function keshdanRol(userId: string): string | null {
   try {
@@ -59,6 +83,28 @@ export default function App() {
   // Sklad xodimi: undefined = hali tekshirilmadi, null = sklad emas
   const [sklad, setSklad] = useState<Sklad | null | undefined>(undefined);
   const [ready, setReady] = useState(false);
+  // Tenantga berilgan tizimlar: undefined = hali so'ralmadi
+  const [yonalishlar, setYonalishlar] = useState<string[] | undefined>(undefined);
+  // Hozir ochilgan tizim. Sessiya xotirasida: F5 bosilganda joyida qoladi,
+  // qayta kirganda esa tanlash ekrani chiqadi.
+  const [yonalish, setYonalishXom] = useState<string | null>(() => {
+    try {
+      return sessionStorage.getItem(YONALISH_KEY);
+    } catch {
+      return null;
+    }
+  });
+  const navigate = useNavigate();
+
+  function setYonalish(k: string | null) {
+    setYonalishXom(k);
+    try {
+      if (k) sessionStorage.setItem(YONALISH_KEY, k);
+      else sessionStorage.removeItem(YONALISH_KEY);
+    } catch {
+      /* shaxsiy oyna — eslab qolmasa ham panel ishlayveradi */
+    }
+  }
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -115,6 +161,22 @@ export default function App() {
       });
   }, [session, sklad]);
 
+  // Tenantga berilgan tizimlar. Super admin va sklad xodimiga kerak emas —
+  // ular boshqa ekranlarda ishlaydi.
+  useEffect(() => {
+    if (!session || sklad || role === 'super_admin' || role === 'manager') {
+      setYonalishlar([]);
+      return;
+    }
+    if (!role) return;
+    supabase.rpc('org_yonalishlarim').then(({ data }) => {
+      // So'rov muvaffaqiyatsiz bo'lsa panel butunlay yopilib qolmasin:
+      // eng kam huquq bilan ochamiz, ro'yxat bo'sh ko'rinadi va odam
+      // administratorga murojaat qiladi.
+      setYonalishlar((data as string[] | null) ?? []);
+    });
+  }, [session, sklad, role]);
+
   if (!ready) return null;
 
   if (!session) return <Login />;
@@ -145,10 +207,30 @@ export default function App() {
   }
 
   if (role === 'super_admin') {
+    // Super admin konsoli tenantlar manzilida ochilmaydi — u yer tenantlar
+    // uchun. Boshqa manzillarda (localhost) cheklov yo'q.
+    if (tenantManzil) {
+      return (
+        <NotogriManzil
+          kerakli={SUPER_HOST}
+          nima="Super admin konsoli boshqa manzilda. Bu manzil tenantlar paneli uchun."
+        />
+      );
+    }
     return (
       <Suspense fallback={<Yuklanmoqda />}>
         <SuperAdminPanel />
       </Suspense>
+    );
+  }
+
+  // Super admin bo'lmagan hech kim 4020 da ishlamaydi
+  if (superManzil) {
+    return (
+      <NotogriManzil
+        kerakli={TENANT_HOST}
+        nima="Bu manzil faqat super admin uchun. Sizning panelingiz boshqa manzilda."
+      />
     );
   }
 
@@ -162,8 +244,45 @@ export default function App() {
     );
   }
 
+  // ---- Tenant: qaysi tizim(lar) berilgan ----
+  if (yonalishlar === undefined) {
+    return (
+      <div className="flex h-screen items-center justify-center text-gray-400">
+        Tekshirilmoqda...
+      </div>
+    );
+  }
+
+  const berilgan = tenantYonalishlari(yonalishlar);
+  const joriy = berilgan.find((y) => y.key === yonalish) ?? null;
+
+  // Ishlaydigan yo'nalish bitta bo'lsa tanlash ekrani ortiqcha —
+  // to'g'ridan-to'g'ri o'sha tizim ochiladi.
+  const ishlaydigan = berilgan.filter((y) => y.modullar.length > 0);
+  const yagona = ishlaydigan.length === 1 && berilgan.length === 1 ? ishlaydigan[0] : null;
+  const ochiq = joriy ?? yagona;
+
+  if (!ochiq) {
+    return (
+      <YonalishEkrani
+        yonalishlar={berilgan}
+        onTanla={(y) => {
+          setYonalish(y.key);
+          // Tanlangan tizimning birinchi sahifasiga o'tamiz: aks holda
+          // manzil oldingi tizimning sahifasida qolib ketardi.
+          if (y.modullar[0]) navigate(y.modullar[0].to);
+        }}
+      />
+    );
+  }
+
   return (
-    <Layout role={role}>
+    <Layout
+      role={role}
+      yonalish={ochiq}
+      koproqYonalish={berilgan.length > 1}
+      onYonalishlar={() => setYonalish(null)}
+    >
       <Suspense fallback={<Yuklanmoqda />}>
         <Routes>
           <Route path="/" element={<Dashboard />} />
