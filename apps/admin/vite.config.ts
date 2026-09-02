@@ -19,12 +19,19 @@ function buildTamgasi(): Plugin {
   return {
     name: 'ilova-build-tamgasi',
     generateBundle() {
-      let commit = 'nomalum';
-      try {
-        commit = execSync('git rev-parse --short HEAD', { encoding: 'utf8' }).trim();
-      } catch {
-        // git yo'q (masalan konteynerda) - tamg'a "nomalum" bo'lib qoladi,
-        // build esa to'xtamaydi
+      // ILOVA_COMMIT ustunroq turadi: git ishlamay qolganda deploy
+      // tarball bilan bajariladi va u yerda .git ESKI commit'da qolib
+      // ketadi. Shunda `git rev-parse` yolg'on tamg'a yozar va
+      // tekshiruv "panel yangi" deb aldab qo'yardi.
+      let commit = (process.env.ILOVA_COMMIT ?? '').trim();
+      if (!commit) {
+        try {
+          commit = execSync('git rev-parse --short HEAD', { encoding: 'utf8' }).trim();
+        } catch {
+          // git yo'q (masalan konteynerda) - tamg'a "nomalum" bo'lib qoladi,
+          // build esa to'xtamaydi
+          commit = 'nomalum';
+        }
       }
       this.emitFile({
         type: 'asset',
