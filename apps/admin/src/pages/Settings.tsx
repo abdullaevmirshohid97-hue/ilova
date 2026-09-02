@@ -170,7 +170,7 @@ function CategoriesPanel() {
           className={rowInputCls}
           onKeyDown={(e) => e.key === 'Enter' && add()}
         />
-        <button onClick={add} className="rounded-lg bg-brand px-4 py-2 text-sm font-bold text-white hover:opacity-90">
+        <button onClick={add} className="rounded-xl bg-brand px-4 py-2 text-sm font-bold text-white hover:opacity-90">
           + Qo'shish
         </button>
       </div>
@@ -244,7 +244,7 @@ function PriceGroupsPanel() {
           className={rowInputCls}
           onKeyDown={(e) => e.key === 'Enter' && add()}
         />
-        <button onClick={add} className="rounded-lg bg-brand px-4 py-2 text-sm font-bold text-white hover:opacity-90">
+        <button onClick={add} className="rounded-xl bg-brand px-4 py-2 text-sm font-bold text-white hover:opacity-90">
           + Qo'shish
         </button>
       </div>

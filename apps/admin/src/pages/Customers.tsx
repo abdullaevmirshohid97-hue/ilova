@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { avatarHavolalari, formatSum, supabase } from '../lib/supabase';
+import { JadvalSkelet } from '../components/Skelet';
 import PaymentModal from '../components/PaymentModal';
 
 type Row = {
@@ -17,6 +18,10 @@ type Row = {
 
 export default function Customers() {
   const [rows, setRows] = useState<Row[]>([]);
+  // Birinchi yuklash tugadimi. Busiz ro'yxat bo'sh bo'lgani uchun
+  // ma'lumot kelguncha "topilmadi" deb yozilib turardi — mijoz bor
+  // bo'lsa ham.
+  const [yuklandi, setYuklandi] = useState(false);
   const [payFor, setPayFor] = useState<Row | null>(null);
   const nav = useNavigate();
 
@@ -53,6 +58,7 @@ export default function Customers() {
         active: c.is_active,
       }))
     );
+    setYuklandi(true);
   }, []);
 
   useEffect(() => {
@@ -143,7 +149,10 @@ export default function Customers() {
               </td>
             </tr>
           ))}
-          {rows.length === 0 && (
+          {!yuklandi && (
+            <tr><td colSpan={6} className="p-0"><JadvalSkelet ustun={6} /></td></tr>
+          )}
+          {rows.length === 0 && yuklandi && (
             <tr>
               <td colSpan={6} className="px-6 py-10 text-center text-gray-500">
                 Mijozlar yo'q — «➕ Mijoz yaratish» bilan birinchisini qo'shing

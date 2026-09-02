@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { xabarKorsat, tasdiqlaSoz } from '../components/Xabar';
 import { Link } from 'react-router-dom';
 import { formatSum, imageUrl, resizeImage, supabase } from '../lib/supabase';
+import { JadvalSkelet } from '../components/Skelet';
 import { altbilgi, blank, hujjatniYoz, logoniOl, oynaOch, sozlamaniOl, uslub } from '../lib/hujjat';
 import StockModal from '../components/StockModal';
 
@@ -463,7 +464,7 @@ function ProductModal({
             </h3>
             <button
               onClick={() => setNewRows((p) => [...p, emptyRow()])}
-              className="rounded-lg bg-brand-soft px-3 py-1.5 text-xs font-bold text-brand"
+              className="rounded-xl bg-brand-soft px-3 py-1.5 text-xs font-bold text-brand"
             >
               + Variant qatori
             </button>
@@ -724,6 +725,9 @@ async function printCatalog(products: Product[], groups: Group[]) {
 // ---------------- Asosiy sahifa ----------------
 export default function Products() {
   const [products, setProducts] = useState<Product[]>([]);
+  // Birinchi yuklash tugadimi — busiz ma'lumot kelguncha
+  // "Mahsulot topilmadi" deb yozilib turardi
+  const [yuklandi, setYuklandi] = useState(false);
   const [groups, setGroups] = useState<Group[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [search, setSearch] = useState('');
@@ -788,6 +792,7 @@ export default function Products() {
         };
       })
     );
+    setYuklandi(true);
   }, []);
 
   useEffect(() => {
@@ -962,7 +967,7 @@ export default function Products() {
                       <div className="flex justify-end gap-1.5">
                         <button
                           onClick={() => setStockModal({ variantId: v.id, label, mode: 'in' })}
-                          className="rounded-lg bg-brand-soft px-3 py-1.5 text-xs font-bold text-brand hover:opacity-80"
+                          className="rounded-xl bg-brand-soft px-3 py-1.5 text-xs font-bold text-brand hover:opacity-80"
                         >
                           + Kirim
                         </button>
@@ -983,7 +988,8 @@ export default function Products() {
         </div>
       ))}
 
-      {filtered.length === 0 && (
+      {!yuklandi && <div className="rounded-2xl border border-gray-200 bg-white"><JadvalSkelet ustun={5} /></div>}
+      {yuklandi && filtered.length === 0 && (
         <div className="rounded-2xl border border-gray-200 bg-white p-12 text-center text-gray-500">
           Mahsulot topilmadi. «➕ Yangi kirim» bilan birinchisini qo'shing.
         </div>

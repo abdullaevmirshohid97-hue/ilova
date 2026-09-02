@@ -44,7 +44,7 @@ export default function ChangePasswordPanel() {
         <button
           onClick={save}
           disabled={saving}
-          className="shrink-0 rounded-lg bg-brand px-6 py-2.5 text-sm font-bold text-white hover:opacity-90 disabled:opacity-50"
+          className="shrink-0 rounded-xl bg-brand px-6 py-2.5 text-sm font-bold text-white hover:opacity-90 disabled:opacity-50"
         >
           {saving ? 'Saqlanmoqda...' : 'Saqlash'}
         </button>

@@ -55,7 +55,7 @@ export default function ManagerSettings() {
           <button
             onClick={saveRate}
             disabled={saving}
-            className="ml-auto rounded-lg bg-brand px-6 py-2.5 text-sm font-bold text-white hover:opacity-90 disabled:opacity-50"
+            className="ml-auto rounded-xl bg-brand px-6 py-2.5 text-sm font-bold text-white hover:opacity-90 disabled:opacity-50"
           >
             {saving ? 'Saqlanmoqda...' : 'Saqlash'}
           </button>

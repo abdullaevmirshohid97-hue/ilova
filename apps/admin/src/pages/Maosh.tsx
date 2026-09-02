@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { formatSum, supabase } from '../lib/supabase';
+import { JadvalSkelet } from '../components/Skelet';
 import {
   altbilgi,
   blank,
@@ -120,7 +121,7 @@ export default function Maosh() {
         </div>
 
         {yuklanmoqda ? (
-          <div className="p-10 text-center text-gray-500">Yuklanmoqda…</div>
+          <JadvalSkelet ustun={7} />
         ) : xodimlar.length === 0 ? (
           <div className="p-10 text-center">
             <div className="text-3xl">👥</div>

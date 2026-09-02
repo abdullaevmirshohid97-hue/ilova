@@ -548,7 +548,7 @@ export default function ManagerPrices() {
                       <button
                         onClick={() => savePrice(v.id, baseSom ?? null)}
                         disabled={saving === v.id || !inputs[v.id] || baseInCur == null}
-                        className="shrink-0 rounded-lg bg-brand px-3 py-1.5 text-xs font-bold text-white hover:opacity-90 disabled:opacity-50"
+                        className="shrink-0 rounded-xl bg-brand px-3 py-1.5 text-xs font-bold text-white hover:opacity-90 disabled:opacity-50"
                       >
                         Saqlash
                       </button>

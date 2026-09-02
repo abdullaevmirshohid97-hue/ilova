@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { xabarKorsat, tasdiqlaSoz } from '../components/Xabar';
 import { ORDER_STATUS, formatDate, formatSum, imageUrl, supabase, fnXato } from '../lib/supabase';
+import { JadvalSkelet } from '../components/Skelet';
 import { openInvoice } from '../lib/invoice';
 import { altbilgi, blank, hujjatniYoz, imzo, logoniOl, oynaOch, sozlamaniOl, uslub } from '../lib/hujjat';
 import AdminOrderModal from '../components/AdminOrderModal';
@@ -36,6 +37,10 @@ type Order = {
 
 export default function Orders() {
   const [orders, setOrders] = useState<Order[]>([]);
+  // Birinchi yuklash tugadimi. Busiz ro'yxat bo'sh bo'lgani uchun
+  // ma'lumot kelguncha "topilmadi" deb yozilib turardi — mijoz bor
+  // bo'lsa ham.
+  const [yuklandi, setYuklandi] = useState(false);
   const [filter, setFilter] = useState<string>('new');
   const [busy, setBusy] = useState<string | null>(null);
   const [search, setSearch] = useState('');
@@ -127,6 +132,7 @@ export default function Orders() {
         }),
       }))
     );
+    setYuklandi(true);
   }, [filter, search, dateFrom, dateTo, page]);
 
   useEffect(() => {
@@ -273,7 +279,10 @@ export default function Orders() {
         </button>
       </div>
 
-      {orders.length === 0 && (
+      {!yuklandi && (
+            <tr><td colSpan={5} className="p-0"><JadvalSkelet ustun={5} /></td></tr>
+          )}
+          {orders.length === 0 && yuklandi && (
         <div className="rounded-2xl border border-gray-200 bg-white p-12 text-center text-gray-500">
           Bu bo'limda buyurtma yo'q
         </div>

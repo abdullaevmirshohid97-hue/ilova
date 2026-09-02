@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { formatSum, supabase } from '../lib/supabase';
+import { JadvalSkelet, KartochkaSkelet } from '../components/Skelet';
 import { altbilgi, blank, hujjatniYoz, logoniOl, oynaOch, sozlamaniOl, uslub } from '../lib/hujjat';
 
 const SOLD_STATUSES = ['confirmed', 'picking', 'done'];
@@ -345,7 +346,7 @@ export default function Reports() {
       </div>
 
       {loading ? (
-        <div className="p-12 text-center text-gray-500">Yuklanmoqda...</div>
+        <div className="space-y-5"><KartochkaSkelet soni={6} /><div className="rounded-2xl border border-gray-200 bg-white"><JadvalSkelet ustun={4} /></div></div>
       ) : (
         <>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">

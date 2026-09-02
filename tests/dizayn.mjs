@@ -124,5 +124,62 @@ tekshir(
   'sichqonchali kompyuterda zich jadval saqlanadi',
 );
 
+// ---------- 6. Yuklanish holati ----------
+// Eng yomon holat skeletning yo'qligi emas edi: ro'yxat bo'sh bo'lgani
+// uchun ma'lumot kelguncha "Mijoz topilmadi" deb yozilib turardi —
+// mijoz bor bo'lsa ham. Odam yo'q narsani qidirib vaqt yo'qotardi.
+console.log('\n6. Yuklanish holati');
+
+tekshir(
+  'skelet komponenti bor',
+  hammasi.some((f) => f.endsWith('Skelet.tsx')),
+);
+
+const skelet = readFileSync(join(SRC, 'components/Skelet.tsx'), 'utf8');
+tekshir('harakat kamaytirilganda pulsatsiya o‘chadi', /motion-safe:animate-pulse/.test(skelet));
+tekshir('ekran o‘quvchiga xabar beradi', /role="status"/.test(skelet));
+
+// Ro'yxatli sahifalarda "topilmadi" faqat yuklash tugagach chiqsin
+for (const [fayl, nom] of [
+  ['pages/Customers.tsx', 'Mijozlar'],
+  ['pages/Orders.tsx', 'Buyurtmalar'],
+  ['pages/Products.tsx', 'Mahsulotlar'],
+]) {
+  const s = readFileSync(join(SRC, fayl), 'utf8');
+  const bayroq = /const \[yuklandi, setYuklandi\]/.test(s);
+  const kutadi = /yuklandi &&|!yuklandi/.test(s);
+  tekshir(
+    `${nom}: "topilmadi" yuklashdan keyin`,
+    bayroq && kutadi,
+    bayroq ? 'ok' : 'bayroq yo‘q — bo‘sh ro‘yxat "topilmadi" deb ko‘rsatiladi',
+  );
+}
+
+// ---------- 7. Tugma ko'rinishi ----------
+// Bir xil rangdagi asosiy tugma sahifadan sahifaga turlicha
+// yumaloqlanardi. Alohida qaralganda bilinmaydi, ketma-ket ko'rilganda
+// panel "yig'ib qo'yilgan"dek taassurot qoldiradi.
+console.log('\n7. Tugma ko‘rinishi');
+
+// `rounded-full` bu tekshiruvdan tashqarida: u yorliq (pill) va avatar
+// uchun ishlatiladi va ular ATAYLAB yumaloq. Sinov faqat to'rtburchak
+// radiuslar aralashmasligini talab qiladi — audit topgan muammo ham
+// aynan shu edi (xl 43 / lg 12).
+const radiuslar = {};
+for (const f of hammasi) {
+  const s = readFileSync(f, 'utf8');
+  // Tugmaning belgisi — `px-` bilan kelishi. Avatar kvadratlari
+  // (h-10 w-10, px- yo'q) bunga tushmaydi.
+  for (const m of s.matchAll(/rounded-(sm|md|lg|xl|2xl|3xl) bg-brand(?:-soft)? px-/g)) {
+    radiuslar[m[1]] = (radiuslar[m[1]] ?? 0) + 1;
+  }
+}
+const turlar = Object.keys(radiuslar);
+tekshir(
+  'asosiy tugmalar bitta radiusda',
+  turlar.length === 1,
+  turlar.map((t) => `${t}:${radiuslar[t]}`).join(' ') || 'tugma topilmadi',
+);
+
 console.log('\n' + (yiqildi === 0 ? '\x1b[32mHAMMASI O‘TDI\x1b[0m' : `\x1b[31m${yiqildi} TA XATO\x1b[0m`) + '\n');
 process.exit(yiqildi === 0 ? 0 : 1);
