@@ -29,6 +29,7 @@ function beep() {
 
 const TITLES: Record<string, string> = {
   '/': 'Boshqaruv paneli',
+  '/pos': 'Sotuv — kassa',
   '/orders': 'Buyurtmalar',
   '/design-orders': 'Dizayn buyurtmalari',
   '/products': 'Mahsulotlar va ombor',
@@ -37,6 +38,7 @@ const TITLES: Record<string, string> = {
   '/managers': 'Menejerlar',
   '/finance': 'Moliya',
   '/reports': 'Hisobotlar',
+  '/maosh': 'Maosh va xodimlar',
   '/settings': 'Sozlamalar',
 };
 

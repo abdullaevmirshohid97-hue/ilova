@@ -277,3 +277,73 @@ export function hujjatniYoz(
     </body></html>`);
   w.document.close();
 }
+
+// ============================================================================
+// CHEK (58mm termal printer)
+//
+// A4 dan butunlay boshqa dunyo: kenglik 58mm, ya'ni taxminan 32 belgi.
+// Jadval, ustun, chegara — hech biri sig'maydi. Shuning uchun bu yerda
+// A4 uslubi ishlatilmaydi, alohida quriladi.
+//
+// Chek printerlari odatda o'z drayveri bilan brauzerdan chop etiladi:
+// @page kengligini 58mm qilib qo'yamiz, balandligini "auto" — qog'oz
+// rulon bo'lgani uchun uzunligi mazmunga qarab kesiladi.
+// ============================================================================
+
+export function chekUslubi(s: HujjatSozlama, kenglik = 58): string {
+  const shrift = s.shrift ?? 'sans-serif';
+  return `
+    @page { size: ${kenglik}mm auto; margin: 3mm; }
+    * { box-sizing: border-box; }
+    body { font-family: ${shrift}; font-size: 9pt; color: #000; margin: 0;
+           width: ${kenglik - 6}mm; }
+    .mkz { text-align: center; }
+    .nom { font-size: 11pt; font-weight: 800; }
+    .kichik { font-size: 7.5pt; color: #333; }
+    .chiziq { border-top: 1px dashed #000; margin: 5px 0; }
+    .qator { display: flex; justify-content: space-between; gap: 6px; }
+    .qator .o { text-align: right; white-space: nowrap; }
+    .jami { font-size: 11pt; font-weight: 800; }
+    .imzo { margin-top: 14px; font-size: 7.5pt; }
+    @media print { .noprint { display: none; } }
+    .noprint { margin-bottom: 8px; }
+    .noprint button { width: 100%; padding: 8px; font-size: 11px; font-weight: 700;
+                      border: 0; border-radius: 6px; background: #000; color: #fff; }
+  `;
+}
+
+/** Chekning yuqori qismi — logo chekda ishlatilmaydi (termal printerda yomon chiqadi) */
+export function chekBoshi(s: HujjatSozlama, turi: string, raqam?: string | number): string {
+  return `
+    <div class="mkz">
+      <div class="nom">${esc(s.org_nomi || 'YUKCHIBOLLA')}</div>
+      ${s.manzil ? `<div class="kichik">${esc(s.manzil)}</div>` : ''}
+      ${s.telefon ? `<div class="kichik">${esc(s.telefon)}</div>` : ''}
+      ${s.stir ? `<div class="kichik">STIR ${esc(s.stir)}</div>` : ''}
+    </div>
+    <div class="chiziq"></div>
+    <div class="mkz"><b>${esc(turi)}</b>${raqam != null ? ` №${esc(raqam)}` : ''}</div>
+    <div class="chiziq"></div>
+  `;
+}
+
+/** Chekning pastki qismi */
+export function chekOxiri(s: HujjatSozlama): string {
+  let vaqt = '';
+  try {
+    vaqt = new Date().toLocaleString();
+  } catch {
+    vaqt = new Date().toISOString().slice(0, 16).replace('T', ' ');
+  }
+  return `
+    <div class="chiziq"></div>
+    <div class="kichik mkz">${esc(vaqt)}</div>
+    ${s.altbilgi ? `<div class="kichik mkz">${esc(s.altbilgi)}</div>` : ''}
+  `;
+}
+
+/** Chek qatori: chapda nom, o'ngda son */
+export function chekQator(chap: string, ong: string, qalin = false): string {
+  const t = qalin ? 'jami' : '';
+  return `<div class="qator ${t}"><div>${esc(chap)}</div><div class="o">${esc(ong)}</div></div>`;
+}

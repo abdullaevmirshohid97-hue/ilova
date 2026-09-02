@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { formatDate, formatSum, genPassword, supabase, fnXato } from '../lib/supabase';
 import ChangePasswordPanel from '../components/ChangePasswordPanel';
+import XodimlarPanel from '../components/XodimlarPanel';
 import StaffTelegramPanel from '../components/StaffTelegramPanel';
 
 type Category = { id: string; name: string; sort_order: number };
@@ -406,6 +407,7 @@ export default function Settings() {
       <OrgProfilePanel />
       <CategoriesPanel />
       <PriceGroupsPanel />
+      <XodimlarPanel />
       <StaffPanel />
       <DangerZonePanel />
     </div>

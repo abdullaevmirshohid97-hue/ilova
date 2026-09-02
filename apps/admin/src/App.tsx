@@ -13,6 +13,8 @@ import { tenantYonalishlari } from './lib/yonalishlar';
 // Login sahifasi ataylab statik qoldi — u eng birinchi kerak bo'ladi.
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const Orders = lazy(() => import('./pages/Orders'));
+const PosSotuv = lazy(() => import('./pages/PosSotuv'));
+const Maosh = lazy(() => import('./pages/Maosh'));
 const DesignOrders = lazy(() => import('./pages/DesignOrders'));
 const Products = lazy(() => import('./pages/Products'));
 const ProductImport = lazy(() => import('./pages/ProductImport'));
@@ -286,6 +288,7 @@ export default function App() {
       <Suspense fallback={<Yuklanmoqda />}>
         <Routes>
           <Route path="/" element={<Dashboard />} />
+          <Route path="/pos" element={<PosSotuv />} />
           <Route path="/orders" element={<Orders />} />
           <Route path="/design-orders" element={<DesignOrders />} />
           <Route path="/products" element={<Products />} />
@@ -297,6 +300,7 @@ export default function App() {
           <Route path="/managers" element={<Managers />} />
           <Route path="/finance" element={<Finance />} />
           <Route path="/reports" element={<Reports />} />
+          <Route path="/maosh" element={<Maosh />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

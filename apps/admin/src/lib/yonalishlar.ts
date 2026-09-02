@@ -30,6 +30,7 @@ export type TenantYonalish = {
 // Yangi yo'nalish qurilganda o'z ro'yxati shu yerga qo'shiladi.
 const B2B_MODULLAR: TenantModul[] = [
   { to: '/', icon: '📊', label: 'Boshqaruv' },
+  { to: '/pos', icon: '🛒', label: 'Sotuv (kassa)' },
   { to: '/orders', icon: '🧾', label: 'Buyurtmalar' },
   { to: '/design-orders', icon: '🎨', label: 'Dizayn buyurtmalari' },
   { to: '/products', icon: '📦', label: 'Mahsulotlar & Ombor' },
@@ -38,6 +39,7 @@ const B2B_MODULLAR: TenantModul[] = [
   { to: '/managers', icon: '🧑‍💼', label: 'Menejerlar' },
   { to: '/finance', icon: '💰', label: 'Moliya' },
   { to: '/reports', icon: '📈', label: 'Hisobotlar' },
+  { to: '/maosh', icon: '💵', label: 'Maosh' },
   { to: '/settings', icon: '⚙️', label: 'Sozlamalar' },
 ];
 

@@ -116,6 +116,18 @@ const JADVALLAR = [
     pk: 'org_id',
     egasi: 'select org_id from org_hujjat_sozlama where org_id = t.id',
   },
+  // Xodim ma'lumoti - maosh, telefon, KPI shartlari
+  { nom: 'xodimlar', pk: 'id', egasi: 'select org_id from xodimlar where id = t.id' },
+  { nom: 'pos_sotuvlar', pk: 'id', egasi: 'select org_id from pos_sotuvlar where id = t.id' },
+  {
+    // Qatorda org_id yo'q - sotuv orqali bog'lanadi. Aynan shunday
+    // bog'lanishlarda filtr unutiladi.
+    nom: 'pos_qatorlar',
+    pk: 'id',
+    egasi:
+      'select s.org_id from pos_qatorlar q join pos_sotuvlar s on s.id = q.sotuv_id where q.id = t.id',
+  },
+  { nom: 'maosh_amallari', pk: 'id', egasi: 'select org_id from maosh_amallari where id = t.id' },
 ];
 
 console.log('\n\x1b[1mTENANT AJRATILISHI\x1b[0m');
@@ -177,6 +189,57 @@ for (const j of JADVALLAR) {
     n === 0,
     n === 0 ? `${rows.length} qator, hammasi o‘ziniki` : `${n} ta BEGONA qator ${rows.length} tadan`,
   );
+}
+
+// ---------- Bo'sh jadval hech narsani isbotlamaydi ----------
+// Yangi jadvalda ma'lumot yo'q bo'lsa, "0 qator" javobi sizish yo'qligini
+// KO'RSATMAYDI - shunchaki ko'rsatadigan narsa yo'q. Shuning uchun begona
+// tenantga vaqtincha yozuv qo'yamiz va u ko'rinmasligini tekshiramiz.
+console.log('\n  begona tenant ma’lumoti bilan:');
+
+const ozga = await sql(`select id from organizations where id <> '${orgId}' limit 1`);
+if (ozga[0]?.id) {
+  const ozgaOrg = ozga[0].id;
+  const belgi = '__ajratish_sinovi__';
+
+  const yaratilgan = await sql(`
+    insert into xodimlar (org_id, ism, lavozim, oylik_stavka)
+    values ('${ozgaOrg}', '${belgi}', 'sinov', 1)
+    returning id
+  `);
+  const xodimId = yaratilgan[0].id;
+
+  await sql(`
+    insert into maosh_amallari (org_id, xodim_id, tur, summa, davr, izoh)
+    values ('${ozgaOrg}', '${xodimId}', 'bonus', 1, current_date, '${belgi}')
+  `);
+
+  for (const [jadval, pk] of [
+    ['xodimlar', 'id'],
+    ['maosh_amallari', 'id'],
+  ]) {
+    const r = await fetch(`${URL}/rest/v1/${jadval}?select=${pk}&limit=100`, {
+      headers: { apikey: K.anon_key, Authorization: 'Bearer ' + token },
+    });
+    const rows = await r.json();
+    const soni = Array.isArray(rows) ? rows.length : -1;
+    tekshir(
+      `${jadval}: begona tenant yozuvi ko‘rinmaydi`,
+      soni === 0,
+      soni === 0 ? 'ko‘rinmadi' : `${soni} qator KO‘RINDI`,
+    );
+  }
+
+  // Begona xodimga maosh yozib ko'ramiz - RPC ni ham sinaymiz
+  const amal = await fetch(`${URL}/rest/v1/rpc/maosh_amal`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', apikey: K.anon_key, Authorization: 'Bearer ' + token },
+    body: JSON.stringify({ p_xodim: xodimId, p_tur: 'bonus', p_summa: 100 }),
+  });
+  tekshir('begona xodimga maosh yozib bo‘lmaydi', amal.status >= 400, 'HTTP ' + amal.status);
+
+  await sql(`delete from maosh_amallari where izoh = '${belgi}' or xodim_id = '${xodimId}'`);
+  await sql(`delete from xodimlar where id = '${xodimId}'`);
 }
 
 // ---------- Fayllar ----------
