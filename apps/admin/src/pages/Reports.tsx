@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { formatSum, supabase } from '../lib/supabase';
+import { asosiyTarifId } from '../lib/tarif';
 import { JadvalSkelet, KartochkaSkelet } from '../components/Skelet';
 import { altbilgi, blank, hujjatniYoz, logoniOl, oynaOch, sozlamaniOl, uslub } from '../lib/hujjat';
 
@@ -183,7 +184,7 @@ export default function Reports() {
     from.setDate(from.getDate() - days + 1);
     from.setHours(0, 0, 0, 0);
 
-    const [ordersRes, debtorsRes, invRes] = await Promise.all([
+    const [ordersRes, debtorsRes, invRes, guruhRes, mijozRes] = await Promise.all([
       supabase
         .from('orders')
         .select(
@@ -199,10 +200,15 @@ export default function Reports() {
         .gt('balance', 0)
         .order('balance', { ascending: false })
         .limit(10),
+      // Avval bu yerda `.eq('prices.price_groups.name', 'Standart')` turardi.
+      // Tarifini boshqacha nomlagan bizneslarda hech narsa qaytmasdi va
+      // "Ombor qiymati" doim 0 ko'rinardi. Endi hamma tarif olinadi,
+      // asosiysi esa lib/tarif.ts qoidasi bilan tanlanadi.
       supabase
         .from('product_variants')
-        .select('stock_levels ( qty ), prices!inner ( price, price_groups!inner ( name ) )')
-        .eq('prices.price_groups.name', 'Standart'),
+        .select('stock_levels ( qty ), prices ( price, price_group_id )'),
+      supabase.from('price_groups').select('id, name'),
+      supabase.from('customers').select('price_group_id'),
     ]);
 
     // Kunlik sotuv + top mahsulot + top menejer + top mijoz — bitta o'tishda
@@ -278,10 +284,17 @@ export default function Reports() {
       }))
     );
 
-    const invValue = (invRes.data ?? []).reduce((sum: number, v: any) => {
+    const guruhlar = (guruhRes.data ?? []) as { id: string; name: string }[];
+    const invQatorlar = (invRes.data ?? []) as any[];
+    const tarifId = asosiyTarifId(
+      guruhlar,
+      (gid) => invQatorlar.some((v) => (v.prices ?? []).some((pr: any) => pr.price_group_id === gid)),
+      (mijozRes.data ?? []) as { price_group_id: string | null }[],
+    );
+    const invValue = invQatorlar.reduce((sum: number, v: any) => {
       const qty = Number(v.stock_levels?.qty ?? 0);
-      const price = Number(v.prices?.[0]?.price ?? 0);
-      return sum + qty * price;
+      const pr = (v.prices ?? []).find((x: any) => x.price_group_id === tarifId);
+      return sum + qty * Number(pr?.price ?? 0);
     }, 0);
     setInventoryValue(invValue);
 

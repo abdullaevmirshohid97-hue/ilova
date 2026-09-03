@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { xabarKorsat, tasdiqlaSoz } from '../components/Xabar';
 import { Link } from 'react-router-dom';
 import { formatSum, imageUrl, resizeImage, supabase } from '../lib/supabase';
+import { asosiyTarifId, tarifNomi } from '../lib/tarif';
 import { JadvalSkelet } from '../components/Skelet';
 import { altbilgi, blank, hujjatniYoz, logoniOl, oynaOch, sozlamaniOl, uslub } from '../lib/hujjat';
 import StockModal from '../components/StockModal';
@@ -644,7 +645,12 @@ async function printCatalog(products: Product[], groups: Group[]) {
   const s = await sozlamaniOl();
   const logo = await logoniOl(s);
 
-  const stdGroup = groups.find((g) => g.name === 'Standart');
+  // Qat'iy 'Standart' emas: tarifini boshqacha nomlagan biznesda narx
+  // ustuni bo'sh qolardi. lib/tarif.ts ga qarang.
+  const asosiyId = asosiyTarifId(groups, (gid) =>
+    products.some((pr) => pr.variants.some((v) => v.prices[gid] != null)),
+  );
+  const stdGroup = groups.find((g) => g.id === asosiyId);
   const withVariants = products.filter((p) => p.variants.length > 0);
   // Locale nomini qattiq yozmaymiz: ba'zi muhitlarda RangeError beradi
   const dateStr = new Date().toLocaleDateString();
@@ -730,6 +736,11 @@ export default function Products() {
   const [yuklandi, setYuklandi] = useState(false);
   const [groups, setGroups] = useState<Group[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
+  // Jadvalda ko'rsatiladigan narx qaysi tarifniki. Qat'iy 'Standart'
+  // yozilganida boshqacha nomlangan tarifda narx umuman ko'rinmasdi.
+  const asosiyTarif = asosiyTarifId(groups, (gid) =>
+    products.some((pr) => pr.variants.some((v) => v.prices[gid] != null)),
+  );
   const [search, setSearch] = useState('');
   const [modal, setModal] = useState<{ open: boolean; product: Product | null }>({
     open: false,
@@ -926,14 +937,13 @@ export default function Products() {
                 <th className="px-6 py-2 text-right">Fizik</th>
                 <th className="px-6 py-2 text-right">Band</th>
                 <th className="px-6 py-2 text-right">Mavjud</th>
-                <th className="px-6 py-2 text-right">Narx (Standart)</th>
+                <th className="px-6 py-2 text-right">Narx ({tarifNomi(groups, asosiyTarif)})</th>
                 <th className="px-6 py-2"></th>
               </tr>
             </thead>
             <tbody>
               {p.variants.map((v) => {
                 const avail = v.qty - v.reserved;
-                const stdGroup = groups.find((g) => g.name === 'Standart');
                 const label = `${p.name} (${v.sku})`;
                 return (
                   <tr key={v.id} className={`border-t border-gray-50 ${!v.is_active ? 'opacity-40' : ''}`}>
@@ -950,8 +960,8 @@ export default function Products() {
                       {avail.toLocaleString()}
                     </td>
                     <td className="px-6 py-2.5 text-right text-gray-600">
-                      {stdGroup && v.prices[stdGroup.id] != null ? (
-                        formatSum(v.prices[stdGroup.id])
+                      {asosiyTarif && v.prices[asosiyTarif] != null ? (
+                        formatSum(v.prices[asosiyTarif])
                       ) : (
                         // Narxsiz variant mijoz katalogida umuman chiqmaydi —
                         // buni admin darhol ko'rishi kerak
