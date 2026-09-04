@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { C, MONO, RADIUS, sh } from '../lib/sa-tema';
-import { supabase } from '../lib/supabase';
+import { fnXato, supabase } from '../lib/supabase';
+import { tasdiqlaSoz } from './Xabar';
 import {
   MAYDON_NOMI,
   excelgaYoz,
@@ -210,6 +211,96 @@ export default function PraysYuklash({ warehouseId, skladNomi, onYakun }: Props)
     }
   }
 
+  // ---------- USTAMA ----------
+  // Sklad sozlamasidan olinadi, yuklash paytida o'zgartirilishi mumkin.
+  // Saqlashda ikkalasi birga ketadi: yangi prays + yangi ustama.
+  const [ustamaPct, setUstamaPct] = useState('');
+  const [ustamaSum, setUstamaSum] = useState('');
+  const [yaxlit, setYaxlit] = useState(0);
+  const [pozitsiyaBor, setPozitsiyaBor] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!sklad) return;
+    supabase.rpc('dori_skladlar').then(({ data }) => {
+      const w = ((data as any[]) ?? []).find((x) => x.id === sklad);
+      if (!w) return;
+      setUstamaPct(w.markup_pct != null ? String(w.markup_pct) : '');
+      setUstamaSum(w.markup_sum != null ? String(w.markup_sum) : '');
+    });
+    supabase.rpc('dori_sklad_pozitsiya', { p_warehouse_id: sklad }).then(({ data }) => {
+      setPozitsiyaBor(typeof data === 'number' ? data : null);
+    });
+    supabase
+      .from('dori_settings')
+      .select('rounding')
+      .maybeSingle()
+      .then(({ data }) => setYaxlit(Number((data as any)?.rounding ?? 0)));
+  }, [sklad]);
+
+  // Jonli misol. Formula bazadagi dori_offer_narx bilan bir xil bo'lishi
+  // SHART: bu yerda boshqacha hisoblansa, ekranda bir son, hujjatda
+  // boshqasi chiqib, ishonch yo'qoladi.
+  const namuna = (() => {
+    const q = natija?.qatorlar.find((x) => Number(x.price) > 0);
+    if (!q) return null;
+    const tannarx = Number(q.price);
+    const pct = Number(ustamaPct) || 0;
+    const summa = Number(ustamaSum) || 0;
+    let narx = tannarx * (1 + pct / 100) + summa;
+    if (yaxlit > 0) {
+      const past = Math.round(narx / yaxlit) * yaxlit;
+      // Yaxlitlash tannarxdan past tushirsa — yuqoriga. Bu qoida bazada
+      // ham shunday (audit tuzatishi), ikki joyda bir xil turishi kerak.
+      narx = past < tannarx ? Math.ceil(narx / yaxlit) * yaxlit : past;
+    } else {
+      narx = Math.round(narx);
+    }
+    return { tannarx, sotuv: narx, nom: (q.name ?? '').slice(0, 28) };
+  })();
+
+  // ---------- skladga saqlash ----------
+  // Avval bu ikki bosqichli edi: "farqni ko'rsat" -> "tasdiqlab yoz".
+  // Sklad ichida bu ortiqcha: odam qaysi skladga yuklayotganini allaqachon
+  // tanlagan. Farq ko'rish IXTIYORIY bo'lib qoldi, lekin katta yo'qotish
+  // bo'ladigan holatda baribir so'raladi.
+  async function skladgaSaqla() {
+    if (!natija) return;
+
+    const yangiSoni = natija.qatorlar.length;
+    // Mavjudning yarmidan ko'pi o'chib ketadigan yuklash deyarli har doim
+    // xato fayl yoki noto'g'ri varaq. Skladlar aynan shunday bo'shab
+    // qolgan bo'lishi mumkin — endi so'raymiz.
+    if (pozitsiyaBor != null && pozitsiyaBor > 20 && yangiSoni < pozitsiyaBor / 2) {
+      const javob = await tasdiqlaSoz(
+        `Skladda hozir ${pozitsiyaBor} pozitsiya bor, yangi faylda esa ${yangiSoni} ta. ` +
+          `Saqlansa ${pozitsiyaBor - yangiSoni} pozitsiya o‘chadi.\n\n` +
+          `Bu odatda xato fayl yoki noto‘g‘ri varaq belgisi. Davom etilsinmi?`,
+      );
+      if (!javob) return;
+    }
+
+    setXato(null);
+    try {
+      // 1) Ustama — narxlar shunga qarab hisoblanadi, shuning uchun
+      //    praysdan OLDIN yoziladi
+      const pct = ustamaPct === '' ? null : Number(ustamaPct);
+      const summa = ustamaSum === '' ? null : Number(ustamaSum);
+      setIsh('Ustama saqlanmoqda...');
+      const { error: uErr } = await supabase.rpc('dori_sklad_ustama', {
+        p_warehouse_id: sklad,
+        p_markup_pct: pct,
+        p_markup_sum: summa,
+      });
+      if (uErr) throw uErr;
+
+      // 2) Prays
+      await kataloggaYukla();
+    } catch (e: any) {
+      setXato('Saqlanmadi: ' + (await fnXato(e, '')));
+      setIsh(null);
+    }
+  }
+
   async function kataloggaYukla() {
     if (!natija) return;
     const qatorlar = katalogQatorlari();
@@ -311,10 +402,76 @@ export default function PraysYuklash({ warehouseId, skladNomi, onYakun }: Props)
       {ish && <Xabar rang={C.neon2}>{ish}</Xabar>}
       {xato && <Xabar rang={C.danger}>{xato}</Xabar>}
 
+      {/* Sarlavha qatori topilmagan holat.
+          Avval bu yerda faqat qizil xato chiqardi va boshqa hech narsa:
+          varaq tanlash ham, tugma ham yashirin edi. Ya'ni fayl bir varaqda
+          noto'g'ri tanilsa, odam boshi berk ko'chaga kirib qolardi va
+          "prays yuklanmayapti" deb qolardi. Endi kamida varaqni almashtirib
+          ko'rish mumkin. */}
+      {natija && natija.sarlavhaQatori < 0 && (
+        <div
+          className="mb-3 p-4"
+          style={{ background: C.panel, border: `1px solid ${C.warn}`, borderRadius: RADIUS }}
+        >
+          <div className="text-[11px] font-bold tracking-[0.16em]" style={{ color: C.warn }}>
+            USTUN NOMLARI TOPILMADI
+          </div>
+          <p className="mt-2 text-sm" style={{ color: C.text }}>
+            «{natija.sheetName}» varag‘ida «nomi», «narx», «miqdor» kabi ustun
+            sarlavhalari topilmadi. Ko‘p faylda prays boshqa varaqda turadi —
+            avval shuni almashtirib ko‘ring.
+          </p>
+
+          {varaqRoyxat.length > 1 ? (
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <span className="text-[10px] font-bold tracking-[0.16em]" style={{ color: C.text }}>
+                VARAQ
+              </span>
+              {varaqRoyxat.map((v, i) => (
+                <button
+                  key={v}
+                  onClick={() => {
+                    if (!bayt) return;
+                    setXato(null);
+                    const n = faylniOqi(bayt, natija.fileName, i);
+                    setVaraq(i);
+                    setNatija(n);
+                    if (n.sarlavhaQatori < 0) {
+                      setXato(`«${n.sheetName}» varag‘ida ham topilmadi.`);
+                    }
+                  }}
+                  className="px-3 py-1.5 text-[11px] font-bold tracking-[0.1em]"
+                  style={{
+                    color: varaq === i ? C.onAccent : C.text,
+                    background: varaq === i ? C.neon2 : 'transparent',
+                    border: `1px solid ${varaq === i ? C.neon2 : C.line}`,
+                    borderRadius: RADIUS,
+                  }}
+                >
+                  {v}
+                </button>
+              ))}
+            </div>
+          ) : (
+            <p className="mt-2 text-[11px]" style={{ color: `${sh(C.text, 70)}` }}>
+              Faylda bitta varaq bor. Ustun nomlari birinchi qatorda turgan
+              faylni tashlang — masalan «Наименование», «Цена», «Количество».
+            </p>
+          )}
+        </div>
+      )}
+
       {natija && natija.sarlavhaQatori >= 0 && (
         <>
           {/* AMALLAR ENG YUQORIDA va yopishib turadi: 3000 qatorli
-              jadvalni oxirigacha aylantirib tugma qidirish kerak emas */}
+              jadvalni oxirigacha aylantirib tugma qidirish kerak emas.
+
+              TUGMA NOMLARI: avval bu yerda yashil tugma "KATALOG FARQINI
+              KO'RSATISH" edi (u saqlamaydi), yonida esa "FAKTURA SIFATIDA
+              SAQLASH" turardi — u praysni arxivga yozadi va SKLADGA
+              UMUMAN TEGMAYDI. Ya'ni sklad ichida "saqlash" yozuvi bor
+              yagona tugma noto'g'ri tugma edi va odam saqlash tugmasi
+              yo'q deb qolardi. Endi asosiy amal — skladga yozish. */}
           <div
             className="mb-3 flex flex-wrap items-center gap-2 p-2"
             style={{
@@ -326,51 +483,35 @@ export default function PraysYuklash({ warehouseId, skladNomi, onYakun }: Props)
               borderRadius: RADIUS,
             }}
           >
-            {rejim === 'narxlar' ? (
-              farq ? (
-                <button
-                  onClick={kataloggaYukla}
-                  disabled={!!ish}
-                  className={btn}
-                  style={{ color: C.onAccent, background: C.neon, border: `1px solid ${C.neon}` }}
-                >
-                  TASDIQLAB KATALOGGA YOZISH
-                </button>
-              ) : (
-                <button
-                  onClick={farqniKorsat}
-                  disabled={!!ish}
-                  className={btn}
-                  style={{ color: C.neon, background: 'transparent', border: `1px solid ${C.neon}` }}
-                >
-                  KATALOG FARQINI KO‘RSATISH
-                </button>
-              )
-            ) : null}
             <button
-              onClick={saqla}
+              onClick={skladgaSaqla}
               disabled={!!ish}
               className={btn}
-              style={
-                rejim === 'narxlar'
-                  ? { color: C.text, background: 'transparent', border: `1px solid ${C.line}` }
-                  : { color: C.onAccent, background: C.neon, border: `1px solid ${C.neon}` }
-              }
+              style={{ color: C.onAccent, background: C.neon, border: `1px solid ${C.neon}` }}
             >
-              {rejim === 'narxlar' ? 'FAKTURA SIFATIDA SAQLASH' : 'BAZAGA SAQLASH'}
+              SKLADGA SAQLASH · {natija.qatorlar.length} QATOR
+            </button>
+            <button
+              onClick={farqniKorsat}
+              disabled={!!ish}
+              className={btn}
+              style={{ color: C.neon2, background: 'transparent', border: `1px solid ${C.neon2}` }}
+            >
+              {farq ? 'FARQNI YANGILASH' : 'AVVAL FARQINI KO‘RISH'}
             </button>
             <button
               onClick={yuklab}
               className={btn}
-              style={{ color: C.neon2, background: 'transparent', border: `1px solid ${C.neon2}` }}
+              style={{ color: C.text, background: 'transparent', border: `1px solid ${C.line}` }}
             >
-              EXCEL QILIB YUKLAB OLISH
+              EXCEL
             </button>
             <button
               onClick={() => {
                 setNatija(null);
                 setBayt(null);
                 setRejimQol(null);
+                setFarq(null);
               }}
               className={btn}
               style={{ color: C.text, background: 'transparent', border: `1px solid ${C.line}` }}
@@ -378,6 +519,53 @@ export default function PraysYuklash({ warehouseId, skladNomi, onYakun }: Props)
               BEKOR QILISH
             </button>
           </div>
+
+          {/* ---------- USTAMA ----------
+              Ustama aynan yangi prays kelganda o'zgaradi, shuning uchun
+              u shu yerda. Avval buning uchun boshqa ekranga o'tib,
+              o'zgartirib, qaytib kelish kerak edi. */}
+          <div
+            className="mb-3 flex flex-wrap items-end gap-3 p-3"
+            style={{ background: C.panel, border: `1px solid ${C.line}`, borderRadius: RADIUS }}
+          >
+            <div>
+              <div className="text-[10px] font-bold tracking-[0.16em]" style={{ color: C.text }}>
+                USTAMA — FOIZ
+              </div>
+              <input
+                value={ustamaPct}
+                onChange={(e) => setUstamaPct(e.target.value.replace(/[^\d.]/g, ''))}
+                placeholder="0"
+                className="mt-1 w-24 px-2.5 py-1.5 text-sm outline-none"
+                style={{ background: C.field, border: `1px solid ${C.line}`, color: C.textBright, fontFamily: MONO }}
+              />
+            </div>
+            <div>
+              <div className="text-[10px] font-bold tracking-[0.16em]" style={{ color: C.text }}>
+                YOKI SUMMA
+              </div>
+              <input
+                value={ustamaSum}
+                onChange={(e) => setUstamaSum(e.target.value.replace(/[^\d]/g, ''))}
+                placeholder="0"
+                className="mt-1 w-28 px-2.5 py-1.5 text-sm outline-none"
+                style={{ background: C.field, border: `1px solid ${C.line}`, color: C.textBright, fontFamily: MONO }}
+              />
+            </div>
+
+            {/* Jonli misol: foiz to'g'ri yozilganini darhol ko'rsatadi.
+                Arzon dorida foiz yo'qolib ketadi — shuning uchun summa ham bor. */}
+            {namuna && (
+              <div className="text-[11px]" style={{ color: C.text }}>
+                <span style={{ color: `${sh(C.text, 65)}` }}>Misol:</span>{' '}
+                <b style={{ color: C.textBright, fontFamily: MONO }}>{son(namuna.tannarx)}</b>
+                {' → '}
+                <b style={{ color: C.neon, fontFamily: MONO }}>{son(namuna.sotuv)}</b>
+                <span style={{ color: `${sh(C.text, 65)}` }}> ({namuna.nom})</span>
+              </div>
+            )}
+          </div>
+
           {/* ---------- xulosa ---------- */}
           <div className="mb-3 grid gap-3 md:grid-cols-4">
             <Quti sarlavha="QATORLAR">

@@ -99,8 +99,21 @@ const jsonQator = (o) => JSON.stringify(o).replace(/'/g, "''");
   // ================================================== 1. NARX
   console.log('\n1. Narx darajalari (tannarx 100 000)');
 
-  const [{ id: pid, name: dnom }] =
-    await sql("select id, name from dori_products where is_active order by name limit 1;");
+  // Sinov jonli katalogga bog'lanmasin: bir marta katalogdagi hamma
+  // dori nofaol bo'lib qolganda (takliflar o'chgani uchun) sinov birinchi
+  // qadamdayoq yiqilgan edi. Faol dori bo'lsa - o'shani olamiz, bo'lmasa
+  // istalganini; umuman bo'lmasa - o'zimiz yaratamiz.
+  let [sinovDori] = await sql(
+    "select id, name from dori_products where is_active order by name limit 1;"
+  );
+  if (!sinovDori) [sinovDori] = await sql('select id, name from dori_products order by name limit 1;');
+  if (!sinovDori) {
+    [sinovDori] = await sql(
+      "insert into dori_products (name, name_norm) values ('SINOV DORI', 'sinov dori') returning id, name;"
+    );
+  }
+  const pid = sinovDori.id;
+  const dnom = sinovDori.name;
 
   const [{ id: w0 }] = await sql(
     "insert into dori_warehouses (name, markup_pct, priority) values ('SINOV-NARX', 12, 50) returning id;"
