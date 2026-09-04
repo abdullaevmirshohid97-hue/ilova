@@ -55,6 +55,15 @@ const sana = (s: string | null) => (s ? new Date(s).toLocaleDateString('ru-RU') 
 
 const SAHIFA = 100;
 
+// Ro'yxat rus tilida ketadi: 2027-06-30 emas, 30.06.2027.
+// Locale nomi ATAYLAB berilmagan — ICU'si qirqilgan muhitda
+// RangeError berib butun sahifani yiqitardi.
+function sanaFormat(s: string | null): string {
+  if (!s) return '';
+  const [y, o, k] = String(s).slice(0, 10).split('-');
+  return y && o && k ? `${k}.${o}.${y}` : String(s);
+}
+
 export default function DoriModuli() {
   const [skladlar, setSkladlar] = useState<Sklad[]>([]);
   // null = HAMMASI
@@ -135,19 +144,40 @@ export default function DoriModuli() {
         return;
       }
 
+      // Ustunlar mijozga yuboriladigan ko'rinishda. SERIYA USTUNI YO'Q:
+      // u har doim bo'sh kelardi (bazadagi 5 218 partiyaning birortasida
+      // ham seriya yo'q — prays fayllarida bu ustun umuman berilmaydi).
+      // O'rniga «Ваш заказ» — mijoz miqdorini shu yerga yozadi.
       const varaq = XLSX.utils.json_to_sheet(
-        qatorlar.map((r) => ({
-          'Dori nomi': r.nomi ?? '',
-          Narxi: r.narx == null ? '' : Number(r.narx),
-          Seriya: r.seriya ?? '',
-          'Yaroqlilik muddati': r.yaroqlilik ?? '',
-          'Ishlab chiqaruvchi': r.ishlab_chiqaruvchi ?? '',
+        qatorlar.map((r, i) => ({
+          '№': i + 1,
+          'Название': r.nomi ?? '',
+          'Ваш заказ': '',
+          'Сотув цена со скидкой/наценкой': r.narx == null ? '' : Number(r.narx),
+          'Срок годности': sanaFormat(r.yaroqlilik),
+          'Производитель': r.ishlab_chiqaruvchi ?? '',
         })),
-        { header: ['Dori nomi', 'Narxi', 'Seriya', 'Yaroqlilik muddati', 'Ishlab chiqaruvchi'] },
+        {
+          header: [
+            '№',
+            'Название',
+            'Ваш заказ',
+            'Сотув цена со скидкой/наценкой',
+            'Срок годности',
+            'Производитель',
+          ],
+        },
       );
-      // Ustun kengligi: nom uzun, narx qisqa. Busiz hamma ustun bir xil
+      // Ustun kengligi: nom uzun, raqam qisqa. Busiz hamma ustun bir xil
       // tor bo'lib, nomlar kesilib ko'rinadi.
-      varaq['!cols'] = [{ wch: 46 }, { wch: 12 }, { wch: 14 }, { wch: 18 }, { wch: 28 }];
+      varaq['!cols'] = [
+        { wch: 5 },   // №
+        { wch: 46 },  // Название
+        { wch: 12 },  // Ваш заказ
+        { wch: 16 },  // Сотув цена
+        { wch: 14 },  // Срок годности
+        { wch: 30 },  // Производитель
+      ];
 
       const kitob = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(kitob, varaq, 'Prays');

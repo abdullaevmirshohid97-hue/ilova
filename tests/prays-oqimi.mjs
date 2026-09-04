@@ -172,10 +172,29 @@ tekshir(
 );
 tekshir('cheksiz aylanishdan himoya', /ofs \/ BOLAK > 100/.test(dori));
 
+// Ustunlar mijoz ko'radigan tartibda. Seriya YO'Q: u har doim bo'sh
+// kelardi (bazadagi partiyalarda seriya umuman yozilmagan), o'rniga
+// mijoz miqdorini yozadigan «Ваш заказ» ustuni turadi.
+const KUTILGAN_USTUNLAR = [
+  '№',
+  'Название',
+  'Ваш заказ',
+  'Сотув цена со скидкой/наценкой',
+  'Срок годности',
+  'Производитель',
+];
+for (const u of KUTILGAN_USTUNLAR) {
+  tekshir('ustun «' + u + '»', dori.includes("'" + u + "'"));
+}
 tekshir(
-  'ustunlar: nom, narx, seriya, srok, ishlab chiqaruvchi',
-  /'Dori nomi'[\s\S]{0,300}Narxi[\s\S]{0,120}Seriya[\s\S]{0,160}Ishlab chiqaruvchi/.test(dori),
+  'ustunlar tartibi to‘g‘ri',
+  KUTILGAN_USTUNLAR.every((u, i, a) =>
+    i === 0 ? true : dori.indexOf("'" + a[i - 1] + "'") < dori.indexOf("'" + u + "'"),
+  ),
 );
+tekshir('seriya ustuni olib tashlandi', !dori.includes("'Seriya'"));
+tekshir("«Ваш заказ» bo‘sh qoladi", /'Ваш заказ': ''/.test(dori), 'mijoz to‘ldiradi');
+tekshir('sana kun.oy.yil ko‘rinishida', /function sanaFormat/.test(dori));
 tekshir('sklad nomi ustuni yo‘q', !/Sklad['":]/.test(dori.slice(dori.indexOf('json_to_sheet'), dori.indexOf('book_new'))));
 
 if (K?.mgmt_token) {
