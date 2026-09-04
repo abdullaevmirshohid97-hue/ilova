@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { tasdiqlaSoz } from '../components/Xabar';
 import { C, MONO, RADIUS, sh } from '../lib/sa-tema';
 import { supabase, fnXato } from '../lib/supabase';
+import { qoralamalarniTozala, useQoralama } from '../lib/qoralama';
 
 // ============================================================================
 // SOTUV
@@ -57,14 +58,17 @@ const vaqt = (s: string) =>
 
 export default function DoriSotuv() {
   const [skladlar, setSkladlar] = useState<{ id: string; name: string; is_default: boolean }[]>([]);
-  const [sklad, setSklad] = useState('');
+  // Modul almashganda komponent yo'q qilinadi va holat o'ladi.
+  // Odam yozgan narsa (savat, mijoz, izoh, tanlangan sklad)
+  // sessiyada saqlanadi — lib/qoralama.ts ga qarang.
+  const [sklad, setSklad] = useQoralama('dori.sotuv.sklad', '');
   const [q, setQ] = useState('');
   const [topilgan, setTopilgan] = useState<Topilgan[]>([]);
-  const [savat, setSavat] = useState<Savat[]>([]);
+  const [savat, setSavat, savatQ] = useQoralama<Savat[]>('dori.sotuv.savat', []);
   const [mijozQ, setMijozQ] = useState('');
   const [mijozlar, setMijozlar] = useState<Mijoz[]>([]);
-  const [mijoz, setMijoz] = useState<Mijoz | null>(null);
-  const [izoh, setIzoh] = useState('');
+  const [mijoz, setMijoz] = useQoralama<Mijoz | null>('dori.sotuv.mijoz', null);
+  const [izoh, setIzoh] = useQoralama('dori.sotuv.izoh', '');
   const [oxirgi, setOxirgi] = useState<{ sale_id: string; sale_no: number; total: number; foyda: number } | null>(null);
   const [tarix, setTarix] = useState<Sotuv[]>([]);
   const [ish, setIsh] = useState<string | null>(null);
@@ -188,6 +192,10 @@ export default function DoriSotuv() {
     setXabar(`Sotuv №${r.sale_no} rasmiylashtirildi · ${son(r.total)} so‘m · foyda ${son(r.foyda)} so‘m${skladXabar}`);
     setSavat([]);
     setIzoh('');
+    setMijoz(null);
+    // Qoralama ham ketsin: aks holda saqlangan savat keyingi safar
+    // yana ochilib qolardi
+    qoralamalarniTozala('dori.sotuv.savat', 'dori.sotuv.mijoz', 'dori.sotuv.izoh');
     tarixYukla();
   }
 
@@ -346,6 +354,30 @@ export default function DoriSotuv() {
                   <b className="text-[13px]" style={{ color: C.neon }}>{son(d.price)}</b>
                 </button>
               ))}
+            </div>
+          )}
+
+          {/* Qoralama tiklanganini aytamiz: savat o'zi to'lib turgani
+              odamni chalkashtirmasin — "men buni qo'shganmidim?" */}
+          {savatQ.tiklandi && savat.length > 0 && (
+            <div
+              className="mb-2 flex items-center justify-between gap-2 px-3 py-2 text-[11px]"
+              style={{ background: `${sh(C.neon2, 12)}`, border: `1px solid ${C.neon2}`, borderRadius: RADIUS }}
+            >
+              <span style={{ color: C.textBright }}>
+                Tugallanmagan savat tiklandi — {savat.length} pozitsiya
+              </span>
+              <button
+                onClick={() => {
+                  savatQ.tozala();
+                  setIzoh('');
+                  setMijoz(null);
+                }}
+                className="px-2 py-1 text-[10px] font-bold tracking-[0.1em]"
+                style={{ color: C.neon2, border: `1px solid ${C.neon2}`, borderRadius: RADIUS }}
+              >
+                TOZALASH
+              </button>
             </div>
           )}
 

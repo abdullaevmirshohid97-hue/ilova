@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { fnXato, formatSum, supabase } from '../lib/supabase';
+import { qoralamalarniTozala, useQoralama } from '../lib/qoralama';
 import {
   altbilgi,
   blank,
@@ -53,16 +54,18 @@ const TOLOVLAR = [
 export default function PosSotuv() {
   const [mijozlar, setMijozlar] = useState<Mijoz[]>([]);
   const [xodimlar, setXodimlar] = useState<Xodim[]>([]);
-  const [mijoz, setMijoz] = useState<Mijoz | null>(null);
-  const [xodim, setXodim] = useState<string>('');
-  const [tolov, setTolov] = useState('naqd');
-  const [chegirma, setChegirma] = useState('');
-  const [izoh, setIzoh] = useState('');
+  // Boshqa sahifaga o'tilganda komponent yo'q qilinadi va savat o'ladi.
+  // Odam yozgan narsa sessiyada saqlanadi — lib/qoralama.ts.
+  const [mijoz, setMijoz] = useQoralama<Mijoz | null>('pos.mijoz', null);
+  const [xodim, setXodim] = useQoralama<string>('pos.xodim', '');
+  const [tolov, setTolov] = useQoralama('pos.tolov', 'naqd');
+  const [chegirma, setChegirma] = useQoralama('pos.chegirma', '');
+  const [izoh, setIzoh] = useQoralama('pos.izoh', '');
 
   const [qidiruv, setQidiruv] = useState('');
   const [tovarlar, setTovarlar] = useState<Tovar[]>([]);
   const [qidirmoqda, setQidirmoqda] = useState(false);
-  const [savat, setSavat] = useState<Savat[]>([]);
+  const [savat, setSavat, savatQ] = useQoralama<Savat[]>('pos.savat', []);
   const [saqlanmoqda, setSaqlanmoqda] = useState(false);
   const [xato, setXato] = useState<string | null>(null);
   const [oxirgi, setOxirgi] = useState<string | null>(null);
@@ -155,6 +158,9 @@ export default function PosSotuv() {
       setSavat([]);
       setChegirma('');
       setIzoh('');
+      // Qoralama ham tozalanadi: aks holda saqlangan savat keyingi
+      // safar yana ochilib qolardi
+      qoralamalarniTozala('pos.savat', 'pos.mijoz', 'pos.izoh', 'pos.chegirma');
       // Qoldiq o'zgardi — ro'yxatni yangilaymiz
       qidir(qidiruv, mijoz?.price_group_id ?? null);
     } catch (e: any) {
@@ -354,6 +360,23 @@ export default function PosSotuv() {
       <div className="space-y-4">
         <div className="rounded-2xl border border-gray-200 bg-white p-5">
           <h2 className="font-bold text-gray-900">Savat</h2>
+
+          {/* Savat o'zi to'lib turgani chalkashtirmasin */}
+          {savatQ.tiklandi && savat.length > 0 && (
+            <div className="mt-2 flex items-center justify-between gap-2 rounded-xl bg-brand-soft px-3 py-2 text-xs text-brand">
+              <span>Tugallanmagan savat tiklandi — {savat.length} pozitsiya</span>
+              <button
+                onClick={() => {
+                  savatQ.tozala();
+                  setIzoh('');
+                  setMijoz(null);
+                }}
+                className="shrink-0 rounded-lg border border-brand px-2 py-1 font-bold"
+              >
+                Tozalash
+              </button>
+            </div>
+          )}
 
           {savat.length === 0 ? (
             <p className="mt-3 text-sm text-gray-500">Tovar tanlang</p>
