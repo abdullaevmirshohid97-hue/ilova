@@ -239,6 +239,27 @@ export default function NarxlarPaneli() {
     await supabase.from('dori_settings').update({ firma_nomi: firma.trim() || 'IDAA FARM' }).eq('id', true);
   }
 
+  async function logoOchir() {
+    // Tasdiq so'raymiz: fayl bucket'dan butunlay o'chadi, qaytarib
+    // bo'lmaydi — logoni qaytadan yuklash kerak bo'ladi.
+    if (!(await tasdiqlaSoz('Logo o‘chirilsinmi? Praysda faqat firma nomi qoladi.'))) return;
+    setXato(null);
+    try {
+      const { data } = await supabase.from('dori_settings').select('logo_path').maybeSingle();
+      const yol = (data as any)?.logo_path;
+
+      // Avval sozlamani tozalaymiz, keyin faylni. Teskarisi bo'lsa va
+      // ikkinchi qadam yiqilsa, sozlamada yo'q faylga ishora qolib,
+      // eksport har safar uni yuklamoqchi bo'lib urinardi.
+      await supabase.from('dori_settings').update({ logo_path: null }).eq('id', true);
+      if (yol) await supabase.storage.from('dori-logo').remove([yol]);
+
+      await brendYukla();
+    } catch (e: any) {
+      setXato('Logo o‘chirilmadi: ' + (e?.message ?? ''));
+    }
+  }
+
   async function logoYukla(fayl: File) {
     setXato(null);
     try {
@@ -376,6 +397,18 @@ export default function NarxlarPaneli() {
             >
               {logoUrl ? 'ALMASHTIRISH' : 'YUKLASH'}
             </button>
+            {/* Logo bo'lsa o'chirish ham kerak: avval faqat yuklash va
+                almashtirish bor edi, ya'ni bir marta qo'yilgan logodan
+                voz kechib bo'lmasdi. */}
+            {logoUrl && (
+              <button
+                onClick={logoOchir}
+                className="mt-1 w-20 py-1 text-[10px] font-bold"
+                style={{ color: C.danger, border: `1px solid ${C.danger}`, borderRadius: RADIUS }}
+              >
+                O‘CHIRISH
+              </button>
+            )}
           </div>
 
           <label className="block">

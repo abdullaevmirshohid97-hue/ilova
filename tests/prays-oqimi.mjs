@@ -225,5 +225,33 @@ if (K?.mgmt_token) {
   tekshir('anon eksport qilolmaydi', anonE.status >= 400, 'HTTP ' + anonE.status);
 }
 
+
+// ---------- 7. Logo boshqaruvi ----------
+// Yuklash tugmasi bor edi, o'chirish yo'q — ya'ni bir marta qo'yilgan
+// logodan voz kechib bo'lmasdi.
+console.log('\n7. Logo boshqaruvi');
+
+const narxPanel = readFileSync(join(ROOT, 'apps/admin/src/pages/NarxlarPaneli.tsx'), 'utf8');
+
+tekshir('yuklash tugmasi bor', /logoRef\.current\?\.click\(\)/.test(narxPanel));
+tekshir('o‘chirish tugmasi bor', /onClick=\{logoOchir\}/.test(narxPanel));
+tekshir('o‘chirish faqat logo bo‘lsa ko‘rinadi', /\{logoUrl && \(/.test(narxPanel));
+tekshir(
+  'o‘chirishdan oldin tasdiq so‘raladi',
+  /async function logoOchir[\s\S]{0,300}tasdiqlaSoz/.test(narxPanel),
+  'fayl butunlay o‘chadi',
+);
+tekshir(
+  'fayl ham bucket’dan o‘chadi',
+  /async function logoOchir[\s\S]{0,900}from\('dori-logo'\)\.remove/.test(narxPanel),
+  'sozlama tozalanishi yetarli emas',
+);
+tekshir(
+  'avval sozlama, keyin fayl',
+  narxPanel.indexOf("update({ logo_path: null })") <
+    narxPanel.indexOf("from('dori-logo').remove"),
+  'teskarisi bo‘lsa yo‘q faylga ishora qolardi',
+);
+
 console.log('\n' + (yiqildi === 0 ? '\x1b[32mHAMMASI O‘TDI\x1b[0m' : `\x1b[31m${yiqildi} TA XATO\x1b[0m`) + '\n');
 process.exit(yiqildi === 0 ? 0 : 1);
