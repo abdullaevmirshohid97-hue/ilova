@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { tasdiqlaSoz } from '../components/Xabar';
 import { C, MONO, RADIUS, sh } from '../lib/sa-tema';
-import * as XLSX from 'xlsx';
 import { supabase } from '../lib/supabase';
+import { praysKitobi } from '../lib/prays-eksport';
 
 // ============================================================================
 // DORI — KATALOGNI SKLAD BO'YICHA KO'RISH
@@ -55,15 +55,6 @@ const sana = (s: string | null) => (s ? new Date(s).toLocaleDateString('ru-RU') 
 
 const SAHIFA = 100;
 
-// Ro'yxat rus tilida ketadi: 2027-06-30 emas, 30.06.2027.
-// Locale nomi ATAYLAB berilmagan — ICU'si qirqilgan muhitda
-// RangeError berib butun sahifani yiqitardi.
-function sanaFormat(s: string | null): string {
-  if (!s) return '';
-  const [y, o, k] = String(s).slice(0, 10).split('-');
-  return y && o && k ? `${k}.${o}.${y}` : String(s);
-}
-
 export default function DoriModuli() {
   const [skladlar, setSkladlar] = useState<Sklad[]>([]);
   // null = HAMMASI
@@ -110,22 +101,21 @@ export default function DoriModuli() {
   // Mijozga yuboriladigan ro'yxat. Hamma sklad bitta ro'yxatga
   // yig'iladi va SKLAD NOMI CHIQMAYDI — qaysi tovar qaysi omborda
   // turgani mijozning ishi emas.
+  //
+  // Hujjatning o'zi lib/prays-eksport.ts da yasaladi: u yerda turgani
+  // uchun sinov hujjatni haqiqatan yasab, qayta o'qib tekshira oladi.
   const [eksportIsh, setEksportIsh] = useState(false);
 
   async function praysniYuklab() {
     setEksportIsh(true);
     setXato(null);
     try {
-      // Qidiruv maydoni to'ldirilgan bo'lsa — o'sha filtr bilan.
-      // Ekranda ko'rinib turgan narsa yuklansin, boshqasi emas.
-      // PostgREST javobni 1000 qatorda kesadi — funksiyaga qancha
-      // limit berilsa ham. Sinovda aynan shu bo'ldi: katalogda 4 828
-      // dori, eksportda 1 000. Xato ham, ogohlantirish ham chiqmaydi.
-      // Shuning uchun bo'lak-bo'lak so'raymiz.
+      // PostgREST javobni 1000 qatorda kesadi — funksiyaga qancha limit
+      // berilsa ham. Sinovda aynan shu bo'ldi: katalogda 4 828 dori,
+      // eksportda 1 000. Xato ham, ogohlantirish ham chiqmaydi.
       const BOLAK = 1000;
       const qatorlar: any[] = [];
       for (let ofs = 0; ; ofs += BOLAK) {
-        setEksportIsh(true);
         const { data, error } = await supabase.rpc('dori_prays_eksport', {
           p_q: q || null,
           p_limit: BOLAK,
@@ -135,54 +125,29 @@ export default function DoriModuli() {
         const b = (data as any[]) ?? [];
         qatorlar.push(...b);
         if (b.length < BOLAK) break;
-        // Cheksiz aylanishdan himoya: katalog qanchalik katta bo'lsa ham
-        // 100 bo'lak (100 000 qator) yetarli
-        if (ofs / BOLAK > 100) break;
+        if (ofs / BOLAK > 100) break; // cheksiz aylanishdan himoya
       }
       if (!qatorlar.length) {
         setXato('Narx qo‘yilgan dori topilmadi.');
         return;
       }
 
-      // Ustunlar mijozga yuboriladigan ko'rinishda. SERIYA USTUNI YO'Q:
-      // u har doim bo'sh kelardi (bazadagi 5 218 partiyaning birortasida
-      // ham seriya yo'q — prays fayllarida bu ustun umuman berilmaydi).
-      // O'rniga «Ваш заказ» — mijoz miqdorini shu yerga yozadi.
-      const varaq = XLSX.utils.json_to_sheet(
-        qatorlar.map((r, i) => ({
-          '№': i + 1,
-          'Название': r.nomi ?? '',
-          'Ваш заказ': '',
-          'Сотув цена со скидкой/наценкой': r.narx == null ? '' : Number(r.narx),
-          'Срок годности': sanaFormat(r.yaroqlilik),
-          'Производитель': r.ishlab_chiqaruvchi ?? '',
-        })),
-        {
-          header: [
-            '№',
-            'Название',
-            'Ваш заказ',
-            'Сотув цена со скидкой/наценкой',
-            'Срок годности',
-            'Производитель',
-          ],
-        },
-      );
-      // Ustun kengligi: nom uzun, raqam qisqa. Busiz hamma ustun bir xil
-      // tor bo'lib, nomlar kesilib ko'rinadi.
-      varaq['!cols'] = [
-        { wch: 5 },   // №
-        { wch: 46 },  // Название
-        { wch: 12 },  // Ваш заказ
-        { wch: 16 },  // Сотув цена
-        { wch: 14 },  // Срок годности
-        { wch: 30 },  // Производитель
-      ];
+      const { data: sozlama } = await supabase
+        .from('dori_settings')
+        .select('firma_nomi')
+        .maybeSingle();
 
-      const kitob = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(kitob, varaq, 'Prays');
-      const sana = new Date().toISOString().slice(0, 10);
-      XLSX.writeFile(kitob, `prays-${sana}.xlsx`);
+      const bayt = await praysKitobi(qatorlar, (sozlama as any)?.firma_nomi || 'IDAA FARM');
+      const url = URL.createObjectURL(
+        new Blob([bayt], {
+          type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        }),
+      );
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'prays-' + new Date().toISOString().slice(0, 10) + '.xlsx';
+      a.click();
+      URL.revokeObjectURL(url);
     } catch (e: any) {
       setXato('Yuklab bo‘lmadi: ' + (e?.message ?? ''));
     } finally {

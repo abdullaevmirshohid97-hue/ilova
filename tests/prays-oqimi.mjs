@@ -172,30 +172,17 @@ tekshir(
 );
 tekshir('cheksiz aylanishdan himoya', /ofs \/ BOLAK > 100/.test(dori));
 
-// Ustunlar mijoz ko'radigan tartibda. Seriya YO'Q: u har doim bo'sh
-// kelardi (bazadagi partiyalarda seriya umuman yozilmagan), o'rniga
-// mijoz miqdorini yozadigan «Ваш заказ» ustuni turadi.
-const KUTILGAN_USTUNLAR = [
-  '№',
-  'Название',
-  'Ваш заказ',
-  'Сотув цена со скидкой/наценкой',
-  'Срок годности',
-  'Производитель',
-];
-for (const u of KUTILGAN_USTUNLAR) {
-  tekshir('ustun «' + u + '»', dori.includes("'" + u + "'"));
-}
+// Ustun nomlari va bezagi bu yerda TEKSHIRILMAYDI: ular
+// lib/prays-eksport.ts ga ko'chdi va tests/prays-hujjat.mjs
+// hujjatni haqiqatan yasab, qayta o'qib tekshiradi. Ikki joyda
+// takrorlansa, biri o'zgarganda ikkinchisi eskirib yolg'on xato
+// berardi.
 tekshir(
-  'ustunlar tartibi to‘g‘ri',
-  KUTILGAN_USTUNLAR.every((u, i, a) =>
-    i === 0 ? true : dori.indexOf("'" + a[i - 1] + "'") < dori.indexOf("'" + u + "'"),
-  ),
+  'hujjat yasash alohida modulda',
+  /praysKitobi/.test(dori) && !/ExcelJS/.test(dori),
+  'sinov faylning o‘zini tekshira olsin',
 );
-tekshir('seriya ustuni olib tashlandi', !dori.includes("'Seriya'"));
-tekshir("«Ваш заказ» bo‘sh qoladi", /'Ваш заказ': ''/.test(dori), 'mijoz to‘ldiradi');
-tekshir('sana kun.oy.yil ko‘rinishida', /function sanaFormat/.test(dori));
-tekshir('sklad nomi ustuni yo‘q', !/Sklad['":]/.test(dori.slice(dori.indexOf('json_to_sheet'), dori.indexOf('book_new'))));
+tekshir('firma nomi sozlamadan olinadi', /firma_nomi/.test(dori));
 
 if (K?.mgmt_token) {
   const sqlE = async (q) => {
