@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, useRef } from 'react';
 import { tasdiqlaSoz } from '../components/Xabar';
 import { C, MONO, RADIUS, sh } from '../lib/sa-tema';
 import { supabase } from '../lib/supabase';
@@ -212,6 +212,62 @@ export default function NarxlarPaneli() {
     yukla();
   }
 
+  // ---------- prays brendi ----------
+  // Firma nomi va logo mijozga yuboriladigan Excel praysida chiqadi.
+  const [firma, setFirma] = useState('');
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  const logoRef = useRef<HTMLInputElement>(null);
+
+  const brendYukla = useCallback(async () => {
+    const { data } = await supabase
+      .from('dori_settings')
+      .select('firma_nomi, logo_path')
+      .maybeSingle();
+    setFirma((data as any)?.firma_nomi ?? '');
+    const yol = (data as any)?.logo_path;
+    if (!yol) return setLogoUrl(null);
+    // Bucket yopiq — ko'rsatish uchun imzolangan havola
+    const { data: h } = await supabase.storage.from('dori-logo').createSignedUrl(yol, 3600);
+    setLogoUrl(h?.signedUrl ?? null);
+  }, []);
+
+  useEffect(() => {
+    brendYukla();
+  }, [brendYukla]);
+
+  async function firmaSaqla() {
+    await supabase.from('dori_settings').update({ firma_nomi: firma.trim() || 'IDAA FARM' }).eq('id', true);
+  }
+
+  async function logoYukla(fayl: File) {
+    setXato(null);
+    try {
+      const kengaytma = fayl.type === 'image/png' ? 'png' : 'jpg';
+      // Nomda vaqt bor: brauzer eski rasmni keshdan ko'rsatib qolmasin
+      const yol = `logo-${Date.now()}.${kengaytma}`;
+      const { error } = await supabase.storage.from('dori-logo').upload(yol, fayl, {
+        contentType: fayl.type,
+        upsert: true,
+      });
+      if (error) throw error;
+
+      // Eskisini o'chiramiz — bucket'da yig'ilib qolmasin
+      const { data: eski } = await supabase
+        .from('dori_settings')
+        .select('logo_path')
+        .maybeSingle();
+      const eskiYol = (eski as any)?.logo_path;
+
+      await supabase.from('dori_settings').update({ logo_path: yol }).eq('id', true);
+      if (eskiYol && eskiYol !== yol) {
+        await supabase.storage.from('dori-logo').remove([eskiYol]);
+      }
+      await brendYukla();
+    } catch (e: any) {
+      setXato('Logo yuklanmadi: ' + (e?.message ?? ''));
+    }
+  }
+
   async function yaxlitlashniOzgartir(v: number) {
     await supabase.from('dori_settings').update({ rounding: v }).eq('id', true);
     await supabase.rpc('dori_narx_hisobla', { p_ids: null });
@@ -280,6 +336,66 @@ export default function NarxlarPaneli() {
           </Quti>
         </div>
       )}
+
+      {/* ---------- prays ko'rinishi ----------
+          Bu yerdagi nom va logo mijozga yuboriladigan Excel praysining
+          sarlavhasida chiqadi. Ular kodda emas, sozlamada: nom yoki
+          logo o'zgarsa deploy kutish kerak emas. */}
+      <div className="mb-4 p-4" style={{ background: C.panel, border: `1px solid ${C.line}`, borderRadius: RADIUS }}>
+        <div className="mb-3 text-[10px] font-bold tracking-[0.16em]" style={{ color: `${sh(C.text, 80)}` }}>
+          PRAYS KO‘RINISHI — MIJOZGA YUBORILADIGAN FAYL
+        </div>
+        <div className="flex flex-wrap items-end gap-4">
+          <div className="shrink-0">
+            <div className="mb-1 text-[10px]" style={{ color: C.text }}>LOGO</div>
+            <div
+              className="grid h-20 w-20 place-items-center overflow-hidden"
+              style={{ background: C.field, border: `1px dashed ${C.line}`, borderRadius: RADIUS }}
+            >
+              {logoUrl ? (
+                <img src={logoUrl} alt="" className="max-h-full max-w-full object-contain" />
+              ) : (
+                <span className="text-[10px]" style={{ color: `${sh(C.text, 60)}` }}>yo‘q</span>
+              )}
+            </div>
+            <input
+              ref={logoRef}
+              type="file"
+              accept="image/png,image/jpeg"
+              hidden
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) logoYukla(f);
+                e.target.value = '';
+              }}
+            />
+            <button
+              onClick={() => logoRef.current?.click()}
+              className="mt-1 w-20 py-1 text-[10px] font-bold"
+              style={{ color: C.neon2, border: `1px solid ${C.neon2}`, borderRadius: RADIUS }}
+            >
+              {logoUrl ? 'ALMASHTIRISH' : 'YUKLASH'}
+            </button>
+          </div>
+
+          <label className="block">
+            <span className="mb-1 block text-[10px]" style={{ color: C.text }}>FIRMA NOMI</span>
+            <input
+              value={firma}
+              onChange={(e) => setFirma(e.target.value)}
+              onBlur={firmaSaqla}
+              placeholder="IDAA FARM"
+              className="w-56 px-2 py-1.5 text-[13px] outline-none"
+              style={inpStyle}
+            />
+          </label>
+
+          <span className="text-[11px]" style={{ color: `${sh(C.text, 70)}` }}>
+            PNG yoki JPEG. Logo hujjat ichiga joylanadi — mijoz faylni
+            ochganda ko‘rinadi.
+          </span>
+        </div>
+      </div>
 
       {/* ---------- umumiy ustama ---------- */}
       <div className="mb-4 p-4" style={{ background: C.panel, border: `1px solid ${C.line}`, borderRadius: RADIUS }}>

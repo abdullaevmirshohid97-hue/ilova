@@ -134,10 +134,35 @@ export default function DoriModuli() {
 
       const { data: sozlama } = await supabase
         .from('dori_settings')
-        .select('firma_nomi')
+        .select('firma_nomi, logo_path')
         .maybeSingle();
 
-      const bayt = await praysKitobi(qatorlar, (sozlama as any)?.firma_nomi || 'IDAA FARM');
+      // Logo yopiq bucket'da. Uni HUJJAT ICHIGA joylaymiz, havola
+      // qo'ymaymiz: mijoz faylni ochganda rasm ko'rinishi kerak, u esa
+      // bizning bucket'ga kira olmaydi.
+      let logo: { bayt: ArrayBuffer; kengaytma: 'png' | 'jpeg' } | null = null;
+      const logoYol = (sozlama as any)?.logo_path;
+      if (logoYol) {
+        try {
+          const { data: fayl } = await supabase.storage.from('dori-logo').download(logoYol);
+          if (fayl) {
+            logo = {
+              bayt: await fayl.arrayBuffer(),
+              kengaytma: /\.png$/i.test(logoYol) ? 'png' : 'jpeg',
+            };
+          }
+        } catch {
+          // Logo yuklanmasa hujjat baribir chiqadi — brend belgisi
+          // yo'qligi uchun prays yuborilmay qolmasin
+        }
+      }
+
+      const bayt = await praysKitobi(
+        qatorlar,
+        (sozlama as any)?.firma_nomi || 'IDAA FARM',
+        new Date(),
+        logo,
+      );
       const url = URL.createObjectURL(
         new Blob([bayt], {
           type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',

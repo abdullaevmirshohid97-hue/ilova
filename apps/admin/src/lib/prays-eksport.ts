@@ -57,6 +57,9 @@ export async function praysKitobi(
   qatorlar: PraysQator[],
   firma: string,
   sana = new Date(),
+  // Logo baytlari. Yo'q bo'lsa hujjat baribir chiqadi — brend belgisi
+  // yo'qligi uchun prays yuborilmay qolmasin.
+  logo?: { bayt: ArrayBuffer; kengaytma: 'png' | 'jpeg' } | null,
 ): Promise<ArrayBuffer> {
   // Faqat kerak bo'lganda yuklanadi: kutubxona ~900 KB, uni asosiy
   // paketga qo'shish har sahifa ochilishini sekinlashtirardi.
@@ -71,28 +74,53 @@ export async function praysKitobi(
     right: { style: 'thin' as const },
   };
 
+  // Birinchi ustun logo bo'lsa kengaytiriladi (pastda), aks holda
+  // tartib raqami uchun tor qoladi.
   v.columns = [
     { width: 5 }, { width: 46 }, { width: 12 }, { width: 13 },
     { width: 14 }, { width: 15 }, { width: 30 },
   ];
 
-  // ---- firma nomi ----
-  v.mergeCells('A1:F1');
-  const b1 = v.getCell('A1');
+  // ---- firma nomi va logo ----
+  // Logo bo'lsa: chapda rasm, o'ngda nom. Bo'lmasa nom butun kenglikni
+  // egallaydi — bo'sh joy qolib, hujjat nosozdek ko'rinmasin.
+  const logoBor = !!logo?.bayt;
+  if (logoBor) {
+    // Rasm A1:A2 kataklari ustiga qo'yiladi. ExcelJS rasmni katak
+    // to'riga emas, ustiga joylaydi — shuning uchun qator balandligi
+    // va ustun kengligi rasmga moslanadi, aks holda u kesilib qoladi.
+    const rasmId = kitob.addImage({
+      buffer: logo!.bayt as any,
+      extension: logo!.kengaytma,
+    });
+    v.addImage(rasmId, {
+      tl: { col: 0.15, row: 0.12 } as any,
+      ext: { width: 88, height: 88 },
+    });
+    v.getColumn(1).width = 14;
+  }
+
+  v.mergeCells(logoBor ? 'B1:F1' : 'A1:F1');
+  const b1 = v.getCell(logoBor ? 'B1' : 'A1');
   b1.value = firma;
   b1.font = { name: 'Arial', size: 22, bold: true, italic: true };
   b1.alignment = { horizontal: 'center', vertical: 'middle' };
   b1.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: KOK } };
-  v.getRow(1).height = 34;
+  if (logoBor) {
+    v.getCell('A1').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: KOK } };
+    v.getCell('A2').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: KOK } };
+  }
+  // Logo bo'lsa qator balandroq: 88px rasm ikki qatorga bo'linadi
+  v.getRow(1).height = logoBor ? 48 : 34;
 
   // ---- hujjat turi ----
-  v.mergeCells('A2:F2');
-  const b2 = v.getCell('A2');
+  v.mergeCells(logoBor ? 'B2:F2' : 'A2:F2');
+  const b2 = v.getCell(logoBor ? 'B2' : 'A2');
   b2.value = 'ПРАЙС ЛИСТ';
   b2.font = { name: 'Arial', size: 18, bold: true };
   b2.alignment = { horizontal: 'right', vertical: 'middle' };
   b2.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: KOK } };
-  v.getRow(2).height = 26;
+  v.getRow(2).height = logoBor ? 40 : 26;
 
   // ---- sana va umumiy summa ----
   v.mergeCells('A3:E3');

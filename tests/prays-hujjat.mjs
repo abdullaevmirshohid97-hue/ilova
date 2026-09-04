@@ -145,6 +145,56 @@ const q3 = v.getRow(8);
 tekshir('srogi yo‘q dori — bo‘sh katak', q3.getCell(6).value == null || q3.getCell(6).value === '', String(q3.getCell(6).value));
 tekshir('ishlab chiqaruvchisi yo‘q — bo‘sh', q3.getCell(7).value == null || q3.getCell(7).value === '');
 
+
+// ---------- 7. Logo bilan ----------
+// Logo hujjat ICHIGA joylanadi, havola bilan emas: mijoz faylni
+// ochganda rasm ko'rinishi kerak, u esa bizning yopiq bucket'ga
+// kira olmaydi.
+console.log('\n7. Logo');
+
+// Eng kichik haqiqiy PNG (1x1) — sinov uchun yetarli
+const PNG = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
+  'base64',
+);
+
+const baytLogo = await E.praysKitobi(
+  QATORLAR,
+  'IDAA FARM',
+  new Date(2026, 8, 4),
+  { bayt: PNG.buffer.slice(PNG.byteOffset, PNG.byteOffset + PNG.byteLength), kengaytma: 'png' },
+);
+const faylLogo = join(ish, 'prays-logo.xlsx');
+writeFileSync(faylLogo, Buffer.from(baytLogo));
+
+const kitob2 = new ExcelJS.Workbook();
+await kitob2.xlsx.readFile(faylLogo);
+const v2 = kitob2.getWorksheet('Прайс');
+
+tekshir('rasm hujjatga joylandi', (v2.getImages() ?? []).length === 1, String((v2.getImages() ?? []).length));
+tekshir('rasm eng yuqorida', (v2.getImages()?.[0]?.range?.tl?.nativeRow ?? 9) === 0);
+tekshir(
+  'logo bo‘lganda nom B ustundan boshlanadi',
+  v2.getCell('B1').value === 'IDAA FARM',
+  String(v2.getCell('B1').value),
+);
+tekshir('logo ustuni kengaytirildi', (v2.getColumn(1).width ?? 0) >= 12, String(v2.getColumn(1).width));
+tekshir('sarlavha qatori balandroq', (v2.getRow(1).height ?? 0) > 34, String(v2.getRow(1).height));
+
+// Ustunlar va formula logo bo'lganda ham o'zgarmasligi kerak
+tekshir(
+  'ustunlar o‘zgarmadi',
+  v2.getRow(5).getCell(3).value === 'Ваш заказ' && v2.getRow(5).getCell(5).value === 'Сумма заказ',
+);
+tekshir(
+  'formula o‘zgarmadi',
+  (v2.getRow(6).getCell(5).value)?.formula === 'IF(C6="","",C6*D6)',
+);
+
+// Logosiz hujjat ham to'g'ri chiqishi kerak
+tekshir('logosiz hujjatda rasm yo‘q', (v.getImages() ?? []).length === 0);
+tekshir('logosiz nom A ustunda', v.getCell('A1').value === 'IDAA FARM');
+
 console.log('\n' + (yiqildi === 0 ? '\x1b[32mHAMMASI O‘TDI\x1b[0m' : `\x1b[31m${yiqildi} TA XATO\x1b[0m`) + '\n');
 rmSync(ish, { recursive: true, force: true });
 process.exit(yiqildi === 0 ? 0 : 1);
