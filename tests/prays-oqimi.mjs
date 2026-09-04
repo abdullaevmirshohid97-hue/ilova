@@ -152,5 +152,72 @@ if (!K?.mgmt_token) {
   tekshir('manfiy ustama to‘siladi', manfiy[0].bor === true);
 }
 
+
+// ---------- 6. Narxli praysni yuklab olish ----------
+// Mijozga yuboriladigan ro'yxat: hamma sklad bitta ro'yxatga yig'iladi,
+// sklad nomi chiqmaydi.
+console.log('\n6. Prays eksporti');
+
+const dori = readFileSync(join(ROOT, 'apps/admin/src/pages/DoriModuli.tsx'), 'utf8');
+
+tekshir('yuklab olish tugmasi bor', /NARXLI PRAYSNI YUKLAB OLISH/.test(dori));
+tekshir('ekrandagi qidiruv filtri qo‘llanadi', /p_q: q \|\| null/.test(dori));
+
+// PostgREST javobni 1000 qatorda kesadi. Bitta so'rov yuborilsa,
+// 4 828 dorining 1 000 tasi tushib, qolgani JIMGINA yo'qolardi.
+tekshir(
+  'bo‘lak-bo‘lak so‘raladi',
+  /p_offset: ofs/.test(dori) && /b\.length < BOLAK/.test(dori),
+  'PostgREST 1000 qatorda kesadi',
+);
+tekshir('cheksiz aylanishdan himoya', /ofs \/ BOLAK > 100/.test(dori));
+
+tekshir(
+  'ustunlar: nom, narx, seriya, srok, ishlab chiqaruvchi',
+  /'Dori nomi'[\s\S]{0,300}Narxi[\s\S]{0,120}Seriya[\s\S]{0,160}Ishlab chiqaruvchi/.test(dori),
+);
+tekshir('sklad nomi ustuni yo‘q', !/Sklad['":]/.test(dori.slice(dori.indexOf('json_to_sheet'), dori.indexOf('book_new'))));
+
+if (K?.mgmt_token) {
+  const sqlE = async (q) => {
+    const r = await fetch(`https://api.supabase.com/v1/projects/${K.ref}/database/query`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + K.mgmt_token },
+      body: JSON.stringify({ query: q }),
+    });
+    const j = await r.json();
+    if (!r.ok) throw new Error(JSON.stringify(j).slice(0, 200));
+    return j;
+  };
+
+  const imzo = await sqlE(`
+    select pg_get_function_identity_arguments(oid) as args
+    from pg_proc where proname = 'dori_prays_eksport'
+  `);
+  tekshir('funksiya ofset qabul qiladi', /p_offset/.test(imzo[0]?.args ?? ''), imzo[0]?.args);
+  tekshir(
+    'eski ikki argumentli imzo qolmadi',
+    imzo.length === 1,
+    imzo.length + ' ta imzo',
+  );
+
+  const tartib = await sqlE(`
+    select position('order by p.name, p.id' in pg_get_functiondef(oid)) > 0 as bor
+    from pg_proc where proname = 'dori_prays_eksport'
+  `);
+  tekshir(
+    'tartib barqaror (nom + id)',
+    tartib[0]?.bor === true,
+    'aks holda bo‘laklar chegarasida qator yo‘qolardi',
+  );
+
+  const anonE = await fetch(`https://${K.ref}.supabase.co/rest/v1/rpc/dori_prays_eksport`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', apikey: K.anon_key },
+    body: '{}',
+  });
+  tekshir('anon eksport qilolmaydi', anonE.status >= 400, 'HTTP ' + anonE.status);
+}
+
 console.log('\n' + (yiqildi === 0 ? '\x1b[32mHAMMASI O‘TDI\x1b[0m' : `\x1b[31m${yiqildi} TA XATO\x1b[0m`) + '\n');
 process.exit(yiqildi === 0 ? 0 : 1);

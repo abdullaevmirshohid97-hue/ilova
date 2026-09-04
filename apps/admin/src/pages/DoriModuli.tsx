@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { tasdiqlaSoz } from '../components/Xabar';
 import { C, MONO, RADIUS, sh } from '../lib/sa-tema';
+import * as XLSX from 'xlsx';
 import { supabase } from '../lib/supabase';
 
 // ============================================================================
@@ -96,6 +97,69 @@ export default function DoriModuli() {
   useEffect(() => { skladlarniYukla(); arxivYukla(); }, [skladlarniYukla, arxivYukla]);
   useEffect(() => { royxatYukla(tanlangan, q, 0); setOfset(0); /* eslint-disable-next-line */ }, [tanlangan]);
 
+  // ---------- narx qo'yilgan praysni yuklab olish ----------
+  // Mijozga yuboriladigan ro'yxat. Hamma sklad bitta ro'yxatga
+  // yig'iladi va SKLAD NOMI CHIQMAYDI — qaysi tovar qaysi omborda
+  // turgani mijozning ishi emas.
+  const [eksportIsh, setEksportIsh] = useState(false);
+
+  async function praysniYuklab() {
+    setEksportIsh(true);
+    setXato(null);
+    try {
+      // Qidiruv maydoni to'ldirilgan bo'lsa — o'sha filtr bilan.
+      // Ekranda ko'rinib turgan narsa yuklansin, boshqasi emas.
+      // PostgREST javobni 1000 qatorda kesadi — funksiyaga qancha
+      // limit berilsa ham. Sinovda aynan shu bo'ldi: katalogda 4 828
+      // dori, eksportda 1 000. Xato ham, ogohlantirish ham chiqmaydi.
+      // Shuning uchun bo'lak-bo'lak so'raymiz.
+      const BOLAK = 1000;
+      const qatorlar: any[] = [];
+      for (let ofs = 0; ; ofs += BOLAK) {
+        setEksportIsh(true);
+        const { data, error } = await supabase.rpc('dori_prays_eksport', {
+          p_q: q || null,
+          p_limit: BOLAK,
+          p_offset: ofs,
+        });
+        if (error) throw error;
+        const b = (data as any[]) ?? [];
+        qatorlar.push(...b);
+        if (b.length < BOLAK) break;
+        // Cheksiz aylanishdan himoya: katalog qanchalik katta bo'lsa ham
+        // 100 bo'lak (100 000 qator) yetarli
+        if (ofs / BOLAK > 100) break;
+      }
+      if (!qatorlar.length) {
+        setXato('Narx qo‘yilgan dori topilmadi.');
+        return;
+      }
+
+      const varaq = XLSX.utils.json_to_sheet(
+        qatorlar.map((r) => ({
+          'Dori nomi': r.nomi ?? '',
+          Narxi: r.narx == null ? '' : Number(r.narx),
+          Seriya: r.seriya ?? '',
+          'Yaroqlilik muddati': r.yaroqlilik ?? '',
+          'Ishlab chiqaruvchi': r.ishlab_chiqaruvchi ?? '',
+        })),
+        { header: ['Dori nomi', 'Narxi', 'Seriya', 'Yaroqlilik muddati', 'Ishlab chiqaruvchi'] },
+      );
+      // Ustun kengligi: nom uzun, narx qisqa. Busiz hamma ustun bir xil
+      // tor bo'lib, nomlar kesilib ko'rinadi.
+      varaq['!cols'] = [{ wch: 46 }, { wch: 12 }, { wch: 14 }, { wch: 18 }, { wch: 28 }];
+
+      const kitob = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(kitob, varaq, 'Prays');
+      const sana = new Date().toISOString().slice(0, 10);
+      XLSX.writeFile(kitob, `prays-${sana}.xlsx`);
+    } catch (e: any) {
+      setXato('Yuklab bo‘lmadi: ' + (e?.message ?? ''));
+    } finally {
+      setEksportIsh(false);
+    }
+  }
+
   function qidir(s: string) {
     setQ(s);
     setOfset(0);
@@ -172,6 +236,16 @@ export default function DoriModuli() {
           topildi: <b style={{ color: C.neon }}>{son(jami)}</b>
         </span>
         {ish && <span className="text-[11px]" style={{ color: C.neon2 }}>{ish}</span>}
+
+        <button
+          onClick={praysniYuklab}
+          disabled={eksportIsh}
+          className="ml-auto px-3 py-2 text-[11px] font-bold tracking-[0.14em] disabled:opacity-40"
+          style={{ color: C.neon2, background: 'transparent', border: `1px solid ${C.neon2}`, borderRadius: RADIUS }}
+          title="Hamma sklad bitta ro'yxatga yig'iladi. Sklad nomi chiqmaydi."
+        >
+          {eksportIsh ? 'TAYYORLANMOQDA…' : '⤓ NARXLI PRAYSNI YUKLAB OLISH'}
+        </button>
       </div>
 
       {/* ---------- jadval ---------- */}
