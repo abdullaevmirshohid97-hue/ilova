@@ -722,6 +722,12 @@ const jsonQator = (o) => JSON.stringify(o).replace(/'/g, "''");
 
   // Foiz kichik summalarda yo'qoladi: 900 so'mning 5% i = 45, yaxlitlash
   // 100 so'mgacha bo'lsa natija 900 - foyda YO'Q. Summa esa aniq.
+  // Bu bo'lim YAXLITLASHGA bog'liq (900 -> 945 -> 900). Avval jonli
+  // sozlamaga tayanardi va u 0 ga o'zgartirilganda sinov yiqildi -
+  // kod to'g'ri bo'lsa ham. Endi sinov o'zi qo'yadi va oxirida tiklaydi.
+  const [{ rounding: yaxlitEski }] = await sql('select rounding from dori_settings where id;');
+  await sql('update dori_settings set rounding = 100 where id;');
+
   const [{ id: wS }] = await sql(
     "insert into dori_warehouses (name, priority) values ('SINOV-S', 95) returning id;"
   );
@@ -755,6 +761,15 @@ const jsonQator = (o) => JSON.stringify(o).replace(/'/g, "''");
   // Foiz va summa birga: 900 * 1.05 + 2000 = 2945 -> 2900
   await admin(`select dori_price_rule_bulk(array['${dS}']::uuid[], 5, null, 'sinov', 2000, null);`);
   tekshir('foiz va summa birga qo‘shiladi', (await narxS()) === 2900, await narxS());
+
+  // Sozlamani qanday bo'lsa - shunday qaytaramiz
+  await sql(`update dori_settings set rounding = ${Number(yaxlitEski) || 0} where id;`);
+  const [{ rounding: yaxlitQaytdi }] = await sql('select rounding from dori_settings where id;');
+  tekshir(
+    'yaxlitlash sozlamasi tiklandi',
+    Number(yaxlitQaytdi) === (Number(yaxlitEski) || 0),
+    yaxlitQaytdi,
+  );
 
   // Umumiy darajada ham summa qo'yish mumkin
   await admin("select dori_price_rule_bulk(array[]::uuid[], null, null, 'sinov', null, null);");
