@@ -52,6 +52,20 @@ export const MAYDON_NOMI: Record<Maydon, string> = {
   made_at: 'Ishlab chiqarilgan sana',
 };
 
+// Bu ustunlar HECH QAYSI maydonga tushmasligi kerak.
+//
+// "Ваш заказ" — mijoz to'ldiradigan bo'sh ustun. Robot uni "miqdor" deb
+// olsa, butun prays bo'ylab miqdor nol bo'lib ketadi. Jonli faylda
+// aynan shunday bo'lgan: saqlangan moslashtirishda qty 2-ustunga,
+// ya'ni "Ваш заказ" ga ishora qilardi.
+//
+// "Сумма заказ" — mijoz yozgan miqdordan hisoblanadigan formula, ya'ni
+// ta'minotchining faktura summasi emas.
+const ETIBORSIZ_USTUNLAR = [
+  'ваш заказ', 'сумма заказ', 'сумма заказа', 'заказ',
+  'sizning buyurtma', 'buyurtma summa',
+];
+
 // Ustun nomini tanish uchun kalit so'zlar. Uzbek (lotin/kirill), rus va
 // ingliz variantlari — postavshchiklar har xil yozadi.
 const KALITLAR: Record<Maydon, string[]> = {
@@ -67,8 +81,11 @@ const KALITLAR: Record<Maydon, string[]> = {
         'миқдор', 'микдор', 'сони', 'дона'],
   unit: ['birlik', "o'lchov", 'olchov', 'ед.изм', 'единица', 'изм', 'unit', 'uom',
          'бирлик', 'ўлчов', 'улчов'],
+  // "сотув нархи", "сотув цена со скидкой/наценкой" — jonli fayllardagi
+  // haqiqiy sarlavhalar. Ular tanilmasa narx ustuni topilmay qolardi.
   price: ['narx', 'narxi', 'baho', 'цена', 'price', 'unit price', 'стоимость за',
-          'нарх', 'нархи', 'нарҳ', 'сотув нарх', 'сотиш нарх', 'баҳо', 'бахо'],
+          'нарх', 'нархи', 'нарҳ', 'сотув нарх', 'сотув нархи', 'сотиш нарх',
+          'сотув цена', 'цена со скидкой', 'наценкой', 'баҳо', 'бахо'],
   sum: ['summa', 'jami', 'qiymat', 'сумма', 'стоимость', 'итого', 'total', 'amount',
         'сумма', 'жами', 'қиймат', 'киймат'],
   nds_rate: ['nds %', 'ndc %', 'qqs %', 'ндс %', 'ставка ндс', 'vat %', 'nds stavka'],
@@ -207,9 +224,13 @@ function ustunniTani(sarlavha: string): Maydon | null {
 // Bitta sarlavha bir necha maydonga o'xshashi mumkin ("Сумма НДС" — ham
 // summa, ham nds). Hammasini ball bilan qaytaramiz, tanlashni keyingi
 // bosqich (ma'lumotni ko'rib) hal qiladi.
-function nomNomzodlari(sarlavha: string): { maydon: Maydon; ball: number }[] {
+// Sinov uchun ochiq: ustun tanish qoidasi eng ko'p xato beradigan joy,
+// uni haqiqiy sarlavhalar bilan tekshirib turish kerak.
+export function nomNomzodlari(sarlavha: string): { maydon: Maydon; ball: number }[] {
   const s = past(sarlavha);
   if (!s) return [];
+  // Mijoz to'ldiradigan ustunlar hech qaysi maydonga tushmaydi
+  if (ETIBORSIZ_USTUNLAR.some((e) => s === e || s.startsWith(e))) return [];
 
   const natija = new Map<Maydon, number>();
   for (const [maydon, kalitlar] of Object.entries(KALITLAR) as [Maydon, string[]][]) {

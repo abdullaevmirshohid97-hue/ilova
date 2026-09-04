@@ -102,8 +102,30 @@ export default function PraysYuklash({ warehouseId, skladNomi, onYakun }: Props)
 
       let yakuniy = n;
       if (shablon?.mapping) {
+        // Shablon robot topganini TO'LDIRADI, almashtirmaydi.
+        //
+        // Avval shablon butun moslashtirishni bosib o'tardi va natijada
+        // shunday bo'ldi: 29-avgustda saqlangan shablonda ishlab
+        // chiqaruvchi yo'q edi; ta'minotchi keyin faylga o'sha ustunni
+        // qo'shdi; robot uni har safar to'g'ri topardi, shablon esa
+        // darrov o'chirib tashlardi. Robot bir marta xato o'rgangan va
+        // hech qachon unutolmasdi.
+        //
+        // Endi: shablonda bor maydon shablonникidan olinadi (odam qo'lda
+        // to'g'rilagan bo'lishi mumkin), shablonda YO'Q maydonni esa
+        // robot topgani bilan to'ldiramiz.
+        const shablonM = shablon.mapping as Moslash;
+        const band = new Set(Object.values(shablonM).filter((x) => x != null) as number[]);
+
+        const m: Moslash = { ...shablonM };
+        for (const [maydon, indeks] of Object.entries(n.moslash) as [Maydon, number][]) {
+          if (m[maydon] !== undefined) continue; // shablonda bor — tegmaymiz
+          if (band.has(indeks)) continue;        // bu ustun allaqachon band
+          m[maydon] = indeks;
+          band.add(indeks);
+        }
+
         const { satrlar } = satrlarniOl(buf, sheetIndex);
-        const m = shablon.mapping as Moslash;
         const q = qatorlarniYig(satrlar, n.sarlavhaQatori, n.ustunlar, m);
         yakuniy = { ...n, moslash: m, ...q };
         setShablonTopildi(true);
@@ -360,6 +382,19 @@ export default function PraysYuklash({ warehouseId, skladNomi, onYakun }: Props)
   const jamiFarq =
     natija?.jamiFayldan != null ? Math.abs(natija.jamiFayldan - natija.jamiHisoblangan) : 0;
 
+  // Prays uchun muhim ustunlar. Nom va narxsiz prays umuman
+  // ma'nosiz; ishlab chiqaruvchi esa mijozga yuboriladigan ro'yxatda
+  // bo'sh ustun bo'lib chiqadi.
+  const MUHIM: { maydon: Maydon; nom: string }[] = [
+    { maydon: 'name', nom: 'Nomi' },
+    { maydon: 'price', nom: 'Narxi' },
+    { maydon: 'manufacturer', nom: 'Ishlab chiqaruvchi' },
+    { maydon: 'expiry', nom: 'Yaroqlilik muddati' },
+  ];
+  const topilmaganlar = natija
+    ? MUHIM.filter((x) => natija.moslash[x.maydon] === undefined)
+    : [];
+
   const btn = 'px-3 py-1.5 text-[11px] font-bold tracking-[0.14em]';
 
   // Qo'lda tanlangani ustun, aks holda robot aytgani
@@ -565,6 +600,26 @@ export default function PraysYuklash({ warehouseId, skladNomi, onYakun }: Props)
               </div>
             )}
           </div>
+
+          {/* Muhim ustun topilmagan bo'lsa — saqlashdan OLDIN aytamiz.
+              Avval bu jimgina o'tib ketardi: prays saqlanar, ishlab
+              chiqaruvchi bo'sh qolar va buni faqat mijozga yuboriladigan
+              eksportni ochganda bilinardi. */}
+          {topilmaganlar.length > 0 && (
+            <div
+              className="mb-3 px-4 py-3"
+              style={{ background: C.panel, border: `1px solid ${C.warn}`, borderRadius: RADIUS }}
+            >
+              <div className="text-[11px] font-bold tracking-[0.14em]" style={{ color: C.warn }}>
+                USTUN TOPILMADI: {topilmaganlar.map((x) => x.nom).join(', ')}
+              </div>
+              <p className="mt-1 text-[12px]" style={{ color: C.text }}>
+                Faylda bu ustun bo‘lsa — pastdagi «USTUNLAR MOSLASHTIRILISHI»
+                qatoridan ko‘rsating. Robot buni eslab qoladi va keyingi safar
+                o‘zi qo‘llaydi.
+              </p>
+            </div>
+          )}
 
           {/* ---------- xulosa ---------- */}
           <div className="mb-3 grid gap-3 md:grid-cols-4">
