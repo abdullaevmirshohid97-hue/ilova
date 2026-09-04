@@ -53,6 +53,24 @@ const SARIQ = 'FFFFFF00';
 /** Sarlavha bloki necha qator egallaydi — ma'lumot shundan keyin boshlanadi */
 export const BOSH_QATOR = 5;
 
+/**
+ * Oxirgi ustun harfi: 7 ustun -> 'G'.
+ *
+ * Avval sarlavha 'A1:F1' deb QO'LDA yozilgan edi. Jadval esa yetti
+ * ustunli, ya'ni ko'k fon G ustuniga yetmay, sarlavhaning o'ng chekkasi
+ * oq bo'lib qolardi. Endi ustun qo'shilsa qamrov o'zi kengayadi.
+ */
+function ustunHarfi(n: number): string {
+  let s = '';
+  let i = n;
+  while (i > 0) {
+    const q = (i - 1) % 26;
+    s = String.fromCharCode(65 + q) + s;
+    i = Math.floor((i - 1) / 26);
+  }
+  return s;
+}
+
 export async function praysKitobi(
   qatorlar: PraysQator[],
   firma: string,
@@ -66,6 +84,9 @@ export async function praysKitobi(
   const ExcelJS = (await import('exceljs')).default;
   const kitob = new ExcelJS.Workbook();
   const v = kitob.addWorksheet('Прайс');
+
+  // Sarlavha butun jadval kengligini egallashi kerak
+  const OXIRGI = ustunHarfi(USTUNLAR.length);
 
   const chegara = {
     top: { style: 'thin' as const },
@@ -100,7 +121,7 @@ export async function praysKitobi(
     v.getColumn(1).width = 14;
   }
 
-  v.mergeCells(logoBor ? 'B1:F1' : 'A1:F1');
+  v.mergeCells(logoBor ? `B1:${OXIRGI}1` : `A1:${OXIRGI}1`);
   const b1 = v.getCell(logoBor ? 'B1' : 'A1');
   b1.value = firma;
   b1.font = { name: 'Arial', size: 22, bold: true, italic: true };
@@ -114,7 +135,7 @@ export async function praysKitobi(
   v.getRow(1).height = logoBor ? 48 : 34;
 
   // ---- hujjat turi ----
-  v.mergeCells(logoBor ? 'B2:F2' : 'A2:F2');
+  v.mergeCells(logoBor ? `B2:${OXIRGI}2` : `A2:${OXIRGI}2`);
   const b2 = v.getCell(logoBor ? 'B2' : 'A2');
   b2.value = 'ПРАЙС ЛИСТ';
   b2.font = { name: 'Arial', size: 18, bold: true };
@@ -123,19 +144,22 @@ export async function praysKitobi(
   v.getRow(2).height = logoBor ? 40 : 26;
 
   // ---- sana va umumiy summa ----
-  v.mergeCells('A3:E3');
+  // Chap qism yorliq va sana, o'ng chekkadagi ikki ustun umumiy summa
+  const SUMMA_BOSH = ustunHarfi(USTUNLAR.length - 1);
+  const CHAP_OXIR = ustunHarfi(USTUNLAR.length - 2);
+  v.mergeCells(`A3:${CHAP_OXIR}3`);
   v.getCell('A3').value = 'Прайс-лист';
-  v.mergeCells('A4:E4');
+  v.mergeCells(`A4:${CHAP_OXIR}4`);
   v.getCell('A4').value = sanaYozuv(sana);
-  v.mergeCells('F3:G3');
-  v.getCell('F3').value = 'Общая сумма';
-  v.mergeCells('F4:G4');
+  v.mergeCells(`${SUMMA_BOSH}3:${OXIRGI}3`);
+  v.getCell(`${SUMMA_BOSH}3`).value = 'Общая сумма';
+  v.mergeCells(`${SUMMA_BOSH}4:${OXIRGI}4`);
 
-  for (const k of ['A3', 'A4', 'F3', 'F4']) {
+  for (const k of ['A3', 'A4', `${SUMMA_BOSH}3`, `${SUMMA_BOSH}4`]) {
     const c = v.getCell(k);
     c.alignment = { horizontal: 'center', vertical: 'middle' };
     c.border = chegara;
-    c.font = { bold: true, italic: k.charAt(0) === 'F' };
+    c.font = { bold: true, italic: k.startsWith(SUMMA_BOSH) };
   }
 
   // ---- ustun sarlavhalari ----
@@ -175,7 +199,7 @@ export async function praysKitobi(
 
   // Umumiy summa — «Сумма заказ» ustuni yig'indisi
   const oxirgi = BOSH_QATOR + qatorlar.length;
-  const jami = v.getCell('F4');
+  const jami = v.getCell(`${SUMMA_BOSH}4`);
   jami.value = { formula: `SUM(E${BOSH_QATOR + 1}:E${oxirgi})` };
   jami.numFmt = '#,##0';
 

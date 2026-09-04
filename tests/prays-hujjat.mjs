@@ -195,6 +195,45 @@ tekshir(
 tekshir('logosiz hujjatda rasm yo‘q', (v.getImages() ?? []).length === 0);
 tekshir('logosiz nom A ustunda', v.getCell('A1').value === 'IDAA FARM');
 
+
+// ---------- 8. Sarlavha foni butun kenglikda ----------
+// Xato: sarlavha 'A1:F1' deb qo'lda yozilgan edi, jadval esa yetti
+// ustunli. Natijada ko'k fon G ustuniga yetmay, sarlavhaning o'ng
+// chekkasi oq bo'lib qolardi — mijozga ketadigan hujjatda ko'zga
+// darrov tashlanadi.
+console.log('\n8. Sarlavha foni');
+
+const OXIRGI_USTUN = 'G'; // 7 ta ustun
+
+tekshir(
+  'firma nomi oxirgi ustungacha birlashtirilgan',
+  (v.getCell('A1').master ?? v.getCell('A1')).address === 'A1' &&
+    v.getCell(OXIRGI_USTUN + '1').isMerged,
+  'G1 birlashmaga kiradi',
+);
+tekshir(
+  'oxirgi ustunda ham ko‘k fon bor',
+  v.getCell(OXIRGI_USTUN + '1').fill?.fgColor?.argb === 'FFB8D9EC',
+  v.getCell(OXIRGI_USTUN + '1').fill?.fgColor?.argb,
+);
+tekshir(
+  '«ПРАЙС ЛИСТ» qatori ham to‘liq',
+  v.getCell(OXIRGI_USTUN + '2').fill?.fgColor?.argb === 'FFB8D9EC',
+  v.getCell(OXIRGI_USTUN + '2').fill?.fgColor?.argb,
+);
+
+// Umumiy summa endi oxirgi ikki ustunda
+tekshir(
+  '«Общая сумма» o‘ng chekkada',
+  v.getCell('F3').value === 'Общая сумма',
+  String(v.getCell('F3').value),
+);
+tekshir(
+  'yig‘indi formulasi o‘sha katakda',
+  (v.getCell('F4').value)?.formula === 'SUM(E6:E8)',
+  (v.getCell('F4').value)?.formula,
+);
+
 console.log('\n' + (yiqildi === 0 ? '\x1b[32mHAMMASI O‘TDI\x1b[0m' : `\x1b[31m${yiqildi} TA XATO\x1b[0m`) + '\n');
 rmSync(ish, { recursive: true, force: true });
 process.exit(yiqildi === 0 ? 0 : 1);
