@@ -662,7 +662,14 @@ const jsonQator = (o) => JSON.stringify(o).replace(/'/g, "''");
   tekshir('partiyalari ham o‘chdi', partiyaQoldi === 0, partiyaQoldi);
 
   // Asosiy skladni almashtirish
-  const [{ id: asosiyEski }] = await sql("select id from dori_warehouses where is_default;");
+  //
+  // Bu bo'lim "asosiy sklad bor" degan jonli holatga tayanardi va u
+  // yo'q bo'lganda sinov butunlay yiqilardi — kod esa to'g'ri edi.
+  // Hozir jonli bazada aynan shunday: 1said ham, 2sadaf ham asosiy
+  // emas. Endi sinov holatni o'zi qo'yadi va oxirida AYNAN qanday
+  // bo'lsa shunday tiklaydi (asosiy yo'q edi — yo'q bo'lib qoladi).
+  const asosiylar = await sql('select id from dori_warehouses where is_default;');
+  const asosiyEski = asosiylar[0]?.id ?? null;
   await admin(`select dori_sklad_asosiy_qil('${wT}');`);
   const [{ n: asosiySoni }] = await sql("select count(*)::int as n from dori_warehouses where is_default;");
   const [{ id: asosiyYangi }] = await sql("select id from dori_warehouses where is_default;");
@@ -674,7 +681,17 @@ const jsonQator = (o) => JSON.stringify(o).replace(/'/g, "''");
   const [{ n: asosiyKeyin }] = await sql("select count(*)::int as n from dori_warehouses where is_default;");
   tekshir('asosiy sklad ham o‘chiriladi', asosiyKeyin === 1, asosiyKeyin);
   await sql(`update dori_warehouses set is_default = false where is_default;`);
-  await sql(`update dori_warehouses set is_default = true where id = '${asosiyEski}';`);
+  if (asosiyEski) {
+    await sql(`update dori_warehouses set is_default = true where id = '${asosiyEski}';`);
+  }
+  const [{ id: asosiyTiklandi }] = await sql(
+    "select coalesce((select id::text from dori_warehouses where is_default), '') as id;",
+  );
+  tekshir(
+    'asosiy sklad sozlamasi tiklandi',
+    (asosiyTiklandi || null) === asosiyEski,
+    asosiyEski ? 'oldingi sklad' : 'asosiy yo‘q edi — yo‘q qoldi',
+  );
 
   // Qoldiq cheklovi
   const [{ id: wC }] = await sql(
@@ -1079,7 +1096,10 @@ const jsonQator = (o) => JSON.stringify(o).replace(/'/g, "''");
   console.log('\n' + (yiqildi === 0 ? '\x1b[32mHAMMASI O‘TDI\x1b[0m' : `\x1b[31m${yiqildi} TA YIQILDI\x1b[0m`) + '\n');
   process.exit(yiqildi === 0 ? 0 : 1);
 })().catch(async (e) => {
-  console.error('\n  XATO: ' + e.message + '\n');
+  // Stek ham chiqadi: "Cannot read properties of undefined" xabari
+  // yolg'iz o'zi qaysi so'rov bo'sh qaytganini aytmaydi va sinovni
+  // qatorma-qator qidirishga to'g'ri kelardi.
+  console.error('\n  XATO: ' + e.message + '\n' + (e.stack ?? '') + '\n');
   await tozala().catch(() => {});
   process.exit(1);
 });

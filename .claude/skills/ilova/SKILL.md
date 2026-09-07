@@ -315,6 +315,43 @@ o'zgaruvchisidan olinadi — aks holda `versiya.json` yolg'on gapiradi.
 
 ---
 
+## 7b. Chekka funksiyalar va faktura
+
+**Deploy:** `powershell -ExecutionPolicy Bypass -File kodchi/edge-deploy-api.ps1 -Funksiya <nom>`
+
+**`verify_jwt` ni majburan `true` qilmang.** Telegram bot chaqiradigan
+funksiyalarda (`dori-faktura`, `telegram-*`, `dori-miniapp`) u `false`.
+Skript endi mavjud qiymatni saqlaydi; qo'lda deploy qilsangiz ham shuni
+tekshiring.
+
+**`SUPABASE_SERVICE_ROLE_KEY` bu loyihada eski `eyJ...` JWT emas,
+yangi `sb_secret_...` kaliti.** Funksiyani `service_role` sifatida
+sinamoqchi bo'lsangiz Management API'dan `type: 'secret'` kalitini oling
+— legacy `service_role` kaliti bilan `FORBIDDEN` qaytadi. Bu bir soat
+noto'g'ri diagnoz berdi.
+
+**Faktura ikki ko'rinishda** (`dori_settings.faktura_uslubi`):
+`1c` buxgalteriya blanki, `oracle` korporativ hisobot. Ikkalasi ham
+`supabase/functions/dori-faktura/index.ts` ichida, tik A4 da. Ustun
+kengligi **nisbat** bilan beriladi (`ulush`) va varaqqa moslanadi —
+piksel yozsangiz ustun qo'shilganda jadval varaqdan chiqadi.
+
+**Faktura sinovi PDF'ni haqiqatan chizadi** (`tests/faktura-dizayn.mjs`):
+chekka funksiya esbuild bilan Node uchun yig'iladi (`npm:` importlar
+mahalliy paketga bog'lanadi, `Deno.serve` qo'g'irchoq). Manba kodini
+grep qilish yetarli emas — jadval varaqdan chiqqanini yoki matn qo'shni
+ustun ustiga yozilganini u ushlamaydi. Chizilgan PDF
+`node_modules/.cache/faktura-namuna/` ga yoziladi, unga **qarang**.
+Panelda ham `rejim: 'namuna'` tugmasi bor — sotuv qilmasdan ko'rish uchun.
+
+**`npm install` ishlatmang.** Loyiha pnpm workspace (`node-linker=hoisted`):
+`react` va boshqalar ildiz `node_modules` ida turadi va npm ularni
+"ortiqcha" deb o'chirib tashlaydi. `pnpm install` ishlating. Sinovga
+kutubxona kerak bo'lsa ildiz `package.json` ning `devDependencies` iga
+yozing.
+
+---
+
 ## 8. Xulosa qilishdan oldin
 
 Bu sessiyada bir necha marta xato tashxis qo'yilgan:

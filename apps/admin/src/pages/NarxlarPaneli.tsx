@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState, useRef } from 'react';
 import { tasdiqlaSoz } from '../components/Xabar';
+import FakturaSozlama from '../components/FakturaSozlama';
 import { C, MONO, RADIUS, sh } from '../lib/sa-tema';
 import { supabase } from '../lib/supabase';
 
@@ -429,6 +430,12 @@ export default function NarxlarPaneli() {
           </span>
         </div>
       </div>
+
+      {/* ---------- faktura ko'rinishi ----------
+          Sotuvdan keyin mijozga boradigan hujjat. Ikki ko'rinish va
+          rekvizitlar alohida komponentda: bu sahifa narx qoidalari
+          haqida, faktura esa boshqa mavzu. */}
+      <FakturaSozlama />
 
       {/* ---------- umumiy ustama ---------- */}
       <div className="mb-4 p-4" style={{ background: C.panel, border: `1px solid ${C.line}`, borderRadius: RADIUS }}>
