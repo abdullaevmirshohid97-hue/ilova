@@ -3,6 +3,7 @@ import { tasdiqlaSoz } from '../components/Xabar';
 import { C, MONO, RADIUS, sh } from '../lib/sa-tema';
 import { supabase, fnXato } from '../lib/supabase';
 import { eskiQoralamaniKochir, useVaraqlar, VARAQ_SONI } from '../lib/varaqlar';
+import SotuvTahrir from '../components/SotuvTahrir';
 
 // ============================================================================
 // SOTUV
@@ -46,11 +47,26 @@ type Topilgan = {
   stock: number | null;
   expiry: string | null;
   series: string | null;
+  /** Bitta pachkadagi dona soni. Doim >= 1 (baza shunday qaytaradi). */
+  pachka: number;
 };
+
+export type Birlik = 'pachka' | 'dona';
 
 // `yoq` — sklad almashtirilgandan keyin bu dori yangi skladda topilmadi.
 // O'chirib yubormaymiz: operator nima tushib qolganini ko'rsin.
-type Savat = Topilgan & { qty: number; yoq?: boolean };
+//
+// `price` DOIM pachka narxi bo'lib qoladi, donaga sotilganda ham.
+// Bo'lingan narxni saqlasak, birlik ikki marta almashtirilganda u
+// yana bo'linib ketardi. Dona narxi kerak bo'lganda hisoblanadi.
+type Savat = Topilgan & { qty: number; birlik: Birlik; yoq?: boolean };
+
+/** Tanlangan birlikdagi bitta dona/pachka narxi */
+function birlikNarx(x: { price: number; pachka: number; birlik: Birlik }): number {
+  // Yuqoriga yaxlitlash bazadagi dori_qator_hisob bilan bir xil:
+  // ekranda va fakturada har xil summa chiqmasin.
+  return x.birlik === 'dona' ? Math.ceil(x.price / Math.max(x.pachka || 1, 1)) : x.price;
+}
 
 type Mijoz = { id: string; name: string | null; phone: string | null; pharmacy: string | null };
 
@@ -133,6 +149,8 @@ export default function DoriSotuv() {
   const [mijozlar, setMijozlar] = useState<Mijoz[]>([]);
   const [oxirgi, setOxirgi] = useState<{ sale_id: string; sale_no: number; total: number; foyda: number } | null>(null);
   const [tarix, setTarix] = useState<Sotuv[]>([]);
+  // Tahrir oynasi qaysi sotuv uchun ochiq
+  const [tahrir, setTahrir] = useState<string | null>(null);
   const [ish, setIsh] = useState<string | null>(null);
   const [xato, setXato] = useState<string | null>(null);
   const [xabar, setXabar] = useState<string | null>(null);
@@ -181,10 +199,21 @@ export default function DoriSotuv() {
     setSavat((p) => {
       const bor = p.find((x) => x.id === d.id);
       if (bor) return p.map((x) => (x.id === d.id ? { ...x, qty: x.qty + 1 } : x));
-      return [...p, { ...d, qty: 1 }];
+      return [...p, { ...d, qty: 1, birlik: 'pachka' as Birlik }];
     });
     setQ('');
     setTopilgan([]);
+  }
+
+  /**
+   * Pachka <-> dona.
+   *
+   * Miqdor QAYTA HISOBLANMAYDI: "2" yozilgan bo'lsa, dona ga o'tganda
+   * ham 2 bo'lib qoladi. Avtomatik 180 ga aylantirish operator
+   * kutmagan summa berardi — u odatda boshqa miqdor yozmoqchi.
+   */
+  function birlikQoy(id: string, birlik: Birlik) {
+    setSavat((p) => p.map((x) => (x.id === id ? { ...x, birlik } : x)));
   }
 
   function miqdorQoy(id: string, v: string) {
@@ -241,6 +270,9 @@ export default function DoriSotuv() {
       return {
         ...x,
         yoq: false,
+        // Birlik SAQLANADI: operator donaga qo'ygan bo'lsa, sklad
+        // almashgani uni pachkaga qaytarib qo'ymasin
+        pachka: Math.max(Number(r.pachka) || 1, 1),
         price: Number(r.price),
         base_price: r.base_price == null ? null : Number(r.base_price),
         stock: r.stock == null ? null : Number(r.stock),
@@ -286,8 +318,16 @@ export default function DoriSotuv() {
 
   // Skladda yo'q pozitsiya summaga kirmaydi: u sotilmaydi, ya'ni
   // hisobda turishi yolg'on raqam berardi
-  const jami = sotiladi.reduce((s, x) => s + x.price * (x.qty || 0), 0);
-  const tannarx = sotiladi.reduce((s, x) => s + Number(x.base_price ?? 0) * (x.qty || 0), 0);
+  const jami = sotiladi.reduce((s, x) => s + birlikNarx(x) * (x.qty || 0), 0);
+  const tannarx = sotiladi.reduce(
+    (s, x) =>
+      s +
+      (x.birlik === 'dona'
+        ? Math.ceil(Number(x.base_price ?? 0) / Math.max(x.pachka || 1, 1))
+        : Number(x.base_price ?? 0)) *
+        (x.qty || 0),
+    0,
+  );
 
   async function sot() {
     if (!sklad) return setXato('Sklad tanlang');
@@ -298,7 +338,7 @@ export default function DoriSotuv() {
           'aks holda faktura savatdan farq qilardi.',
       );
     }
-    const items = sotiladi.map((x) => ({ product_id: x.id, qty: x.qty }));
+    const items = sotiladi.map((x) => ({ product_id: x.id, qty: x.qty, birlik: x.birlik }));
     if (!items.length) return setXato('Dori qo‘shing va miqdorini yozing');
 
     setIsh('Sotuv rasmiylashtirilmoqda...');
@@ -569,6 +609,13 @@ export default function DoriSotuv() {
                       {d.stock != null && <> · qoldiq {son(d.stock)}</>}
                       {d.expiry && <> · muddat {sana(d.expiry)}</>}
                     </span>
+                    {/* Pachkada nechta dona borligi — donaga sotish
+                        tugmasi nima qilishini shu ko'rsatadi */}
+                    {d.pachka > 1 && (
+                      <span className="block text-[11px]" style={{ color: C.neon2 }}>
+                        1 pachka = {d.pachka} dona · dona {son(Math.ceil(d.price / d.pachka))} so‘m
+                      </span>
+                    )}
                   </span>
                   <b className="text-[13px]" style={{ color: C.neon }}>{son(d.price)}</b>
                 </button>
@@ -603,7 +650,7 @@ export default function DoriSotuv() {
               <table className="w-full text-[11px]" style={{ borderCollapse: 'collapse' }}>
                 <thead>
                   <tr style={{ color: sh(C.text, 80) }}>
-                    {['DORI', 'NARX', 'DONA', 'SUMMA', ''].map((h) => (
+                    {['DORI', 'BIRLIK', 'NARX', 'MIQDOR', 'SUMMA', ''].map((h) => (
                       <th key={h} className="px-2 py-1.5 text-left text-[9px] font-bold tracking-[0.14em]"
                           style={{ borderBottom: `1px solid ${C.line}` }}>{h}</th>
                     ))}
@@ -618,19 +665,51 @@ export default function DoriSotuv() {
                         {x.yoq && (
                           <span className="font-bold" style={{ color: C.danger }}> · BU SKLADDA YO‘Q</span>
                         )}
-                        {!x.yoq && x.stock != null && x.qty > x.stock && (
-                          <span style={{ color: C.danger }}> · qoldiq {son(x.stock)}</span>
+                        {/* Qoldiq PACHKADA yuritiladi: donada sotilganda
+                            taqqoslash ham ulushga o'tkaziladi */}
+                        {!x.yoq && x.stock != null &&
+                          (x.birlik === 'dona' ? x.qty / Math.max(x.pachka || 1, 1) : x.qty) > x.stock && (
+                          <span style={{ color: C.danger }}> · qoldiq {son(x.stock)} pachka</span>
+                        )}
+                      </td>
+                      <td className="px-2 py-1.5">
+                        {/* Pachka bo'linmaydigan bo'lsa tanlov ham
+                            ko'rsatilmaydi: bosib bo'lmaydigan tugma
+                            "nega ishlamayapti?" degan savol beradi */}
+                        {x.pachka > 1 ? (
+                          <span className="inline-flex" style={{ border: `1px solid ${C.line}`, borderRadius: RADIUS }}>
+                            {(['pachka', 'dona'] as Birlik[]).map((b) => (
+                              <button
+                                key={b}
+                                onClick={() => birlikQoy(x.id, b)}
+                                className="px-2 py-0.5 text-[10px] font-bold tracking-[0.08em]"
+                                style={{
+                                  color: x.birlik === b ? C.onAccent : C.text,
+                                  background: x.birlik === b ? C.neon2 : 'transparent',
+                                }}
+                              >
+                                {b === 'pachka' ? 'PACHKA' : 'DONA'}
+                              </button>
+                            ))}
+                          </span>
+                        ) : (
+                          <span className="text-[10px]" style={{ color: sh(C.text, 60) }}>dona</span>
+                        )}
+                        {x.pachka > 1 && (
+                          <span className="mt-0.5 block text-[9px]" style={{ color: sh(C.text, 60) }}>
+                            1 × {x.pachka}
+                          </span>
                         )}
                       </td>
                       <td className="px-2 py-1.5" style={{ color: x.yoq ? C.danger : C.text }}>
-                        {x.yoq ? '—' : son(x.price)}
+                        {x.yoq ? '—' : son(birlikNarx(x))}
                       </td>
                       <td className="px-2 py-1.5">
                         <input value={x.qty} onChange={(e) => miqdorQoy(x.id, e.target.value)}
                                className="w-20 px-2 py-1 text-right text-[12px] outline-none" style={inpStyle} />
                       </td>
                       <td className="px-2 py-1.5 font-bold" style={{ color: x.yoq ? C.danger : C.neon }}>
-                        {x.yoq ? '—' : son(x.price * (x.qty || 0))}
+                        {x.yoq ? '—' : son(birlikNarx(x) * (x.qty || 0))}
                       </td>
                       <td className="px-2 py-1.5">
                         <button onClick={() => setSavat((p) => p.filter((y) => y.id !== x.id))}
@@ -746,6 +825,13 @@ export default function DoriSotuv() {
                         style={{ color: C.neon2, border: `1px solid ${C.line}` }}>CHOP</button>
                 <button onClick={() => faktura(s.id, 'pdf')} className="px-2 py-1 text-[10px] font-bold"
                         style={{ color: C.text, border: `1px solid ${C.line}` }}>PDF</button>
+                {/* Tahrir faqat YOPILGAN sotuvga: bekor qilinganning
+                    qoldig'i allaqachon qaytarilgan, tahrir uni ikki
+                    marta qaytarardi */}
+                {s.status === 'done' && (
+                  <button onClick={() => setTahrir(s.id)} className="px-2 py-1 text-[10px] font-bold"
+                          style={{ color: C.warn, border: `1px solid ${C.line}` }}>TAHRIR</button>
+                )}
                 {s.status === 'done' && (
                   <button onClick={() => bekorQil(s)} className="px-2 py-1 text-[10px] font-bold"
                           style={{ color: C.danger, border: `1px solid ${C.line}` }}>BEKOR</button>
@@ -755,6 +841,17 @@ export default function DoriSotuv() {
           ))}
         </div>
       </div>
+
+      {tahrir && (
+        <SotuvTahrir
+          saleId={tahrir}
+          yop={() => setTahrir(null)}
+          tayyor={() => {
+            setXabar('Faktura tahrirlandi — qaytadan chop eting');
+            tarixYukla();
+          }}
+        />
+      )}
     </div>
   );
 }

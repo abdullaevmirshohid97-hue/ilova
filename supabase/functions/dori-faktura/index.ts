@@ -173,6 +173,7 @@ const U_SONI: Ustun = { kalit: 'qty', nom: 'Soni', ulush: 6, tik: 'ong' };
 const U_NARX: Ustun = { kalit: 'price', nom: 'Narxi', ulush: 11, tik: 'ong' };
 const U_SUMMA: Ustun = { kalit: 'sum', nom: 'Summasi', ulush: 13, tik: 'ong' };
 const U_SKLAD: Ustun = { kalit: 'sklad', nom: 'Sklad', ulush: 16, tik: 'chap' };
+const U_BIRLIK: Ustun = { kalit: 'birlik', nom: 'Birlik', ulush: 8, tik: 'mkz' };
 
 /**
  * Ustunlar hujjat turiga VA ma'lumotga qarab tanlanadi.
@@ -199,7 +200,12 @@ function ustunlarniTanla(inv: any): Ustun[] {
   if (inv?.ustunlar === 'yigish') {
     u.push({ ...U_SONI, nom: 'Dona' }, U_SKLAD);
   } else {
-    u.push(U_SONI, U_NARX, U_SUMMA);
+    u.push(U_SONI);
+    // «Birlik» ustuni faqat kerak bo'lganda: hamma qator pachkada
+    // bo'lsa u butun ro'yxat bo'yicha bir xil so'zni takrorlab,
+    // dori nomiga joy qoldirmasdi.
+    if (items.some((i) => i?.birlik === 'dona')) u.push(U_BIRLIK);
+    u.push(U_NARX, U_SUMMA);
   }
   return u;
 }
@@ -220,6 +226,7 @@ function qatorQiymati(it: any, i: number): Record<string, string> {
     made: it?.made_at ? sana(it.made_at) : '—',
     exp: it?.expiry ? sana(it.expiry) : '—',
     qty: miqdor(it?.qty),
+    birlik: it?.birlik === 'dona' ? 'dona' : 'pachka',
     price: pul(it?.price),
     sum: pul(it?.sum),
     sklad: it?.sklad ? String(it.sklad) : '—',
@@ -431,6 +438,11 @@ async function pdf1C(inv: any, firma: any, logo: any): Promise<{ bayt: Uint8Arra
     yoz(`${nomi} № ${inv.faktura_no ?? inv.order_no}`, chapX, y - 13, 15, bold);
     yoz(sanaUzun(inv.created_at), chapX, y - 26, 9.5, font, kul);
     yozOng(HOLAT[inv.status] ?? inv.status ?? '', oxirX, y - 13, 9, bold);
+    // Tahrirlangan hujjat shundayligini AYTADI: mijozdagi oldingi
+    // nusxa bilan bu nusxa farq qiladi va buni yashirish mumkin emas
+    if (Number(inv.tahrirlar) > 0) {
+      yozOng(`Tuzatilgan (${inv.tahrirlar})`, oxirX, y - 25, 7.5, font, kul);
+    }
     y -= 34;
 
     // 1C blankining eng tanish belgisi — qalin ajratgich
@@ -735,7 +747,10 @@ async function pdfOracle(inv: any, firma: any, logo: any): Promise<{ bayt: Uint8
     const kataklar: [string, string][] = [
       ['FAKTURA RAQAMI', `№ ${inv.faktura_no ?? inv.order_no}`],
       ['SANA', sana(inv.created_at)],
-      ['HOLAT', HOLAT[inv.status] ?? String(inv.status ?? '—')],
+      [
+        Number(inv.tahrirlar) > 0 ? `HOLAT · TUZATILGAN (${inv.tahrirlar})` : 'HOLAT',
+        HOLAT[inv.status] ?? String(inv.status ?? '—'),
+      ],
       [
         inv?.ustunlar === 'yigish' ? 'POZITSIYA' : 'JAMI SUMMA',
         inv?.ustunlar === 'yigish'
@@ -1231,6 +1246,8 @@ function namunaFaktura() {
     { name: 'Цефтриаксон 1 г порошок для инъекций', manufacturer: 'Shreya Life Sciences', series: 'CFT-771', expiry: '2027-08-31', qty: 60, price: 12750, sum: 765000 },
     { name: 'Ибупрофен суспензия 100 мг/5 мл 100 мл', manufacturer: 'Реплекфарм А.Д.', series: 'IB-4410', expiry: '2028-01-31', qty: 25, price: 27400, sum: 685000 },
     { name: 'Омепразол 20 мг капсулы №30', manufacturer: 'Sandoz d.d.', series: 'OM-2201', expiry: '2029-02-28', qty: 30, price: 31900, sum: 957000 },
+    // Donaga sotilgan qator: «Birlik» ustuni shunda paydo bo'ladi
+    { name: 'Виусид пор.4.5г.№90', manufacturer: 'Catalysis S.L.', series: 'VS-9012', expiry: '2028-06-30', qty: 10, price: 28947, sum: 289470, birlik: 'dona' },
   ];
   return {
     sarlavha: 'SOTUV FAKTURASI',
@@ -1241,7 +1258,7 @@ function namunaFaktura() {
     total: items.reduce((a, i) => a + i.sum, 0),
     comment: 'Namuna hujjat — ko‘rinishni tanlash uchun',
     customer: { name: '«Shifo» dorixonasi MCHJ', phone: '+998 90 123 45 67', pharmacy: 'Toshkent sh., Chilonzor t.' },
-    items: items.map((it, n) => ({ ...it, line_no: n + 1, made_at: null })),
+    items: items.map((it: any, n: number) => ({ birlik: 'pachka', ...it, line_no: n + 1, made_at: null })),
   };
 }
 
