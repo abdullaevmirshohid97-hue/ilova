@@ -41,7 +41,7 @@ bash infra/tekshir.sh
 Sinovlar (`node tests/<nom>.mjs`): `tenant-ajratish`, `xavfsizlik`, `dizayn`,
 `hujjatlar`, `prays-oqimi`, `prays-hujjat`, `robot-ustunlar`, `qoralama`,
 `yonalishlar`, `panel-yonalish`, `dori-skladlar`, `kritik-yollar`,
-`miniapp-savat`, `tarif`, `faktura-dizayn`.
+`miniapp-savat`, `tarif`, `faktura-dizayn`, `sotuv-varaq`.
 
 ## Uch qoida — buzilsa zarar keladi
 

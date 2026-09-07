@@ -115,8 +115,12 @@ tekshir('tiklanganini bildiradi', /tiklandi/.test(lib));
 // ---------- 3. Sotuv ekranlari ----------
 console.log('\n3. Sotuv ekranlari');
 
+// Dorixona sotuvi bu yerda YO'Q: u bitta savatdan beshta mustaqil
+// varaqqa o'tdi va boshqa saqlagichni ishlatadi (lib/varaqlar.ts,
+// localStorage). Uni tests/sotuv-varaq.mjs tekshiradi. Ikkalasini shu
+// yerda birga ushlab turish "ikkovi bir xil ishlaydi" degan yolg'on
+// da'vo bo'lardi.
 for (const [fayl, nom, kalitlar] of [
-  ['apps/admin/src/pages/DoriSotuv.tsx', 'Dorixona sotuvi', ['dori.sotuv.savat', 'dori.sotuv.mijoz', 'dori.sotuv.izoh']],
   ['apps/admin/src/pages/PosSotuv.tsx', 'B2B kassa', ['pos.savat', 'pos.mijoz', 'pos.izoh', 'pos.chegirma']],
 ]) {
   const src = readFileSync(join(ROOT, fayl), 'utf8');

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { tasdiqlaSoz } from '../components/Xabar';
 import { C, MONO, RADIUS, sh } from '../lib/sa-tema';
 import { supabase, fnXato } from '../lib/supabase';
-import { qoralamalarniTozala, useQoralama } from '../lib/qoralama';
+import { eskiQoralamaniKochir, useVaraqlar, VARAQ_SONI } from '../lib/varaqlar';
 
 // ============================================================================
 // SOTUV
@@ -17,6 +17,23 @@ import { qoralamalarniTozala, useQoralama } from '../lib/qoralama';
 //
 // FOYDA darhol ko'rinadi: mijoz to'laydigan summa, skladga tegishlisi va
 // farqi. Sotuvchi nima bilan savdo qilayotganini bilib tursin.
+//
+// ---------------------------------------------------------------------------
+// BESHTA VARAQ
+//
+// Dorixonada navbat kutmaydi: birinchi mijoz qog'ozini qidirayotganda
+// ikkinchisiniki terilaveradi. Shuning uchun bitta savat emas, beshta
+// mustaqil varaq — har birining o'z skladi, savati, mijozi va izohi.
+//
+// Hech qaysi harakat ma'lumotni yo'qotmaydi: varaq almashtirish, boshqa
+// modulga o'tish, sahifani yangilash, hatto ilovani yopish ham. Varaq
+// faqat IKKI holatda bo'shaydi — sotuv yakunlansa yoki operator o'zi
+// tozalasa. lib/varaqlar.ts ga qarang.
+//
+// Sklad almashtirilganda savat SAQLANADI, lekin narxlar yangi skladdan
+// qayta olinadi: aks holda ekranda bir narx, hujjatda boshqasi chiqardi.
+// Yangi skladda yo'q dori o'chirilmaydi — qizil bo'lib turadi, chunki
+// jimgina yo'qolgan pozitsiyani operator sezmay qoladi.
 // ============================================================================
 
 type Topilgan = {
@@ -31,9 +48,36 @@ type Topilgan = {
   series: string | null;
 };
 
-type Savat = Topilgan & { qty: number };
+// `yoq` — sklad almashtirilgandan keyin bu dori yangi skladda topilmadi.
+// O'chirib yubormaymiz: operator nima tushib qolganini ko'rsin.
+type Savat = Topilgan & { qty: number; yoq?: boolean };
 
 type Mijoz = { id: string; name: string | null; phone: string | null; pharmacy: string | null };
+
+/** Bitta varaqning to'liq holati */
+type Qoralama = {
+  sklad: string;
+  savat: Savat[];
+  mijoz: Mijoz | null;
+  izoh: string;
+};
+
+const BOSH_VARAQ: Qoralama = { sklad: '', savat: [], mijoz: null, izoh: '' };
+
+// Eski bitta savatli qoralamani birinchi varaqqa ko'chirish. Deploy
+// aynan operator savat terib turganda tushishi mumkin — o'sha savat
+// yo'qolmasin. Modul darajasida bir marta: `useVaraqlar` xotirani
+// birinchi renderda o'qiydi, ko'chirish undan oldin bo'lishi kerak.
+let kochirildi = false;
+function birMartaKochir() {
+  if (kochirildi) return;
+  kochirildi = true;
+  eskiQoralamaniKochir<Qoralama>(
+    'dori.sotuv.varaq',
+    { sklad: 'dori.sotuv.sklad', savat: 'dori.sotuv.savat', mijoz: 'dori.sotuv.mijoz', izoh: 'dori.sotuv.izoh' },
+    BOSH_VARAQ,
+  );
+}
 
 type Sotuv = {
   id: string;
@@ -57,18 +101,36 @@ const vaqt = (s: string) =>
   new Date(s).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
 
 export default function DoriSotuv() {
+  birMartaKochir();
+
   const [skladlar, setSkladlar] = useState<{ id: string; name: string; is_default: boolean }[]>([]);
-  // Modul almashganda komponent yo'q qilinadi va holat o'ladi.
-  // Odam yozgan narsa (savat, mijoz, izoh, tanlangan sklad)
-  // sessiyada saqlanadi — lib/qoralama.ts ga qarang.
-  const [sklad, setSklad] = useQoralama('dori.sotuv.sklad', '');
+
+  // Modul almashganda komponent yo'q qilinadi va holat o'ladi. Beshta
+  // varaq ham xotirada turadi — lib/varaqlar.ts.
+  const V = useVaraqlar<Qoralama>('dori.sotuv.varaq', BOSH_VARAQ);
+  const { savat, mijoz, izoh } = V.joriy;
+
+  // Sklad tanlanmagan varaqda standarti ko'rinadi, LEKIN varaqqa
+  // yozilmaydi: yozilsa bo'sh varaq "boshlangan" bo'lib qolardi va
+  // beshala tugma to'lgandek ko'rinardi.
+  const [standartSklad, setStandartSklad] = useState('');
+  const sklad = V.joriy.sklad || standartSklad;
+
+  // Eski `useState` shakli saqlanadi: chaqiruv joylari o'zgarmaydi va
+  // `setSavat((p) => ...)` avvalgidek ishlaydi.
+  function maydon<K extends keyof Qoralama>(k: K) {
+    return (v: Qoralama[K] | ((eski: Qoralama[K]) => Qoralama[K])) =>
+      V.yoz((s) => ({ ...s, [k]: typeof v === 'function' ? (v as (e: Qoralama[K]) => Qoralama[K])(s[k]) : v }));
+  }
+  const setSklad = maydon('sklad');
+  const setSavat = maydon('savat');
+  const setMijoz = maydon('mijoz');
+  const setIzoh = maydon('izoh');
+
   const [q, setQ] = useState('');
   const [topilgan, setTopilgan] = useState<Topilgan[]>([]);
-  const [savat, setSavat, savatQ] = useQoralama<Savat[]>('dori.sotuv.savat', []);
   const [mijozQ, setMijozQ] = useState('');
   const [mijozlar, setMijozlar] = useState<Mijoz[]>([]);
-  const [mijoz, setMijoz] = useQoralama<Mijoz | null>('dori.sotuv.mijoz', null);
-  const [izoh, setIzoh] = useQoralama('dori.sotuv.izoh', '');
   const [oxirgi, setOxirgi] = useState<{ sale_id: string; sale_no: number; total: number; foyda: number } | null>(null);
   const [tarix, setTarix] = useState<Sotuv[]>([]);
   const [ish, setIsh] = useState<string | null>(null);
@@ -85,7 +147,7 @@ export default function DoriSotuv() {
       const { data } = await supabase.rpc('dori_skladlar');
       const r = (data ?? []) as { id: string; name: string; is_default: boolean }[];
       setSkladlar(r);
-      setSklad((o) => o || r.find((x) => x.is_default)?.id || r[0]?.id || '');
+      setStandartSklad(r.find((x) => x.is_default)?.id || r[0]?.id || '');
     })();
     tarixYukla();
   }, [tarixYukla]);
@@ -130,23 +192,113 @@ export default function DoriSotuv() {
     setSavat((p) => p.map((x) => (x.id === id ? { ...x, qty: Number.isFinite(n) ? n : 0 } : x)));
   }
 
+  /**
+   * Skladni almashtirish — savat SAQLANADI.
+   *
+   * Avval savat tozalanardi: bir necha o'nlab pozitsiya terib qo'yib,
+   * noto'g'ri sklad tanlanganini payqash hammasini yo'qotardi.
+   *
+   * Lekin savatni shundoq qoldirib ham bo'lmaydi: narx eski skladniki
+   * bo'lib qolardi, sotuv esa yangi skladdan yaratiladi — ekranda bir
+   * narx, hujjatda boshqasi. Shuning uchun narxlar qayta so'raladi.
+   */
+  async function skladAlmash(yangi: string) {
+    if (!yangi || yangi === sklad) return;
+    setQ('');
+    setTopilgan([]);
+
+    if (savat.length === 0) {
+      setSklad(yangi);
+      return;
+    }
+
+    setIsh('Narxlar yangi skladdan olinmoqda...');
+    setXato(null);
+    const { data, error } = await supabase.rpc('dori_sotuv_narxlar', {
+      p_warehouse_id: yangi,
+      p_ids: savat.map((x) => x.id),
+    });
+    setIsh(null);
+    if (error) {
+      // Sklad ALMASHTIRILMAYDI: narxsiz o'tkazsak savat eski narx bilan
+      // yangi skladda sotilib ketardi
+      setXato('Narxlar olinmadi, sklad almashtirilmadi: ' + error.message);
+      return;
+    }
+
+    const kelgan = new Map(
+      ((data as any[]) ?? []).map((r) => [String(r.id), r]),
+    );
+    let yoqolgan = 0;
+    let ozgargan = 0;
+    const yangiSavat: Savat[] = savat.map((x) => {
+      const r = kelgan.get(x.id);
+      if (!r || r.bor !== true) {
+        yoqolgan++;
+        return { ...x, yoq: true };
+      }
+      if (Number(r.price) !== Number(x.price)) ozgargan++;
+      return {
+        ...x,
+        yoq: false,
+        price: Number(r.price),
+        base_price: r.base_price == null ? null : Number(r.base_price),
+        stock: r.stock == null ? null : Number(r.stock),
+        expiry: r.expiry ?? null,
+        series: r.series ?? null,
+      };
+    });
+
+    V.yoz((s) => ({ ...s, sklad: yangi, savat: yangiSavat }));
+
+    const nom = skladlar.find((w) => w.id === yangi)?.name ?? 'yangi sklad';
+    const qism = [
+      ozgargan ? `${ozgargan} ta narx yangilandi` : null,
+      yoqolgan ? `${yoqolgan} ta dori bu skladda YO‘Q — qizil bilan belgilandi` : null,
+    ].filter(Boolean);
+    setXabar(`Sklad: ${nom}` + (qism.length ? ' · ' + qism.join(' · ') : ' · savat o‘zgarmadi'));
+  }
+
+  async function varaqniTozala() {
+    if (savat.length === 0 && !mijoz && !izoh) return V.tozala();
+    const n = savat.filter((x) => x.qty > 0).length;
+    if (!(await tasdiqlaSoz(`${V.faol + 1}-varaq tozalansinmi? ${n} pozitsiya o‘chadi.`))) return;
+    V.tozala();
+    setQ('');
+    setTopilgan([]);
+    setMijozQ('');
+  }
+
+  const sotiladi = savat.filter((x) => !x.yoq && x.qty > 0);
+  const yoqPozitsiya = savat.filter((x) => x.yoq).length;
+
   // Sotuvga nima yetishmayapti — ekranda ochiq turadi
   const kamlik = !sklad
     ? 'Sklad tanlang'
-    : savat.filter((x) => x.qty > 0).length === 0
+    : sotiladi.length === 0
       ? 'Dori qo‘shing va miqdorini yozing'
-      : !mijoz
-        ? 'Mijoz tanlang — o‘ng tomonda ismi yoki raqamini yozing'
-        : '';
+      : yoqPozitsiya > 0
+        ? `${yoqPozitsiya} ta dori bu skladda yo‘q — ularni o‘chiring yoki skladni qaytaring`
+        : !mijoz
+          ? 'Mijoz tanlang — o‘ng tomonda ismi yoki raqamini yozing'
+          : '';
   const tayyor = kamlik === '';
 
-  const jami = savat.reduce((s, x) => s + x.price * (x.qty || 0), 0);
-  const tannarx = savat.reduce((s, x) => s + Number(x.base_price ?? 0) * (x.qty || 0), 0);
+  // Skladda yo'q pozitsiya summaga kirmaydi: u sotilmaydi, ya'ni
+  // hisobda turishi yolg'on raqam berardi
+  const jami = sotiladi.reduce((s, x) => s + x.price * (x.qty || 0), 0);
+  const tannarx = sotiladi.reduce((s, x) => s + Number(x.base_price ?? 0) * (x.qty || 0), 0);
 
   async function sot() {
     if (!sklad) return setXato('Sklad tanlang');
     if (!mijoz) return setXato('Mijoz tanlang');
-    const items = savat.filter((x) => x.qty > 0).map((x) => ({ product_id: x.id, qty: x.qty }));
+    if (yoqPozitsiya > 0) {
+      return setXato(
+        `${yoqPozitsiya} ta dori tanlangan skladda yo‘q. Ularni o‘chiring yoki skladni qaytaring — ` +
+          'aks holda faktura savatdan farq qilardi.',
+      );
+    }
+    const items = sotiladi.map((x) => ({ product_id: x.id, qty: x.qty }));
     if (!items.length) return setXato('Dori qo‘shing va miqdorini yozing');
 
     setIsh('Sotuv rasmiylashtirilmoqda...');
@@ -190,12 +342,12 @@ export default function DoriSotuv() {
     }
 
     setXabar(`Sotuv №${r.sale_no} rasmiylashtirildi · ${son(r.total)} so‘m · foyda ${son(r.foyda)} so‘m${skladXabar}`);
-    setSavat([]);
-    setIzoh('');
-    setMijoz(null);
-    // Qoralama ham ketsin: aks holda saqlangan savat keyingi safar
-    // yana ochilib qolardi
-    qoralamalarniTozala('dori.sotuv.savat', 'dori.sotuv.mijoz', 'dori.sotuv.izoh');
+    // Varaq YAKUNLANDI — faqat shu payt bo'shaydi. Boshqa varaqlarga
+    // tegilmaydi: ular boshqa mijozlarniki.
+    V.tozala();
+    setQ('');
+    setTopilgan([]);
+    setMijozQ('');
     tarixYukla();
   }
 
@@ -278,7 +430,7 @@ export default function DoriSotuv() {
       {xato && <Xabar rang={C.danger} yop={() => setXato(null)}>{xato}</Xabar>}
       {xabar && <Xabar rang={C.neon} yop={() => setXabar(null)}>{xabar}</Xabar>}
 
-      <div className="mb-4">
+      <div className="mb-3">
         <div className="text-[15px] font-bold tracking-[0.14em]" style={{ color: C.textBright }}>
           SOTUV
         </div>
@@ -286,6 +438,72 @@ export default function DoriSotuv() {
           sklad tanlanadi · dori qidiriladi · miqdor donada · mijoz tanlanadi · faktura
         </div>
       </div>
+
+      {/* ---------- beshta varaq ----------
+          Har biri mustaqil sotuv. Almashtirish hech narsani yo'qotmaydi,
+          varaq faqat sotuv yakunlangach yoki qo'lda tozalangach bo'shaydi. */}
+      <div className="mb-4 flex flex-wrap items-stretch gap-1.5">
+        {Array.from({ length: VARAQ_SONI }, (_, i) => {
+          const v = V.varaqlar[i];
+          const faol = i === V.faol;
+          const n = v ? v.savat.filter((x) => x.qty > 0).length : 0;
+          const summa = v ? v.savat.reduce((s, x) => s + (x.yoq ? 0 : x.price * (x.qty || 0)), 0) : 0;
+          const kim = v?.mijoz?.pharmacy || v?.mijoz?.name || null;
+          return (
+            <button
+              key={i}
+              onClick={() => V.tanla(i)}
+              className="px-3 py-1.5 text-left"
+              style={{
+                minWidth: 132,
+                background: faol ? sh(C.neon, 12) : C.panel,
+                border: `1px solid ${faol ? C.neon : C.line}`,
+                borderRadius: RADIUS,
+              }}
+            >
+              <span className="flex items-center gap-1.5">
+                <b className="text-[12px]" style={{ color: faol ? C.neon : C.text }}>{i + 1}</b>
+                <span className="text-[10px] font-bold tracking-[0.1em]" style={{ color: v ? C.textBright : sh(C.text, 55) }}>
+                  {v ? (kim ?? 'MIJOZSIZ') : 'YANGI SOTUV'}
+                </span>
+              </span>
+              <span className="mt-0.5 block text-[10px]" style={{ color: sh(C.text, 75) }}>
+                {v ? `${n} pozitsiya · ${son(summa)}` : 'bo‘sh'}
+              </span>
+            </button>
+          );
+        })}
+
+        {V.boshlangan(V.faol) && (
+          <button
+            onClick={varaqniTozala}
+            className="px-3 text-[10px] font-bold tracking-[0.12em]"
+            style={{ color: C.danger, border: `1px solid ${C.line}`, borderRadius: RADIUS }}
+          >
+            VARAQNI TOZALASH
+          </button>
+        )}
+      </div>
+
+      {/* Xotiradan tiklanganini bir marta aytamiz: varaqlar o'zi to'lib
+          turgani odamni chalkashtirmasin — "men buni qo'shganmidim?" */}
+      {V.tiklandi && (
+        <div
+          className="mb-3 flex items-center justify-between gap-2 px-3 py-2 text-[11px]"
+          style={{ background: sh(C.neon2, 12), border: `1px solid ${C.neon2}`, borderRadius: RADIUS }}
+        >
+          <span style={{ color: C.textBright }}>
+            Tugallanmagan sotuv tiklandi — {V.varaqlar.filter((x) => x != null).length} ta varaq
+          </span>
+          <button
+            onClick={V.bekorQil}
+            className="px-2 py-1 text-[10px] font-bold tracking-[0.1em]"
+            style={{ color: C.neon2, border: `1px solid ${C.neon2}`, borderRadius: RADIUS }}
+          >
+            TUSHUNARLI
+          </button>
+        </div>
+      )}
 
       {ish && <div className="mb-3 text-[11px]" style={{ color: C.neon2 }}>{ish}</div>}
 
@@ -323,7 +541,8 @@ export default function DoriSotuv() {
           <div className="mb-3 flex flex-wrap items-end gap-2">
             <label className="block">
               <span className="mb-1 block text-[10px]" style={{ color: C.text }}>SKLAD</span>
-              <select value={sklad} onChange={(e) => { setSklad(e.target.value); setSavat([]); setTopilgan([]); }}
+              {/* Savat TOZALANMAYDI — narxlari yangi skladdan qayta olinadi */}
+              <select value={sklad} onChange={(e) => skladAlmash(e.target.value)}
                       className="px-2 py-1.5 text-[12px] outline-none" style={{ ...inpStyle, minWidth: 170 }}>
                 {skladlar.length === 0 && <option value="">— sklad yo‘q —</option>}
                 {skladlar.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
@@ -357,26 +576,20 @@ export default function DoriSotuv() {
             </div>
           )}
 
-          {/* Qoralama tiklanganini aytamiz: savat o'zi to'lib turgani
-              odamni chalkashtirmasin — "men buni qo'shganmidim?" */}
-          {savatQ.tiklandi && savat.length > 0 && (
+          {yoqPozitsiya > 0 && (
             <div
               className="mb-2 flex items-center justify-between gap-2 px-3 py-2 text-[11px]"
-              style={{ background: `${sh(C.neon2, 12)}`, border: `1px solid ${C.neon2}`, borderRadius: RADIUS }}
+              style={{ background: sh(C.danger, 10), border: `1px solid ${C.danger}`, borderRadius: RADIUS }}
             >
               <span style={{ color: C.textBright }}>
-                Tugallanmagan savat tiklandi — {savat.length} pozitsiya
+                {yoqPozitsiya} ta dori bu skladda yo‘q. O‘chiring yoki avvalgi skladga qayting.
               </span>
               <button
-                onClick={() => {
-                  savatQ.tozala();
-                  setIzoh('');
-                  setMijoz(null);
-                }}
+                onClick={() => setSavat((p) => p.filter((x) => !x.yoq))}
                 className="px-2 py-1 text-[10px] font-bold tracking-[0.1em]"
-                style={{ color: C.neon2, border: `1px solid ${C.neon2}`, borderRadius: RADIUS }}
+                style={{ color: C.danger, border: `1px solid ${C.danger}`, borderRadius: RADIUS }}
               >
-                TOZALASH
+                HAMMASINI O‘CHIRISH
               </button>
             </div>
           )}
@@ -398,20 +611,26 @@ export default function DoriSotuv() {
                 </thead>
                 <tbody>
                   {savat.map((x, i) => (
-                    <tr key={x.id} style={{ background: i % 2 ? C.zebra : 'transparent' }}>
+                    <tr key={x.id}
+                        style={{ background: x.yoq ? sh(C.danger, 10) : i % 2 ? C.zebra : 'transparent' }}>
                       <td className="px-2 py-1.5" style={{ color: C.textBright, minWidth: 200 }}>
                         {x.name}
-                        {x.stock != null && x.qty > x.stock && (
+                        {x.yoq && (
+                          <span className="font-bold" style={{ color: C.danger }}> · BU SKLADDA YO‘Q</span>
+                        )}
+                        {!x.yoq && x.stock != null && x.qty > x.stock && (
                           <span style={{ color: C.danger }}> · qoldiq {son(x.stock)}</span>
                         )}
                       </td>
-                      <td className="px-2 py-1.5" style={{ color: C.text }}>{son(x.price)}</td>
+                      <td className="px-2 py-1.5" style={{ color: x.yoq ? C.danger : C.text }}>
+                        {x.yoq ? '—' : son(x.price)}
+                      </td>
                       <td className="px-2 py-1.5">
                         <input value={x.qty} onChange={(e) => miqdorQoy(x.id, e.target.value)}
                                className="w-20 px-2 py-1 text-right text-[12px] outline-none" style={inpStyle} />
                       </td>
-                      <td className="px-2 py-1.5 font-bold" style={{ color: C.neon }}>
-                        {son(x.price * (x.qty || 0))}
+                      <td className="px-2 py-1.5 font-bold" style={{ color: x.yoq ? C.danger : C.neon }}>
+                        {x.yoq ? '—' : son(x.price * (x.qty || 0))}
                       </td>
                       <td className="px-2 py-1.5">
                         <button onClick={() => setSavat((p) => p.filter((y) => y.id !== x.id))}
