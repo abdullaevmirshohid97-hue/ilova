@@ -30,33 +30,11 @@ export function imageUrl(storagePath: string): string {
   return `${url}/storage/v1/object/public/product-images/${storagePath}`;
 }
 
-// DIQQAT: bu yerda toLocaleString/Intl ATAYLAB ishlatilmaydi.
-// Telegram Mini App eski Android WebView'da ochilishi mumkin, u yerda ICU
-// ma'lumotlari kesilgan bo'ladi va 'uz-UZ' kabi locale RangeError tashlaydi.
-// Xato render ichida yuz bergani uchun butun ekran oq bo'lib qolardi.
-// Qo'lda formatlash hech qanday muhitga bog'liq emas.
-
-function guruhla(n: number): string {
-  const butun = Math.round(Math.abs(n)).toString();
-  const bolingan = butun.replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
-  return (n < 0 ? '-' : '') + bolingan;
-}
-
-export function formatSum(n: number | null | undefined): string {
-  if (n == null) return '—';
-  return `${guruhla(Number(n))} so'm`;
-}
-
-export function formatUsd(n: number | null | undefined): string {
-  if (n == null) return '—';
-  return `$${guruhla(Number(n))}`;
-}
-
-/** Miqdor va shunga o'xshash sonlar uchun (valyutasiz) */
-export function formatQty(n: number | null | undefined): string {
-  if (n == null) return '—';
-  return guruhla(Number(n));
-}
+// Narx formatlash lib/valyuta.ts da — bitta manba. Bu yerda faqat qayta
+// eksport: ekranlar avvalgidek '../lib/supabase' dan import qilaveradi.
+// Ikki joyda saqlansa biri o'zgarganda ikkinchisi eskirib qolardi.
+export { formatNarx, formatSum, formatUsd, formatQty, son, kasrXonasi, somdan } from './valyuta';
+export type { Valyuta } from './valyuta';
 
 const ikki = (n: number) => String(n).padStart(2, '0');
 

@@ -10,9 +10,13 @@ export type CartItem = {
   sku: string;
   size: string | null;
   color: string | null;
-  price: number;
-  currency: string; // 'UZS' | 'USD' — my_effective_prices()'dan
-  origPrice: number | null; // valyuta='USD' bo'lsa asl dollar summasi
+  price: number; // so'mdagi narx — buyurtma shu bo'yicha yoziladi
+  currency: string; // narx qaysi valyutada KIRITILGAN (manba)
+  origPrice: number | null; // manba USD bo'lsa asl dollar summasi
+  // Mijozga KO'RSATILADIGAN narx va valyuta. Ikkalasini ham baza
+  // hisoblaydi (my_effective_prices) — ilova taxmin qilmaydi.
+  dispPrice: number;
+  dispCurrency: string;
   qty: number;
   image: string | null;
   maxQty: number; // joriy qoldiq — undan ko'p qo'shib bo'lmaydi
@@ -24,9 +28,12 @@ type CartCtx = {
   setQty: (variantId: string, qty: number) => void;
   remove: (variantId: string) => void;
   clear: () => void;
-  total: number;
+  total: number; // so'mda
+  dispTotal: number; // ko'rsatiladigan valyutada
   count: number;
-  // Mijoz narxlarni qanday ko'rishni xohlaydi ('UZS' | 'USD') — customers.display_currency
+  // Mijoz narxlarni qaysi valyutada ko'radi ('UZS' | 'USD').
+  // mijoz_valyuta() RPC'dan: u kurs yo'qligini ham hisobga oladi —
+  // customers.display_currency ni to'g'ridan-to'g'ri o'qish yetarli emas.
   displayCurrency: string;
 };
 
@@ -46,12 +53,15 @@ export function CartProvider({ children }: { children: ReactNode }) {
       .finally(() => {
         hydrated.current = true;
       });
+    // Amaldagi valyuta — customers.display_currency emas, mijoz_valyuta().
+    // Farqi: mijoz "USD" deb belgilangan bo'lsa ham menejerning kursi
+    // yo'q bo'lsa dollarga o'girib bo'lmaydi va baza so'mga qaytaradi.
+    // Ikkovi ajralib qolsa summa dollarda, yozuvi so'mda chiqardi.
     supabase
-      .from('customers')
-      .select('display_currency')
-      .maybeSingle()
+      .rpc('mijoz_valyuta')
       .then(({ data }) => {
-        if (data) setDisplayCurrency((data as any).display_currency ?? 'UZS');
+        const q = Array.isArray(data) ? data[0] : data;
+        if (q) setDisplayCurrency((q as any).valyuta ?? 'UZS');
       });
   }, []);
 
@@ -63,9 +73,11 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   const api = useMemo<CartCtx>(() => {
     const total = items.reduce((s, i) => s + i.price * i.qty, 0);
+    const dispTotal = items.reduce((s, i) => s + i.dispPrice * i.qty, 0);
     return {
       items,
       total,
+      dispTotal,
       count: items.length,
       displayCurrency,
       add: (item) =>

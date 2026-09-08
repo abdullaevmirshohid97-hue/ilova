@@ -9,7 +9,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { formatSum, formatUsd, supabase } from '../lib/supabase';
+import { formatNarx, formatQty, supabase } from '../lib/supabase';
 import { useCart } from '../lib/cart';
 import { useLanguage } from '../lib/i18n';
 import { xabar } from '../lib/xabar';
@@ -21,25 +21,16 @@ export default function CartScreen({ onOrdered }: { onOrdered: () => void }) {
   const [sending, setSending] = useState(false);
   const [comment, setComment] = useState('');
 
-  // Faqat SAVATDAGI BARCHA qatorlar dollarda narxlangan bo'lsagina jami
-  // dollarda ko'rsatiladi (mijoz display_currency='USD' bo'lsa ham) —
-  // aralash (ba'zisi so'mda) bo'lsa chalkash bo'lmasin uchun so'mda qoladi.
-  const allUsd =
-    cart.displayCurrency === 'USD' &&
-    cart.items.length > 0 &&
-    cart.items.every((i) => i.currency === 'USD' && i.origPrice != null);
-  const usdTotal = allUsd ? cart.items.reduce((s, i) => s + (i.origPrice as number) * i.qty, 0) : null;
+  // Savat mijozning valyutasida ko'rsatiladi. Avval jami faqat BARCHA
+  // qatorlar dollarda narxlangan bo'lsagina dollarda chiqardi — bitta
+  // qator baza narxida bo'lsa butun savat so'mga tushib ketardi.
+  // Endi har qatorning disp_price'i allaqachon bir xil valyutada
+  // (baza hisoblagan), shuning uchun shart kerak emas.
   function fmtItemPrice(i: (typeof cart.items)[number]): string {
-    if (cart.displayCurrency === 'USD' && i.currency === 'USD' && i.origPrice != null) {
-      return formatUsd(i.origPrice);
-    }
-    return formatSum(i.price);
+    return formatNarx(i.dispPrice, i.dispCurrency);
   }
   function fmtItemLineTotal(i: (typeof cart.items)[number]): string {
-    if (cart.displayCurrency === 'USD' && i.currency === 'USD' && i.origPrice != null) {
-      return formatUsd(i.origPrice * i.qty);
-    }
-    return formatSum(i.price * i.qty);
+    return formatNarx(i.dispPrice * i.qty, i.dispCurrency);
   }
 
   async function placeOrder() {
@@ -96,7 +87,7 @@ export default function CartScreen({ onOrdered }: { onOrdered: () => void }) {
                 {[item.size, item.color].filter(Boolean).join(' · ') || item.sku}
               </Text>
               <Text style={s.price}>
-                {fmtItemPrice(item)} × {item.qty.toLocaleString()} = {fmtItemLineTotal(item)}
+                {fmtItemPrice(item)} × {formatQty(item.qty)} = {fmtItemLineTotal(item)}
               </Text>
             </View>
             <View style={s.controls}>
@@ -128,7 +119,9 @@ export default function CartScreen({ onOrdered }: { onOrdered: () => void }) {
         />
         <View style={s.totalRow}>
           <Text style={s.totalLabel}>{t('totalLabel')}</Text>
-          <Text style={s.totalValue}>{usdTotal != null ? formatUsd(usdTotal) : formatSum(cart.total)}</Text>
+          <Text style={s.totalValue}>
+            {formatNarx(cart.dispTotal, cart.displayCurrency)}
+          </Text>
         </View>
         <TouchableOpacity
           style={[s.orderBtn, sending && { opacity: 0.6 }]}

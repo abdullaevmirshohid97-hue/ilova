@@ -15,13 +15,15 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { formatSum, formatUsd, imageUrl, supabase } from '../lib/supabase';
+import { formatNarx, imageUrl, supabase } from '../lib/supabase';
 import { useCart } from '../lib/cart';
 import { useLanguage } from '../lib/i18n';
 import { C } from '../lib/theme';
 
 const PAGE_SIZE = 20;
-const CACHE_KEY = '@ilova/catalog-cache';
+// v2: keshdagi variantlarga disp_price/disp_currency qo'shildi. Kalit
+// almashmasa eski keshdan narxsiz variant kelib, ekranda "—" chiqardi.
+const CACHE_KEY = '@ilova/catalog-cache-v2';
 
 async function saveCache(products: Product[]) {
   try {
@@ -45,20 +47,24 @@ type Variant = {
   sku: string;
   size: string | null;
   color: string | null;
-  price: number;
-  currency: string; // 'UZS' | 'USD' — my_effective_prices()'dan
+  price: number; // so'mdagi narx — buyurtma shu bo'yicha yoziladi
+  currency: string; // narx qaysi valyutada KIRITILGAN (manba)
   origPrice: number | null;
+  // Mijozga ko'rsatiladigan narx va valyuta — my_effective_prices() hisoblaydi
+  dispPrice: number;
+  dispCurrency: string;
   available: number;
 };
 
-// Mijozning display_currency='USD' bo'lib, shu variant HAM dollarda
-// narxlangan bo'lsagina asl dollar summasi ko'rsatiladi — aks holda
-// har doim so'm (chalkash bo'lmasin uchun).
-function fmtVariantPrice(v: Variant, displayCurrency: string): string {
-  if (displayCurrency === 'USD' && v.currency === 'USD' && v.origPrice != null) {
-    return formatUsd(v.origPrice);
-  }
-  return formatSum(v.price);
+// Narx MIJOZNING valyutasida ko'rsatiladi — variant qaysi valyutada
+// narxlangani muhim emas.
+//
+// Avval shart uchta edi: mijoz USD + shu variant USD + asl summa bor.
+// Menejer narx qo'ymagan variant baza narxidan keladi va so'mda
+// bo'ladi — natijada bitta katalogda narxlar aralash chiqardi.
+// Endi o'girishni baza qiladi (my_effective_prices.disp_price).
+function fmtVariantPrice(v: Variant): string {
+  return formatNarx(v.dispPrice, v.dispCurrency);
 }
 
 type Product = {
@@ -130,7 +136,7 @@ function ImageGallery({
 function ProductSheet({ product, onClose }: { product: Product; onClose: () => void }) {
   const cart = useCart();
   const { t } = useLanguage();
-  const { displayCurrency } = cart;
+
   const { width } = useWindowDimensions();
   const isWide = width >= 700;
   const galleryWidth = isWide ? 560 : width;
@@ -152,6 +158,8 @@ function ProductSheet({ product, onClose }: { product: Product; onClose: () => v
       price: selected.price,
       currency: selected.currency,
       origPrice: selected.origPrice,
+      dispPrice: selected.dispPrice,
+      dispCurrency: selected.dispCurrency,
       qty,
       image: product.image,
       maxQty: selected.available,
@@ -188,7 +196,7 @@ function ProductSheet({ product, onClose }: { product: Product; onClose: () => v
               </View>
               <View style={{ alignItems: 'flex-end' }}>
                 <Text style={[ps.variantPrice, out && { color: C.faint }]}>
-                  {fmtVariantPrice(v, displayCurrency)}
+                  {fmtVariantPrice(v)}
                 </Text>
                 <Text style={[ps.variantStock, out && { color: C.red }]}>
                   {out ? t('stockOut') : t('stockAvailable', { n: v.available.toLocaleString() })}
@@ -222,10 +230,7 @@ function ProductSheet({ product, onClose }: { product: Product; onClose: () => v
         <Text style={ps.addBtnText}>
           {qty > 0 && selected != null
             ? t('addToCartWithSum', {
-                sum:
-                  displayCurrency === 'USD' && selected.currency === 'USD' && selected.origPrice != null
-                    ? formatUsd(qty * selected.origPrice)
-                    : formatSum(qty * selected.price),
+                sum: formatNarx(qty * selected.dispPrice, selected.dispCurrency),
               })
             : t('addToCart')}
         </Text>
@@ -268,7 +273,6 @@ function ProductSheet({ product, onClose }: { product: Product; onClose: () => v
 // ---------- Katalog (2 ustunli grid, server qidiruv + sahifalash) ----------
 export default function CatalogScreen() {
   const { t } = useLanguage();
-  const { displayCurrency } = useCart();
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [categoryId, setCategoryId] = useState<string | null>(null);
@@ -309,7 +313,7 @@ export default function CatalogScreen() {
   // yakuniy narxni qaytaradigan my_effective_prices() RPC orqali olinadi.
   // Aks holda mijoz katalogda hali buyurtma bermay turib ham noto'g'ri
   // (baza) narxni ko'rib, chalkashib qolardi.
-  type EffPrice = { price: number; currency: string; origPrice: number | null };
+  type EffPrice = { price: number; currency: string; origPrice: number | null; dispPrice: number; dispCurrency: string };
 
   function mapRow(p: any, priceMap: Map<string, EffPrice>): Product {
     const imgs = (p.product_images ?? []).sort(
@@ -329,6 +333,8 @@ export default function CatalogScreen() {
           price: eff.price,
           currency: eff.currency,
           origPrice: eff.origPrice,
+          dispPrice: eff.dispPrice,
+          dispCurrency: eff.dispCurrency,
           available: Math.max(0, (sl?.qty ?? 0) - (sl?.reserved ?? 0)),
         };
       })
@@ -368,7 +374,15 @@ export default function CatalogScreen() {
     const priceMap = new Map<string, EffPrice>(
       (priceRows ?? []).map((r: any) => [
         r.variant_id,
-        { price: Number(r.price), currency: r.currency ?? 'UZS', origPrice: r.orig_price != null ? Number(r.orig_price) : null },
+        {
+          price: Number(r.price),
+          currency: r.currency ?? 'UZS',
+          origPrice: r.orig_price != null ? Number(r.orig_price) : null,
+          // disp_* bo'lmasa (eski keshdan kelgan javob) so'mdagi narxga
+          // qaytamiz — ekran bo'sh qolmasin
+          dispPrice: r.disp_price != null ? Number(r.disp_price) : Number(r.price),
+          dispCurrency: r.disp_currency ?? 'UZS',
+        },
       ])
     );
     // Mijoz guruhida narxi bo'lmagan mahsulot (barcha variantlari filtrlanib) grid'da chiqmaydi
@@ -549,7 +563,7 @@ export default function CatalogScreen() {
                 </View>
               )}
               <View style={s.cardBody}>
-                <Text style={s.price}>{minVariant != null ? fmtVariantPrice(minVariant, displayCurrency) : '—'}</Text>
+                <Text style={s.price}>{minVariant != null ? fmtVariantPrice(minVariant) : "—"}</Text>
                 <Text style={s.name} numberOfLines={2}>
                   {item.name}
                   {item.model ? ` · ${item.model}` : ''}

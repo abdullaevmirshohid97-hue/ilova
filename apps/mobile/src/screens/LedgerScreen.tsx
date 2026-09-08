@@ -7,7 +7,7 @@ import {
   Text,
   View,
 } from 'react-native';
-import { formatDateTime, formatSum, supabase } from '../lib/supabase';
+import { formatDateTime, formatNarx, somdan, supabase } from '../lib/supabase';
 import { C, LEDGER_KIND } from '../lib/theme';
 import { useLanguage } from '../lib/i18n';
 
@@ -23,18 +23,23 @@ type Entry = {
 export default function LedgerScreen() {
   const { t } = useLanguage();
   const [entries, setEntries] = useState<Entry[]>([]);
-  const [balance, setBalance] = useState(0);
+  const [balance, setBalance] = useState(0); // so'mda — ledger shu bo'yicha
+  // Mijoz ko'radigan valyuta va kurs. Qarz jonli raqam, shuning uchun
+  // joriy kurs bilan o'giriladi (buyurtma summasi esa muzlatilgan).
+  const [valyuta, setValyuta] = useState('UZS');
+  const [kurs, setKurs] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
   const load = useCallback(async () => {
-    const [{ data: rows }, { data: bal }] = await Promise.all([
+    const [{ data: rows }, { data: bal }, { data: val }] = await Promise.all([
       supabase
         .from('ledger_entries')
         .select('id, amount, kind, note, created_at, orders ( order_number )')
         .order('created_at', { ascending: false })
         .limit(100),
       supabase.from('customer_balances').select('balance').maybeSingle(),
+      supabase.rpc('mijoz_valyuta'),
     ]);
     if (rows) {
       setEntries(
@@ -49,6 +54,11 @@ export default function LedgerScreen() {
       );
     }
     setBalance(Number((bal as any)?.balance ?? 0));
+    const v = Array.isArray(val) ? val[0] : val;
+    if (v) {
+      setValyuta((v as any).valyuta ?? 'UZS');
+      setKurs((v as any).kurs != null ? Number((v as any).kurs) : null);
+    }
     setLoading(false);
   }, []);
 
@@ -81,7 +91,7 @@ export default function LedgerScreen() {
           {isDebt ? t('ledgerDebtLabel') : isCredit ? t('ledgerCreditLabel') : t('ledgerNeutralLabel')}
         </Text>
         <Text style={[s.balanceValue, isDebt && { color: C.red }, isCredit && { color: C.green }]}>
-          {formatSum(Math.abs(balance))}
+          {formatNarx(somdan(Math.abs(balance), valyuta, kurs), valyuta)}
         </Text>
         <Text style={s.balanceHint}>
           {isDebt ? t('ledgerDebtHint') : isCredit ? t('ledgerCreditHint') : t('ledgerNeutralHint')}
@@ -118,7 +128,7 @@ export default function LedgerScreen() {
                 {item.note && <Text style={s.rowNote}>{item.note}</Text>}
               </View>
               <Text style={[s.amount, positive ? { color: C.red } : { color: C.green }]}>
-                {positive ? '+' : '−'}{formatSum(Math.abs(item.amount))}
+                {positive ? '+' : '−'}{formatNarx(somdan(Math.abs(item.amount), valyuta, kurs), valyuta)}
               </Text>
             </View>
           );

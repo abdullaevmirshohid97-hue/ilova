@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
-import { formatDateTime, formatQty, formatSum, formatUsd, imageUrl, supabase } from '../lib/supabase';
+import { formatDateTime, formatNarx, formatQty, imageUrl, supabase } from '../lib/supabase';
 import { C, ORDER_STATUS } from '../lib/theme';
 import { useLanguage } from '../lib/i18n';
 import { sorov, xabar } from '../lib/xabar';
@@ -22,9 +22,14 @@ const INVOICE_STATUSES = ['confirmed', 'picking', 'done'];
 
 type OrderItem = {
   qty: number;
-  unit_price: number;
+  unit_price: number; // so'mda — pul hisobi shu bo'yicha
   currency: string;
   orig_price: number | null;
+  // Buyurtma berilgan paytda mijozga KO'RSATILGAN narx va valyuta.
+  // Muzlatilgan: kurs keyin o'zgarsa ham eski buyurtma o'zgarmaydi.
+  disp_price: number;
+  disp_discount: number;
+  disp_currency: string;
   name: string;
   size: string | null;
   color: string | null;
@@ -36,6 +41,8 @@ type Order = {
   order_number: number;
   status: string;
   total: number;
+  disp_total: number;
+  disp_currency: string;
   created_at: string;
   items: OrderItem[];
 };
@@ -50,21 +57,19 @@ export default function OrdersScreen() {
     orgName: string;
     customerName: string;
     customerPhone: string;
-    displayCurrency: string;
     managerName: string | null;
   } | null>(null);
 
   useEffect(() => {
     Promise.all([
       supabase.from('organizations').select('name').maybeSingle(),
-      supabase.from('customers').select('name, phone, display_currency').maybeSingle(),
+      supabase.from('customers').select('name, phone').maybeSingle(),
       supabase.rpc('my_manager_name'),
     ]).then(([{ data: org }, { data: cust }, { data: managerName }]) => {
       setSeller({
         orgName: (org as any)?.name ?? 'YUKCHIBOLLA',
         customerName: (cust as any)?.name ?? '',
         customerPhone: (cust as any)?.phone ?? '',
-        displayCurrency: (cust as any)?.display_currency ?? 'UZS',
         managerName: (managerName as string) ?? null,
       });
     });
@@ -74,8 +79,8 @@ export default function OrdersScreen() {
     const { data, error } = await supabase
       .from('orders')
       .select(
-        `id, order_number, status, total, created_at,
-         order_items ( qty, unit_price, currency, orig_price,
+        `id, order_number, status, total, disp_total, disp_currency, created_at,
+         order_items ( qty, unit_price, currency, orig_price, disp_price, disp_discount, disp_currency,
            product_variants ( size, color, products ( name,
              product_images ( storage_path, thumb_path, is_primary, sort_order )
            ) )
@@ -91,6 +96,8 @@ export default function OrdersScreen() {
           order_number: o.order_number,
           status: o.status,
           total: o.total,
+          disp_total: o.disp_total != null ? Number(o.disp_total) : Number(o.total),
+          disp_currency: o.disp_currency ?? 'UZS',
           created_at: o.created_at,
           items: (o.order_items ?? []).map((it: any) => {
             const imgs = (it.product_variants?.products?.product_images ?? []).sort(
@@ -101,6 +108,9 @@ export default function OrdersScreen() {
               unit_price: it.unit_price,
               currency: it.currency ?? 'UZS',
               orig_price: it.orig_price != null ? Number(it.orig_price) : null,
+              disp_price: it.disp_price != null ? Number(it.disp_price) : Number(it.unit_price),
+              disp_discount: it.disp_discount != null ? Number(it.disp_discount) : 0,
+              disp_currency: it.disp_currency ?? 'UZS',
               name: it.product_variants?.products?.name ?? '—',
               size: it.product_variants?.size ?? null,
               color: it.product_variants?.color ?? null,
@@ -129,15 +139,18 @@ export default function OrdersScreen() {
     };
   }, [load]);
 
-  // Mijoz "faqat dollarda" ko'rsatiladigan bo'lsa VA buyurtmadagi barcha
-  // qatorlar aynan dollarda narxlangan bo'lsa — asl (muzlatilgan) dollar
-  // summasi ko'rsatiladi, so'mdan qayta hisoblanmaydi (yaxlitlash farqi
-  // bo'lmasligi uchun). Aralash (ba'zi qatori so'mda) bo'lsa — so'mda
-  // ko'rsatiladi, chalkash bo'lmasin uchun.
-  function usdTotalOf(order: Order): number | null {
-    if (seller?.displayCurrency !== 'USD' || order.items.length === 0) return null;
-    if (!order.items.every((it) => it.currency === 'USD' && it.orig_price != null)) return null;
-    return order.items.reduce((s, it) => s + (it.orig_price as number) * it.qty, 0);
+  // Buyurtma AYNAN mijoz ko'rgan valyutada ko'rsatiladi. Summa
+  // buyurtma berilganda muzlatilgan (orders.disp_total) — kurs keyin
+  // o'zgarsa ham eski buyurtma o'zgarmaydi.
+  //
+  // Avval bu yerda uchta shart bor edi (mijoz USD + har qator USD +
+  // asl summa bor). Bitta qator baza narxida bo'lsa butun buyurtma
+  // so'mga tushib ketardi. Endi o'girishni baza qiladi.
+  function fmtQator(it: OrderItem): string {
+    return formatNarx(it.disp_price - it.disp_discount, it.disp_currency);
+  }
+  function fmtQatorJami(it: OrderItem): string {
+    return formatNarx((it.disp_price - it.disp_discount) * it.qty, it.disp_currency);
   }
 
   function cancelOrder(order: Order) {
@@ -155,13 +168,11 @@ export default function OrdersScreen() {
   }
 
   function buildInvoiceHtml(order: Order): string {
-    const usdTotal = usdTotalOf(order);
     const dateStr = formatDateTime(order.created_at);
     const rows = order.items
       .map((it) => {
-        const showUsd = usdTotal != null && it.orig_price != null;
-        const unit = showUsd ? formatUsd(it.orig_price) : formatSum(it.unit_price);
-        const lineTotal = showUsd ? formatUsd((it.orig_price as number) * it.qty) : formatSum(it.qty * it.unit_price);
+        const unit = fmtQator(it);
+        const lineTotal = fmtQatorJami(it);
         return `<tr>
           <td>${it.image ? `<img src="${it.image}" style="width:40px;height:40px;object-fit:cover;border-radius:4px" />` : ''}</td>
           <td>${it.name}</td>
@@ -199,7 +210,7 @@ export default function OrdersScreen() {
         </tr></thead>
         <tbody>${rows}</tbody>
       </table>
-      <p class="total">${t('invoiceGrandTotal')}: <b>${usdTotal != null ? formatUsd(usdTotal) : formatSum(order.total)}</b></p>
+      <p class="total">${t('invoiceGrandTotal')}: <b>${formatNarx(order.disp_total, order.disp_currency)}</b></p>
       </body></html>
     `;
   }
@@ -295,7 +306,6 @@ export default function OrdersScreen() {
         renderItem={({ item }) => {
           const st = ORDER_STATUS[item.status];
           const statusLabel = st ? t(st.labelKey) : item.status;
-          const usdTotal = usdTotalOf(item);
           return (
             <View style={s.card}>
               <View style={s.cardHeader}>
@@ -306,7 +316,6 @@ export default function OrdersScreen() {
               </View>
               <Text style={s.date}>{formatDateTime(item.created_at)}</Text>
               {item.items.map((it, idx) => {
-                const showUsd = usdTotal != null && it.orig_price != null;
                 return (
                   <View key={idx} style={s.itemRow}>
                     <Text style={s.itemName} numberOfLines={1}>
@@ -316,14 +325,14 @@ export default function OrdersScreen() {
                         : ''}
                     </Text>
                     <Text style={s.itemQty}>
-                      {formatQty(it.qty)} × {showUsd ? formatUsd(it.orig_price) : formatSum(it.unit_price)}
+                      {formatQty(it.qty)} × {fmtQator(it)}
                     </Text>
                   </View>
                 );
               })}
               <View style={s.totalRow}>
                 <Text style={s.totalLabel}>{t('totalLabel')}</Text>
-                <Text style={s.totalValue}>{usdTotal != null ? formatUsd(usdTotal) : formatSum(item.total)}</Text>
+                <Text style={s.totalValue}>{formatNarx(item.disp_total, item.disp_currency)}</Text>
               </View>
               {item.status === 'new' && (
                 <TouchableOpacity style={s.cancelBtn} onPress={() => cancelOrder(item)}>

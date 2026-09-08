@@ -46,6 +46,23 @@ function NewCustomerModal({ onClose, onCreated }: { onClose: () => void; onCreat
         setGroups((data ?? []) as Group[]);
         if (data?.[0]) setGroupId((data as any)[0].id);
       });
+
+    // Yangi mijozning valyutasi menejerning o'z valyutasidan boshlanadi.
+    // Avval doim "So'mda" turardi: menejer dollarda ishlasa ham har yangi
+    // mijozni qo'lda o'zgartirishi kerak edi va esdan chiqib qolardi.
+    supabase.auth.getUser().then(({ data }) => {
+      const managerId = ((data.user?.user_metadata as any)?.manager_id as string) ?? null;
+      if (!managerId) return;
+      supabase
+        .from('managers')
+        .select('default_currency')
+        .eq('id', managerId)
+        .single()
+        .then(({ data: m }) => {
+          const v = (m as any)?.default_currency;
+          if (v === 'UZS' || v === 'USD') setDisplayCurrency(v);
+        });
+    });
   }, []);
 
   const inputCls =
@@ -137,10 +154,18 @@ function NewCustomerModal({ onClose, onCreated }: { onClose: () => void; onCreat
           </div>
           <div>
             <label className="text-xs font-semibold text-gray-500">MIJOZ NARXNI QANDAY KO'RADI</label>
-            <select value={displayCurrency} onChange={(e) => setDisplayCurrency(e.target.value as 'UZS' | 'USD')} className={inputCls}>
+            <select
+              value={displayCurrency}
+              onChange={(e) => setDisplayCurrency(e.target.value as 'UZS' | 'USD')}
+              className={inputCls}
+            >
               <option value="UZS">So'mda</option>
               <option value="USD">Dollarda ($)</option>
             </select>
+            <p className="mt-1 text-xs text-gray-500">
+              Katalog, savat, buyurtma va qarz — hammasi shu valyutada
+              ko'rinadi. Dollar uchun Sozlamalarda kurs turgan bo'lishi shart.
+            </p>
           </div>
           <div>
             <label className="text-xs font-semibold text-gray-500">PAROL *</label>
@@ -398,6 +423,9 @@ function EditCustomerModal({
                 <option value="UZS">So'mda</option>
                 <option value="USD">Dollarda ($)</option>
               </select>
+              <p className="mt-1 text-xs text-gray-500">
+                Katalog, savat, buyurtma va qarz — hammasi shu valyutada.
+              </p>
             </div>
           </div>
           <div>

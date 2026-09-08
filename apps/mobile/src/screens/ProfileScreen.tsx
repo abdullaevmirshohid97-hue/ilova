@@ -9,7 +9,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { formatSum, phoneToEmail, supabase } from '../lib/supabase';
+import { formatNarx, phoneToEmail, somdan, supabase } from '../lib/supabase';
 import { useLanguage } from '../lib/i18n';
 import { C } from '../lib/theme';
 
@@ -19,7 +19,9 @@ type Profile = {
   region: string | null;
   address: string | null;
   groupName: string | null;
-  balance: number;
+  balance: number; // so'mda — ledger shu bo'yicha
+  valyuta: string; // mijoz ko'radigan valyuta
+  kurs: number | null;
   ordersCount: number;
 };
 
@@ -122,14 +124,18 @@ export default function ProfileScreen() {
   const [refreshing, setRefreshing] = useState(false);
 
   const load = useCallback(async () => {
-    const [{ data: cust }, { data: bal }, { count }] = await Promise.all([
+    const [{ data: cust }, { data: bal }, { count }, { data: val }] = await Promise.all([
       supabase
         .from('customers')
         .select('id, name, phone, region, address, price_groups ( name )')
         .single(),
       supabase.from('customer_balances').select('balance').maybeSingle(),
       supabase.from('orders').select('id', { count: 'exact', head: true }),
+      supabase.rpc('mijoz_valyuta'),
     ]);
+
+    // Qarz jonli raqam — joriy kurs bilan o'giriladi
+    const v: any = Array.isArray(val) ? val[0] : val;
 
     if (cust) {
       setP({
@@ -139,6 +145,8 @@ export default function ProfileScreen() {
         address: (cust as any).address,
         groupName: (cust as any).price_groups?.name ?? null,
         balance: Number((bal as any)?.balance ?? 0),
+        valyuta: v?.valyuta ?? 'UZS',
+        kurs: v?.kurs != null ? Number(v.kurs) : null,
         ordersCount: count ?? 0,
       });
     }
@@ -185,7 +193,7 @@ export default function ProfileScreen() {
       <View style={[s.card, s.balanceCard, hasDebt ? s.debtBorder : s.okBorder]}>
         <Text style={s.balanceLabel}>{hasDebt ? t('profileDebtLabel') : t('profileBalanceLabel')}</Text>
         <Text style={[s.balanceValue, hasDebt ? { color: C.red } : { color: C.green }]}>
-          {formatSum(Math.abs(p.balance))}
+          {formatNarx(somdan(Math.abs(p.balance), p.valyuta, p.kurs), p.valyuta)}
         </Text>
         <Text style={s.balanceHint}>
           {hasDebt ? t('profileDebtHint') : t('profileNoDebtHint')}

@@ -285,6 +285,36 @@ d.toLocaleDateString('ru-RU')   // ICU qirqilgan muhitda RangeError
 Telegram WebView'da shu sababdan ekran **ikki marta** bo'sh qolgan. Oy
 nomlari kerak bo'lsa massiv bilan yozing.
 
+### Qo'lda formatlashda kasrni unutmang
+
+Intl o'rniga yozilgan `guruhla()` sonni butun songa yaxlitlardi:
+
+```ts
+Math.round(Math.abs(n))   // $0.33 → "$0"
+```
+
+So'm uchun to'g'ri edi, dollar uchun **falokat**: menejerning narxlari
+$1 dan kichik ($0.26 … $0.44), ya'ni mijoz katalogda, savatda va
+buyurtmalarida har bir narxni `$0` ko'rardi. Baza to'g'ri, ekran yolg'on.
+
+Endi kasr xonasi valyutadan kelib chiqadi (`lib/valyuta.ts`,
+`kasrXonasi()`). `tests/valyuta.mjs` aynan jonli narxlarni tekshiradi.
+
+### Valyutani ekran hal qilmasin
+
+Avvalgi qoida: dollar faqat «mijoz USD **va** shu variant USD **va**
+asl summa bor» bo'lsa ko'rsatilardi. Menejer narx qo'ymagan variant baza
+narxidan keladi va so'mda bo'ladi — bitta shart buzilishi butun savatni
+so'mga tushirardi.
+
+Endi valyutani **baza** hal qiladi: `my_effective_prices().disp_price`,
+`order_items.disp_price`, `orders.disp_total`. Ekran shunchaki chizadi.
+Buyurtmadagi qiymat muzlatilgan (kurs o'zgarsa eski buyurtma
+o'zgarmaydi), qarz esa jonli — `somdan()` bilan joriy kursda o'giriladi.
+
+Yig'indini `sum(orig_price)` bilan hisoblamang: NULL qator **jimgina**
+tushib qoladi va faktura kam chiqadi (`order_usd_total` shunday edi).
+
 ### Rangni ko'z bilan tanlamang
 
 `text-gray-400` oq fonda 2.54:1 — WCAG talabi 4.5. `tests/dizayn.mjs`

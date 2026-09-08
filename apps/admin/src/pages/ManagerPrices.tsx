@@ -374,7 +374,7 @@ export default function ManagerPrices() {
       </p>
 
       <div className="mt-4 flex flex-wrap items-center gap-3 rounded-xl bg-brand-soft px-4 py-3">
-        <span className="text-sm font-bold text-gray-700">💱 Men savdo qiladigan valyuta:</span>
+        <span className="text-sm font-bold text-gray-700">💱 Narxni qaysi valyutada kiritaman:</span>
         <div className="flex overflow-hidden rounded-lg border border-gray-200">
           <button
             onClick={() => switchDefaultCurrency('UZS')}
@@ -396,8 +396,9 @@ export default function ManagerPrices() {
           </button>
         </div>
         <span className="text-xs text-gray-500">
-          Tanlangan valyuta pastdagi barcha maydonlarda standart bo'ladi — har birida alohida
-          tanlash shart emas.
+          Bu — <b>siz</b> narx kiritadigan valyuta, pastdagi maydonlarda standart bo'ladi.
+          <b> Mijoz</b> narxni qaysi valyutada ko'rishi esa «Mijozlarim» bo'limida, har bir
+          mijoz kartochkasida belgilanadi (yangi mijozga shu tanlov standart bo'ladi).
         </span>
       </div>
 

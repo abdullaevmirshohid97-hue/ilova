@@ -89,9 +89,10 @@ export default function ManagerOrders() {
     let q = supabase
       .from('orders')
       .select(
-        `id, order_number, status, total, created_at,
+        `id, order_number, status, total, disp_total, disp_currency, created_at,
          customers!inner ( name, phone, display_currency ),
          order_items ( qty, unit_price, currency, orig_price, discount,
+           disp_price, disp_discount, disp_currency,
            product_variants ( sku, size, color,
            products ( name, product_images ( storage_path, thumb_path, is_primary, sort_order ) ) ) )`
       )
@@ -106,25 +107,20 @@ export default function ManagerOrders() {
       (data ?? []).map((o: any) => {
         const qatorlar = (o.order_items ?? []) as any[];
 
-        // Dollar faqat mijozning valyutasi USD bo'lsa VA hamma qator USD
-        // bo'lsa ko'rsatiladi — bu qoida bazadagi order_usd_total() va
-        // mobil ilovadagi mantiq bilan bir xil. Chegirmali qator so'mda
-        // qoladi: chegirma so'mda saqlanadi, orig_price'ga tegmaydi.
-        const usd =
-          o.customers?.display_currency === 'USD' &&
-          qatorlar.length > 0 &&
-          qatorlar.every(
-            (it) => it.currency === 'USD' && it.orig_price != null && Number(it.discount ?? 0) === 0
-          );
+        // Buyurtma AYNAN mijoz ko'rgan valyutada. Avval bu yerda uchta
+        // shart bor edi (mijoz USD + har qator USD + chegirma yo'q) —
+        // bittasi buzilsa butun buyurtma so'mga tushardi, menejer esa
+        // mijozga dollarda narx aytgan bo'lardi. Endi o'girishni baza
+        // qiladi va mobil ilova bilan aynan bir xil raqam chiqadi.
+        const valyuta = (o.disp_currency ?? 'UZS') as 'USD' | 'UZS';
+        const usd = valyuta === 'USD';
 
         return {
           id: o.id,
           order_number: o.order_number,
           status: o.status,
-          currency: (usd ? 'USD' : 'UZS') as 'USD' | 'UZS',
-          total: usd
-            ? qatorlar.reduce((s, it) => s + Number(it.orig_price) * it.qty, 0)
-            : Number(o.total),
+          currency: valyuta,
+          total: o.disp_total != null ? Number(o.disp_total) : Number(o.total),
           totalUzs: usd ? Number(o.total) : null,
           created_at: o.created_at,
           customer: o.customers?.name ?? '—',
@@ -135,9 +131,11 @@ export default function ManagerOrders() {
             );
             return {
               qty: it.qty,
-              unit_price: usd
-                ? Number(it.orig_price)
-                : Number(it.unit_price) - Number(it.discount ?? 0),
+              // Chegirma ayirilgan holda — jadvalda qator jami shu bo'yicha
+              unit_price:
+                it.disp_price != null
+                  ? Number(it.disp_price) - Number(it.disp_discount ?? 0)
+                  : Number(it.unit_price) - Number(it.discount ?? 0),
               sku: it.product_variants?.sku ?? '',
               name: it.product_variants?.products?.name ?? '—',
               size: it.product_variants?.size ?? null,
