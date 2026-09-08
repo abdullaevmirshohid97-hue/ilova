@@ -3,6 +3,7 @@ import { tasdiqlaSoz } from '../components/Xabar';
 import { C, MONO, RADIUS, sh } from '../lib/sa-tema';
 import { supabase } from '../lib/supabase';
 import { praysKitobi } from '../lib/prays-eksport';
+import NarxSolishtirish from './NarxSolishtirish';
 
 // ============================================================================
 // DORI — KATALOGNI SKLAD BO'YICHA KO'RISH
@@ -19,6 +20,11 @@ import { praysKitobi } from '../lib/prays-eksport';
 //
 // Arxiv (o'qilgan fayllar nusxasi) ham shu yerda qoladi - u hujjat
 // tarixi, skladga emas, umumiy modulga tegishli.
+//
+// Ikkinchi ko'rinish - SOLISHTIRISH: qator dori nomi, ustun sklad.
+// Katalogda bir xil dori uch skladda uch qatorda turadi va "qaysi
+// skladda arzon?" degan savolga javob berish uchun ko'z bilan qidirish
+// kerak edi. pages/NarxSolishtirish.tsx ga qarang.
 // ============================================================================
 
 type Sklad = { id: string; name: string; is_default: boolean; pozitsiya: number };
@@ -55,7 +61,10 @@ const sana = (s: string | null) => (s ? new Date(s).toLocaleDateString('ru-RU') 
 
 const SAHIFA = 100;
 
+type Korinish = 'katalog' | 'solishtir';
+
 export default function DoriModuli() {
+  const [korinish, setKorinish] = useState<Korinish>('katalog');
   const [skladlar, setSkladlar] = useState<Sklad[]>([]);
   // null = HAMMASI
   const [tanlangan, setTanlangan] = useState<string | null>(null);
@@ -217,12 +226,41 @@ export default function DoriModuli() {
 
       <div className="mb-3">
         <div className="text-[15px] font-bold tracking-[0.14em]" style={{ color: C.textBright }}>
-          DORI KATALOGI
+          {korinish === 'katalog' ? 'DORI KATALOGI' : 'SKLADLAR ARO NARX'}
         </div>
         <div className="text-[11px]" style={{ color: C.text }}>
-          sklad bo‘yicha ko‘rish · prays SKLADLAR bo‘limida, skladning ichida yuklanadi
+          {korinish === 'katalog'
+            ? 'sklad bo‘yicha ko‘rish · prays SKLADLAR bo‘limida, skladning ichida yuklanadi'
+            : 'bir xil nomli dori qaysi skladda arzon — ustunlarda sklad, narx tannarxda'}
         </div>
       </div>
+
+      {/* ---------- ko'rinish ----------
+          Sklad tanlash tugmalaridan ATAYLAB boshqacha: ular pastda,
+          ikki qatorli va asosiy rangda. Bir xil qilinsa ikki qator
+          tugma bir-biriga qo'shilib ketardi. */}
+      <div className="mb-3 inline-flex" style={{ border: `1px solid ${C.line}`, borderRadius: RADIUS }}>
+        {([
+          ['katalog', 'KATALOG'],
+          ['solishtir', 'SOLISHTIRISH'],
+        ] as [Korinish, string][]).map(([k, nom]) => (
+          <button
+            key={k}
+            onClick={() => setKorinish(k)}
+            className="px-3 py-1.5 text-[11px] font-bold tracking-[0.14em]"
+            style={{
+              background: korinish === k ? C.neon2 : 'transparent',
+              color: korinish === k ? C.onAccent : C.text,
+            }}
+          >
+            {nom}
+          </button>
+        ))}
+      </div>
+
+      {korinish === 'solishtir' && <NarxSolishtirish />}
+
+      {korinish === 'katalog' && (<>
 
       {/* ---------- sklad ustunlari ---------- */}
       <div className="mb-3 flex flex-wrap gap-1">
@@ -375,6 +413,8 @@ export default function DoriModuli() {
           </div>
         ))}
       </div>
+
+      </>)}
     </div>
   );
 }

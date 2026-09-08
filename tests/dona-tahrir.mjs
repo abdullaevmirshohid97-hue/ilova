@@ -285,7 +285,10 @@ try {
   const modal = readFileSync(join(ROOT, 'apps/admin/src/components/SotuvTahrir.tsx'), 'utf8');
   const faktura = readFileSync(join(ROOT, 'supabase/functions/dori-faktura/index.ts'), 'utf8');
 
-  tekshir('qidiruvda pachka ko‘rinadi', /1 pachka = \{d\.pachka\} dona/.test(sotuv));
+  // Qidiruv natijasi endi sklad bo'yicha guruhlangan: har qator bitta
+  // skladning taklifi. Tekshiruv o'zgaruvchi nomiga emas, PACHKA
+  // yozuvining ekranda qolganiga bog'liq bo'lsin.
+  tekshir('qidiruvda pachka ko‘rinadi', /1 pachka = \{[a-z]\.pachka\} dona/.test(sotuv));
   tekshir('savatda birlik tanlovi bor', /birlikQoy\(x\.id, b\)/.test(sotuv));
   tekshir(
     'pachka bo‘linmasa tanlov ko‘rsatilmaydi',

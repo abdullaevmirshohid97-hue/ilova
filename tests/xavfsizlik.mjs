@@ -74,6 +74,8 @@ for (const [nom, args] of [
   ['dori_push_mijozlar', { p_q: null }],
   ['dori_narx_hisobla', { p_ids: null }],
   ['dori_katalog_royxat', { p_warehouse_id: null, p_q: null, p_offset: 0, p_limit: 5 }],
+  ['dori_narx_solishtir', { p_q: null, p_faqat_umumiy: true, p_saralash: 'nom', p_offset: 0, p_limit: 5 }],
+  ['dori_sotuv_qidir_skladlar', { p_warehouse_id: null, p_q: 'ana', p_limit: 5 }],
   ['dori_buyurtmalar', { p_limit: 5 }],
 ]) {
   const r = await rpc(null, nom, args);
@@ -102,6 +104,8 @@ if (!token) {
     ['dori_sklad_telegram_royxat', { p_warehouse_id: null }, 'sklad xodimlari'],
     ['dori_sotuv_mijozlar', { p_q: null, p_limit: 5 }, 'mijoz qidiruvi'],
     ['dori_invoice_list', { p_limit: 5 }, 'arxiv'],
+    ['dori_narx_solishtir', { p_q: null, p_faqat_umumiy: true, p_saralash: 'nom', p_offset: 0, p_limit: 5 }, 'skladlar aro TANNARX'],
+    ['dori_sotuv_qidir_skladlar', { p_warehouse_id: null, p_q: 'ana', p_limit: 5 }, 'hamma skladdagi narx'],
   ]) {
     const r = await rpc(token, nom, args);
     tekshir('mijoz → ' + nom, radMi(r), izoh + ' · HTTP ' + r.status);

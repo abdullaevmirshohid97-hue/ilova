@@ -51,6 +51,36 @@ type Topilgan = {
   pachka: number;
 };
 
+// Qidiruv natijasi endi BITTA sklad bilan cheklanmaydi. Mijoz «aspirin
+// bormi?» deb so'raganda operator faqat tanlangan skladni ko'rardi;
+// qo'shni skladda turgani ko'rinmasdi va sotuv qo'ldan ketardi.
+//
+// Har taklif — bitta sklad, bitta narx. Joriy skladniki birinchi turadi.
+type Taklif = Topilgan & { warehouse_id: string; sklad: string };
+
+/** Bir xil nomdagi dorining hamma skladdagi takliflari */
+type Guruh = { nom: string; nom_norm: string; joriyda: boolean; takliflar: Taklif[] };
+
+/**
+ * Taklifdan savat uchun dori. Sklad maydonlari OLIB TASHLANADI: savat
+ * varaqning skladiga tegishli, taklifnikiga emas. Ular saqlanib qolsa,
+ * sklad almashtirilgandan keyin savatda eski sklad nomi turib qolardi.
+ */
+function taklifdanDori(t: Taklif): Topilgan {
+  return {
+    id: t.id,
+    name: t.name,
+    manufacturer: t.manufacturer,
+    unit: t.unit,
+    price: Number(t.price),
+    base_price: t.base_price == null ? null : Number(t.base_price),
+    stock: t.stock == null ? null : Number(t.stock),
+    expiry: t.expiry ?? null,
+    series: t.series ?? null,
+    pachka: Math.max(Number(t.pachka) || 1, 1),
+  };
+}
+
 export type Birlik = 'pachka' | 'dona';
 
 // `yoq` — sklad almashtirilgandan keyin bu dori yangi skladda topilmadi.
@@ -144,7 +174,7 @@ export default function DoriSotuv() {
   const setIzoh = maydon('izoh');
 
   const [q, setQ] = useState('');
-  const [topilgan, setTopilgan] = useState<Topilgan[]>([]);
+  const [guruhlar, setGuruhlar] = useState<Guruh[]>([]);
   const [mijozQ, setMijozQ] = useState('');
   const [mijozlar, setMijozlar] = useState<Mijoz[]>([]);
   const [oxirgi, setOxirgi] = useState<{ sale_id: string; sale_no: number; total: number; foyda: number } | null>(null);
@@ -187,12 +217,37 @@ export default function DoriSotuv() {
 
   async function qidir(s: string) {
     setQ(s);
-    if (!sklad || s.trim().length < 2) { setTopilgan([]); return; }
-    const { data, error } = await supabase.rpc('dori_sotuv_qidir', {
+    if (!sklad || s.trim().length < 2) { setGuruhlar([]); return; }
+    const { data, error } = await supabase.rpc('dori_sotuv_qidir_skladlar', {
       p_warehouse_id: sklad, p_q: s, p_limit: 20,
     });
     if (error) { setXato('Qidiruv xatosi: ' + error.message); return; }
-    setTopilgan((data ?? []) as Topilgan[]);
+    setGuruhlar((data ?? []) as Guruh[]);
+  }
+
+  /**
+   * Ro'yxatdan taklif tanlandi.
+   *
+   * Boshqa skladniki bo'lsa jimgina savatga qo'shib bo'lmaydi: sotuv
+   * VARAQNING skladidan yaratiladi, ya'ni dori boshqa skladdan olingani
+   * bilan hujjatda joriy sklad turardi va narx ham o'shanikiga
+   * almashardi. Shuning uchun avval sklad almashtiriladi — so'rab.
+   */
+  async function taklifniQosh(t: Taklif) {
+    if (t.warehouse_id === sklad) { savatga(taklifdanDori(t)); return; }
+
+    const nom = t.sklad;
+    const ok = await tasdiqlaSoz(
+      `«${t.name}» ${nom} skladida — joriy skladda yo‘q yoki boshqa narxda.\n\n` +
+      `Varaq skladi ${nom} ga almashtirilsinmi?\n` +
+      `Savat saqlanadi, narxlar yangi skladdan qayta olinadi.`,
+    );
+    if (!ok) return;
+
+    // Sklad almashmasa (narx olinmadi) dorini QO'SHMAYMIZ: u eski
+    // skladda boshqa narxda sotilib ketardi
+    if (!(await skladAlmash(t.warehouse_id))) return;
+    savatga(taklifdanDori(t));
   }
 
   function savatga(d: Topilgan) {
@@ -202,7 +257,7 @@ export default function DoriSotuv() {
       return [...p, { ...d, qty: 1, birlik: 'pachka' as Birlik }];
     });
     setQ('');
-    setTopilgan([]);
+    setGuruhlar([]);
   }
 
   /**
@@ -230,15 +285,19 @@ export default function DoriSotuv() {
    * Lekin savatni shundoq qoldirib ham bo'lmaydi: narx eski skladniki
    * bo'lib qolardi, sotuv esa yangi skladdan yaratiladi — ekranda bir
    * narx, hujjatda boshqasi. Shuning uchun narxlar qayta so'raladi.
+   *
+   * ALMASHDIMI degan javob qaytadi: qidiruvdan boshqa sklad taklifi
+   * tanlanganda dori faqat almashish MUVAFFAQIYATLI bo'lsa qo'shiladi.
    */
-  async function skladAlmash(yangi: string) {
-    if (!yangi || yangi === sklad) return;
+  async function skladAlmash(yangi: string): Promise<boolean> {
+    if (!yangi) return false;
+    if (yangi === sklad) return true;
     setQ('');
-    setTopilgan([]);
+    setGuruhlar([]);
 
     if (savat.length === 0) {
       setSklad(yangi);
-      return;
+      return true;
     }
 
     setIsh('Narxlar yangi skladdan olinmoqda...');
@@ -252,7 +311,7 @@ export default function DoriSotuv() {
       // Sklad ALMASHTIRILMAYDI: narxsiz o'tkazsak savat eski narx bilan
       // yangi skladda sotilib ketardi
       setXato('Narxlar olinmadi, sklad almashtirilmadi: ' + error.message);
-      return;
+      return false;
     }
 
     const kelgan = new Map(
@@ -289,6 +348,7 @@ export default function DoriSotuv() {
       yoqolgan ? `${yoqolgan} ta dori bu skladda YO‘Q — qizil bilan belgilandi` : null,
     ].filter(Boolean);
     setXabar(`Sklad: ${nom}` + (qism.length ? ' · ' + qism.join(' · ') : ' · savat o‘zgarmadi'));
+    return true;
   }
 
   async function varaqniTozala() {
@@ -297,7 +357,7 @@ export default function DoriSotuv() {
     if (!(await tasdiqlaSoz(`${V.faol + 1}-varaq tozalansinmi? ${n} pozitsiya o‘chadi.`))) return;
     V.tozala();
     setQ('');
-    setTopilgan([]);
+    setGuruhlar([]);
     setMijozQ('');
   }
 
@@ -386,7 +446,7 @@ export default function DoriSotuv() {
     // tegilmaydi: ular boshqa mijozlarniki.
     V.tozala();
     setQ('');
-    setTopilgan([]);
+    setGuruhlar([]);
     setMijozQ('');
     tarixYukla();
   }
@@ -596,30 +656,70 @@ export default function DoriSotuv() {
             </label>
           </div>
 
-          {topilgan.length > 0 && (
-            <div className="mb-3 grid gap-1" style={{ maxHeight: 220, overflowY: 'auto' }}>
-              {topilgan.map((d) => (
-                <button key={d.id} onClick={() => savatga(d)}
-                        className="flex items-center justify-between gap-3 p-2 text-left"
-                        style={{ border: `1px solid ${C.line}`, background: C.panel2 }}>
-                  <span>
-                    <span className="text-[12px] font-bold" style={{ color: C.textBright }}>{d.name}</span>
-                    <span className="block text-[11px]" style={{ color: C.text }}>
-                      {d.manufacturer ?? '—'}
-                      {d.stock != null && <> · qoldiq {son(d.stock)}</>}
-                      {d.expiry && <> · muddat {sana(d.expiry)}</>}
-                    </span>
-                    {/* Pachkada nechta dona borligi — donaga sotish
-                        tugmasi nima qilishini shu ko'rsatadi */}
-                    {d.pachka > 1 && (
-                      <span className="block text-[11px]" style={{ color: C.neon2 }}>
-                        1 pachka = {d.pachka} dona · dona {son(Math.ceil(d.price / d.pachka))} so‘m
-                      </span>
-                    )}
-                  </span>
-                  <b className="text-[13px]" style={{ color: C.neon }}>{son(d.price)}</b>
-                </button>
-              ))}
+          {/* ---------- qidiruv natijasi: HAMMA SKLAD ----------
+              Mijoz «aspirin bormi?» deb so'raydi — operator uch skladdagi
+              narxni bir qarashda aytib beradi. Joriy sklad birinchi,
+              eng arzoni belgilangan. */}
+          {guruhlar.length > 0 && (
+            <div className="mb-3 grid gap-2" style={{ maxHeight: 300, overflowY: 'auto' }}>
+              {guruhlar.map((g) => {
+                const arzon = Math.min(...g.takliflar.map((t) => Number(t.price)));
+                return (
+                  <div key={g.nom_norm}
+                       style={{ border: `1px solid ${C.line}`, background: C.panel2 }}>
+                    <div className="px-2 py-1 text-[12px] font-bold"
+                         style={{ color: C.textBright, borderBottom: `1px solid ${sh(C.line, 60)}` }}>
+                      {g.nom}
+                      {g.takliflar.length > 1 && (
+                        <span className="ml-1 text-[10px] font-normal" style={{ color: C.neon2 }}>
+                          · {g.takliflar.length} skladda
+                        </span>
+                      )}
+                      {!g.joriyda && (
+                        <span className="ml-1 text-[10px] font-normal" style={{ color: C.warn }}>
+                          · joriy skladda YO‘Q
+                        </span>
+                      )}
+                    </div>
+
+                    {g.takliflar.map((t) => {
+                      const joriy = t.warehouse_id === sklad;
+                      return (
+                        <button
+                          key={t.warehouse_id + t.id}
+                          onClick={() => taklifniQosh(t)}
+                          className="flex w-full items-center justify-between gap-3 px-2 py-1.5 text-left"
+                          style={{ borderTop: `1px solid ${sh(C.line, 40)}` }}
+                          title={joriy ? 'Savatga qo‘shish' : `Sklad ${t.sklad} ga almashtirilib qo‘shiladi`}
+                        >
+                          <span className="min-w-0">
+                            <span className="text-[11px] font-bold tracking-[0.08em]"
+                                  style={{ color: joriy ? C.neon : C.neon2 }}>
+                              {t.sklad}{joriy ? ' ·' : ' ⇄'}
+                            </span>
+                            <span className="ml-1 text-[11px]" style={{ color: C.text }}>
+                              {t.manufacturer ?? '—'}
+                              {t.stock != null && <> · qoldiq {son(t.stock)}</>}
+                              {t.expiry && <> · muddat {sana(t.expiry)}</>}
+                            </span>
+                            {/* Pachkada nechta dona borligi — donaga sotish
+                                tugmasi nima qilishini shu ko'rsatadi */}
+                            {t.pachka > 1 && (
+                              <span className="block text-[10px]" style={{ color: C.neon2 }}>
+                                1 pachka = {t.pachka} dona · dona {son(Math.ceil(Number(t.price) / t.pachka))} so‘m
+                              </span>
+                            )}
+                          </span>
+                          <b className="shrink-0 text-[13px]"
+                             style={{ color: Number(t.price) === arzon ? C.neon : C.textBright }}>
+                            {son(t.price)}
+                          </b>
+                        </button>
+                      );
+                    })}
+                  </div>
+                );
+              })}
             </div>
           )}
 
