@@ -37,6 +37,17 @@ const Managers = lazy(() => import('./pages/Managers'));
 const ManagerApp = lazy(() => import('./components/ManagerApp'));
 const SkladKabinet = lazy(() => import('./pages/SkladKabinet'));
 
+// Dorixona — alohida biznes. Ekranlari avval super admin konsolining
+// ichida edi; endi ular shu yerda, tenant panelida ochiladi.
+const DorixonaQobiq = lazy(() => import('./components/DorixonaQobiq'));
+const DoriModuli = lazy(() => import('./pages/DoriModuli'));
+const DoriSkladlar = lazy(() => import('./pages/DoriSkladlar'));
+const DoriSotuv = lazy(() => import('./pages/DoriSotuv'));
+const DoriBuyurtmalar = lazy(() => import('./pages/DoriBuyurtmalar'));
+const DoriMoslik = lazy(() => import('./pages/DoriMoslik'));
+const NarxlarPaneli = lazy(() => import('./pages/NarxlarPaneli'));
+const DoriMijozlar = lazy(() => import('./pages/DoriMijozlar'));
+
 function Yuklanmoqda() {
   return (
     <div className="flex h-full min-h-[60vh] items-center justify-center text-gray-500">
@@ -293,6 +304,24 @@ function AppIchki() {
       onYonalishlar={() => setYonalish(null)}
     >
       <Suspense fallback={<Yuklanmoqda />}>
+        {/* Dorixona o'z ekranlariga ega va ular konsol uslubida
+            chizilgan — shuning uchun alohida qobiq va alohida
+            marshrutlar. Qolgan yo'nalishlar ulgurji savdo
+            sahifalarini ko'radi. */}
+        {ochiq.key === 'dorixona' ? (
+          <DorixonaQobiq>
+            <Routes>
+              <Route path="/dori" element={<DoriModuli />} />
+              <Route path="/dori/skladlar" element={<DoriSkladlar />} />
+              <Route path="/dori/sotuv" element={<DoriSotuv />} />
+              <Route path="/dori/buyurtmalar" element={<DoriBuyurtmalar />} />
+              <Route path="/dori/moslik" element={<DoriMoslik />} />
+              <Route path="/dori/narxlar" element={<NarxlarPaneli />} />
+              <Route path="/dori/mijozlar" element={<DoriMijozlar />} />
+              <Route path="*" element={<Navigate to="/dori" replace />} />
+            </Routes>
+          </DorixonaQobiq>
+        ) : (
         <Routes>
           <Route path="/" element={<Dashboard />} />
           <Route path="/pos" element={<PosSotuv />} />
@@ -311,6 +340,7 @@ function AppIchki() {
           <Route path="/settings" element={<Settings />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
+        )}
       </Suspense>
     </Layout>
   );

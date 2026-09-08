@@ -44,13 +44,10 @@ Deno.serve(async (req) => {
   if (!user) return json({ error: 'UNAUTHENTICATED' }, 401);
 
   const admin = createClient(url, serviceKey);
-  const { data: profil } = await admin
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .maybeSingle();
-
-  if ((profil as any)?.role !== 'super_admin') return json({ error: 'RUXSAT_YOQ' }, 403);
+  // Dorixona alohida biznes: super admin ham, o'sha tenantning
+  // admini ham kira oladi. Qoida bazada — dori_ruxsat_uid().
+  const { data: ruxsat } = await admin.rpc('dori_ruxsat_uid', { p_uid: user.id });
+  if (ruxsat !== true) return json({ error: 'RUXSAT_YOQ' }, 403);
 
   let body: any = {};
   try {

@@ -43,6 +43,20 @@ const B2B_MODULLAR: TenantModul[] = [
   { to: '/settings', icon: '⚙️', label: 'Sozlamalar' },
 ];
 
+// Dorixona tizimi. Ilgari bu ro'yxat super admin konsolining ichida
+// (SuperAdminPanel.tsx) turardi — dorixona esa alohida biznes, uning
+// joyi tenant panelida. Tartib o'sha ekrandagidek qoldirilgan:
+// operatorlar shu ketma-ketlikka o'rgangan.
+const DORIXONA_MODULLAR: TenantModul[] = [
+  { to: '/dori', icon: '⚕️', label: 'Dori katalogi' },
+  { to: '/dori/skladlar', icon: '🏬', label: 'Skladlar' },
+  { to: '/dori/sotuv', icon: '🧾', label: 'Sotuv' },
+  { to: '/dori/buyurtmalar', icon: '⇄', label: 'Buyurtmalar' },
+  { to: '/dori/moslik', icon: '⊜', label: 'Moslashtirish' },
+  { to: '/dori/narxlar', icon: '₴', label: 'Narx qo‘yish' },
+  { to: '/dori/mijozlar', icon: '☎', label: 'Mijozlar' },
+];
+
 export const TENANT_YONALISHLAR: TenantYonalish[] = [
   {
     key: 'b2b',
@@ -56,10 +70,11 @@ export const TENANT_YONALISHLAR: TenantYonalish[] = [
     belgi: '⚕️',
     nom: 'DORIXONA',
     izoh: 'dori katalogi, skladlar, sotuv',
-    // Bo'sh: dori tizimi hozircha bitta biznesga bog'langan (26 jadvalning
-    // birortasida org_id yo'q). Tenantga ochish uchun avval ular
-    // tenantlarga ajratilishi kerak - alohida ish.
-    modullar: [],
+    // Avval bo'sh edi: dori tizimi super admin konsolining ichida
+    // turardi. Endi u alohida biznes - boshqa tenantlar bilan bir
+    // qatorda. Kim kirishini bazadagi `dori_ruxsat()` hal qiladi:
+    // dorixona AYNAN qaysi tenantniki bo'lsa, o'shaning admini.
+    modullar: DORIXONA_MODULLAR,
   },
   { key: 'sklad', belgi: '📦', nom: 'SKLAD', izoh: 'ombor va qoldiq boshqaruvi', modullar: [] },
   {

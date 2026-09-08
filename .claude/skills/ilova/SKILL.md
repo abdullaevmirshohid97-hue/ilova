@@ -76,6 +76,29 @@ bizning bucket'ga kira olmaydi.
 Diqqat: bucket yopilgandan keyin ham CDN keshidagi eski nusxa bir muddat
 xizmat qiladi.
 
+### Dorixonada `is_super_admin()` ishlatmang
+
+Dorixona endi alohida biznes — super admin konsolida emas, tenant
+panelida. Kim kirishini `dori_ruxsat()` hal qiladi: super admin, yoki
+`dori_settings.org_id` da turgan tenantning admini.
+
+```sql
+if not is_super_admin() then raise exception 'RUXSAT_YOQ'; end if;  -- NOTO'G'RI
+if not dori_ruxsat()    then raise exception 'RUXSAT_YOQ'; end if;  -- to'g'ri
+```
+
+Yangi `dori_*` funksiya eski tekshiruv bilan yozilsa, kod ishlaydi,
+build o'tadi, sinov ham yashil qoladi — lekin **dorixona admini o'sha
+bitta ekranni ocholmaydi** va buni faqat foydalanuvchi topadi.
+`tests/dorixona-tenant.mjs` shuni qo'riqlaydi.
+
+Chekka funksiyalarda `dori_ruxsat_uid(uid)` — ular service_role bilan
+ishlaydi, ya'ni `auth.uid()` null bo'ladi.
+
+Dorixona hozircha BITTA. Ikkinchisi qo'shilsa u hech narsa ko'rmaydi
+(sizmaydi, shunchaki ochilmaydi) — ko'p dorixona kerak bo'lganda 27
+jadvalga `org_id` qo'shish alohida ish.
+
 ### Yangi jadval qo'shsangiz
 
 `org_id` + RLS **birinchi kundan**, va darhol `tests/tenant-ajratish.mjs`

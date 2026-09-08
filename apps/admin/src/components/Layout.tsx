@@ -40,6 +40,15 @@ const TITLES: Record<string, string> = {
   '/reports': 'Hisobotlar',
   '/maosh': 'Maosh va xodimlar',
   '/settings': 'Sozlamalar',
+  // Dorixona — alohida biznes. Sarlavhasiz qolsa yuqori qatorda bo'sh
+  // joy turardi va odam qaysi ekranda ekanini bilmasdi.
+  '/dori': 'Dori katalogi',
+  '/dori/skladlar': 'Skladlar',
+  '/dori/sotuv': 'Sotuv',
+  '/dori/buyurtmalar': 'Buyurtmalar',
+  '/dori/moslik': 'Moslashtirish',
+  '/dori/narxlar': 'Narx qo‘yish',
+  '/dori/mijozlar': 'Dorixona mijozlari',
 };
 
 // Sidebar ichidagi tarkib — ham doimiy (planshet/kompyuter) sidebar'da,

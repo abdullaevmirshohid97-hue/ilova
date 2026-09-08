@@ -44,8 +44,9 @@ Deno.serve(async (req) => {
     const { data: u } = await supabase.auth.getUser(auth);
     const uid = u?.user?.id;
     if (uid) {
-      const { data: p } = await supabase.from('profiles').select('role').eq('id', uid).maybeSingle();
-      ruxsat = (p as any)?.role === 'super_admin';
+      // Super admin yoki dorixona tenantining admini
+      const { data: ok } = await supabase.rpc('dori_ruxsat_uid', { p_uid: uid });
+      ruxsat = ok === true;
     }
   }
   if (!ruxsat) return new Response(JSON.stringify({ error: 'RUXSAT_YOQ' }), { status: 403, headers: cors });

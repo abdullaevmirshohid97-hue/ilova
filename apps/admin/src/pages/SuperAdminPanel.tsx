@@ -3,13 +3,6 @@ import { xabarKorsat } from '../components/Xabar';
 import { C, KESIM, KESIM_KICHIK, MONO, RADIUS, TEMALAR, sh, temaCssniUlash, temaniOl, temaniQoy, type Tema } from '../lib/sa-tema';
 import { formatDate, genPassword, supabase, fnXato } from '../lib/supabase';
 import NazoratMarkazi from '../components/NazoratMarkazi';
-import DoriModuli from './DoriModuli';
-import NarxlarPaneli from './NarxlarPaneli';
-import DoriMijozlar from './DoriMijozlar';
-import DoriSkladlar from './DoriSkladlar';
-import DoriBuyurtmalar from './DoriBuyurtmalar';
-import DoriMoslik from './DoriMoslik';
-import DoriSotuv from './DoriSotuv';
 import TenantKartochka from './TenantKartochka';
 import { TENANT_YONALISHLAR, yonalishTop } from '../lib/yonalishlar';
 
@@ -21,7 +14,7 @@ import { TENANT_YONALISHLAR, yonalishTop } from '../lib/yonalishlar';
 // ============================================================================
 
 
-type Bolim = 'tenantlar' | 'nazorat' | 'dori' | 'skladlar' | 'sotuv' | 'buyurtmalar' | 'moslik' | 'narxlar' | 'mijozlar';
+type Bolim = 'tenantlar' | 'nazorat';
 
 type Modul = { key: Bolim; belgi: string; nom: string; izoh: string };
 
@@ -43,22 +36,6 @@ type Yonalish = {
 // ro'yxat aralashib ketardi — qaysi modul qaysi biznesniki ekani bilinmasdi.
 // ---------------------------------------------------------------------------
 const YONALISHLAR: Yonalish[] = [
-  {
-    key: 'dorixona',
-    belgi: '⚕',
-    nom: 'DORI-DORIXONA',
-    izoh: 'ulgurji dori savdosi',
-    rang: C.neon,
-    modullar: [
-      { key: 'dori', belgi: '⚕', nom: 'DORI', izoh: 'katalog, sklad ustunlari' },
-      { key: 'skladlar', belgi: '▥', nom: 'SKLADLAR', izoh: 'omborlar va prays' },
-      { key: 'sotuv', belgi: '₮', nom: 'SOTUV', izoh: 'sklad -> mijoz, faktura' },
-      { key: 'buyurtmalar', belgi: '⇄', nom: 'BUYURTMALAR', izoh: 'skladlarga taqsimot' },
-      { key: 'moslik', belgi: '⊜', nom: 'MOSLASHTIRISH', izoh: 'bir xil dorini tanish' },
-      { key: 'narxlar', belgi: '₴', nom: 'NARX QO‘YISH', izoh: 'ustama va chegirma' },
-      { key: 'mijozlar', belgi: '☎', nom: 'MIJOZLAR', izoh: 'dorixonalar va login' },
-    ],
-  },
   {
     key: 'tizim',
     belgi: '▤',
@@ -944,13 +921,6 @@ export default function SuperAdminPanel() {
         </div>
 
         <main className="min-w-0 flex-1 space-y-5 p-6">
-          {bolim === 'dori' && <DoriModuli />}
-          {bolim === 'skladlar' && <DoriSkladlar />}
-          {bolim === 'sotuv' && <DoriSotuv />}
-          {bolim === 'buyurtmalar' && <DoriBuyurtmalar />}
-          {bolim === 'moslik' && <DoriMoslik />}
-          {bolim === 'narxlar' && <NarxlarPaneli />}
-          {bolim === 'mijozlar' && <DoriMijozlar />}
           {bolim === 'nazorat' && <NazoratMarkazi />}
 
           {bolim === 'tenantlar' && kartochka && (

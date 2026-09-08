@@ -47,9 +47,16 @@ const modullar = [...yonMatn.matchAll(/modullar: \[([\s\S]*?)\n {4}\]/g)]
   .flatMap((blok) => [...blok[1].matchAll(/\{ key: '([a-z_]+)'/g)].map((m) => m[1]));
 const yonalishlar = [...yonMatn.matchAll(/\n  \{\s*\n?\s*key: '([a-z0-9_]+)'/g)].map((m) => m[1]);
 
-tekshir('yo‘nalish soni 5 ta', yonalishlar.length === 5, yonalishlar.join(', '));
-tekshir('DORI-DORIXONA bor', /nom: 'DORI-DORIXONA'/.test(yonMatn));
+// Dorixona bu konsoldan KO'CHDI — u alohida biznes va tenant
+// panelida turadi. Shuning uchun bu yerda to'rtta yo'nalish qoldi:
+// TIZIM va uchta "tez orada".
+tekshir('yo‘nalish soni 4 ta', yonalishlar.length === 4, yonalishlar.join(', '));
 tekshir('TIZIM bor', /nom: 'TIZIM'/.test(yonMatn));
+tekshir(
+  'dorixona konsoldan ko‘chgan',
+  !/DORI-DORIXONA/.test(src) && !/DoriModuli|DoriSotuv|DoriSkladlar/.test(src),
+  'super admin faqat o‘z ishini qilsin',
+);
 
 // ---------- 3. Ekranda chizilishi ----------
 const chizilgan = [...src.matchAll(/bolim === '([a-z]+)'/g)].map((m) => m[1]);
@@ -70,10 +77,19 @@ for (const m of modullar) {
 
 // ---------- 5. Dorixona yo'nalishi to'liqmi ----------
 // Foydalanuvchi aynan shu yettitasini bitta joyga yig'ishni so'ragan.
-const KUTILGAN = ['dori', 'skladlar', 'sotuv', 'buyurtmalar', 'moslik', 'narxlar', 'mijozlar'];
-const dorixona = yonMatn.slice(yonMatn.indexOf("key: 'dorixona'"), yonMatn.indexOf("key: 'tizim'"));
+// Ro'yxat endi TENANT tomonida (lib/yonalishlar.ts): dorixona alohida
+// biznes bo'ldi. Talab o'zgarmadi, joyi o'zgardi — shuning uchun
+// tekshiruv ham o'sha faylga qaraydi.
+const YOL_FAYL = 'apps/admin/src/lib/yonalishlar.ts';
+const yolSrc = readFileSync(join(ROOT, YOL_FAYL), 'utf8');
+const dorixonaBlok = yolSrc.slice(
+  yolSrc.indexOf('const DORIXONA_MODULLAR'),
+  yolSrc.indexOf('export const TENANT_YONALISHLAR'),
+);
+const KUTILGAN = ['/dori', '/dori/skladlar', '/dori/sotuv', '/dori/buyurtmalar',
+                  '/dori/moslik', '/dori/narxlar', '/dori/mijozlar'];
 for (const k of KUTILGAN) {
-  tekshir(`dorixona ichida: ${k}`, new RegExp(`key: '${k}'`).test(dorixona));
+  tekshir(`dorixona ichida: ${k}`, new RegExp(`to: '${k}'`).test(dorixonaBlok));
 }
 
 // ---------- 6. Yo'nalishdan chiqish yo'li bormi ----------

@@ -42,12 +42,9 @@ Deno.serve(async (req) => {
   const uid = u?.user?.id;
   if (!uid) return json({ error: 'RUXSAT_YOQ' }, 403);
 
-  const { data: p } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', uid)
-    .maybeSingle();
-  if ((p as any)?.role !== 'super_admin') return json({ error: 'RUXSAT_YOQ' }, 403);
+  // Super admin yoki dorixona tenantining admini — qoida bazada
+  const { data: ruxsat } = await supabase.rpc('dori_ruxsat_uid', { p_uid: uid });
+  if (ruxsat !== true) return json({ error: 'RUXSAT_YOQ' }, 403);
 
   let body: any = {};
   try {

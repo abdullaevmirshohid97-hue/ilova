@@ -8,7 +8,9 @@
 //
 // XAVFSIZLIK: verify_jwt = TRUE, ya'ni Supabase darvozasi yaroqsiz
 // tokenni bu yergacha o'tkazmaydi. Ustiga chaqiruvchi kimligi
-// tekshiriladi: service_role kaliti yoki super_admin. Oddiy mijoz
+// tekshiriladi: service_role kaliti yoki dorixonaga ruxsati bor
+// foydalanuvchi (super admin yoxud dorixona tenantining admini —
+// qoida bazada, dori_ruxsat_uid). Oddiy mijoz
 // (u ham authenticated bo'lishi mumkin) boshqa odamning buyurtmasini
 // skladlarga yuborib yubormasin.
 //
@@ -73,12 +75,9 @@ Deno.serve(async (req) => {
     const { data: user } = await supabase.auth.getUser(auth);
     const uid = user?.user?.id;
     if (uid) {
-      const { data: p } = await supabase
-        .from('profiles')
-        .select('role')
-        .eq('id', uid)
-        .maybeSingle();
-      ruxsat = (p as any)?.role === 'super_admin';
+      // Super admin yoki dorixona tenantining admini
+      const { data: ok } = await supabase.rpc('dori_ruxsat_uid', { p_uid: uid });
+      ruxsat = ok === true;
     }
   }
 

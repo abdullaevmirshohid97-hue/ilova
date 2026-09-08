@@ -1281,14 +1281,21 @@ Deno.serve(async (req) => {
     return new Response('BAD_JSON', { status: 400 });
   }
 
-  /** service_role kaliti yoki super admin JWT'si */
-  async function superAdminmi(): Promise<boolean> {
+  /**
+   * service_role kaliti yoki DORIXONAGA ruxsati bor foydalanuvchi.
+   *
+   * Avval faqat super admin edi. Dorixona endi alohida biznes —
+   * uning tenant admini ham fakturani chiqara olishi kerak. Kim
+   * kirishini baza hal qiladi (dori_ruxsat_uid), ya'ni qoida bitta
+   * joyda turadi.
+   */
+  async function ruxsatmi(): Promise<boolean> {
     if (auth === serviceKey) return true;
     const { data: u } = await supabase.auth.getUser(auth);
     const uid = u?.user?.id;
     if (!uid) return false;
-    const { data: p } = await supabase.from('profiles').select('role').eq('id', uid).maybeSingle();
-    return (p as any)?.role === 'super_admin';
+    const { data: ok } = await supabase.rpc('dori_ruxsat_uid', { p_uid: uid });
+    return ok === true;
   }
 
   /** PDF + Excel yasab, base64 bo'lib qaytaradi */
@@ -1315,7 +1322,7 @@ Deno.serve(async (req) => {
   // yo'li haqiqiy sotuv qilib, fakturani ochish edi.
   if (body?.rejim === 'namuna') {
     if (!auth) return new Response('FORBIDDEN', { status: 403 });
-    if (!(await superAdminmi())) {
+    if (!(await ruxsatmi())) {
       return new Response(JSON.stringify({ error: 'RUXSAT_YOQ' }), { status: 403, headers: CORS_JSON });
     }
     try {
@@ -1333,7 +1340,7 @@ Deno.serve(async (req) => {
   //   yigish   -> omborchiga, narxsiz, lekin QAYSI SKLAD ustuni bilan
   if (body?.rejim === 'buyurtma' || body?.rejim === 'yigish') {
     if (!auth) return new Response('FORBIDDEN', { status: 403 });
-    if (!(await superAdminmi())) {
+    if (!(await ruxsatmi())) {
       return new Response(JSON.stringify({ error: 'RUXSAT_YOQ' }), { status: 403, headers: CORS_JSON });
     }
 
@@ -1360,7 +1367,7 @@ Deno.serve(async (req) => {
   // yoki PDF saqlash uchun). Telegram bu yerda qatnashmaydi.
   if (body?.rejim === 'sotuv') {
     if (!auth) return new Response('FORBIDDEN', { status: 403 });
-    if (!(await superAdminmi())) {
+    if (!(await ruxsatmi())) {
       return new Response(JSON.stringify({ error: 'RUXSAT_YOQ' }), { status: 403, headers: CORS_JSON });
     }
 
@@ -1385,7 +1392,7 @@ Deno.serve(async (req) => {
   // yuborilmaydi - fayllar brauzerga qaytadi (chop etish uchun).
   if (body?.rejim === 'sklad') {
     if (!auth) return new Response('FORBIDDEN', { status: 403 });
-    if (!(await superAdminmi())) {
+    if (!(await ruxsatmi())) {
       return new Response(JSON.stringify({ error: 'RUXSAT_YOQ' }), { status: 403, headers: CORS_JSON });
     }
 
