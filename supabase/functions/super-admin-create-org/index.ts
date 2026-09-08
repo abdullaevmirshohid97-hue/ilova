@@ -39,9 +39,26 @@ Deno.serve(async (req) => {
     }
 
     const body = await req.json();
-    const { org_name, contact_name, contact_phone, admin_email, admin_password, admin_full_name, yonalishlar } = body;
-    if (!org_name?.trim() || !admin_email?.trim() || !admin_password || admin_password.length < 6) {
-      return json({ error: 'MAJBURIY_MAYDONLAR: tenant nomi, admin email, parol(6+)' }, 400);
+    const {
+      org_name, contact_name, contact_phone, owner_email,
+      admin_email, admin_password, admin_full_name, yonalishlar,
+    } = body;
+
+    // OWNER majburiy bo'ldi. Avval faqat tenant nomi va admin emaili
+    // talab qilinardi — natijada bazada egasi noma'lum tenantlar paydo
+    // bo'ldi va favqulodda holatda kimga qo'ng'iroq qilishni bilib
+    // bo'lmasdi.
+    if (!org_name?.trim()) return json({ error: 'Biznes nomi majburiy' }, 400);
+    if (!contact_name?.trim()) return json({ error: 'Owner ismi majburiy' }, 400);
+    if (!contact_phone?.trim()) return json({ error: 'Owner telefoni majburiy' }, 400);
+    if (!admin_full_name?.trim()) return json({ error: 'Admin ism-familyasi majburiy' }, 400);
+    if (!admin_email?.trim()) return json({ error: 'Admin email majburiy' }, 400);
+    // 6 emas, 8: sakkiz belgi hozirgi eng kam talab
+    if (!admin_password || admin_password.length < 8) {
+      return json({ error: "Parol kamida 8 ta belgi bo'lishi kerak" }, 400);
+    }
+    if (!Array.isArray(yonalishlar) || yonalishlar.length === 0) {
+      return json({ error: "Kamida bitta yo'nalish tanlang" }, 400);
     }
 
     const admin = createClient(supabaseUrl, serviceKey);
@@ -51,8 +68,9 @@ Deno.serve(async (req) => {
       .from('organizations')
       .insert({
         name: org_name.trim(),
-        contact_name: contact_name?.trim() || null,
-        contact_phone: contact_phone?.trim() || null,
+        contact_name: contact_name.trim(),
+        contact_phone: contact_phone.trim(),
+        owner_email: owner_email?.trim()?.toLowerCase() || null,
         // Tenant qaysi tizimda ishlashi. Yuborilmasa - ulgurji savdo:
         // hozircha to'liq qurilgan yagona tizim shu.
         yonalishlar: Array.isArray(yonalishlar) && yonalishlar.length ? yonalishlar : ['b2b'],
@@ -84,6 +102,14 @@ Deno.serve(async (req) => {
         400,
       );
     }
+
+    // Birinchi admin — tenantning EGASI. Alohida rol emas, ko'rsatkich:
+    // kartochkada birinchi turadi va «tenant admini sifatida» kirishda
+    // aynan shu hisob tanlanadi.
+    await admin
+      .from('organizations')
+      .update({ owner_user_id: created?.user?.id ?? null })
+      .eq('id', org.id);
 
     return json({ ok: true, org_id: org.id, admin_email: admin_email.trim() });
   } catch (e) {

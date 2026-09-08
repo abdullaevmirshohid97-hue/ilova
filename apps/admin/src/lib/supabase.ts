@@ -7,7 +7,58 @@ if (!url || !anonKey) {
   throw new Error('.env: VITE_SUPABASE_URL va VITE_SUPABASE_ANON_KEY shart');
 }
 
-export const supabase = createClient(url, anonKey);
+// ---------------------------------------------------------------------------
+// IMPERSONATSIYA REJIMI — shu TABDA boshqa hisob bilan ishlanadi
+//
+// Super admin obunachining hisobiga kirganda uning O'Z sessiyasi
+// yo'qolmasligi kerak. Oddiy holatda sessiya `localStorage` da turadi va
+// butun domenga umumiy — ya'ni ikkinchi hisob birinchisini BOSIB
+// KETARDI va super admin o'zi tizimdan chiqib qolardi.
+//
+// Shuning uchun impersonatsiya sessiyasi:
+//   - `sessionStorage` da (faqat shu tab)
+//   - boshqa kalit ostida (`ilova.imper.auth`)
+// Tab yopilsa kirish o'zi tugaydi.
+//
+// Rejim `#kirish=...` bilan ochilgan tabda yoqiladi va sessiya
+// xotirasida qoladi: F5 bosilganda ham shu tab impersonatsiyada.
+//
+// Bu tekshiruv AYNAN shu faylda, import'siz turishi kerak: klient
+// yaratilgunicha rejim ma'lum bo'lishi shart.
+// ---------------------------------------------------------------------------
+const IMPER_BAYROQ = 'ilova.imper';
+export const IMPER_AUTH_KEY = 'ilova.imper.auth';
+export const KIRISH_HASH = '#kirish=';
+
+function imperniAniqla(): boolean {
+  try {
+    if (typeof location !== 'undefined' && location.hash.startsWith(KIRISH_HASH)) {
+      sessionStorage.setItem(IMPER_BAYROQ, '1');
+      return true;
+    }
+    return sessionStorage.getItem(IMPER_BAYROQ) === '1';
+  } catch {
+    // Shaxsiy oyna yoki yopiq xotira — oddiy rejimda ishlaymiz
+    return false;
+  }
+}
+
+export const imperRejim = imperniAniqla();
+
+export const supabase = createClient(
+  url,
+  anonKey,
+  imperRejim
+    ? {
+        auth: {
+          storage: sessionStorage,
+          storageKey: IMPER_AUTH_KEY,
+          persistSession: true,
+          autoRefreshToken: true,
+        },
+      }
+    : undefined,
+);
 
 export function imageUrl(storagePath: string): string {
   return `${url}/storage/v1/object/public/product-images/${storagePath}`;

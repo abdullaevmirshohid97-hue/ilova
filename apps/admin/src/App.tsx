@@ -6,6 +6,13 @@ import Layout from './components/Layout';
 import Login from './pages/Login';
 import { NotogriManzil, YonalishEkrani } from './components/YonalishEkrani';
 import { tenantYonalishlari } from './lib/yonalishlar';
+import {
+  imperChiqish,
+  imperda,
+  imperKirish,
+  imperMalumot,
+  kirishKutilyaptimi,
+} from './lib/impersonatsiya';
 
 // Sahifalar KERAK BO'LGANDA yuklanadi (lazy). Avval hammasi statik import
 // qilinardi — natijada login ekranini ko'rish uchun ham butun ilova (~1 MB,
@@ -79,7 +86,7 @@ function keshdanRol(userId: string): string | null {
 
 type Sklad = { warehouse_id: string; sklad: string; full_name?: string | null };
 
-export default function App() {
+function AppIchki() {
   const [session, setSession] = useState<Session | null>(null);
   const [role, setRole] = useState<string | null>(null);
   // Sklad xodimi: undefined = hali tekshirilmadi, null = sklad emas
@@ -306,5 +313,107 @@ export default function App() {
         </Routes>
       </Suspense>
     </Layout>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// FAVQULODDA KIRISH LENTASI
+//
+// Super admin obunachining hisobida ishlayotganini UNUTMASLIGI kerak.
+// Eng katta xavf shu: o'zini admin deb o'ylab, obunachining ma'lumotini
+// o'zgartirib qo'yish. Shuning uchun lenta:
+//   - qizil va tepada, butun ekran bo'ylab
+//   - YOPILMAYDI (yopish tugmasi ataylab yo'q)
+//   - kim sifatida kirilgani va SABABI yozilib turadi
+// ---------------------------------------------------------------------------
+const ROLLAR: Record<string, string> = {
+  admin: 'admin',
+  manager: 'menejer',
+  customer: 'mijoz',
+};
+
+function ImperLenta({ m }: { m: ReturnType<typeof imperMalumot> }) {
+  // Lenta `fixed` — aks holda ichkaridagi `h-screen` ekranlar uni
+  // surib yuborardi. Sahifa tepasiga joy ochib qo'yamiz.
+  useEffect(() => {
+    const oldingi = document.body.style.paddingTop;
+    document.body.style.paddingTop = '38px';
+    return () => {
+      document.body.style.paddingTop = oldingi;
+    };
+  }, []);
+
+  return (
+    <div
+      className="fixed inset-x-0 top-0 z-[9999] flex items-center gap-3 px-3 py-2 text-[12px] text-white"
+      style={{ background: '#b91c1c', height: 38 }}
+    >
+      <span className="shrink-0 font-bold tracking-wide">⚠ FAVQULODDA KIRISH</span>
+      <span className="min-w-0 flex-1 truncate">
+        {m ? (
+          <>
+            <b>{m.nom}</b> ({ROLLAR[m.rol] ?? m.rol} · {m.org}) sifatida kirgansiz
+            {m.rejim === 'admin' && m.eshik_nom ? (
+              <span className="opacity-90"> · eshik: {m.eshik_nom}</span>
+            ) : null}
+            <span className="opacity-90"> · sabab: {m.sabab}</span>
+          </>
+        ) : (
+          'Siz boshqa hisob nomidan ishlayapsiz'
+        )}
+      </span>
+      <button
+        onClick={() => void imperChiqish()}
+        className="shrink-0 px-2 py-1 text-[11px] font-bold"
+        style={{ border: '1px solid #ffffff88', borderRadius: 4 }}
+      >
+        CHIQISH
+      </button>
+    </div>
+  );
+}
+
+export default function App() {
+  // Token faqat BIR MARTA ishlatiladi, shuning uchun kirish tugagunicha
+  // panel chizilmaydi: aks holda bir zumga login ekrani ko'rinib,
+  // undan keyin ekran almashardi.
+  const [kutilmoqda, setKutilmoqda] = useState(() => kirishKutilyaptimi());
+  const [xato, setXato] = useState<string | null>(null);
+  const [malumot, setMalumot] = useState(() => imperMalumot());
+
+  useEffect(() => {
+    if (!kirishKutilyaptimi()) return;
+    imperKirish().then((x) => {
+      setXato(x);
+      setMalumot(imperMalumot());
+      setKutilmoqda(false);
+    });
+  }, []);
+
+  if (kutilmoqda) {
+    return (
+      <div className="flex h-screen items-center justify-center text-gray-500">
+        Hisobga kirilmoqda...
+      </div>
+    );
+  }
+
+  if (xato) {
+    return (
+      <div className="flex h-screen flex-col items-center justify-center gap-3 p-6 text-center">
+        <div className="text-lg font-semibold text-red-600">Kirib bo‘lmadi</div>
+        <div className="max-w-md text-sm text-gray-600">{xato}</div>
+        <div className="max-w-md text-xs text-gray-500">
+          Havola bir martalik va tez eskiradi. Super admin konsolidan qaytadan urinib ko‘ring.
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      {imperda && <ImperLenta m={malumot} />}
+      <AppIchki />
+    </>
   );
 }

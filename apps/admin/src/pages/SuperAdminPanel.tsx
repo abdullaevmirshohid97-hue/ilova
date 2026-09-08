@@ -10,6 +10,7 @@ import DoriSkladlar from './DoriSkladlar';
 import DoriBuyurtmalar from './DoriBuyurtmalar';
 import DoriMoslik from './DoriMoslik';
 import DoriSotuv from './DoriSotuv';
+import TenantKartochka from './TenantKartochka';
 import { TENANT_YONALISHLAR, yonalishTop } from '../lib/yonalishlar';
 
 // ============================================================================
@@ -336,6 +337,7 @@ function NewOrgModal({ onClose, onCreated }: { onClose: () => void; onCreated: (
   const [orgName, setOrgName] = useState('');
   const [contactName, setContactName] = useState('');
   const [contactPhone, setContactPhone] = useState('');
+  const [ownerEmail, setOwnerEmail] = useState('');
   const [adminFullName, setAdminFullName] = useState('');
   const [adminEmail, setAdminEmail] = useState('');
   const [password, setPassword] = useState(genPassword());
@@ -347,17 +349,22 @@ function NewOrgModal({ onClose, onCreated }: { onClose: () => void; onCreated: (
 
   async function create() {
     setError(null);
-    if (!orgName.trim()) return setError('Tenant nomi majburiy');
+    if (!orgName.trim()) return setError('Biznes nomi majburiy');
+    if (!contactName.trim()) return setError('Owner ismi majburiy');
+    if (!contactPhone.trim()) return setError('Owner telefoni majburiy');
+    if (!adminFullName.trim()) return setError('Admin ism-familyasi majburiy');
     if (!adminEmail.trim()) return setError('Admin email majburiy');
+    if (password.length < 8) return setError('Parol kamida 8 ta belgi bo‘lishi kerak');
     if (!yonalishlar.length) return setError('Kamida bitta yo‘nalish tanlang');
     setSaving(true);
     try {
       const { data, error: e } = await supabase.functions.invoke('super-admin-create-org', {
         body: {
           org_name: orgName.trim(),
-          contact_name: contactName.trim() || null,
-          contact_phone: contactPhone.trim() || null,
-          admin_full_name: adminFullName.trim() || null,
+          contact_name: contactName.trim(),
+          contact_phone: contactPhone.trim(),
+          owner_email: ownerEmail.trim() || null,
+          admin_full_name: adminFullName.trim(),
           admin_email: adminEmail.trim(),
           admin_password: password,
           yonalishlar,
@@ -421,10 +428,25 @@ function NewOrgModal({ onClose, onCreated }: { onClose: () => void; onCreated: (
           }
         >
           <div className="space-y-4">
-            <Field label="Tenant (biznes) nomi *" value={orgName} onChange={setOrgName} placeholder="Andijon to'qimachilik" />
-            <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Kontakt ism" value={contactName} onChange={setContactName} />
-              <Field label="Kontakt telefon" value={contactPhone} onChange={setContactPhone} placeholder="+998 90 123 45 67" />
+            <Field label="Biznes nomi *" value={orgName} onChange={setOrgName} placeholder="Andijon to'qimachilik" />
+
+            {/* OWNER endi majburiy. Avval ixtiyoriy edi va bazada egasi
+                noma'lum tenantlar paydo bo'ldi — favqulodda holatda kimga
+                qo'ng'iroq qilishni bilib bo'lmasdi. */}
+            <div style={{ borderTop: `1px dashed ${C.line}` }} className="pt-4">
+              <div
+                className="text-[10px] font-bold uppercase tracking-[0.22em]"
+                style={{ color: C.neon2, fontFamily: MONO }}
+              >
+                — owner (biznes egasi) —
+              </div>
+              <div className="mt-3 grid gap-4 sm:grid-cols-2">
+                <Field label="Ism familiya *" value={contactName} onChange={setContactName} />
+                <Field label="Telefon *" value={contactPhone} onChange={setContactPhone} placeholder="+998 90 123 45 67" />
+              </div>
+              <div className="mt-3">
+                <Field label="Email (ixtiyoriy)" value={ownerEmail} onChange={setOwnerEmail} placeholder="owner@misol.uz" />
+              </div>
             </div>
 
             <YonalishTanlagich tanlangan={yonalishlar} onChange={setYonalishlar} />
@@ -434,15 +456,18 @@ function NewOrgModal({ onClose, onCreated }: { onClose: () => void; onCreated: (
                 className="text-[10px] font-bold uppercase tracking-[0.22em]"
                 style={{ color: C.neon2, fontFamily: MONO }}
               >
-                — birinchi admin —
+                — admin logini —
               </div>
               <div className="mt-3 grid gap-4 sm:grid-cols-2">
-                <Field label="Ism familiya" value={adminFullName} onChange={setAdminFullName} />
-                <Field label="Email *" value={adminEmail} onChange={setAdminEmail} placeholder="admin@misol.uz" />
+                <Field label="Ism familiya *" value={adminFullName} onChange={setAdminFullName} />
+                <Field label="Email (login) *" value={adminEmail} onChange={setAdminEmail} placeholder="admin@misol.uz" />
               </div>
               <div className="mt-3 flex items-end gap-2">
                 <div className="flex-1">
-                  <Field label="Parol" value={password} onChange={setPassword} mono />
+                  {/* Parolni qo'lda yozish mumkin: avval faqat avtomatik
+                      yaratilardi va obunachi bilan kelishilgan parolni
+                      qo'yib bo'lmasdi. */}
+                  <Field label="Parol * (8+ belgi)" value={password} onChange={setPassword} mono />
                 </div>
                 <button
                   onClick={() => setPassword(genPassword())}
@@ -452,6 +477,9 @@ function NewOrgModal({ onClose, onCreated }: { onClose: () => void; onCreated: (
                 >
                   ⟳
                 </button>
+              </div>
+              <div className="mt-1 text-[10px]" style={{ color: sh(C.text, 70), fontFamily: MONO }}>
+                Login sifatida email ishlatiladi. Bu hisob tenantning EGASI bo‘lib belgilanadi.
               </div>
             </div>
           </div>
@@ -557,6 +585,8 @@ export default function SuperAdminPanel() {
   const [orgs, setOrgs] = useState<Org[]>([]);
   const [modalOpen, setModalOpen] = useState(false);
   const [editOrg, setEditOrg] = useState<Org | null>(null);
+  // Ochiq tenant kartochkasi (eshiklar va favqulodda kirish). null = reestr
+  const [kartochka, setKartochka] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [clock, setClock] = useState(new Date());
   // Tanlangan yo'nalish. null = yo'nalish tanlash ekrani (birinchi bosqich).
@@ -923,7 +953,17 @@ export default function SuperAdminPanel() {
           {bolim === 'mijozlar' && <DoriMijozlar />}
           {bolim === 'nazorat' && <NazoratMarkazi />}
 
-          {bolim === 'tenantlar' && (<>
+          {bolim === 'tenantlar' && kartochka && (
+            <TenantKartochka
+              orgId={kartochka}
+              onQaytish={() => {
+                setKartochka(null);
+                load();
+              }}
+            />
+          )}
+
+          {bolim === 'tenantlar' && !kartochka && (<>
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
             <Stat label="Tenantlar" value={orgs.length} accent={C.neon} />
             <Stat label="Faol obuna" value={jami.faol} accent={C.ok} />
@@ -980,9 +1020,17 @@ export default function SuperAdminPanel() {
                         onMouseLeave={(e) => (e.currentTarget.style.background = i % 2 ? C.zebra : 'transparent')}
                       >
                         <td className={td}>
-                          <div className="font-bold" style={{ color: C.textBright }}>
+                          {/* Nom — kartochkaga eshik. Reestr faqat nom va
+                              obunani ko'rsatadi; «parolni unutdim» degan
+                              qo'ng'iroqqa javob kartochkada. */}
+                          <button
+                            onClick={() => setKartochka(o.id)}
+                            className="text-left font-bold underline-offset-2 hover:underline"
+                            style={{ color: C.textBright }}
+                            title="Kartochka: eshiklar va favqulodda kirish"
+                          >
                             {o.name}
-                          </div>
+                          </button>
                           <div className="text-[10px]" style={{ color: `${sh(C.text, 60)}` }}>
                             {o.id.slice(0, 8)}
                           </div>
@@ -1048,9 +1096,12 @@ export default function SuperAdminPanel() {
                           {formatDate(o.created_at)}
                         </td>
                         <td className={td + ' text-right'}>
-                          <NeonButton tone="ghost" onClick={() => setEditOrg(o)}>
-                            tahrir
-                          </NeonButton>
+                          <div className="flex justify-end gap-1">
+                            <NeonButton onClick={() => setKartochka(o.id)}>kartochka</NeonButton>
+                            <NeonButton tone="ghost" onClick={() => setEditOrg(o)}>
+                              tahrir
+                            </NeonButton>
+                          </div>
                         </td>
                       </tr>
                     );

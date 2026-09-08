@@ -47,6 +47,20 @@ type XatoGuruh = {
   platformalar: (string | null)[];
 };
 
+/** Super adminning obunachi hisobiga favqulodda kirishi */
+type Kirish = {
+  id: string;
+  at: string;
+  super_admin_nom: string | null;
+  org_nom: string | null;
+  eshik_nom: string | null;
+  eshik_rol: string | null;
+  kirgan_nom: string | null;
+  kirgan_rol: string | null;
+  rejim: 'ozi' | 'admin';
+  sabab: string;
+};
+
 const AMAL: Record<string, { belgi: string; rang: string }> = {
   insert: { belgi: '+', rang: C.neon },
   update: { belgi: '~', rang: C.neon2 },
@@ -119,17 +133,20 @@ export default function NazoratMarkazi() {
   const [kun, setKun] = useState(7);
   const [jadval, setJadval] = useState<string>('');
   const [jonli, setJonli] = useState(true);
-  const [tab, setTab] = useState<'oqim' | 'xatolar'>('oqim');
+  const [kirishlar, setKirishlar] = useState<Kirish[]>([]);
+  const [tab, setTab] = useState<'oqim' | 'xatolar' | 'kirishlar'>('oqim');
 
   const yukla = useCallback(async () => {
-    const [feed, sum, err] = await Promise.all([
+    const [feed, sum, err, kir] = await Promise.all([
       supabase.rpc('audit_feed', { p_days: kun, p_entity: jadval || null, p_limit: 150 }),
       supabase.rpc('audit_summary', { p_days: kun }),
       supabase.rpc('client_error_groups', { p_days: kun, p_limit: 30 }),
+      supabase.rpc('admin_kirishlar', { p_days: kun, p_limit: 100 }),
     ]);
     setYozuvlar((feed.data ?? []) as Yozuv[]);
     setXulosa((sum.data ?? null) as Xulosa | null);
     setXatolar((err.data ?? []) as XatoGuruh[]);
+    setKirishlar((kir.data ?? []) as Kirish[]);
   }, [kun, jadval]);
 
   useEffect(() => {
@@ -161,7 +178,7 @@ export default function NazoratMarkazi() {
     <div style={{ fontFamily: MONO }}>
       {/* ---------- yuqori qator ---------- */}
       <div className="mb-4 flex flex-wrap items-center gap-2">
-        {(['oqim', 'xatolar'] as const).map((k) => (
+        {(['oqim', 'xatolar', 'kirishlar'] as const).map((k) => (
           <button
             key={k}
             onClick={() => setTab(k)}
@@ -172,7 +189,11 @@ export default function NazoratMarkazi() {
               border: `1px solid ${tab === k ? C.neon : C.line}`,
             }}
           >
-            {k === 'oqim' ? 'HARAKATLAR OQIMI' : `XATOLIKLAR (${xatolar.length})`}
+            {k === 'oqim'
+              ? 'HARAKATLAR OQIMI'
+              : k === 'xatolar'
+                ? `XATOLIKLAR (${xatolar.length})`
+                : `KIRISHLAR (${kirishlar.length})`}
           </button>
         ))}
 
@@ -276,7 +297,7 @@ export default function NazoratMarkazi() {
             })}
           </div>
         </>
-      ) : (
+      ) : tab === 'xatolar' ? (
         /* ---------- xatoliklar ---------- */
         <div style={{ background: C.panel, border: `1px solid ${C.line}`, borderRadius: RADIUS }}>
           {xatolar.length === 0 && (
@@ -311,6 +332,59 @@ export default function NazoratMarkazi() {
                   ? ' · ' + x.platformalar.filter(Boolean).join(', ')
                   : ''}
               </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        /* ---------- favqulodda kirishlar ----------
+           Super admin obunachi hisobiga kirgan har safar shu yerda
+           qoladi. Yozuvni o'chirib bo'lmaydi: jadvalda select
+           siyosati bor, delete siyosati ataylab yo'q. */
+        <div style={{ background: C.panel, border: `1px solid ${C.line}`, borderRadius: RADIUS }}>
+          {kirishlar.length === 0 && (
+            <div className="p-10 text-center text-xs" style={{ color: C.text }}>
+              Bu davrda obunachi hisobiga kirilmagan
+            </div>
+          )}
+          {kirishlar.map((k, i) => (
+            <div
+              key={k.id}
+              className="px-4 py-3"
+              style={{
+                borderTop: i ? `1px solid ${sh(C.line, 33)}` : 'none',
+                background: i % 2 ? C.zebra : 'transparent',
+              }}
+            >
+              <div className="flex flex-wrap items-baseline gap-2 text-[13px]">
+                <span className="text-[10px]" style={{ color: `${sh(C.text, 67)}` }}>
+                  {vaqt(k.at)}
+                </span>
+                <span style={{ color: C.textBright, fontWeight: 700 }}>
+                  {k.super_admin_nom ?? 'super admin'}
+                </span>
+                <span style={{ color: C.text }}>→</span>
+                <span style={{ color: C.neon2, fontWeight: 700 }}>{k.kirgan_nom ?? '—'}</span>
+                <span
+                  className="px-2 py-0.5 text-[10px] font-bold"
+                  style={{
+                    color: C.onAccent,
+                    background: k.rejim === 'admin' ? C.warn : C.neon2,
+                  }}
+                >
+                  {k.rejim === 'admin' ? 'ADMIN SIFATIDA' : 'O‘ZI SIFATIDA'}
+                </span>
+                <span style={{ color: C.text }} className="text-[11px]">
+                  {k.org_nom ?? '—'}
+                </span>
+              </div>
+              <div className="mt-1 text-[11px]" style={{ color: `${sh(C.text, 80)}` }}>
+                {k.sabab}
+              </div>
+              {k.eshik_nom && k.eshik_nom !== k.kirgan_nom && (
+                <div className="mt-0.5 text-[10px]" style={{ color: `${sh(C.text, 60)}` }}>
+                  eshik: {k.eshik_nom} ({k.eshik_rol})
+                </div>
+              )}
             </div>
           ))}
         </div>

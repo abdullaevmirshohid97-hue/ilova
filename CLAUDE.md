@@ -42,7 +42,7 @@ Sinovlar (`node tests/<nom>.mjs`): `tenant-ajratish`, `xavfsizlik`, `dizayn`,
 `hujjatlar`, `prays-oqimi`, `prays-hujjat`, `robot-ustunlar`, `qoralama`,
 `yonalishlar`, `panel-yonalish`, `dori-skladlar`, `kritik-yollar`,
 `miniapp-savat`, `tarif`, `faktura-dizayn`, `sotuv-varaq`, `dona-tahrir`,
-`sklad-solishtir`.
+`sklad-solishtir`, `favqulodda-kirish`.
 
 ## Uch qoida — buzilsa zarar keladi
 
