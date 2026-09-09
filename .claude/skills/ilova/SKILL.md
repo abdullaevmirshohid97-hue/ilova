@@ -108,6 +108,45 @@ sini qayta hisoblaydi va korxona tomonidagi yozuvlarni qo'shadi yoki
 olib tashlaydi. Belgi yolg'iz o'zgartirilsa, eski buyurtmalar eski
 tomonda qolib, bekor qilishda qarz noto'g'ri tomondan qaytarardi.
 
+### Yashirish qo'shsangiz — SECURITY DEFINER'larni qayta ko'ring
+
+`record_payment` da org filtri bor edi:
+
+```sql
+select org_id into v_org from customers where id = p_customer_id;
+if v_org <> current_org_id() then raise 'RUXSAT_YOQ'; end if;
+```
+
+lekin **ko'rinish** filtri yo'q edi. Yashirin mijoz o'sha org'da turadi
+— demak admin ekranida ko'rmaydigan mijozga pul yozib yubora olardi.
+Summa menejerning daftariga tushib, korxonada izsiz qolardi.
+
+RLS yangi filtr qo'shsa, SECURITY DEFINER funksiyalarga u **o'z-o'zidan
+tarqalmaydi**. Har birini qo'lda ko'rib chiqing:
+
+| Funksiya | Yashirin mijozda |
+|---|---|
+| `record_payment`, `reverse_payment` | **to'silsin** — pulni menejer oladi |
+| `admin_create_order` (admin shoxi) | **to'silsin** — admin uni ko'rmaydi |
+| `confirm_order`, `cancel_order`, `set_order_status` | **ochiq qolsin** — tovarni korxona jo'natadi |
+
+Buni `tests/menejer-hisob.mjs` topdi: sinov jonli bazaga to'lov yozib,
+chegaralarni bosib ko'radi.
+
+### Mutatsiyani migratsiya fayli bilan tiklamang
+
+Mutatsiyadan keyin funksiyani tiklash uchun butun migratsiya faylini
+qayta ishlatish **ishlamaydi**: unda `create policy` bo'lsa
+"already exists" bilan yiqiladi va **mutant jonli bazada qolib
+ketadi**. Bir marta shunday bo'ldi.
+
+Tiklashda faqat `create or replace function` qismini yuboring va
+keyin tiklanganini **alohida tekshiring**:
+
+```sql
+select position('manager_id = v_mgr' in pg_get_functiondef(oid)) > 0
+```
+
 ### Yangi rol qo'shsangiz — niqoblarni qayta o'qing
 
 `customers_masked` menejer mijozining telefonini shunday yashirardi:

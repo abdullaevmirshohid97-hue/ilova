@@ -7,14 +7,16 @@ const ManagerCustomers = lazy(() => import('../pages/ManagerCustomers'));
 const ManagerPrices = lazy(() => import('../pages/ManagerPrices'));
 const ManagerOrders = lazy(() => import('../pages/ManagerOrders'));
 const ManagerAnalytics = lazy(() => import('../pages/ManagerAnalytics'));
+const ManagerHisob = lazy(() => import('../pages/ManagerHisob'));
 const ManagerSettings = lazy(() => import('../pages/ManagerSettings'));
 
-type Tab = 'customers' | 'prices' | 'orders' | 'analytics' | 'settings';
+type Tab = 'customers' | 'prices' | 'orders' | 'hisob' | 'analytics' | 'settings';
 
 const TABS: { key: Tab; icon: string; label: string }[] = [
   { key: 'customers', icon: '👥', label: 'Mijozlarim' },
   { key: 'prices', icon: '🏷️', label: 'Narxlarim' },
   { key: 'orders', icon: '🧾', label: 'Buyurtmalarim' },
+  { key: 'hisob', icon: '💰', label: 'Hisob-kitob' },
   { key: 'analytics', icon: '📊', label: 'Tahlil' },
   { key: 'settings', icon: '⚙️', label: 'Sozlamalar' },
 ];
@@ -120,6 +122,7 @@ export default function ManagerApp() {
             {tab === 'customers' && <ManagerCustomers />}
             {tab === 'prices' && <ManagerPrices />}
             {tab === 'orders' && <ManagerOrders />}
+            {tab === 'hisob' && <ManagerHisob />}
             {tab === 'analytics' && <ManagerAnalytics />}
             {tab === 'settings' && <ManagerSettings />}
           </Suspense>

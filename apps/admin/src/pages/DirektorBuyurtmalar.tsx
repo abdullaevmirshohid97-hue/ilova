@@ -51,15 +51,22 @@ export default function DirektorBuyurtmalar() {
     const q_ = qidiruv.trim();
     const raqammi = q_ !== '' && /^\d+$/.test(q_);
 
+    // XARIDOR — bill_customer_id bo'yicha. customer_id bo'yicha
+    // qolsa, menejer yashirgan mijozning buyurtmasi "!inner" tufayli
+    // ro'yxatdan BUTUNLAY tushib qolardi: RLS yashirin mijozni
+    // bermaydi, ichki bog'lanish esa qatorni tashlab yuboradi.
     let q = supabase
       .from('orders')
-      .select('id, order_number, status, base_total, created_at, customers!inner ( name )')
+      .select(
+        'id, order_number, status, base_total, created_at,' +
+          ' xaridor:customers!orders_bill_customer_id_fkey!inner ( name )'
+      )
       .order('created_at', { ascending: false })
       .range(sahifa * SAHIFA, sahifa * SAHIFA + SAHIFA - 1);
 
     if (filtr !== 'all') q = q.eq('status', filtr);
     if (raqammi) q = q.eq('order_number', parseInt(q_, 10));
-    else if (q_) q = q.ilike('customers.name', `%${q_}%`);
+    else if (q_) q = q.ilike('xaridor.name', `%${q_}%`);
     if (sanaDan) q = q.gte('created_at', sanaDan);
     // "gacha" — o'sha kunning oxirigacha: sof sana berilsa soat 00:00
     // bo'lib, o'sha kun buyurtmalari ro'yxatdan tushib qolardi
@@ -73,7 +80,7 @@ export default function DirektorBuyurtmalar() {
         status: o.status,
         base_total: Number(o.base_total),
         created_at: o.created_at,
-        customer: o.customers?.name ?? '—',
+        customer: o.xaridor?.name ?? '—',
       }))
     );
     setYana((data ?? []).length === SAHIFA);

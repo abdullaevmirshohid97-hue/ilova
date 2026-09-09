@@ -11,14 +11,20 @@ function todayStr(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
+// Menejer ham shu oynadan foydalanadi, lekin boshqa funksiya bilan:
+// record_payment faqat adminga ochiq. Oyna nusxalanmasin uchun
+// funksiya nomi tashqaridan beriladi — ikki joyda saqlansa biri
+// o'zgarganda ikkinchisi eskirib qolardi.
 export default function PaymentModal({
   customerId,
   customerName,
+  rpcNomi = 'record_payment',
   onClose,
   onSaved,
 }: {
   customerId: string;
   customerName: string;
+  rpcNomi?: 'record_payment' | 'menejer_tolov';
   onClose: () => void;
   onSaved: () => void;
 }) {
@@ -38,7 +44,7 @@ export default function PaymentModal({
     setSaving(true);
     try {
       const paidAt = date === todayStr() ? null : new Date(date + 'T12:00:00').toISOString();
-      const { error: e } = await supabase.rpc('record_payment', {
+      const { error: e } = await supabase.rpc(rpcNomi, {
         p_customer_id: customerId,
         p_amount: n,
         p_method: method,
