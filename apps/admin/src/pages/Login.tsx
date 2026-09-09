@@ -1,7 +1,32 @@
 import { FormEvent, useState } from 'react';
 import { supabase } from '../lib/supabase';
 
+// Kirish uchun uchta eshik. Avval rol avtomatik topilardi ("@" bo'lsa
+// email, bo'lmasa menejer) — direktor qo'shilgach bu ishlamay qoldi:
+// menejer ham, direktor ham telefon bilan kiradi va ikkalasining ichki
+// emaili har xil ("@menejer.ilova" / "@direktor.ilova").
+type Rol = 'admin' | 'manager' | 'director';
+
+const ROLLAR: { key: Rol; nom: string; belgi: string; izoh: string; joy: string }[] = [
+  { key: 'admin', nom: 'Admin', belgi: '🛡️', izoh: 'EMAIL', joy: 'admin@ilova.local' },
+  { key: 'manager', nom: 'Menejer', belgi: '🤝', izoh: 'TELEFON', joy: '+998 90 123 45 67' },
+  { key: 'director', nom: 'Direktor', belgi: '📊', izoh: 'TELEFON', joy: '+998 90 123 45 67' },
+];
+
+// Ichki login-email. Admin haqiqiy email bilan kiradi; menejer va
+// direktorga telefon berilgan.
+function loginEmail(rol: Rol, kiritilgan: string): string {
+  const v = kiritilgan.trim();
+  if (rol === 'admin') return v;
+  // Admin o'z emaili bilan boshqa yorliqda ham kira olsin — telefon
+  // kutilayotgan joyga email yozilsa uni buzib yubormaymiz
+  if (v.includes('@')) return v;
+  const raqam = v.replace(/\D/g, '');
+  return raqam + (rol === 'manager' ? '@menejer.ilova' : '@direktor.ilova');
+}
+
 export default function Login() {
+  const [rol, setRol] = useState<Rol>('admin');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -23,14 +48,17 @@ export default function Login() {
     e.preventDefault();
     setError(null);
     setLoading(true);
-    // Admin/xodim — haqiqiy email bilan kiradi. Menejerga esa TELEFON +
-    // parol berilgan (ichkarida <raqam>@menejer.ilova sifatida saqlanadi) —
-    // shu yerda avtomatik aniqlanadi: "@" bo'lsa email, bo'lmasa telefon.
-    const v = email.trim();
-    const loginEmail = v.includes('@') ? v : v.replace(/\D/g, '') + '@menejer.ilova';
-    const { error: err } = await supabase.auth.signInWithPassword({ email: loginEmail, password });
+    const { error: err } = await supabase.auth.signInWithPassword({
+      email: loginEmail(rol, email),
+      password,
+    });
     setLoading(false);
-    if (err) setError("Email/telefon yoki parol noto'g'ri");
+    // Xato matnida qaysi eshik tanlanganini eslatamiz: eng ko'p
+    // uchraydigan sabab — menejer "Direktor" yorlig'ida kirishga urinishi
+    if (err) {
+      const nom = ROLLAR.find((r) => r.key === rol)?.nom ?? '';
+      setError(`${nom} sifatida kirib bo'lmadi — login yoki parol noto'g'ri`);
+    }
   }
 
   return (
@@ -41,13 +69,43 @@ export default function Login() {
         </div>
         <p className="mt-1 text-center text-sm text-gray-500">Boshqaruv paneli</p>
 
-        <label className="mt-8 block text-xs font-semibold text-gray-500">EMAIL YOKI TELEFON</label>
+        <div className="mt-6 grid grid-cols-3 gap-2">
+          {ROLLAR.map((r) => (
+            <button
+              key={r.key}
+              type="button"
+              onClick={() => {
+                setRol(r.key);
+                setError(null);
+              }}
+              aria-pressed={rol === r.key}
+              className={`rounded-xl border px-2 py-3 text-center transition ${
+                rol === r.key
+                  ? 'border-brand bg-brand-soft'
+                  : 'border-gray-200 bg-white hover:border-gray-300'
+              }`}
+            >
+              <div className="text-lg leading-none">{r.belgi}</div>
+              <div
+                className={`mt-1 text-xs font-bold ${
+                  rol === r.key ? 'text-brand' : 'text-gray-600'
+                }`}
+              >
+                {r.nom}
+              </div>
+            </button>
+          ))}
+        </div>
+
+        <label className="mt-5 block text-xs font-semibold text-gray-500">
+          {ROLLAR.find((r) => r.key === rol)?.izoh}
+        </label>
         <input
           type="text"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           className="mt-1 w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm outline-none focus:border-brand"
-          placeholder="admin@ilova.local yoki +998 90 123 45 67"
+          placeholder={ROLLAR.find((r) => r.key === rol)?.joy}
           required
         />
 

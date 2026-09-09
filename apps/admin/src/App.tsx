@@ -35,6 +35,7 @@ const Settings = lazy(() => import('./pages/Settings'));
 const SuperAdminPanel = lazy(() => import('./pages/SuperAdminPanel'));
 const Managers = lazy(() => import('./pages/Managers'));
 const ManagerApp = lazy(() => import('./components/ManagerApp'));
+const DirektorApp = lazy(() => import('./components/DirektorApp'));
 const SkladKabinet = lazy(() => import('./pages/SkladKabinet'));
 
 // Dorixona — alohida biznes. Ekranlari avval super admin konsolining
@@ -172,7 +173,7 @@ function AppIchki() {
         const r = (data as any)?.role ?? null;
         setRole(r);
         // Mijoz admin panelga kira olmaydi
-        if (r !== 'admin' && r !== 'super_admin' && r !== 'manager') {
+        if (r !== 'admin' && r !== 'super_admin' && r !== 'manager' && r !== 'director') {
           localStorage.removeItem(ROLE_KEY);
           supabase.auth.signOut();
         } else {
@@ -184,7 +185,13 @@ function AppIchki() {
   // Tenantga berilgan tizimlar. Super admin va sklad xodimiga kerak emas —
   // ular boshqa ekranlarda ishlaydi.
   useEffect(() => {
-    if (!session || sklad || role === 'super_admin' || role === 'manager') {
+    if (
+      !session ||
+      sklad ||
+      role === 'super_admin' ||
+      role === 'manager' ||
+      role === 'director'
+    ) {
       setYonalishlar([]);
       return;
     }
@@ -260,6 +267,17 @@ function AppIchki() {
     return (
       <Suspense fallback={<Yuklanmoqda />}>
         <ManagerApp />
+      </Suspense>
+    );
+  }
+
+  // Direktor — kuzatuvchi. Uning paneli ham alohida: admin menyusiga
+  // shart qo'yib bo'limlarni yashirish xavfli bo'lardi (bitta shart
+  // unutilsa yozish ekrani ochilib qolardi).
+  if (role === 'director') {
+    return (
+      <Suspense fallback={<Yuklanmoqda />}>
+        <DirektorApp />
       </Suspense>
     );
   }
@@ -359,6 +377,7 @@ function AppIchki() {
 const ROLLAR: Record<string, string> = {
   admin: 'admin',
   manager: 'menejer',
+  director: 'direktor',
   customer: 'mijoz',
 };
 

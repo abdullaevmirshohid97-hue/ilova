@@ -76,6 +76,35 @@ bizning bucket'ga kira olmaydi.
 Diqqat: bucket yopilgandan keyin ham CDN keshidagi eski nusxa bir muddat
 xizmat qiladi.
 
+### Yangi rol qo'shsangiz — niqoblarni qayta o'qing
+
+`customers_masked` menejer mijozining telefonini shunday yashirardi:
+
+```sql
+case when manager_id is not null and is_admin() then null else phone end
+```
+
+Direktor roli qo'shilishi bilan bu **teshik**: direktor uchun
+`is_admin()` false, ya'ni telefon ochilib qolardi. Hech qanday xato
+chiqmaydi, sinov ham yashil qoladi.
+
+**Qoida:** niqob shartini "kim ko'rmasin" deb emas, **"kim ko'rsin"**
+deb yozing — ro'yxat yopiq bo'ladi va yangi rol unga o'z-o'zidan
+qo'shilmaydi:
+
+```sql
+case
+  when manager_id is not null
+   and manager_id is distinct from current_manager_id()
+   and id is distinct from current_customer_id()
+  then null else phone end
+```
+
+Xuddi shu sabab: direktorga `is_admin()` ga qo'shish orqali huquq
+bermang. U `for all` siyosatlarda ham turibdi — bitta belgi bilan
+kuzatuvchi butun katalogni o'chiradigan bo'lardi. Faqat yangi
+`for select` siyosat qo'shing, `is_direktor()` bilan.
+
 ### Dorixonada `is_super_admin()` ishlatmang
 
 Dorixona endi alohida biznes — super admin konsolida emas, tenant

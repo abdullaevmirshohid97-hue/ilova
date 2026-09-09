@@ -3,6 +3,7 @@ import { xabarKorsat, tasdiqlaSoz } from '../components/Xabar';
 import { formatDate, formatSum, genPassword, supabase, fnXato } from '../lib/supabase';
 import ChangePasswordPanel from '../components/ChangePasswordPanel';
 import XodimlarPanel from '../components/XodimlarPanel';
+import DirektorlarPanel from '../components/DirektorlarPanel';
 import HujjatSozlamaPanel from '../components/HujjatSozlamaPanel';
 import StaffTelegramPanel from '../components/StaffTelegramPanel';
 
@@ -410,6 +411,7 @@ export default function Settings() {
       <CategoriesPanel />
       <PriceGroupsPanel />
       <HujjatSozlamaPanel />
+      <DirektorlarPanel />
       <XodimlarPanel />
       <StaffPanel />
       <DangerZonePanel />
