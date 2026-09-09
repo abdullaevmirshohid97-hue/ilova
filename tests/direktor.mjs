@@ -245,6 +245,21 @@ try {
     );
   }
 
+  // Telefon niqobi FAQAT ko'rinadigan menejer mijozida ma'noga ega:
+  // yashirin bo'lsa mijoz umuman berilmaydi va niqob sinalmay qoladi
+  // (u holda sinov yashil turib, hech narsani tekshirmasdi).
+  // Shuning uchun menejer vaqtincha "ochiq" qilinadi va tiklanadi.
+  const [menejer] = await sqlMgmt(
+    `select id, mijoz_korinsin from managers where org_id = '${menejerliOrg?.org_id ?? null}' limit 1`
+  );
+  const eskiKorinish = menejer?.mijoz_korinsin;
+  if (menejer && eskiKorinish === false) {
+    await sqlMgmt(
+      `update managers set mijoz_korinsin = true where id = '${menejer.id}';` +
+        ` select menejer_hisobini_moslash('${menejer.id}')`
+    );
+  }
+
   try {
     tekshir(
       'menejerli tenant topildi (sinov bo\'shga ishlamayapti)',
@@ -254,7 +269,7 @@ try {
     {
       const r = await oq(dirToken, 'customers?select=id,manager_id&manager_id=not.is.null&limit=20');
       tekshir(
-        'menejer mijozlari ko\'rinyapti',
+        'ochiq menejerning mijozlari ko\'rinyapti',
         Array.isArray(r.body) && r.body.length > 0,
         (r.body?.length ?? 0) + ' ta'
       );
@@ -297,6 +312,16 @@ try {
       );
     }
   } finally {
+    if (menejer && eskiKorinish === false) {
+      await sqlMgmt(
+        `update managers set mijoz_korinsin = false where id = '${menejer.id}';` +
+          ` select menejer_hisobini_moslash('${menejer.id}')`
+      );
+      const [m] = await sqlMgmt(
+        `select mijoz_korinsin from managers where id = '${menejer.id}'`
+      );
+      tekshir('menejer ko\'rinishi tiklandi', m?.mijoz_korinsin === eskiKorinish, String(m?.mijoz_korinsin));
+    }
     if (kochirilsinmi) {
       await sqlMgmt(`update profiles set org_id = '${orgId}' where id = '${direktorId}'`);
       const [q] = await sqlMgmt(`select org_id from profiles where id = '${direktorId}'`);

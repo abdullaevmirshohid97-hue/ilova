@@ -76,6 +76,38 @@ bizning bucket'ga kira olmaydi.
 Diqqat: bucket yopilgandan keyin ham CDN keshidagi eski nusxa bir muddat
 xizmat qiladi.
 
+### Menejer mijozini yashirish — ikki tomonli hisob
+
+Menejer erkin sotuvchi: yashirsa, korxona uchun xaridor menejerning
+o'zi bo'ladi.
+
+```
+mijoz --buyurtma--> menejer --sotib olish--> korxona
+(menejer narxi)                 (baza narxi)
+```
+
+Shuning uchun buyurtmada **ikkita** yo'nalish bor:
+
+| Ustun | Kim uchun |
+|---|---|
+| `customer_id` | haqiqiy mijoz — menejer va mijoz ko'radi |
+| `bill_customer_id` | korxona hisobni kimga yozadi |
+
+Adminga tegadigan **har bir** so'rov `bill_customer_id` bo'yicha
+bog'lanishi shart. `customer_id` qolsa buyurtma admin ro'yxatidan
+**butunlay tushib qoladi** (`!inner` + RLS), holbuki tovarni korxona
+jo'natadi.
+
+`ledger_entries` da ikkita yozuv bo'ladi: mijozga — ustamali, menejer
+kartochkasiga — baza narxda. Bekor qilishda **ikkalasi ham**
+qaytarilishi kerak, aks holda korxonada yolg'on qarz osilib qoladi.
+
+Ko'rinishni yoqib-o'chirish faqat belgini almashtirish emas:
+`menejer_hisobini_moslash()` eski buyurtmalarning `bill_customer_id`
+sini qayta hisoblaydi va korxona tomonidagi yozuvlarni qo'shadi yoki
+olib tashlaydi. Belgi yolg'iz o'zgartirilsa, eski buyurtmalar eski
+tomonda qolib, bekor qilishda qarz noto'g'ri tomondan qaytarardi.
+
 ### Yangi rol qo'shsangiz — niqoblarni qayta o'qing
 
 `customers_masked` menejer mijozining telefonini shunday yashirardi:

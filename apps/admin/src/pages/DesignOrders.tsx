@@ -54,7 +54,9 @@ export default function DesignOrders() {
     setRows(
       (data ?? []).map((d: any) => ({
         id: d.id,
-        customer: d.customers?.name ?? '—',
+        // Yashirin menejer mijozi RLS bilan berilmaydi — bog'lanish bo'sh
+        // keladi. Oddiy "—" chalkashtirardi: buyurtma bor, mijoz yo'q.
+        customer: d.customers?.name ?? 'Menejer mijozi',
         phone: d.customers?.phone ?? '',
         size: d.size,
         bottomMaterial: d.bottom_material,

@@ -92,8 +92,14 @@ export default function Orders() {
     let q = supabase
       .from('orders')
       .select(
+        // XARIDOR — bill_customer_id bo'yicha, customer_id bo'yicha emas.
+        // Menejer mijozlarini yashirgan bo'lsa, korxona uchun xaridor
+        // menejerning o'zi. customer_id qolganda ikki narsa buzilardi:
+        // ism ko'rinmasdi (RLS yashirin mijozni bermaydi) va "!inner"
+        // tufayli buyurtma ro'yxatdan BUTUNLAY tushib qolardi — holbuki
+        // tovarni korxona jo'natadi.
         `id, order_number, status, base_total, created_at,
-         customers!inner ( name, phone ),
+         xaridor:customers!orders_bill_customer_id_fkey!inner ( name, phone ),
          order_items ( qty, base_price, product_variants ( sku, size, color,
            products ( name, product_images ( storage_path, thumb_path, is_primary, sort_order ) ) ) )`
       )
@@ -101,7 +107,7 @@ export default function Orders() {
       .range(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE - 1);
     if (filter !== 'all') q = q.eq('status', filter);
     if (isNumeric) q = q.eq('order_number', parseInt(q_, 10));
-    else if (q_) q = q.or(`name.ilike.%${q_}%,phone.ilike.%${q_}%`, { referencedTable: 'customers' });
+    else if (q_) q = q.or(`name.ilike.%${q_}%,phone.ilike.%${q_}%`, { referencedTable: 'xaridor' });
     if (dateFrom) q = q.gte('created_at', dateFrom + 'T00:00:00');
     if (dateTo) q = q.lte('created_at', dateTo + 'T23:59:59');
 
@@ -114,8 +120,8 @@ export default function Orders() {
         status: o.status,
         total: Number(o.base_total),
         created_at: o.created_at,
-        customer: o.customers?.name ?? '—',
-        phone: o.customers?.phone ?? '',
+        customer: o.xaridor?.name ?? '—',
+        phone: o.xaridor?.phone ?? '',
         items: (o.order_items ?? []).map((it: any) => {
           const imgs = (it.product_variants?.products?.product_images ?? []).sort(
             (a: any, b: any) => Number(b.is_primary) - Number(a.is_primary) || a.sort_order - b.sort_order
