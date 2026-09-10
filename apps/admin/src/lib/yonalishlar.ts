@@ -68,6 +68,7 @@ const DORIXONA_MODULLAR: TenantModul[] = [
 const QARZ_MODULLAR: TenantModul[] = [
   { to: '/qarz', icon: '📊', label: 'Boshqaruv' },
   { to: '/qarz/klientlar', icon: '👥', label: 'Klientlar' },
+  { to: '/qarz/yozuvlar', icon: '🧾', label: 'Chiqim / Kirim' },
   { to: '/qarz/agentlar', icon: '🧑‍💼', label: 'Agentlar' },
   { to: '/qarz/audit', icon: '📋', label: 'Audit jurnali' },
 ];

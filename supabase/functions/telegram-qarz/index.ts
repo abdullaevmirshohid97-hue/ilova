@@ -22,6 +22,7 @@
 //    maxfiy emas, uni bilgan odam boshqa agent nomidan yozib yuborardi.
 
 import { createClient } from 'npm:@supabase/supabase-js@2';
+import { davrOraliq, oraliqOqi } from './davr.ts';
 import {
   faylNomi,
   hisobotPdf,
@@ -121,25 +122,9 @@ const DAVR_TUGMA = (prefiks: string) => ({
       { text: '📅 Shu yil', callback_data: `${prefiks}:yil` },
       { text: '🗓 Hammasi', callback_data: `${prefiks}:hammasi` },
     ],
+    [{ text: '📆 Sanadan — sanagacha', callback_data: `${prefiks}:oraliq` }],
   ],
 });
-
-function davrOraliq(kalit: string): { dan: string | null; gacha: string | null; nom: string } {
-  const h = new Date();
-  const ik = (n: number) => String(n).padStart(2, '0');
-  if (kalit === 'bugun') {
-    const k = `${h.getFullYear()}-${ik(h.getMonth() + 1)}-${ik(h.getDate())}`;
-    return { dan: `${k}T00:00:00`, gacha: `${k}T23:59:59`, nom: sanaQisqa(h.toISOString()) };
-  }
-  if (kalit === 'oy') {
-    const b = `${h.getFullYear()}-${ik(h.getMonth() + 1)}-01T00:00:00`;
-    return { dan: b, gacha: null, nom: `${OYLAR[h.getMonth()]} ${h.getFullYear()}` };
-  }
-  if (kalit === 'yil') {
-    return { dan: `${h.getFullYear()}-01-01T00:00:00`, gacha: null, nom: String(h.getFullYear()) };
-  }
-  return { dan: null, gacha: null, nom: 'Butun davr' };
-}
 
 Deno.serve(async (req) => {
   const token = Deno.env.get('TELEGRAM_QARZ_BOT_TOKEN');
@@ -264,6 +249,98 @@ Deno.serve(async (req) => {
     );
   }
 
+  // ---- sverka va hisobot ----
+  //
+  // Ikkalasiga IKKI YO'LDAN kelinadi: davr tugmasidan va qo'lda
+  // yozilgan sana oralig'idan. Shuning uchun chizish shu yerda,
+  // bitta joyda turadi.
+  async function sverkaniKorsat(chat: number, cid: string, davrKalit: string) {
+    const d = davrOraliq(davrKalit);
+    const { data, error } = await supabase.rpc('qarz_bot_sverka', {
+      p_chat_id: chat,
+      p_client_id: cid,
+      p_dan: d.dan,
+      p_gacha: d.gacha,
+    });
+    if (error) {
+      await yubor(chat, '❌ Sverka olinmadi: ' + esc(error.message));
+      return;
+    }
+    const s = data as any;
+    const k = s.klient ?? {};
+    let matn =
+      `🔄 <b>SVERKA</b>\n\n` +
+      `👤 ${esc(k.apteka || k.ism)}\n` +
+      `📅 ${esc(d.nom)}\n\n` +
+      `📦 Tovar chiqimi:\n<b>${pul(s.chiqim)}</b>\n\n` +
+      `💰 Pul kirimi:\n<b>${pul(s.kirim)}</b>`;
+
+    // Kirim usullari — faqat bo'lganlari yoziladi, aks holda
+    // uchta nol qator har sverkani uzaytirardi
+    const usullar = (s.usullar ?? {}) as Record<string, number>;
+    const usulYozuv = Object.entries(usullar)
+      .filter(([, v]) => Number(v) > 0)
+      .map(([k, v]) => `   ${USUL_NOM[k] ?? k}: ${pul(v)}`)
+      .join('\n');
+    if (usulYozuv) matn += `\n${usulYozuv}`;
+
+    matn += `\n\n━━━━━━━━━━━━━━\n\n💳 Qoldiq:\n<b>${pul(s.qoldiq)}</b>`;
+
+    const amallar = (s.amallar ?? []) as any[];
+    if (amallar.length) {
+      matn += '\n\n<b>Harakatlar:</b>';
+      // Telegram xabari 4096 belgi — uzun ro'yxat kesiladi, aks
+      // holda javob umuman yuborilmasdi
+      for (const a of amallar.slice(-25)) {
+        const belgi = a.tur === 'chiqim' ? '📦 Chiqim' : '💰 Kirim';
+        const ishora = a.tur === 'chiqim' ? '+' : '−';
+        matn +=
+          `\n\n${sanaVaqt(a.sana)}\n${belgi}   ${ishora}${raqam(a.summa)}` +
+          (a.usul ? `  ·  ${USUL_NOM[a.usul] ?? a.usul}` : '') +
+          (a.bekor ? `\n<s>BEKOR QILINGAN</s> — ${esc(a.bekor_sabab ?? '')}` : '');
+      }
+      if (amallar.length > 25) matn += `\n\n<i>...va yana ${amallar.length - 25} ta</i>`;
+    }
+
+    await holatQoy(chat, 'idle', {});
+    await yubor(chat, matn, { reply_markup: MENYU });
+    await yubor(chat, '📎 Hujjat kerakmi?', {
+      reply_markup: FAYL_TUGMA(`sf:${cid}:${davrKalit}`),
+    });
+    return;
+  }
+
+  async function hisobotniKorsat(chat: number, agent: any, davrKalit: string) {
+    const d = davrOraliq(davrKalit);
+    const { data, error } = await supabase.rpc('qarz_bot_hisobot', {
+      p_chat_id: chat,
+      p_dan: d.dan,
+      p_gacha: d.gacha,
+    });
+    if (error) {
+      await yubor(chat, '❌ Hisobot olinmadi: ' + esc(error.message));
+      return;
+    }
+    const r = data as any;
+    await yubor(
+      chat,
+      `📊 <b>${esc(d.nom.toUpperCase())}</b>\n\n` +
+        `📦 Jami tovar chiqimi:\n<b>${pul(r.chiqim)}</b>\n\n` +
+        `💰 Jami pul kirimi:\n<b>${pul(r.kirim)}</b>\n` +
+        `   💵 Naqd:    ${pul(r.naqd)}\n` +
+        `   💳 Plastik: ${pul(r.plastik)}\n` +
+        `   🔵 Click:   ${pul(r.klik)}\n\n` +
+        `━━━━━━━━━━━━━━\n\n` +
+        `💳 Jami qarzdorlik:\n<b>${pul(r.qarz)}</b>\n` +
+        `<i>(bugungi holat, davrga bog'liq emas)</i>\n\n` +
+        `👥 Klientlar: <b>${r.klientlar}</b> ta`,
+      { reply_markup: MENYU },
+    );
+    await yubor(chat, '📎 Hujjat kerakmi?', {
+      reply_markup: FAYL_TUGMA(`hf:${davrKalit}`),
+    });
+  }
+
   // ============================================================ CALLBACK
   if (update.callback_query) {
     const cq = update.callback_query;
@@ -309,58 +386,16 @@ Deno.serve(async (req) => {
         await menyuniKorsat(chat, agent);
         return new Response('ok');
       }
-      const d = davrOraliq(qiymat);
-      const { data, error } = await supabase.rpc('qarz_bot_sverka', {
-        p_chat_id: chat,
-        p_client_id: cid,
-        p_dan: d.dan,
-        p_gacha: d.gacha,
-      });
-      if (error) {
-        await yubor(chat, '❌ Sverka olinmadi: ' + esc(error.message));
+      if (qiymat === 'oraliq') {
+        await holatQoy(chat, 'oraliq_sana', { prefiks: 'sverka', client_id: cid });
+        await yubor(
+          chat,
+          '📆 <b>Sanadan — sanagacha</b>\n\n' +
+            'Ikkita sanani yozing:\n<code>01.09.2026 - 30.09.2026</code>',
+        );
         return new Response('ok');
       }
-      const s = data as any;
-      const k = s.klient ?? {};
-      let matn =
-        `🔄 <b>SVERKA</b>\n\n` +
-        `👤 ${esc(k.apteka || k.ism)}\n` +
-        `📅 ${esc(d.nom)}\n\n` +
-        `📦 Tovar chiqimi:\n<b>${pul(s.chiqim)}</b>\n\n` +
-        `💰 Pul kirimi:\n<b>${pul(s.kirim)}</b>`;
-
-      // Kirim usullari — faqat bo'lganlari yoziladi, aks holda
-      // uchta nol qator har sverkani uzaytirardi
-      const usullar = (s.usullar ?? {}) as Record<string, number>;
-      const usulYozuv = Object.entries(usullar)
-        .filter(([, v]) => Number(v) > 0)
-        .map(([k, v]) => `   ${USUL_NOM[k] ?? k}: ${pul(v)}`)
-        .join('\n');
-      if (usulYozuv) matn += `\n${usulYozuv}`;
-
-      matn += `\n\n━━━━━━━━━━━━━━\n\n💳 Qoldiq:\n<b>${pul(s.qoldiq)}</b>`;
-
-      const amallar = (s.amallar ?? []) as any[];
-      if (amallar.length) {
-        matn += '\n\n<b>Harakatlar:</b>';
-        // Telegram xabari 4096 belgi — uzun ro'yxat kesiladi, aks
-        // holda javob umuman yuborilmasdi
-        for (const a of amallar.slice(-25)) {
-          const belgi = a.tur === 'chiqim' ? '📦 Chiqim' : '💰 Kirim';
-          const ishora = a.tur === 'chiqim' ? '+' : '−';
-          matn +=
-            `\n\n${sanaVaqt(a.sana)}\n${belgi}   ${ishora}${raqam(a.summa)}` +
-            (a.usul ? `  ·  ${USUL_NOM[a.usul] ?? a.usul}` : '') +
-            (a.bekor ? `\n<s>BEKOR QILINGAN</s> — ${esc(a.bekor_sabab ?? '')}` : '');
-        }
-        if (amallar.length > 25) matn += `\n\n<i>...va yana ${amallar.length - 25} ta</i>`;
-      }
-
-      await holatQoy(chat, 'idle', {});
-      await yubor(chat, matn, { reply_markup: MENYU });
-      await yubor(chat, '📎 Hujjat kerakmi?', {
-        reply_markup: FAYL_TUGMA(`sf:${cid}:${qiymat}`),
-      });
+      await sverkaniKorsat(chat, cid, qiymat);
       return new Response('ok');
     }
 
@@ -425,34 +460,16 @@ Deno.serve(async (req) => {
 
     // ---- hisobot davri ----
     if (tur === 'hdavr') {
-      const d = davrOraliq(qiymat);
-      const { data, error } = await supabase.rpc('qarz_bot_hisobot', {
-        p_chat_id: chat,
-        p_dan: d.dan,
-        p_gacha: d.gacha,
-      });
-      if (error) {
-        await yubor(chat, '❌ Hisobot olinmadi: ' + esc(error.message));
+      if (qiymat === 'oraliq') {
+        await holatQoy(chat, 'oraliq_sana', { prefiks: 'hisobot' });
+        await yubor(
+          chat,
+          '📆 <b>Sanadan — sanagacha</b>\n\n' +
+            'Ikkita sanani yozing:\n<code>01.09.2026 - 30.09.2026</code>',
+        );
         return new Response('ok');
       }
-      const r = data as any;
-      await yubor(
-        chat,
-        `📊 <b>${esc(d.nom.toUpperCase())}</b>\n\n` +
-          `📦 Jami tovar chiqimi:\n<b>${pul(r.chiqim)}</b>\n\n` +
-          `💰 Jami pul kirimi:\n<b>${pul(r.kirim)}</b>\n` +
-          `   💵 Naqd:    ${pul(r.naqd)}\n` +
-          `   💳 Plastik: ${pul(r.plastik)}\n` +
-          `   🔵 Click:   ${pul(r.klik)}\n\n` +
-          `━━━━━━━━━━━━━━\n\n` +
-          `💳 Jami qarzdorlik:\n<b>${pul(r.qarz)}</b>\n` +
-          `<i>(bugungi holat, davrga bog'liq emas)</i>\n\n` +
-          `👥 Klientlar: <b>${r.klientlar}</b> ta`,
-        { reply_markup: MENYU },
-      );
-      await yubor(chat, '📎 Hujjat kerakmi?', {
-        reply_markup: FAYL_TUGMA(`hf:${qiymat}`),
-      });
+      await hisobotniKorsat(chat, agent, qiymat);
       return new Response('ok');
     }
 
@@ -740,6 +757,30 @@ Deno.serve(async (req) => {
           `💳 Yangi qoldiq: <b>${pul((data as any).qoldiq)}</b>`,
         { reply_markup: MENYU },
       );
+      return new Response('ok');
+    }
+
+    // ---- ixtiyoriy sana oralig'i ----
+    if (holat.state === 'oraliq_sana') {
+      const kalit = oraliqOqi(matn);
+      if (!kalit) {
+        await yubor(
+          chat,
+          '❌ Sanani tushunmadim.\n\nShunday yozing:\n<code>01.09.2026 - 30.09.2026</code>',
+        );
+        return new Response('ok');
+      }
+      await holatQoy(chat, 'idle', {});
+      if (holat.data?.prefiks === 'sverka') {
+        const cid = holat.data?.client_id;
+        if (!cid) {
+          await menyuniKorsat(chat, agent);
+          return new Response('ok');
+        }
+        await sverkaniKorsat(chat, cid, kalit);
+      } else {
+        await hisobotniKorsat(chat, agent, kalit);
+      }
       return new Response('ok');
     }
 

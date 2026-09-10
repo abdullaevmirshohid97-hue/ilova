@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
-import { xabarKorsat, tasdiqlaSoz } from '../components/Xabar';
+import { QarzBekorModal } from '../components/QarzBekorModal';
+import { xabarKorsat } from '../components/Xabar';
 import { formatSum, supabase } from '../lib/supabase';
 import { altbilgi, blank, hujjatniYoz, logoniOl, oynaOch, sozlamaniOl, uslub } from '../lib/hujjat';
 import { klientNomi, sanaYozuv, sverkaKitobi, sverkaTanasi } from '../lib/qarz-eksport';
@@ -229,6 +230,7 @@ function SverkaModal({ klient, onClose, onOzgardi }: { klient: Klient; onClose: 
   const [davr, setDavr] = useState('oy');
   const [s, setS] = useState<Sverka | null>(null);
   const [yozuv, setYozuv] = useState<'chiqim' | 'kirim' | null>(null);
+  const [bekorAmal, setBekorAmal] = useState<Amal | null>(null);
 
   const yukla = useCallback(async () => {
     const d = davrOraliq(davr);
@@ -249,17 +251,12 @@ function SverkaModal({ klient, onClose, onOzgardi }: { klient: Klient; onClose: 
     yukla();
   }, [yukla]);
 
-  async function bekor(a: Amal) {
-    const sabab = 'Panel orqali bekor qilindi';
-    if (
-      !(await tasdiqlaSoz(
-        `${a.tur === 'chiqim' ? 'Chiqim' : 'Kirim'} ${formatSum(a.summa)} bekor qilinsinmi?\n\n` +
-          `Yozuv o‘chmaydi — hisobdan chiqadi va audit jurnalida qoladi.`,
-      ))
-    )
-      return;
+  // Sabab HAR SAFAR so'raladi. Avval qattiq yozilgan bir xil matn
+  // ketardi — jurnalda qator ko'p, ma'lumot esa nol bo'lardi.
+  async function bekor(sabab: string) {
+    if (!bekorAmal) return;
     const { error } = await supabase.rpc('qarz_yozuv_bekor', {
-      p_id: a.id,
+      p_id: bekorAmal.id,
       p_sabab: sabab,
       p_agent_id: null,
     });
@@ -267,6 +264,7 @@ function SverkaModal({ klient, onClose, onOzgardi }: { klient: Klient; onClose: 
       xabarKorsat('❌ ' + error.message);
       return;
     }
+    setBekorAmal(null);
     xabarKorsat('✅ Bekor qilindi');
     await yukla();
     onOzgardi();
@@ -448,7 +446,7 @@ function SverkaModal({ klient, onClose, onOzgardi }: { klient: Klient; onClose: 
               </div>
               {!a.bekor && (
                 <button
-                  onClick={() => bekor(a)}
+                  onClick={() => setBekorAmal(a)}
                   className="shrink-0 rounded-xl border border-red-200 px-3 py-1 text-xs font-bold text-red-500 hover:bg-red-50"
                 >
                   Bekor
@@ -468,6 +466,19 @@ function SverkaModal({ klient, onClose, onOzgardi }: { klient: Klient; onClose: 
               await yukla();
               onOzgardi();
             }}
+          />
+        )}
+
+        {bekorAmal && (
+          <QarzBekorModal
+            sarlavha={
+              (bekorAmal.tur === 'chiqim' ? 'Tovar chiqimi' : 'Pul kirimi') +
+              ' — ' +
+              formatSum(bekorAmal.summa)
+            }
+            tafsilot={sanaVaqt(bekorAmal.sana)}
+            onYopish={() => setBekorAmal(null)}
+            onTasdiq={bekor}
           />
         )}
       </div>

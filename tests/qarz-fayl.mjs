@@ -42,6 +42,16 @@ await esbuild.build({
 });
 const H = await import('file://' + chiqish.replace(/\\/g, '/'));
 
+const davrChiqish = join(kesh, 'davr.mjs');
+await esbuild.build({
+  entryPoints: [join(ROOT, 'supabase/functions/telegram-qarz/davr.ts')],
+  outfile: davrChiqish,
+  bundle: true,
+  format: 'esm',
+  platform: 'neutral',
+});
+const D = await import('file://' + davrChiqish.replace(/\\/g, '/'));
+
 // ---------------------------------------------------------------------------
 // Sodda ZIP o'quvchi (faqat "store" usuli)
 // ---------------------------------------------------------------------------
@@ -353,6 +363,61 @@ console.log('\n— Fayl nomi —');
   tekshir('taqiqlangan belgilar olib tashlanadi', !/[\\/:*?"<>|]/.test(H.faylNomi('Аптека №5/"Шифо"')));
   tekshir('bo‘sh nom ham ishlaydi', H.faylNomi('') === 'hujjat');
   tekshir('uzun nom qirqiladi', H.faylNomi('a'.repeat(200)).length <= 60);
+}
+
+// ===========================================================================
+console.log('\n— Sana oralig‘i —');
+// ===========================================================================
+{
+  // Ajratgich har xil bo'lishi mumkin — agent qanday yozsa ham tushunilsin
+  for (const yozuv of [
+    '01.09.2026 - 30.09.2026',
+    '01.09.2026 30.09.2026',
+    '1.9.2026 dan 30.9.2026 gacha',
+    '01/09/2026 - 30/09/2026',
+    '01-09-2026 — 30-09-2026',
+  ]) {
+    tekshir(
+      '«' + yozuv + '» tushuniladi',
+      D.oraliqOqi(yozuv) === 'd2026090120260930',
+      String(D.oraliqOqi(yozuv)),
+    );
+  }
+
+  tekshir(
+    'teskari yozilsa o‘rni almashadi',
+    D.oraliqOqi('30.09.2026 - 01.09.2026') === 'd2026090120260930',
+  );
+  tekshir('bitta sana yetarli emas', D.oraliqOqi('01.09.2026') === null);
+  tekshir('sanasiz matn rad etiladi', D.oraliqOqi('kecha va bugun') === null);
+  // 31.02 ni Date jimgina 1-martga surib yuborardi
+  tekshir('mavjud bo‘lmagan sana rad etiladi', D.oraliqOqi('31.02.2026 - 30.09.2026') === null);
+  tekshir('13-oy rad etiladi', D.oraliqOqi('01.13.2026 - 30.09.2026') === null);
+
+  const d = D.davrOraliq('d2026090120260930');
+  tekshir('oraliq boshi', d.dan === '2026-09-01T00:00:00', String(d.dan));
+  // Oxirgi kun ICHIGA kirishi shart
+  tekshir('oraliq oxiri 30-kunni ichiga oladi', d.gacha === '2026-09-30T23:59:59', String(d.gacha));
+  tekshir('oraliq nomi o‘qiladi', d.nom === '01.09.2026 — 30.09.2026', d.nom);
+
+  // Boshqa kalitlar buzilmaganini ham tekshiramiz
+  const bugun = D.davrOraliq('bugun', new Date(2026, 8, 11));
+  tekshir('bugun boshi', bugun.dan === '2026-09-11T00:00:00', String(bugun.dan));
+  tekshir('bugun oxiri', bugun.gacha === '2026-09-11T23:59:59', String(bugun.gacha));
+  const oy = D.davrOraliq('oy', new Date(2026, 8, 11));
+  tekshir('shu oy 1-kundan', oy.dan === '2026-09-01T00:00:00', String(oy.dan));
+  tekshir('shu oy nomi o‘zbekcha', oy.nom === 'sentabr 2026', oy.nom);
+  const hammasi = D.davrOraliq('hammasi');
+  tekshir('hammasi chegarasiz', hammasi.dan === null && hammasi.gacha === null);
+
+  // Telegram callback_data 64 BAYT beradi. Eng uzuni — sverka fayli
+  // tugmasi: sf:<uuid>:<oraliq>:xlsx. Sig'masa tugma jim ishlamasdi.
+  const eng = `sf:${'0'.repeat(36)}:d2026090120260930:xlsx`;
+  tekshir(
+    'eng uzun callback 64 baytga sig‘adi',
+    new TextEncoder().encode(eng).length <= 64,
+    eng.length + ' bayt',
+  );
 }
 
 console.log(`\n${jami - xato} / ${jami} tekshiruv o'tdi`);

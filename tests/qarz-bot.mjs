@@ -79,8 +79,42 @@ async function tozala() {
   `);
 }
 
+/** Panel RPC'lari admin JWT bilan chaqiriladi — SQL orqali emas */
+async function panel(fn, tana) {
+  const r = await fetch(`${URL_}/rest/v1/rpc/${fn}`, {
+    method: 'POST',
+    headers: {
+      apikey: K.anon_key,
+      Authorization: `Bearer ${adminToken}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(tana ?? {}),
+  });
+  const t = await r.text();
+  if (!r.ok) return { xato: t.slice(0, 300) };
+  return { j: t ? JSON.parse(t) : null };
+}
+
+let adminToken = null;
+
 try {
-  orgId = (await bir('select id from organizations order by created_at limit 1')).id;
+  // Sinov ADMINNING tashkilotida ishlaydi: panel funksiyalari
+  // current_org_id() ga tayanadi, boshqa org olinsa ular bo'sh
+  // qaytarardi va sinov hech narsa tekshirmagan bo'lardi
+  const kirish = await fetch(`${URL_}/auth/v1/token?grant_type=password`, {
+    method: 'POST',
+    headers: { apikey: K.anon_key, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email: K.admin.email, password: K.admin.password }),
+  });
+  const kj = await kirish.json();
+  adminToken = kj.access_token ?? null;
+  if (!adminToken) throw new Error('admin kira olmadi: ' + JSON.stringify(kj).slice(0, 200));
+
+  orgId = (await bir(`
+    select org_id as id from profiles
+    where id = (select id from auth.users where email = '${K.admin.email}')
+  `)).id;
+  if (!orgId) throw new Error('adminning org_id si yo‘q');
 
   // ---------- 1. Agent yaratish va ulash ----------
   console.log('\n1. Agent va Telegram ulanishi');
@@ -300,8 +334,68 @@ try {
     tekshir('chiqimda usul yozilmaydi', false, chiqimUsul.xato);
   }
 
-  // ---------- 8. Webhook himoyasi ----------
-  console.log('\n8. Webhook');
+  // ---------- 8. Panel: yozuvlar ro'yxati ----------
+  console.log('\n8. Panel — chiqim/kirim ro‘yxati');
+
+  const p1 = await panel('qarz_yozuvlar', { p_agent_id: agentA, p_limit: 200 });
+  tekshir('panel ro‘yxatni berdi', !p1.xato, p1.xato ?? '');
+  const qatorlar = p1.j?.qatorlar ?? [];
+  const jami = p1.j?.jami ?? {};
+
+  // Klient ustuni apteka nomini ko'rsatadi — odam aynan shuni qidiradi
+  tekshir(
+    'ro‘yxatda klient apteka nomi bilan turibdi',
+    qatorlar.length > 0 && qatorlar.every((q) => q.klient === 'Valijon Farm'),
+    `${qatorlar.length} qator, birinchisi: ${qatorlar[0]?.klient}`
+  );
+  tekshir('barcha 6 yozuv qaytdi (bekor qilingani bilan)', qatorlar.length === 6,
+    String(qatorlar.length));
+  tekshir('agent nomi qatorda ko‘rinadi', qatorlar.every((q) => q.agent === `${BELGI} A`));
+
+  // JAMI ekrandagi qatorlardan emas, bazadan kelishi shart
+  tekshir('jami chiqim 1 251 000', Number(jami.chiqim) === 1251000, String(jami.chiqim));
+  tekshir(
+    'jami kirim usullar yig‘indisiga teng',
+    Number(jami.naqd) + Number(jami.plastik) + Number(jami.klik) === Number(jami.kirim),
+    String(jami.kirim)
+  );
+  // Bekor qilingan yozuv KO'RINADI, lekin jamiga kirmaydi
+  tekshir('bekor qilingan yozuv ro‘yxatda turibdi', qatorlar.some((q) => q.bekor === true));
+  tekshir('bekor soni 1', Number(jami.bekor) === 1, String(jami.bekor));
+
+  const p2 = await panel('qarz_yozuvlar', { p_agent_id: agentA, p_tur: 'kirim', p_usul: 'naqd' });
+  tekshir(
+    'usul filtri faqat naqdni qoldiradi',
+    (p2.j?.qatorlar ?? []).every((q) => q.usul === 'naqd'),
+    `${(p2.j?.qatorlar ?? []).length} qator`
+  );
+  tekshir('naqd jami 100 000', Number(p2.j?.jami?.naqd) === 100000, String(p2.j?.jami?.naqd));
+
+  // Boshqa agentning yozuvlari SIZILIB o'tmasin
+  const p3 = await panel('qarz_yozuvlar', { p_agent_id: agentB });
+  tekshir(
+    'boshqa agent filtri A ning yozuvlarini bermaydi',
+    (p3.j?.qatorlar ?? []).every((q) => q.agent !== `${BELGI} A`)
+  );
+
+  // Kelajakdagi oraliq — bo'sh bo'lishi shart
+  const p4 = await panel('qarz_yozuvlar', {
+    p_agent_id: agentA,
+    p_dan: '2099-01-01T00:00:00',
+  });
+  tekshir('kelajak oralig‘i bo‘sh', (p4.j?.qatorlar ?? []).length === 0);
+  tekshir('bo‘sh oraliqda jami ham nol', Number(p4.j?.jami?.chiqim) === 0);
+
+  // anon uchun yopiq bo'lishi shart
+  const anon = await fetch(`${URL_}/rest/v1/rpc/qarz_yozuvlar`, {
+    method: 'POST',
+    headers: { apikey: K.anon_key, 'Content-Type': 'application/json' },
+    body: '{}',
+  });
+  tekshir('anon panel ro‘yxatini ocha olmaydi', anon.status >= 400, 'HTTP ' + anon.status);
+
+  // ---------- 9. Webhook himoyasi ----------
+  console.log('\n9. Webhook');
 
   const soxta = await fetch(`${URL_}/functions/v1/telegram-qarz`, {
     method: 'POST',
@@ -316,8 +410,8 @@ try {
 } catch (e) {
   tekshir('sinov oxirigacha yetdi', false, e.message);
 } finally {
-  // ---------- 9. Tozalash ----------
-  console.log('\n9. Tozalash');
+  // ---------- 10. Tozalash ----------
+  console.log('\n10. Tozalash');
   await tozala();
   const qoldiq = await bir(`
     select (select count(*)::int from qarz_agents where ism like '${BELGI}%') as agentlar,
