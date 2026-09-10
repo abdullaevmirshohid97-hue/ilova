@@ -1,0 +1,362 @@
+// ============================================================================
+// QARZDORLIK BOT HUJJATLARI — XLSX va PDF
+//
+// Bu sinov faylni HAQIQATAN yasaydi va QAYTA OCHADI. "Kodda shunday
+// yozilgan" degan tekshiruv bu yerda yaramaydi: xlsx — ZIP, pdf — xref
+// jadvali; ikkalasida ham bitta noto'g'ri siljish faylni ochilmas
+// qiladi va buni faqat mijoz bilardi.
+//
+// Kutubxona yo'q — ZIP yozuvlari siqilmagan (store), shuning uchun
+// ularni shu yerda o'qib olsa bo'ladi.
+// ============================================================================
+
+import { mkdirSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import * as esbuild from 'esbuild';
+
+const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
+
+let xato = 0;
+let jami = 0;
+function tekshir(nom, shart, izoh = '') {
+  jami++;
+  if (shart) {
+    console.log('  ok   ' + nom);
+  } else {
+    xato++;
+    console.log('  XATO ' + nom + (izoh ? ' — ' + izoh : ''));
+  }
+}
+
+// ---- moduli TS'dan yig'ib olamiz ----
+const kesh = join(ROOT, 'node_modules/.cache/qarz-fayl');
+mkdirSync(kesh, { recursive: true });
+const chiqish = join(kesh, 'hujjat.mjs');
+await esbuild.build({
+  entryPoints: [join(ROOT, 'supabase/functions/telegram-qarz/hujjat.ts')],
+  outfile: chiqish,
+  bundle: true,
+  format: 'esm',
+  platform: 'neutral',
+});
+const H = await import('file://' + chiqish.replace(/\\/g, '/'));
+
+// ---------------------------------------------------------------------------
+// Sodda ZIP o'quvchi (faqat "store" usuli)
+// ---------------------------------------------------------------------------
+function zipOch(bayt) {
+  const dv = new DataView(bayt.buffer, bayt.byteOffset, bayt.byteLength);
+  // EOCD ni oxiridan qidiramiz
+  let eocd = -1;
+  for (let i = bayt.length - 22; i >= 0; i--) {
+    if (dv.getUint32(i, true) === 0x06054b50) {
+      eocd = i;
+      break;
+    }
+  }
+  if (eocd < 0) throw new Error('EOCD topilmadi');
+  const soni = dv.getUint16(eocd + 10, true);
+  let p = dv.getUint32(eocd + 16, true);
+  const fayllar = {};
+  for (let i = 0; i < soni; i++) {
+    if (dv.getUint32(p, true) !== 0x02014b50) throw new Error('markaziy yozuv buzuq');
+    const usul = dv.getUint16(p + 10, true);
+    const crc = dv.getUint32(p + 16, true);
+    const hajm = dv.getUint32(p + 24, true);
+    const nomUz = dv.getUint16(p + 28, true);
+    const qoshUz = dv.getUint16(p + 30, true);
+    const izohUz = dv.getUint16(p + 32, true);
+    const siljish = dv.getUint32(p + 42, true);
+    const nom = new TextDecoder().decode(bayt.slice(p + 46, p + 46 + nomUz));
+    if (usul !== 0) throw new Error('siqilgan yozuv: ' + nom);
+    // Mahalliy sarlavhadan ma'lumot boshini topamiz
+    if (dv.getUint32(siljish, true) !== 0x04034b50) throw new Error('mahalliy sarlavha buzuq: ' + nom);
+    const lNom = dv.getUint16(siljish + 26, true);
+    const lQosh = dv.getUint16(siljish + 28, true);
+    const bosh = siljish + 30 + lNom + lQosh;
+    const malumot = bayt.slice(bosh, bosh + hajm);
+    fayllar[nom] = { matn: new TextDecoder().decode(malumot), crc, bayt: malumot };
+    p += 46 + nomUz + qoshUz + izohUz;
+  }
+  return fayllar;
+}
+
+function crc32(b) {
+  let t = crc32.t;
+  if (!t) {
+    t = crc32.t = new Uint32Array(256);
+    for (let i = 0; i < 256; i++) {
+      let c = i;
+      for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+      t[i] = c >>> 0;
+    }
+  }
+  let c = 0xffffffff;
+  for (let i = 0; i < b.length; i++) c = t[(c ^ b[i]) & 0xff] ^ (c >>> 8);
+  return (c ^ 0xffffffff) >>> 0;
+}
+
+// ---------------------------------------------------------------------------
+// Sinov ma'lumoti — ataylab "og'ir": kirill nomi, bekor qilingan amal,
+// XML buzadigan belgilar va nolinchi qoldiq
+// ---------------------------------------------------------------------------
+const SVERKA = {
+  klient: { ism: 'Aziz', familiya: 'Rahimov', apteka: 'Аптека №5 "Шифо" & Ko', telefon: '+998901234567' },
+  boshlangich: 1000000,
+  chiqim: 5000000,
+  kirim: 3500000,
+  usullar: { naqd: 2000000, plastik: 1000000, klik: 500000 },
+  qoldiq: 2500000,
+  amallar: [
+    { tur: 'chiqim', summa: 3000000, sana: '2026-09-01T10:00:00Z', izoh: 'Sentabr <partiya>' },
+    { tur: 'kirim', summa: 2000000, sana: '2026-09-03T12:30:00Z', usul: 'naqd' },
+    { tur: 'chiqim', summa: 2000000, sana: '2026-09-05T09:00:00Z' },
+    { tur: 'kirim', summa: 1000000, sana: '2026-09-07T15:00:00Z', usul: 'plastik' },
+    { tur: 'kirim', summa: 999999, sana: '2026-09-08T15:00:00Z', usul: 'klik', bekor: true, bekor_sabab: 'Xato kiritildi' },
+    { tur: 'kirim', summa: 500000, sana: '2026-09-09T15:00:00Z', usul: 'klik' },
+  ],
+};
+
+const HISOBOT = {
+  chiqim: 12000000, kirim: 9000000, naqd: 5000000, plastik: 3000000,
+  klik: 1000000, qarz: 7500000, klientlar: 3,
+};
+
+const KLIENTLAR = [
+  { ism: 'Aziz', familiya: 'Rahimov', apteka: 'Аптека №5', telefon: '+998901234567', qarz: 2500000 },
+  { ism: 'Bobur', familiya: null, apteka: 'Shifo', telefon: null, qarz: 3000000 },
+  { ism: 'Dilnoza', familiya: 'Yo‘ldosheva', apteka: null, telefon: '+998911111111', qarz: 2000000 },
+];
+
+// ===========================================================================
+console.log('\n— Yugurib boradigan qoldiq —');
+// ===========================================================================
+{
+  const q = H.qoldiqlar(SVERKA.boshlangich, SVERKA.amallar);
+  tekshir('qatorlar soni mos', q.length === SVERKA.amallar.length);
+  tekshir('1-qator 4 000 000', q[0] === 4000000, String(q[0]));
+  tekshir('2-qator 2 000 000', q[1] === 2000000, String(q[1]));
+  // Bekor qilingan amal qoldiqni O'ZGARTIRMASLIGI shart
+  tekshir('bekor qilingan qatordan keyin qoldiq o‘zgarmagan', q[4] === q[3], `${q[3]} -> ${q[4]}`);
+  tekshir('oxirgi qoldiq sverkadagi qoldiqqa teng', q[q.length - 1] === SVERKA.qoldiq, String(q[q.length - 1]));
+}
+
+// ===========================================================================
+console.log('\n— XLSX: ZIP tuzilishi —');
+// ===========================================================================
+const xb = H.sverkaXlsx(SVERKA, 'IDAA FARM', 'Shu oy');
+let fayllar;
+{
+  tekshir('PK sarlavhasi bilan boshlanadi', xb[0] === 0x50 && xb[1] === 0x4b);
+  fayllar = zipOch(xb);
+  for (const kerak of [
+    '[Content_Types].xml',
+    '_rels/.rels',
+    'xl/workbook.xml',
+    'xl/_rels/workbook.xml.rels',
+    'xl/styles.xml',
+    'xl/worksheets/sheet1.xml',
+  ]) {
+    tekshir('ichida ' + kerak, !!fayllar[kerak]);
+  }
+  let crcOk = true;
+  for (const [nom, f] of Object.entries(fayllar)) {
+    if (crc32(f.bayt) !== f.crc) {
+      crcOk = false;
+      console.log('    crc mos emas: ' + nom);
+    }
+  }
+  tekshir('har bir yozuvning CRC32 si to‘g‘ri', crcOk);
+}
+
+// ===========================================================================
+console.log('\n— XLSX: sverka mazmuni —');
+// ===========================================================================
+{
+  const sheet = fayllar['xl/worksheets/sheet1.xml'].matn;
+
+  // Kataklarni o'qib olamiz: {A1: 'matn'|son}
+  const katak = {};
+  const re = /<c r="([A-Z]+\d+)"[^>]*?(?: t="inlineStr")?>(?:<is><t[^>]*>([\s\S]*?)<\/t><\/is>|<v>([^<]*)<\/v>)<\/c>/g;
+  let m;
+  while ((m = re.exec(sheet))) {
+    katak[m[1]] = m[2] !== undefined
+      ? m[2].replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&amp;/g, '&')
+      : Number(m[3]);
+  }
+
+  tekshir('A1 — firma nomi', katak.A1 === 'IDAA FARM', String(katak.A1));
+  tekshir(
+    'A2 — sarlavhada apteka nomi kirillicha turibdi',
+    typeof katak.A2 === 'string' && katak.A2.includes('Аптека №5'),
+    String(katak.A2),
+  );
+  tekshir(
+    'XML maxsus belgilari qochirilgan (& va ")',
+    typeof katak.A2 === 'string' && katak.A2.includes('"Шифо" & Ko'),
+    String(katak.A2),
+  );
+
+  // Sarlavha qatorini topamiz
+  const sarlavhaQator = Object.entries(katak).find(([, v]) => v === 'Qoldiq');
+  tekshir('jadval sarlavhasi bor', !!sarlavhaQator);
+  const bosh = Number(sarlavhaQator[0].replace(/\D/g, ''));
+  tekshir('sarlavhada 8 ta ustun', ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'].every((u) => katak[u + bosh]));
+
+  // Birinchi amal qatori
+  const r1 = bosh + 1;
+  tekshir('1-amal: tartib raqami', katak['A' + r1] === 1, String(katak['A' + r1]));
+  tekshir('1-amal: turi', katak['C' + r1] === 'Tovar chiqimi', String(katak['C' + r1]));
+  tekshir('1-amal: chiqim ustunida SON turibdi', katak['E' + r1] === 3000000, String(katak['E' + r1]));
+  tekshir('1-amal: kirim ustuni bo‘sh', katak['F' + r1] === undefined);
+  tekshir('1-amal: qoldiq 4 000 000', katak['G' + r1] === 4000000, String(katak['G' + r1]));
+
+  // Kirim qatori — usul ko'rinishi shart
+  const r2 = bosh + 2;
+  tekshir('2-amal: usul yozilgan', katak['D' + r2] === 'Naqd', String(katak['D' + r2]));
+  tekshir('2-amal: kirim ustunida son', katak['F' + r2] === 2000000, String(katak['F' + r2]));
+
+  // Bekor qilingan qator
+  const r5 = bosh + 5;
+  tekshir(
+    'bekor qilingan qator sababi bilan ko‘rinadi',
+    String(katak['H' + r5] ?? '').includes('BEKOR QILINGAN') &&
+      String(katak['H' + r5]).includes('Xato kiritildi'),
+    String(katak['H' + r5]),
+  );
+  tekshir('bekor qilingan qatorda qoldiq o‘zgarmagan', katak['G' + r5] === katak['G' + (r5 - 1)]);
+
+  // Xulosa qismi — QOLDIQ qatori
+  const qoldiqKatak = Object.entries(katak).find(([, v]) => v === 'QOLDIQ (QARZ)');
+  tekshir('xulosada QOLDIQ (QARZ) qatori bor', !!qoldiqKatak);
+  const qr = Number(qoldiqKatak[0].replace(/\D/g, ''));
+  tekshir('xulosadagi qoldiq son sifatida', katak['G' + qr] === 2500000, String(katak['G' + qr]));
+
+  // Sonlar MATN bo'lib qolmasin — bo'lsa Excel'da qo'shib bo'lmasdi
+  const matnSon = Object.entries(katak).some(
+    ([, v]) => typeof v === 'string' && /^\d[\d ]{6,}$/.test(v),
+  );
+  tekshir('sonlar matn ko‘rinishida yozilmagan', !matnSon);
+}
+
+// ===========================================================================
+console.log('\n— XLSX: umumiy hisobot —');
+// ===========================================================================
+{
+  const hb = H.hisobotXlsx(HISOBOT, KLIENTLAR, 'IDAA FARM', 'Shu oy · barcha agentlar');
+  const f = zipOch(hb);
+  const sheet = f['xl/worksheets/sheet1.xml'].matn;
+  tekshir('hisobotda sarlavha bor', sheet.includes('QARZDORLIK HISOBOTI'));
+  tekshir('klientlar ro‘yxati chiqqan', sheet.includes('Dilnoza'));
+  tekshir('JAMI qatori bor', sheet.includes('JAMI'));
+  // JAMI klientlar yig'indisiga teng bo'lishi shart
+  const jamiQarz = KLIENTLAR.reduce((s, k) => s + k.qarz, 0);
+  tekshir('JAMI yig‘indisi to‘g‘ri', sheet.includes('<v>' + jamiQarz + '</v>'), String(jamiQarz));
+  tekshir('varaq nomi Hisobot', f['xl/workbook.xml'].matn.includes('name="Hisobot"'));
+}
+
+// ===========================================================================
+console.log('\n— PDF: tuzilishi —');
+// ===========================================================================
+{
+  const pb = H.sverkaPdf(SVERKA, 'IDAA FARM', 'Shu oy');
+  const matn = Buffer.from(pb).toString('latin1');
+
+  tekshir('%PDF bilan boshlanadi', matn.startsWith('%PDF-'));
+  tekshir('%%EOF bilan tugaydi', matn.trimEnd().endsWith('%%EOF'));
+
+  // startxref haqiqiy xref jadvaliga ko'rsatishi shart
+  const sx = /startxref\s+(\d+)/.exec(matn);
+  tekshir('startxref bor', !!sx);
+  const xrefPos = Number(sx[1]);
+  tekshir('startxref aynan "xref" so‘ziga ko‘rsatadi', matn.slice(xrefPos, xrefPos + 4) === 'xref',
+    JSON.stringify(matn.slice(xrefPos, xrefPos + 10)));
+
+  // Har bir obyekt siljishi haqiqiy joyga tushishi shart
+  const jadval = matn.slice(xrefPos);
+  const bosh = /xref\s+0 (\d+)\s+/.exec(jadval);
+  tekshir('xref boshi to‘g‘ri', !!bosh);
+  const soni = Number(bosh[1]);
+  const yozuvlar = jadval.slice(bosh[0].length).match(/(\d{10}) (\d{5}) n/g) ?? [];
+  tekshir('xref yozuvlari soni obyektlar soniga mos', yozuvlar.length === soni - 1,
+    `${yozuvlar.length} / ${soni - 1}`);
+
+  let hammasiTogri = true;
+  yozuvlar.forEach((y, i) => {
+    const siljish = Number(y.slice(0, 10));
+    const kutilgan = `${i + 1} 0 obj`;
+    if (matn.slice(siljish, siljish + kutilgan.length) !== kutilgan) {
+      hammasiTogri = false;
+      console.log(`    obyekt ${i + 1}: ${siljish} da "${matn.slice(siljish, siljish + 12)}"`);
+    }
+  });
+  tekshir('har bir xref siljishi o‘z obyektiga tushadi', hammasiTogri);
+
+  // /Length haqiqiy oqim uzunligiga teng bo'lishi shart
+  let uzunlikOk = true;
+  const oqimRe = /<< \/Length (\d+) >>\nstream\n([\s\S]*?)endstream/g;
+  let om;
+  let oqimSoni = 0;
+  while ((om = oqimRe.exec(matn))) {
+    oqimSoni++;
+    if (Number(om[1]) !== om[2].length) {
+      uzunlikOk = false;
+      console.log(`    /Length ${om[1]} != ${om[2].length}`);
+    }
+  }
+  tekshir('oqim topildi', oqimSoni > 0);
+  tekshir('/Length haqiqiy oqim uzunligiga teng', uzunlikOk);
+
+  // Sahifalar soni Kids ro'yxatiga mos
+  const kids = /\/Kids \[([^\]]*)\]/.exec(matn);
+  const count = /\/Count (\d+)/.exec(matn);
+  tekshir('Kids va Count mos', kids[1].trim().split(/\s+0 R/).filter(Boolean).length === Number(count[1]));
+
+  tekshir('WinAnsi kodlash ko‘rsatilgan', matn.includes('/WinAnsiEncoding'));
+  tekshir('matn oqimida sverka sarlavhasi bor', matn.includes('SVERKA'));
+  tekshir(
+    'kirill nomi lotinga o‘girilgan',
+    matn.includes('Apteka No 5') || matn.includes('Apteka No'),
+    'transliteratsiya ishlamadi',
+  );
+  tekshir('kirill belgisi PDF ichida qolmagan', !/[Ѐ-ӿ]/.test(matn));
+}
+
+// ===========================================================================
+console.log('\n— PDF: uzun ro‘yxat sahifalanadi —');
+// ===========================================================================
+{
+  const kop = [];
+  for (let i = 0; i < 200; i++) {
+    kop.push({ tur: i % 2 ? 'kirim' : 'chiqim', summa: 100000 + i, sana: '2026-09-01T10:00:00Z', usul: i % 2 ? 'naqd' : null });
+  }
+  const pb = H.sverkaPdf({ ...SVERKA, amallar: kop }, 'IDAA FARM', 'Hammasi');
+  const matn = Buffer.from(pb).toString('latin1');
+  const count = Number(/\/Count (\d+)/.exec(matn)[1]);
+  tekshir('200 ta amal bir necha sahifaga bo‘lindi', count >= 4, 'sahifa: ' + count);
+
+  const yozuvlar = matn.slice(Number(/startxref\s+(\d+)/.exec(matn)[1])).match(/(\d{10}) (\d{5}) n/g) ?? [];
+  let ok = true;
+  yozuvlar.forEach((y, i) => {
+    const s = Number(y.slice(0, 10));
+    if (matn.slice(s, s + `${i + 1} 0 obj`.length) !== `${i + 1} 0 obj`) ok = false;
+  });
+  tekshir('ko‘p sahifali hujjatda ham xref to‘g‘ri', ok);
+  tekshir('oxirgi sahifa raqami ko‘rsatilgan', matn.includes(`${count} / ${count}`));
+}
+
+// ===========================================================================
+console.log('\n— Fayl nomi —');
+// ===========================================================================
+{
+  tekshir('taqiqlangan belgilar olib tashlanadi', !/[\\/:*?"<>|]/.test(H.faylNomi('Аптека №5/"Шифо"')));
+  tekshir('bo‘sh nom ham ishlaydi', H.faylNomi('') === 'hujjat');
+  tekshir('uzun nom qirqiladi', H.faylNomi('a'.repeat(200)).length <= 60);
+}
+
+console.log(`\n${jami - xato} / ${jami} tekshiruv o'tdi`);
+if (xato) {
+  console.log(`${xato} ta XATO`);
+  process.exit(1);
+}

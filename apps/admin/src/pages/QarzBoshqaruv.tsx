@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
+import { xabarKorsat } from '../components/Xabar';
 import { formatSum, supabase } from '../lib/supabase';
+import { altbilgi, blank, hujjatniYoz, logoniOl, oynaOch, sozlamaniOl, uslub } from '../lib/hujjat';
+import { hisobotKitobi, hisobotTanasi, sanaYozuv } from '../lib/qarz-eksport';
 
 // QARZDORLIK — boshqaruv paneli.
 //
@@ -127,6 +130,84 @@ export default function QarzBoshqaruv() {
   const kirim = Number(h?.kirim ?? 0);
   const ulush = (n: number) => (kirim > 0 ? Math.round((n / kirim) * 100) : 0);
 
+  const davrNomi =
+    (DAVRLAR.find((d) => d.key === davr)?.nom ?? '') +
+    (agentId ? ' · ' + (agentlar.find((a) => a.id === agentId)?.ism ?? '') : ' · barcha agentlar');
+
+  /**
+   * Hisobotdagi klientlar ro'yxati ekrandagi filtrga MOS bo'lishi shart.
+   * Agent tanlangan bo'lsa faqat o'sha agentning klientlari chiqadi —
+   * aks holda qog'ozdagi jami ekrandagi qarz bilan to'g'ri kelmasdi.
+   */
+  async function klientlarniOl() {
+    const { data, error } = await supabase.rpc('qarz_klientlar', {
+      p_agent_id: agentId || null,
+      p_q: null,
+    });
+    if (error) throw new Error(error.message);
+    return ((data ?? []) as any[])
+      .map((k) => ({
+        ism: k.ism,
+        familiya: k.familiya,
+        apteka: k.apteka,
+        telefon: k.telefon,
+        agent: k.agent,
+        qarz: Number(k.qarz) || 0,
+      }))
+      .sort((a, b) => b.qarz - a.qarz);
+  }
+
+  async function excelga() {
+    if (!h) return;
+    try {
+      const [klientlar, { data: soz }] = await Promise.all([
+        klientlarniOl(),
+        supabase.from('dori_settings').select('firma_nomi').maybeSingle(),
+      ]);
+      const bayt = await hisobotKitobi(
+        h,
+        klientlar,
+        (soz as any)?.firma_nomi || 'IDAA FARM',
+        davrNomi,
+      );
+      const url = URL.createObjectURL(
+        new Blob([bayt], {
+          type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        }),
+      );
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `qarzdorlik-hisobot-${new Date().toISOString().slice(0, 10)}.xlsx`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (e: any) {
+      xabarKorsat('❌ ' + (e?.message ?? 'Hujjat yasalmadi'));
+    }
+  }
+
+  async function chopEt() {
+    if (!h) return;
+    // Oyna DARHOL ochiladi — await'dan keyin ochilsa brauzer bloklaydi
+    const w = oynaOch();
+    if (!w) return;
+    try {
+      const klientlar = await klientlarniOl();
+      const soz = await sozlamaniOl();
+      const logo = await logoniOl(soz);
+      hujjatniYoz(w, {
+        nom: 'Qarzdorlik hisoboti',
+        uslub: uslub(soz),
+        tana:
+          blank(soz, null, logo, { turi: 'HISOBOT', sana: sanaYozuv(new Date()) }) +
+          hisobotTanasi(h, klientlar, davrNomi) +
+          altbilgi(soz),
+      });
+    } catch (e: any) {
+      w.close();
+      xabarKorsat('❌ ' + (e?.message ?? 'Hujjat yasalmadi'));
+    }
+  }
+
   return (
     <div className="space-y-5">
       {/* ---- filtrlar ---- */}
@@ -156,6 +237,23 @@ export default function QarzBoshqaruv() {
             </option>
           ))}
         </select>
+
+        <div className="ml-auto flex gap-2">
+          <button
+            onClick={excelga}
+            disabled={!h}
+            className="rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-bold text-gray-600 transition hover:border-gray-300 disabled:opacity-40"
+          >
+            📊 Excel
+          </button>
+          <button
+            onClick={chopEt}
+            disabled={!h}
+            className="rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-bold text-gray-600 transition hover:border-gray-300 disabled:opacity-40"
+          >
+            🖨 PDF / chop etish
+          </button>
+        </div>
       </div>
 
       {xato && (

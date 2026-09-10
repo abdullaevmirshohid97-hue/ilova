@@ -69,6 +69,7 @@ const QARZ_MODULLAR: TenantModul[] = [
   { to: '/qarz', icon: '📊', label: 'Boshqaruv' },
   { to: '/qarz/klientlar', icon: '👥', label: 'Klientlar' },
   { to: '/qarz/agentlar', icon: '🧑‍💼', label: 'Agentlar' },
+  { to: '/qarz/audit', icon: '📋', label: 'Audit jurnali' },
 ];
 
 export const TENANT_YONALISHLAR: TenantYonalish[] = [

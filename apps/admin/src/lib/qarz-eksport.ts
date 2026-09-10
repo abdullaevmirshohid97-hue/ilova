@@ -240,6 +240,204 @@ export async function sverkaKitobi(
   return kitob.xlsx.writeBuffer() as Promise<ArrayBuffer>;
 }
 
+export type QarzHisobot = {
+  chiqim: number;
+  kirim: number;
+  naqd: number;
+  plastik: number;
+  klik: number;
+  qarz: number;
+  klientlar: number;
+  agentlar: number;
+};
+
+export type QarzKlientQator = {
+  ism: string;
+  familiya?: string | null;
+  apteka?: string | null;
+  telefon?: string | null;
+  agent?: string | null;
+  qarz: number;
+};
+
+export const HISOBOT_USTUNLAR = ['№', 'Klient', 'Apteka', 'Telefon', 'Agent', 'Qarz'];
+
+/**
+ * Umumiy hisobot Excel: yuqorida xulosa, pastida klientlar qarzi.
+ *
+ * QARZ USTUNI YIG'INDISI xulosadagi qarz bilan mos kelishi shart —
+ * ikkovi ajralib qolsa qaysi biri to'g'riligi bilinmasdi. Shuning
+ * uchun jami FORMULA bilan yoziladi: Excel o'zi qo'shadi.
+ */
+export async function hisobotKitobi(
+  h: QarzHisobot,
+  klientlar: QarzKlientQator[],
+  firma: string,
+  davr: string,
+  sana = new Date(),
+): Promise<ArrayBuffer> {
+  const ExcelJS = (await import('exceljs')).default;
+  const kitob = new ExcelJS.Workbook();
+  const v = kitob.addWorksheet('Hisobot');
+
+  const OXIRGI = ustunHarfi(HISOBOT_USTUNLAR.length);
+  const chegara = {
+    top: { style: 'thin' as const },
+    left: { style: 'thin' as const },
+    bottom: { style: 'thin' as const },
+    right: { style: 'thin' as const },
+  };
+
+  v.columns = [{ width: 5 }, { width: 26 }, { width: 26 }, { width: 18 }, { width: 20 }, { width: 18 }];
+
+  v.mergeCells(`A1:${OXIRGI}1`);
+  const a1 = v.getCell('A1');
+  a1.value = firma;
+  a1.font = { name: 'Arial', size: 18, bold: true };
+  a1.alignment = { horizontal: 'center', vertical: 'middle' };
+  a1.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: KOK } };
+  v.getRow(1).height = 30;
+
+  v.mergeCells(`A2:${OXIRGI}2`);
+  const a2 = v.getCell('A2');
+  a2.value = `QARZDORLIK HISOBOTI — ${davr}`;
+  a2.font = { name: 'Arial', size: 13, bold: true };
+  a2.alignment = { horizontal: 'center', vertical: 'middle' };
+  a2.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: KOK } };
+
+  v.mergeCells(`A3:${OXIRGI}3`);
+  v.getCell('A3').value = `Hujjat sanasi: ${sanaYozuv(sana)}`;
+  v.getCell('A3').alignment = { horizontal: 'center' };
+  v.getCell('A3').font = { italic: true };
+
+  const xulosa: [string, number][] = [
+    ['Tovar chiqimi', Number(h.chiqim) || 0],
+    ['Pul kirimi', Number(h.kirim) || 0],
+    ['   Naqd', Number(h.naqd) || 0],
+    ['   Plastik', Number(h.plastik) || 0],
+    ['   Click', Number(h.klik) || 0],
+    ['QARZDORLIK (bugungi holat)', Number(h.qarz) || 0],
+    ['Klientlar', Number(h.klientlar) || 0],
+    ['Agentlar', Number(h.agentlar) || 0],
+  ];
+  let qator = 5;
+  for (const [nom, qiy] of xulosa) {
+    v.getCell(`A${qator}`).value = nom;
+    v.mergeCells(`A${qator}:D${qator}`);
+    v.getCell(`E${qator}`).value = qiy;
+    v.mergeCells(`E${qator}:${OXIRGI}${qator}`);
+    const qalin = nom.startsWith('QARZDORLIK');
+    for (const c of [`A${qator}`, `E${qator}`]) {
+      v.getCell(c).border = chegara;
+      v.getCell(c).font = { bold: qalin };
+      if (qalin) v.getCell(c).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: KULRANG } };
+    }
+    v.getCell(`E${qator}`).numFmt = '#,##0';
+    qator++;
+  }
+
+  qator++;
+  const BOSH = qator;
+  const sarlavha = v.getRow(BOSH);
+  sarlavha.values = HISOBOT_USTUNLAR;
+  sarlavha.height = 26;
+  sarlavha.eachCell((c) => {
+    c.font = { bold: true, size: 10 };
+    c.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+    c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: KULRANG } };
+    c.border = chegara;
+  });
+
+  klientlar.forEach((k, i) => {
+    const r = v.getRow(BOSH + 1 + i);
+    r.values = [
+      i + 1,
+      [k.ism, k.familiya].filter(Boolean).join(' '),
+      k.apteka ?? '',
+      k.telefon ?? '',
+      k.agent ?? '',
+      Number(k.qarz) || 0,
+    ];
+    r.eachCell({ includeEmpty: true }, (c, idx) => {
+      c.border = chegara;
+      if (idx === 6) c.numFmt = '#,##0';
+    });
+  });
+
+  // Jami — FORMULA bilan: qo'lda yozilsa qator qo'shilganda eskirardi
+  const oxirgi = BOSH + klientlar.length;
+  if (klientlar.length > 0) {
+    const j = v.getRow(oxirgi + 1);
+    j.getCell(1).value = 'JAMI';
+    v.mergeCells(`A${oxirgi + 1}:E${oxirgi + 1}`);
+    j.getCell(6).value = { formula: `SUM(F${BOSH + 1}:F${oxirgi})` };
+    j.getCell(6).numFmt = '#,##0';
+    for (const i of [1, 6]) {
+      j.getCell(i).font = { bold: true };
+      j.getCell(i).border = chegara;
+      j.getCell(i).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: KULRANG } };
+    }
+  }
+
+  v.views = [{ state: 'frozen', ySplit: BOSH }];
+  return kitob.xlsx.writeBuffer() as Promise<ArrayBuffer>;
+}
+
+/** Umumiy hisobotning chop etiladigan ko'rinishi */
+export function hisobotTanasi(
+  h: QarzHisobot,
+  klientlar: QarzKlientQator[],
+  davr: string,
+): string {
+  const esc = (x: unknown) =>
+    String(x ?? '').replace(/[<>&]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' }[c]!));
+  const son = (n: unknown) =>
+    (Math.round(Number(n) || 0) < 0 ? '-' : '') +
+    Math.abs(Math.round(Number(n) || 0))
+      .toString()
+      .replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+
+  const jami = klientlar.reduce((s, k) => s + (Number(k.qarz) || 0), 0);
+
+  return `
+    <h2 style="text-align:center;margin:8px 0">QARZDORLIK HISOBOTI</h2>
+    <p style="text-align:center;margin:0 0 12px"><b>${esc(davr)}</b></p>
+    <table class="xulosa" style="width:100%;border-collapse:collapse;margin-bottom:14px">
+      <tr><td>Tovar chiqimi</td><td class="r">${son(h.chiqim)}</td></tr>
+      <tr><td>Pul kirimi</td><td class="r">${son(h.kirim)}</td></tr>
+      <tr><td>&nbsp;&nbsp;&nbsp;Naqd</td><td class="r">${son(h.naqd)}</td></tr>
+      <tr><td>&nbsp;&nbsp;&nbsp;Plastik</td><td class="r">${son(h.plastik)}</td></tr>
+      <tr><td>&nbsp;&nbsp;&nbsp;Click</td><td class="r">${son(h.klik)}</td></tr>
+      <tr><td><b>QARZDORLIK</b> (bugungi holat)</td><td class="r"><b>${son(h.qarz)}</b></td></tr>
+      <tr><td>Klientlar / Agentlar</td><td class="r">${h.klientlar} / ${h.agentlar}</td></tr>
+    </table>
+    <table style="width:100%;border-collapse:collapse">
+      <thead><tr>${HISOBOT_USTUNLAR.map((u) => `<th>${esc(u)}</th>`).join('')}</tr></thead>
+      <tbody>
+        ${
+          klientlar
+            .map(
+              (k, i) => `<tr>
+                <td>${i + 1}</td>
+                <td>${esc([k.ism, k.familiya].filter(Boolean).join(' '))}</td>
+                <td>${esc(k.apteka ?? '')}</td>
+                <td>${esc(k.telefon ?? '')}</td>
+                <td>${esc(k.agent ?? '')}</td>
+                <td class="r">${son(k.qarz)}</td>
+              </tr>`,
+            )
+            .join('') || '<tr><td colspan="6">Klient yo‘q</td></tr>'
+        }
+      </tbody>
+      ${
+        klientlar.length
+          ? `<tfoot><tr><td colspan="5"><b>JAMI</b></td><td class="r"><b>${son(jami)}</b></td></tr></tfoot>`
+          : ''
+      }
+    </table>
+  `;
+}
+
 /** Sverkaning chop etiladigan (PDF) ko'rinishi */
 export function sverkaTanasi(s: QarzSverka, davr: string): string {
   const esc = (x: unknown) =>

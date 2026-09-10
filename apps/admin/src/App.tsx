@@ -43,6 +43,7 @@ const SkladKabinet = lazy(() => import('./pages/SkladKabinet'));
 const QarzBoshqaruv = lazy(() => import('./pages/QarzBoshqaruv'));
 const QarzKlientlar = lazy(() => import('./pages/QarzKlientlar'));
 const QarzAgentlar = lazy(() => import('./pages/QarzAgentlar'));
+const QarzAudit = lazy(() => import('./pages/QarzAudit'));
 
 // Dorixona — alohida biznes. Ekranlari avval super admin konsolining
 // ichida edi; endi ular shu yerda, tenant panelida ochiladi.
@@ -361,6 +362,7 @@ function AppIchki() {
           <Route path="/qarz" element={<QarzBoshqaruv />} />
           <Route path="/qarz/klientlar" element={<QarzKlientlar />} />
           <Route path="/qarz/agentlar" element={<QarzAgentlar />} />
+          <Route path="/qarz/audit" element={<QarzAudit />} />
           <Route path="/finance" element={<Finance />} />
           <Route path="/reports" element={<Reports />} />
           <Route path="/maosh" element={<Maosh />} />

@@ -475,12 +475,156 @@ function SverkaModal({ klient, onClose, onOzgardi }: { klient: Klient; onClose: 
   );
 }
 
+// ---------- Klient qo'shish / tahrirlash ----------
+function KlientModal({
+  klient,
+  agentlar,
+  onClose,
+  onSaved,
+}: {
+  klient: Klient | null;
+  agentlar: { id: string; ism: string }[];
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [ism, setIsm] = useState(klient?.ism ?? '');
+  const [familiya, setFamiliya] = useState(klient?.familiya ?? '');
+  const [apteka, setApteka] = useState(klient?.apteka ?? '');
+  const [telefon, setTelefon] = useState(klient?.telefon ?? '');
+  const [agentId, setAgentId] = useState(klient?.agent_id ?? '');
+  const [faol, setFaol] = useState(klient?.faol ?? true);
+  const [band, setBand] = useState(false);
+  const [x, setX] = useState<string | null>(null);
+
+  async function saqla() {
+    setX(null);
+    if (!ism.trim()) return setX('Ism majburiy');
+    setBand(true);
+    try {
+      const { error } = await supabase.rpc('qarz_klient_saqla', {
+        p_id: klient?.id ?? null,
+        p_ism: ism.trim(),
+        p_familiya: familiya.trim() || null,
+        p_apteka: apteka.trim() || null,
+        p_telefon: telefon.trim() || null,
+        p_agent_id: agentId || null,
+        p_izoh: null,
+        p_faol: faol,
+      });
+      if (error) throw error;
+      onSaved();
+      onClose();
+    } catch (e: any) {
+      setX(String(e?.message ?? e));
+    } finally {
+      setBand(false);
+    }
+  }
+
+  const inputCls =
+    'w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm outline-none focus:border-brand';
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-6">
+      <div className="w-full max-w-md rounded-2xl bg-white p-8 shadow-2xl">
+        <div className="flex items-center justify-between">
+          <h2 className="text-xl font-extrabold text-gray-900">
+            {klient ? '✏️ Klientni tahrirlash' : '➕ Yangi klient'}
+          </h2>
+          <button onClick={onClose} className="text-2xl text-gray-300 hover:text-gray-500">
+            ✕
+          </button>
+        </div>
+
+        <div className="mt-6 space-y-4">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <label className="text-xs font-semibold text-gray-500">ISM *</label>
+              <input value={ism} onChange={(e) => setIsm(e.target.value)} className={inputCls} />
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-gray-500">FAMILIYA</label>
+              <input
+                value={familiya}
+                onChange={(e) => setFamiliya(e.target.value)}
+                className={inputCls}
+              />
+            </div>
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-gray-500">APTEKA NOMI</label>
+            <input value={apteka} onChange={(e) => setApteka(e.target.value)} className={inputCls} />
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-gray-500">TELEFON</label>
+            <input
+              value={telefon}
+              onChange={(e) => setTelefon(e.target.value)}
+              className={inputCls}
+              placeholder="+998 90 123 45 67"
+            />
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-gray-500">AGENT</label>
+            <select
+              value={agentId}
+              onChange={(e) => setAgentId(e.target.value)}
+              className={inputCls}
+            >
+              <option value="">— biriktirilmagan —</option>
+              {agentlar.map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.ism}
+                </option>
+              ))}
+            </select>
+            <p className="mt-1 text-xs text-gray-500">
+              Agent biriktirilmasa, klient <b>Telegram botda ko‘rinmaydi</b> — bot
+              «faqat o‘z klienti» qoidasiga tayanadi.
+            </p>
+          </div>
+          <label className="flex items-center gap-2 text-sm text-gray-700">
+            <input type="checkbox" checked={faol} onChange={(e) => setFaol(e.target.checked)} />
+            Faol
+          </label>
+        </div>
+
+        {x && <p className="mt-4 text-sm font-semibold text-red-500">{x}</p>}
+
+        <div className="mt-8 flex justify-end gap-3">
+          <button
+            onClick={onClose}
+            className="rounded-xl border border-gray-200 px-6 py-3 text-sm font-bold text-gray-500 hover:bg-gray-50"
+          >
+            Bekor qilish
+          </button>
+          <button
+            onClick={saqla}
+            disabled={band}
+            className="rounded-xl bg-brand px-8 py-3 text-sm font-bold text-white hover:opacity-90 disabled:opacity-50"
+          >
+            {band ? 'Saqlanmoqda...' : 'Saqlash'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ---------- Asosiy ekran ----------
 export default function QarzKlientlar() {
   const [qatorlar, setQatorlar] = useState<Klient[]>([]);
   const [yuklandi, setYuklandi] = useState(false);
   const [qidiruv, setQidiruv] = useState('');
   const [tanlangan, setTanlangan] = useState<Klient | null>(null);
+  const [tahrir, setTahrir] = useState<{ klient: Klient | null } | null>(null);
+  const [agentlar, setAgentlar] = useState<{ id: string; ism: string }[]>([]);
+
+  useEffect(() => {
+    supabase.rpc('qarz_agentlar').then(({ data }) => {
+      setAgentlar(((data ?? []) as any[]).map((a) => ({ id: a.id, ism: a.ism })));
+    });
+  }, []);
 
   const yukla = useCallback(async () => {
     const { data, error } = await supabase.rpc('qarz_klientlar', {
@@ -516,6 +660,12 @@ export default function QarzKlientlar() {
           <span className="text-gray-500">Jami qarz: </span>
           <b className={qarzRang(jami)}>{formatSum(jami)}</b>
         </div>
+        <button
+          onClick={() => setTahrir({ klient: null })}
+          className="rounded-xl bg-brand px-6 py-2.5 text-sm font-bold text-white shadow-lg shadow-brand/25 hover:opacity-90"
+        >
+          ➕ Klient qo‘shish
+        </button>
       </div>
 
       <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white">
@@ -527,19 +677,20 @@ export default function QarzKlientlar() {
                 <th className="px-6 py-3">Telefon</th>
                 <th className="px-6 py-3">Agent</th>
                 <th className="px-6 py-3 text-right">Qarz</th>
+                <th className="px-6 py-3"></th>
               </tr>
             </thead>
             <tbody>
               {!yuklandi && (
                 <tr>
-                  <td colSpan={4} className="px-6 py-10 text-center text-gray-500">
+                  <td colSpan={5} className="px-6 py-10 text-center text-gray-500">
                     Yuklanmoqda...
                   </td>
                 </tr>
               )}
               {yuklandi && qatorlar.length === 0 && (
                 <tr>
-                  <td colSpan={4} className="px-6 py-10 text-center text-gray-500">
+                  <td colSpan={5} className="px-6 py-10 text-center text-gray-500">
                     Klient yo‘q. Ularni agentlar Telegram bot orqali qo‘shadi.
                   </td>
                 </tr>
@@ -563,6 +714,19 @@ export default function QarzKlientlar() {
                   <td className={`px-6 py-3 text-right font-bold ${qarzRang(k.qarz)}`}>
                     {formatSum(k.qarz)}
                   </td>
+                  <td className="px-6 py-3 text-right">
+                    {/* Qator bosilsa sverka ochiladi — tugma o'sha
+                        bosishni to'sib qolishi kerak */}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setTahrir({ klient: k });
+                      }}
+                      className="rounded-xl border border-gray-200 px-3 py-1.5 text-xs font-bold text-gray-600 hover:border-brand"
+                    >
+                      Tahrirlash
+                    </button>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -575,6 +739,18 @@ export default function QarzKlientlar() {
           klient={tanlangan}
           onClose={() => setTanlangan(null)}
           onOzgardi={yukla}
+        />
+      )}
+
+      {tahrir && (
+        <KlientModal
+          klient={tahrir.klient}
+          agentlar={agentlar}
+          onClose={() => setTahrir(null)}
+          onSaved={() => {
+            xabarKorsat('✅ Saqlandi');
+            yukla();
+          }}
         />
       )}
     </div>

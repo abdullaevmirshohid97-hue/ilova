@@ -22,6 +22,13 @@
 //    maxfiy emas, uni bilgan odam boshqa agent nomidan yozib yuborardi.
 
 import { createClient } from 'npm:@supabase/supabase-js@2';
+import {
+  faylNomi,
+  hisobotPdf,
+  hisobotXlsx,
+  sverkaPdf,
+  sverkaXlsx,
+} from './hujjat.ts';
 
 const TG = 'https://api.telegram.org/bot';
 
@@ -172,6 +179,37 @@ Deno.serve(async (req) => {
     });
   }
 
+  /**
+   * Fayl yuborish — sendDocument JSON emas, multipart bo'lishi shart.
+   * Shu sabab bu yerda tg() ishlatilmaydi.
+   */
+  async function faylYubor(chat: number, bayt: Uint8Array, nom: string, izoh: string) {
+    const f = new FormData();
+    f.append('chat_id', String(chat));
+    f.append('caption', izoh);
+    f.append('parse_mode', 'HTML');
+    f.append('document', new Blob([bayt]), nom);
+    const r = await fetch(`${TG}${token}/sendDocument`, { method: 'POST', body: f });
+    return await r.json();
+  }
+
+  /**
+   * Hujjat tugmalari.
+   *
+   * Kerakli hamma narsa callback ichida turadi (holatda emas): agent
+   * sverkani ochib qo'yib, keyin boshqa amal boshlashi mumkin — holat
+   * o'sha payt almashadi va tugma boshqa klientning faylini yasab
+   * berardi.
+   */
+  const FAYL_TUGMA = (asos: string) => ({
+    inline_keyboard: [
+      [
+        { text: '📊 Excel', callback_data: `${asos}:xlsx` },
+        { text: '📄 PDF', callback_data: `${asos}:pdf` },
+      ],
+    ],
+  });
+
   // ---------- suhbat holati ----------
   async function holatOl(chat: number): Promise<{ state: string; data: any }> {
     const { data } = await supabase
@@ -320,6 +358,68 @@ Deno.serve(async (req) => {
 
       await holatQoy(chat, 'idle', {});
       await yubor(chat, matn, { reply_markup: MENYU });
+      await yubor(chat, '📎 Hujjat kerakmi?', {
+        reply_markup: FAYL_TUGMA(`sf:${cid}:${qiymat}`),
+      });
+      return new Response('ok');
+    }
+
+    // ---- sverka fayli ----
+    if (tur === 'sf') {
+      const [cid, davrKalit, format] = qiymat.split(':');
+      const d = davrOraliq(davrKalit);
+      const { data, error } = await supabase.rpc('qarz_bot_sverka', {
+        p_chat_id: chat,
+        p_client_id: cid,
+        p_dan: d.dan,
+        p_gacha: d.gacha,
+      });
+      if (error) {
+        await yubor(chat, '❌ Hujjat yasalmadi: ' + esc(error.message));
+        return new Response('ok');
+      }
+      const s = data as any;
+      const nom = faylNomi(s.klient?.apteka || s.klient?.ism || 'sverka');
+      const firma = agent.org ?? '';
+      const bayt =
+        format === 'pdf' ? sverkaPdf(s, firma, d.nom) : sverkaXlsx(s, firma, d.nom);
+      await faylYubor(
+        chat,
+        bayt,
+        `sverka-${nom}-${sanaQisqa(new Date().toISOString()).replace(/\./g, '-')}.${format === 'pdf' ? 'pdf' : 'xlsx'}`,
+        `🔄 <b>SVERKA</b> · ${esc(d.nom)}\n💳 Qoldiq: <b>${pul(s.qoldiq)}</b>`,
+      );
+      return new Response('ok');
+    }
+
+    // ---- hisobot fayli ----
+    if (tur === 'hf') {
+      const [davrKalit, format] = qiymat.split(':');
+      const d = davrOraliq(davrKalit);
+      const [{ data: r, error: xato1 }, { data: kl }] = await Promise.all([
+        supabase.rpc('qarz_bot_hisobot', { p_chat_id: chat, p_dan: d.dan, p_gacha: d.gacha }),
+        supabase.rpc('qarz_bot_klientlar', { p_chat_id: chat, p_limit: 100 }),
+      ]);
+      if (xato1) {
+        await yubor(chat, '❌ Hujjat yasalmadi: ' + esc(xato1.message));
+        return new Response('ok');
+      }
+      // Qarzi katta klient tepada: hisobotni ochgan odam avval shuni qidiradi
+      const klientlar = ((kl ?? []) as any[])
+        .map((k) => ({ ...k, qarz: Number(k.qarz) || 0 }))
+        .sort((a, b) => b.qarz - a.qarz);
+      const firma = agent.org ?? '';
+      const davrNomi = `${d.nom} · ${agent.ism ?? ''}`;
+      const bayt =
+        format === 'pdf'
+          ? hisobotPdf(r as any, klientlar, firma, davrNomi)
+          : hisobotXlsx(r as any, klientlar, firma, davrNomi);
+      await faylYubor(
+        chat,
+        bayt,
+        `hisobot-${sanaQisqa(new Date().toISOString()).replace(/\./g, '-')}.${format === 'pdf' ? 'pdf' : 'xlsx'}`,
+        `📊 <b>HISOBOT</b> · ${esc(d.nom)}\n💳 Qarzdorlik: <b>${pul((r as any)?.qarz)}</b>`,
+      );
       return new Response('ok');
     }
 
@@ -350,6 +450,9 @@ Deno.serve(async (req) => {
           `👥 Klientlar: <b>${r.klientlar}</b> ta`,
         { reply_markup: MENYU },
       );
+      await yubor(chat, '📎 Hujjat kerakmi?', {
+        reply_markup: FAYL_TUGMA(`hf:${qiymat}`),
+      });
       return new Response('ok');
     }
 
