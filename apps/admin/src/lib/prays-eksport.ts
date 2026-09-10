@@ -11,10 +11,19 @@
 // ============================================================================
 
 export type PraysQator = {
+  // Ta'minotchining praysi kabi uch bo'lim. Bo'sh bo'lsa — asosiy
+  // ro'yxat (eski chaqiruvlar shu sababdan buzilmaydi).
+  bolim?: string | null;
   nomi: string | null;
   narx: number | string | null;
   yaroqlilik: string | null;
   ishlab_chiqaruvchi: string | null;
+  // Aksiya bo'limi uchun
+  aksiya?: string | null;
+  aksiya_narx?: number | string | null;
+  // Qo'shimchalar bo'limi uchun
+  narx_real?: number | string | null;
+  org_upk?: number | string | null;
 };
 
 const RUS_OYLAR = [
@@ -46,9 +55,36 @@ export const USTUNLAR = [
   'Производитель',
 ];
 
+// Pastki bo'limlar ta'minotchining faylidagi ustunlar bilan chiqadi.
+// Ustun soni ATAYLAB asosiy jadval bilan bir xil (7) — aks holda
+// ustun kengliklari siljib, jadvallar bir-biriga mos kelmasdi.
+export const QOSHIMCHA_USTUNLAR = [
+  '№',
+  'Наименование товаров',
+  'Цена СПЕЦ',
+  'Цена Реал',
+  'Орг. упк',
+  'Производитель',
+  'Срок годности',
+];
+
+export const AKSIYA_USTUNLAR = [
+  '№',
+  'Наименование товаров',
+  'Акция',
+  'Цена без акции',
+  'Цена после акции',
+  'Производитель',
+  'Срок годности',
+];
+
+export const QOSHIMCHA_SARLAVHA = 'ҚЎШИМЧАЛАР';
+export const AKSIYA_SARLAVHA = 'Внимание! Акции!!!';
+
 const KOK = 'FFB8D9EC';
 const KULRANG = 'FFD9D9D9';
 const SARIQ = 'FFFFFF00';
+const YASHIL = 'FFC6EFCE';
 
 /** Sarlavha bloki necha qator egallaydi — ma'lumot shundan keyin boshlanadi */
 export const BOSH_QATOR = 5;
@@ -72,13 +108,19 @@ function ustunHarfi(n: number): string {
 }
 
 export async function praysKitobi(
-  qatorlar: PraysQator[],
+  hammaQator: PraysQator[],
   firma: string,
   sana = new Date(),
   // Logo baytlari. Yo'q bo'lsa hujjat baribir chiqadi — brend belgisi
   // yo'qligi uchun prays yuborilmay qolmasin.
   logo?: { bayt: ArrayBuffer; kengaytma: 'png' | 'jpeg' } | null,
 ): Promise<ArrayBuffer> {
+  // Bo'limlarga ajratamiz. Bo'lim ko'rsatilmagan qator — asosiy
+  // ro'yxat, ya'ni eski chaqiruvlar avvalgidek ishlayveradi.
+  const qatorlar = hammaQator.filter((r) => (r.bolim ?? 'asosiy') === 'asosiy');
+  const qoshimchalar = hammaQator.filter((r) => r.bolim === 'qoshimcha');
+  const aksiyalar = hammaQator.filter((r) => r.bolim === 'aksiya');
+
   // Faqat kerak bo'lganda yuklanadi: kutubxona ~900 KB, uni asosiy
   // paketga qo'shish har sahifa ochilishini sekinlashtirardi.
   const ExcelJS = (await import('exceljs')).default;
@@ -202,6 +244,80 @@ export async function praysKitobi(
   const jami = v.getCell(`${SUMMA_BOSH}4`);
   jami.value = { formula: `SUM(E${BOSH_QATOR + 1}:E${oxirgi})` };
   jami.numFmt = '#,##0';
+
+  // ---- pastki bo'limlar ----
+  //
+  // Ta'minotchining faylida asosiy ro'yxatdan keyin "ҚЎШИМЧАЛАР" va
+  // "Внимание! Акции!!!" alohida jadval bo'lib turadi. Mijoz o'sha
+  // tartibga o'rgangan, shuning uchun bizning prays ham shunday
+  // chiqadi. Ustunlari ham o'sha faylnikidek — aksiya jadvalida
+  // "Акция" ustuni (5+1) va ikkala narx bor.
+  let qator = BOSH_QATOR + qatorlar.length + 1;
+
+  function bolimChiz(
+    nom: string,
+    ustunlar: string[],
+    satrlar: PraysQator[],
+    qiymat: (r: PraysQator, i: number) => (string | number | null)[],
+  ) {
+    if (satrlar.length === 0) return;
+
+    qator += 1; // bo'sh ajratuvchi qator
+
+    v.mergeCells(`A${qator}:${OXIRGI}${qator}`);
+    const s = v.getCell(`A${qator}`);
+    s.value = nom;
+    s.font = { name: 'Arial', size: 14, bold: true };
+    s.alignment = { horizontal: 'center', vertical: 'middle' };
+    s.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: YASHIL } };
+    s.border = chegara;
+    v.getRow(qator).height = 24;
+    qator += 1;
+
+    const sh = v.getRow(qator);
+    sh.values = ustunlar;
+    sh.height = 28;
+    sh.eachCell((c) => {
+      c.font = { bold: true, size: 10 };
+      c.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+      c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: KULRANG } };
+      c.border = chegara;
+    });
+    qator += 1;
+
+    satrlar.forEach((r, i) => {
+      const q = v.getRow(qator);
+      q.values = qiymat(r, i);
+      q.eachCell({ includeEmpty: true }, (c, idx) => {
+        c.border = chegara;
+        if (idx === 1) c.alignment = { horizontal: 'center' };
+        if (idx >= 3 && idx <= 5) c.numFmt = '#,##0';
+      });
+      qator += 1;
+    });
+  }
+
+  bolimChiz(QOSHIMCHA_SARLAVHA, QOSHIMCHA_USTUNLAR, qoshimchalar, (r, i) => [
+    i + 1,
+    r.nomi ?? '',
+    r.narx == null ? null : Number(r.narx),
+    r.narx_real == null ? null : Number(r.narx_real),
+    r.org_upk == null ? null : Number(r.org_upk),
+    r.ishlab_chiqaruvchi ?? '',
+    sanaFormat(r.yaroqlilik),
+  ]);
+
+  bolimChiz(AKSIYA_SARLAVHA, AKSIYA_USTUNLAR, aksiyalar, (r, i) => [
+    i + 1,
+    r.nomi ?? '',
+    // Aksiya sharti MATN bo'lib qoladi ("5+1"). Uni songa aylantirish
+    // aynan robotdagi xato edi: songa("5+1") = 51.
+    r.aksiya ?? '',
+    r.narx == null ? null : Number(r.narx),
+    r.aksiya_narx == null ? null : Number(r.aksiya_narx),
+    r.ishlab_chiqaruvchi ?? '',
+    sanaFormat(r.yaroqlilik),
+  ]);
 
   // Sarlavha doim ko'rinib tursin: 4 800 qatorli ro'yxatda pastga
   // tushganda qaysi ustun nima ekani bilinmay qolardi

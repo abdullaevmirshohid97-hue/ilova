@@ -143,5 +143,61 @@ for (const slug of ['dori-push', 'dori-sklad-yubor', 'dori-sklad-user']) {
   tekshir(slug, r.status === 403 || /RUXSAT_YOQ/.test(t), 'HTTP ' + r.status);
 }
 
+// ---------- 5. YOZADIGAN funksiyalar anon uchun yopiqmi ----------
+//
+// Postgres YANGI funksiyaga EXECUTE ni PUBLIC ga STANDART holatda
+// beradi. `drop function` + qayta yaratish ham eski revoke'ni yo'q
+// qiladi. Ya'ni funksiya qo'shgan odam hech narsa qilmasa — u anon
+// uchun ochiq bo'lib qoladi va bu hech qanday xato bermaydi.
+//
+// Bir sessiyada 16 ta yangi funksiya shunday ochiq qolgan, ikkitasi
+// esa YOZARDI va ichida ruxsat tekshiruvi yo'q edi:
+//   menejer_xaridori()         — customers ga qator qo'shadi
+//   menejer_hisobini_moslash() — ledger_entries ga yozadi/o'chiradi
+//
+// Shuning uchun ro'yxat emas, QOIDA tekshiriladi: yozadigan har bir
+// security definer funksiya anon uchun yopiq bo'lsin.
+console.log('\n5. Yozadigan funksiyalar anon uchun yopiq');
+
+async function sqlMgmt(q) {
+  const r = await fetch(`https://api.supabase.com/v1/projects/${K.ref}/database/query`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${K.mgmt_token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ query: q }),
+  });
+  if (!r.ok) throw new Error(`${r.status} ${(await r.text()).slice(0, 200)}`);
+  return r.json();
+}
+
+try {
+  const ochiq = await sqlMgmt(`
+    select p.proname,
+           pg_get_function_identity_arguments(p.oid) as args
+    from pg_proc p
+    join pg_namespace n on n.oid = p.pronamespace
+    where n.nspname = 'public'
+      and p.prokind = 'f'
+      and p.prosecdef                       -- security definer: RLS'ni chetlab o'tadi
+      and has_function_privilege('anon', p.oid, 'execute')
+      -- Tanasida yozish amali bormi
+      and pg_get_functiondef(p.oid) ~* '(insert into|update [a-z_]+ +set|delete from)'
+      -- Telegram bot va mini-ilova ATAYLAB tokensiz ishlaydi: ular
+      -- chaqiruvchini chat_id/kod bilan o'zi tekshiradi
+      and p.proname not like 'dori_kabinet%'
+      and p.proname not in (
+        'dori_mijoz_ulash', 'dori_mijoz_kod', 'handle_new_user',
+        'report_client_error', 'tg_set_updated_at'
+      )
+    order by 1
+  `);
+  tekshir(
+    'anon uchun ochiq yozuvchi funksiya yo‘q',
+    ochiq.length === 0,
+    ochiq.length ? ochiq.map((r) => r.proname).join(', ') : ''
+  );
+} catch (e) {
+  tekshir('funksiya huquqlarini tekshirish', false, e.message);
+}
+
 console.log('\n' + (yiqildi === 0 ? '\x1b[32mHAMMASI YOPIQ\x1b[0m' : `\x1b[31m${yiqildi} TA OCHIQ NUQTA\x1b[0m`) + '\n');
 process.exit(yiqildi === 0 ? 0 : 1);

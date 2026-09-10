@@ -295,6 +295,42 @@ Muhim maydon (nom, narx, ishlab chiqaruvchi, muddat) topilmasa —
 saqlashdan **oldin** ochiq yozing. Avval prays saqlanar, ustun bo'sh
 qolar va bu faqat eksportda bilinardi.
 
+### Prays fayli BITTA jadval emas
+
+Ta'minotchining faylida asosiy ro'yxatdan keyin alohida jadvallar
+turadi va ularning **ustunlari boshqacha**:
+
+```
+ҚЎШИМЧАЛАР          № | Nomi | Цена СПЕЦ | Цена Реал | Орг.упк | ...
+Внимание! Акции!!!  № | Nomi | Акция     | Цена без акции | Цена после | ...
+```
+
+Robot butun varaqqa **bitta** moslashtirish qo'llardi. Aksiya blokida
+3-ustun narx emas, «Акция» edi:
+
+```js
+songa("5+1")  → 51
+songa("10+1") → 101
+```
+
+Natijada **56 ta dori** skladda 12–101 so'mdan turgan (63 800 so'mlik
+Алдобел — 51 so'm). Sotuv bo'lmagani uchun pul yo'qolmagan.
+
+Yana bir oqibat: blok sarlavhalari dori bo'lib qolgan — katalogda
+«Наименование товаров» degan dori bor edi, ishlab chiqaruvchisi
+«Производитель».
+
+**Qoida:** `bloklarniTop()` har bir sarlavha qatorini topadi, har blok
+**o'z moslashtirishi** bilan o'qiladi va qator `bolim` belgisini oladi.
+Blok nomi aniq so'zga bog'lanmagan — sarlavha ustidagi matndan olinadi.
+
+Shablon qo'llanganda yoki odam ustunni qo'lda almashtirganda ham
+qatorlar **blok-blok** qayta yig'iladi (`bloklarniQaytaYig`). Bir joyda
+unutilsa eski xato darrov qaytadi.
+
+`tests/prays-bloklar.mjs` uch blokli Excel'ni haqiqatan yasab o'qitadi
+va eksport hujjatini qayta ochib tekshiradi.
+
 ### Prays yuklash = eskisini o'chirish
 
 `dori_import_apply` `p_finalize=true` bilan shu importga tegmagan hamma

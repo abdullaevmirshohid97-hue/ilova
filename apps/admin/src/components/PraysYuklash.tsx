@@ -3,6 +3,7 @@ import { C, MONO, RADIUS, sh } from '../lib/sa-tema';
 import { fnXato, supabase } from '../lib/supabase';
 import { tasdiqlaSoz } from './Xabar';
 import {
+  BOLIM_NOMI,
   MAYDON_NOMI,
   excelgaYoz,
   faylniOqi,
@@ -42,6 +43,52 @@ type Farq = {
 function son(n: number | null | undefined): string {
   if (n === null || n === undefined) return '—';
   return Number(n).toLocaleString('ru-RU', { maximumFractionDigits: 2 });
+}
+
+/**
+ * Qatorlarni BLOK-BLOK qayta yig'adi.
+ *
+ * Shablon qo'llanganda yoki odam ustunni qo'lda almashtirganda faqat
+ * ASOSIY blokning moslashtirishi o'zgaradi; pastdagi "ҚЎШИМЧАЛАР" va
+ * "Акции" jadvallari o'z moslashtirishida qoladi.
+ *
+ * Busiz butun varaq asosiy blokning ustunlari bilan o'qilardi va
+ * aksiya blokidagi "Акция" ustuni ("5+1") narx bo'lib ketardi —
+ * jonli bazada 56 ta dori shu sababdan 51 so'mga tushgan.
+ */
+function bloklarniQaytaYig(
+  satrlar: unknown[][],
+  n: Natija,
+  asosiyMoslash: Moslash,
+): Pick<Natija, 'qatorlar' | 'jamiHisoblangan' | 'jamiFayldan' | 'rejim' | 'bloklar'> {
+  const qatorlar: Natija['qatorlar'] = [];
+  let jamiHisoblangan = 0;
+  let jamiFayldan: number | null = null;
+  let rejim: Natija['rejim'] = 'narxlar';
+
+  const bloklar = n.bloklar.map((b, i) => ({
+    ...b,
+    moslash: i === 0 ? asosiyMoslash : b.moslash,
+  }));
+
+  for (const b of bloklar) {
+    const q = qatorlarniYig(
+      satrlar,
+      b.sarlavhaQatori,
+      b.ustunlar,
+      b.moslash,
+      b.bolim,
+      b.oxirgiQator,
+      qatorlar.length,
+    );
+    b.qatorSoni = q.qatorlar.length;
+    qatorlar.push(...q.qatorlar);
+    jamiHisoblangan += q.jamiHisoblangan;
+    if (q.jamiFayldan !== null) jamiFayldan = (jamiFayldan ?? 0) + q.jamiFayldan;
+    if (q.rejim === 'faktura') rejim = 'faktura';
+  }
+
+  return { qatorlar, jamiHisoblangan, jamiFayldan, rejim, bloklar };
 }
 
 type Props = {
@@ -126,7 +173,7 @@ export default function PraysYuklash({ warehouseId, skladNomi, onYakun }: Props)
         }
 
         const { satrlar } = satrlarniOl(buf, sheetIndex);
-        const q = qatorlarniYig(satrlar, n.sarlavhaQatori, n.ustunlar, m);
+        const q = bloklarniQaytaYig(satrlar, n, m);
         yakuniy = { ...n, moslash: m, ...q };
         setShablonTopildi(true);
       } else {
@@ -154,7 +201,7 @@ export default function PraysYuklash({ warehouseId, skladNomi, onYakun }: Props)
     else yangi[maydon] = indeks;
 
     const { satrlar } = satrlarniOl(bayt, varaq);
-    const q = qatorlarniYig(satrlar, natija.sarlavhaQatori, natija.ustunlar, yangi);
+    const q = bloklarniQaytaYig(satrlar, natija, yangi);
     setNatija({ ...natija, moslash: yangi, ...q });
   }
 
@@ -214,6 +261,14 @@ export default function PraysYuklash({ warehouseId, skladNomi, onYakun }: Props)
       series: q.series ?? '',
       expiry: q.expiry ?? '',
       made_at: q.made_at ?? '',
+      // Prays bo'limi va aksiya ma'lumoti. Ular yuborilmasa pastdagi
+      // "ҚЎШИМЧАЛАР" va "Акции" jadvallari oddiy qator bo'lib qolar,
+      // eksportda esa alohida chiqmasdi.
+      bolim: q.bolim ?? 'asosiy',
+      aksiya: q.aksiya ?? '',
+      aksiya_narx: q.aksiya_narx ?? '',
+      narx_real: q.narx_real ?? '',
+      org_upk: q.org_upk ?? '',
     }));
   }
 
@@ -627,6 +682,17 @@ export default function PraysYuklash({ warehouseId, skladNomi, onYakun }: Props)
               <span className="text-2xl font-extrabold" style={{ color: C.neon }}>
                 {natija.qatorlar.length}
               </span>
+              {/* Prays fayli bitta jadval emas: pastida "ҚЎШИМЧАЛАР" va
+                  "Акции" alohida turadi. Ular topilganini odam KO'RSIN —
+                  aks holda 56 ta aksiya qatori jimgina noto'g'ri narx
+                  bilan tushib ketardi va buni hech kim sezmasdi. */}
+              {(natija.bloklar ?? []).length > 1 && (
+                <span className="mt-1 block text-[10px]" style={{ color: sh(C.text, 67) }}>
+                  {(natija.bloklar ?? [])
+                    .map((b) => `${BOLIM_NOMI[b.bolim]}: ${b.qatorSoni}`)
+                    .join(' · ')}
+                </span>
+              )}
             </Quti>
             <Quti sarlavha="ROBOT HISOBLAGAN JAMI">
               <span className="text-xl font-extrabold" style={{ color: C.textBright }}>

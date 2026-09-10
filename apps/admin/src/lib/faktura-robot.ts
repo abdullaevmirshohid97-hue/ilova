@@ -33,7 +33,23 @@ export type Maydon =
   | 'barcode'
   | 'stock'
   | 'group'
-  | 'made_at';
+  | 'made_at'
+  // Praysning pastki bloklari uchun (aksiya / qo'shimchalar)
+  | 'aksiya'
+  | 'aksiya_narx'
+  | 'narx_real'
+  | 'org_upk';
+
+// Prays fayli bitta ro'yxat emas: pastida "ҚЎШИМЧАЛАР" va "Внимание!
+// Акции!!!" kabi ALOHIDA jadvallar turadi, ularning ustunlari ham
+// boshqacha.
+export type Bolim = 'asosiy' | 'qoshimcha' | 'aksiya';
+
+export const BOLIM_NOMI: Record<Bolim, string> = {
+  asosiy: 'Asosiy ro‘yxat',
+  qoshimcha: 'Qo‘shimchalar',
+  aksiya: 'Aksiya',
+};
 
 export const MAYDON_NOMI: Record<Maydon, string> = {
   name: 'Nomi',
@@ -50,6 +66,10 @@ export const MAYDON_NOMI: Record<Maydon, string> = {
   stock: 'Qoldiq',
   group: 'Guruh',
   made_at: 'Ishlab chiqarilgan sana',
+  aksiya: 'Aksiya sharti',
+  aksiya_narx: 'Aksiya narxi',
+  narx_real: 'Real narx',
+  org_upk: 'Org. upakovka',
 };
 
 // Bu ustunlar HECH QAYSI maydonga tushmasligi kerak.
@@ -83,9 +103,14 @@ const KALITLAR: Record<Maydon, string[]> = {
          'бирлик', 'ўлчов', 'улчов'],
   // "сотув нархи", "сотув цена со скидкой/наценкой" — jonli fayllardagi
   // haqiqiy sarlavhalar. Ular tanilmasa narx ustuni topilmay qolardi.
+  // "цена без акции" va "цена спец" ATAYLAB uzun kalit sifatida yozilgan:
+  // ular yonidagi "цена после акции" / "цена реал" ustunlari ham "цена"
+  // ni o'z ichiga oladi va qaysi biri narx bo'lishi tasodifga qolardi.
+  // Uzunroq kalit ko'proq ball beradi — tanlov aniq bo'ladi.
   price: ['narx', 'narxi', 'baho', 'цена', 'price', 'unit price', 'стоимость за',
           'нарх', 'нархи', 'нарҳ', 'сотув нарх', 'сотув нархи', 'сотиш нарх',
-          'сотув цена', 'цена со скидкой', 'наценкой', 'баҳо', 'бахо'],
+          'сотув цена', 'цена со скидкой', 'наценкой', 'баҳо', 'бахо',
+          'цена без акции', 'без акции', 'акциясиз', 'цена спец', 'спец'],
   sum: ['summa', 'jami', 'qiymat', 'сумма', 'стоимость', 'итого', 'total', 'amount',
         'сумма', 'жами', 'қиймат', 'киймат'],
   nds_rate: ['nds %', 'ndc %', 'qqs %', 'ндс %', 'ставка ндс', 'vat %', 'nds stavka'],
@@ -107,6 +132,18 @@ const KALITLAR: Record<Maydon, string[]> = {
     'производств', 'изготовлен', 'дата изг', 'дата вып',
     'made', 'mfg', 'manufactured', 'prod date',
   ],
+
+  // ---- Pastki bloklar (aksiya / qo'shimchalar) ----
+  //
+  // "Акция" ustunida "5+1", "10+1" turadi — bu SON EMAS, shart.
+  // Uni narx deb o'qish jonli bazada falokat bo'lgan: songa("5+1")
+  // 51 qaytaradi va 63 800 so'mlik dori skladda 51 so'm bo'lib
+  // qolgan (56 ta pozitsiya).
+  aksiya: ['акция', 'акцияси', 'aksiya', 'aksiyasi', 'aksiya sharti'],
+  aksiya_narx: ['цена после акции', 'после акции', 'цена после',
+                'акциядан кейин', 'акция нархи', 'aksiya narxi'],
+  narx_real: ['цена реал', 'реал нарх', 'реал', 'real narx', 'цена реальная'],
+  org_upk: ['орг. упк', 'орг.упк', 'орг упк', 'упаковка', 'упак', 'org upk', 'org. upk'],
 };
 
 export type Ustun = { indeks: number; sarlavha: string };
@@ -114,6 +151,7 @@ export type Moslash = Partial<Record<Maydon, number>>;   // maydon -> ustun inde
 
 export type Qator = {
   line_no: number;
+  bolim: Bolim;
   name?: string;
   manufacturer?: string;
   series?: string;
@@ -128,8 +166,26 @@ export type Qator = {
   stock?: number;
   group?: string;
   made_at?: string;
+  aksiya?: string;
+  aksiya_narx?: number;
+  narx_real?: number;
+  org_upk?: number;
   qoshimcha: Record<string, unknown>;
   ogohlar: string[];
+};
+
+// Faylning bitta jadvali: o'z sarlavhasi, o'z ustunlari, o'z
+// moslashtirishi bilan. Avval butun varaqqa BITTA moslashtirish
+// qo'llanardi — pastdagi bloklar boshqa ustun tartibida bo'lgani
+// uchun narx boshqa ustundan o'qilardi.
+export type Blok = {
+  bolim: Bolim;
+  nom: string;            // faylda yozilgani ("Внимание! Акции!!!")
+  sarlavhaQatori: number;
+  oxirgiQator: number;    // shu blokning oxirgi qatori (shu qator ham kiradi)
+  ustunlar: Ustun[];
+  moslash: Moslash;
+  qatorSoni: number;
 };
 
 export type Natija = {
@@ -140,6 +196,7 @@ export type Natija = {
   moslash: Moslash;
   imzo: string;
   qatorlar: Qator[];
+  bloklar: Blok[];
   jamiHisoblangan: number;
   jamiFayldan: number | null;
   rejim: Rejim;
@@ -261,6 +318,10 @@ const MAYDON_TURI: Record<Maydon, Tur> = {
   stock: 'son',
   group: 'matn',
   made_at: 'sana',
+  aksiya: 'matn',
+  aksiya_narx: 'son',
+  narx_real: 'son',
+  org_upk: 'son',
 };
 
 // Ustunda HAQIQATAN kerakli turdagi ma'lumot bormi? 0..1 oralig'ida.
@@ -330,6 +391,148 @@ function moslashniTop(
     bandUstun.add(j.indeks);
   }
   return moslash;
+}
+
+// ------------------------------------------------------------ bloklar
+//
+// Prays fayli bitta jadval emas. Jonli faylda uchta bor:
+//   1) asosiy ro'yxat (~3 600 qator)
+//   2) "ҚЎШИМЧАЛАР"        — № | Nomi | Цена СПЕЦ | Цена Реал | Орг.упк | ...
+//   3) "Внимание! Акции!!!" — № | Nomi | Акция | Цена без акции | Цена после | ...
+//
+// Ular BOSHQA ustun tartibida. Avval butun varaqqa bitta moslashtirish
+// qo'llanardi: aksiya blokida 3-ustun narx emas, "Акция" ("5+1") edi va
+// songa("5+1") = 51 bo'lib, 63 800 so'mlik dori skladda 51 so'm bo'lib
+// qolgan. Shuning uchun har blok o'z moslashtirishi bilan o'qiladi.
+
+/** Shu qator sarlavhaga o'xshaydimi? Nechta maydon tanilgani. */
+function sarlavhaBali(s: unknown[]): number {
+  let ball = 0;
+  const korilgan = new Set<Maydon>();
+  let toldirilgan = 0;
+  let sonli = 0;
+  for (const katak of s) {
+    const t = matn(katak);
+    if (!t) continue;
+    toldirilgan++;
+    if (songa(katak) !== undefined && /^[\d\s.,\-]+$/.test(t)) sonli++;
+    const m = ustunniTani(t);
+    if (m && !korilgan.has(m)) {
+      korilgan.add(m);
+      ball++;
+    }
+  }
+  // Ma'lumot qatori ham tasodifan tanilishi mumkin (dori nomida "narx"
+  // so'zi bo'lsa). Sarlavhada raqamli katak deyarli bo'lmaydi.
+  if (toldirilgan > 0 && sonli / toldirilgan > 0.4) return 0;
+  return ball;
+}
+
+/**
+ * Sarlavhadan yuqoridagi eng yaqin matnli qator — blok nomi.
+ *
+ * Qatorining indeksi ham qaytadi: u OLDINGI blokning oxiri sifatida
+ * kesiladi. Aks holda "ҚЎШИМЧАЛАР" sarlavhasi oldingi ro'yxatga dori
+ * bo'lib qo'shilib qolardi — katalogda aynan shunday axlat bor edi
+ * ("Наименование товаров", ishlab chiqaruvchisi "Производитель").
+ */
+function blokNomi(
+  satrlar: unknown[][],
+  sarlavhaQatori: number,
+  chegara: number
+): { nom: string; qator: number } {
+  for (let i = sarlavhaQatori - 1; i >= chegara; i--) {
+    const s = satrlar[i] ?? [];
+    const matnlar = s.map(matn).filter(Boolean);
+    if (matnlar.length === 0) continue;
+    // Sarlavha bloki emas, qisqa yozuv bo'lsin (birlashtirilgan katak)
+    if (matnlar.length <= 3 && sarlavhaBali(s) < 2) {
+      return { nom: matnlar.join(' ').trim(), qator: i };
+    }
+    return { nom: '', qator: sarlavhaQatori };
+  }
+  return { nom: '', qator: sarlavhaQatori };
+}
+
+function bolimniTani(nom: string, birinchimi: boolean): Bolim {
+  const p = past(nom);
+  if (/акци|aksiya|скидк|chegirma/.test(p)) return 'aksiya';
+  if (/қўшимча|кўшимча|qoshimcha|qo'shimcha|дополнит|қошимча/.test(p)) return 'qoshimcha';
+  // Nomi tanilmagan blok: birinchisi asosiy, keyingilari qo'shimcha.
+  // Yo'qotmaslik muhimroq — noma'lum blok tashlab yuborilmaydi.
+  return birinchimi ? 'asosiy' : 'qoshimcha';
+}
+
+export function bloklarniTop(satrlar: unknown[][]): Blok[] {
+  const nomzodlar: number[] = [];
+  for (let i = 0; i < satrlar.length; i++) {
+    if (sarlavhaBali(satrlar[i] ?? []) >= 2) nomzodlar.push(i);
+  }
+  if (nomzodlar.length === 0) return [];
+
+  // Ketma-ket sarlavhaga o'xshagan qatorlar (ikki qatorli sarlavha)
+  // bitta blok deb qaraladi — oxirgisi haqiqiy sarlavha.
+  const boshlar: number[] = [];
+  for (const q of nomzodlar) {
+    if (boshlar.length && q - boshlar[boshlar.length - 1] <= 1) {
+      boshlar[boshlar.length - 1] = q;
+    } else {
+      boshlar.push(q);
+    }
+  }
+
+  // Har blokning nomi va u turgan qator — nom qatori OLDINGI blokning
+  // oxiri bo'ladi
+  const nomlar = boshlar.map((q, b) =>
+    blokNomi(satrlar, q, b === 0 ? 0 : boshlar[b - 1] + 1)
+  );
+
+  const bloklar: Blok[] = [];
+  for (let b = 0; b < boshlar.length; b++) {
+    const sarlavhaQatori = boshlar[b];
+    // Keyingi blokning NOMI ham shu blokdan chiqariladi
+    const keyingi = boshlar[b + 1];
+    const oxirgiQator =
+      keyingi === undefined ? satrlar.length - 1 : nomlar[b + 1].qator - 1;
+
+    const sarlavha = satrlar[sarlavhaQatori] ?? [];
+    const ustunlar: Ustun[] = sarlavha
+      .map((s, i) => ({ indeks: i, sarlavha: matn(s) }))
+      .filter((u) => u.sarlavha !== '');
+    if (ustunlar.length === 0) continue;
+
+    const nom = nomlar[b].nom;
+    const bolim = bolimniTani(nom, b === 0);
+
+    // Moslashtirish FAQAT shu blokning qatorlaridan hisoblanadi
+    const oyna = satrlar.slice(0, oxirgiQator + 1);
+    bloklar.push({
+      bolim,
+      nom,
+      sarlavhaQatori,
+      oxirgiQator,
+      ustunlar,
+      moslash: moslashniTop(oyna, sarlavhaQatori, ustunlar),
+      qatorSoni: 0,
+    });
+  }
+
+  // Blok nomi bo'lmagan, sarlavhasi oldingisiga AYNAN o'xshash blok —
+  // bu bitta jadvalning davomi (Excel'da sarlavha takrorlanadi).
+  // Uni alohida blok qilsak bir ro'yxat ikkiga bo'linib ketardi.
+  const birlashgan: Blok[] = [];
+  for (const b of bloklar) {
+    const oldingi = birlashgan[birlashgan.length - 1];
+    const imzoB = b.ustunlar.map((u) => past(u.sarlavha)).join('|');
+    const imzoO = oldingi?.ustunlar.map((u) => past(u.sarlavha)).join('|');
+    if (oldingi && !b.nom && imzoB === imzoO) {
+      oldingi.oxirgiQator = b.oxirgiQator;
+      continue;
+    }
+    birlashgan.push(b);
+  }
+
+  return birlashgan;
 }
 
 // Sarlavha qatori qayerda? Eng ko'p tanilgan ustun bergan qator.
@@ -418,8 +621,8 @@ export function faylniOqi(bayt: ArrayBuffer, fileName: string, sheetIndex = 0): 
     raw: true,
   });
 
-  const sarlavhaQatori = sarlavhaniTop(satrlar);
-  if (sarlavhaQatori < 0) {
+  const bloklar = bloklarniTop(satrlar);
+  if (bloklar.length === 0) {
     return {
       fileName,
       sheetName,
@@ -428,6 +631,7 @@ export function faylniOqi(bayt: ArrayBuffer, fileName: string, sheetIndex = 0): 
       moslash: {},
       imzo: '',
       qatorlar: [],
+      bloklar: [],
       jamiHisoblangan: 0,
       jamiFayldan: null,
       rejim: 'faktura',
@@ -435,32 +639,49 @@ export function faylniOqi(bayt: ArrayBuffer, fileName: string, sheetIndex = 0): 
     };
   }
 
-  const sarlavha = satrlar[sarlavhaQatori] ?? [];
-  const ustunlar: Ustun[] = sarlavha
-    .map((s, i) => ({ indeks: i, sarlavha: matn(s) }))
-    .filter((u) => u.sarlavha !== '');
+  // Har blok O'Z moslashtirishi bilan o'qiladi va natijalar birlashadi.
+  // Ekranda ham, katalogga yozishda ham qatorlar bitta ro'yxat bo'lib
+  // qoladi — faqat endi har birida `bolim` bor.
+  const qatorlar: Qator[] = [];
+  let jamiHisoblangan = 0;
+  let jamiFayldan: number | null = null;
+  let rejim: Rejim = 'narxlar';
 
-  const moslash = moslashniTop(satrlar, sarlavhaQatori, ustunlar);
+  for (const b of bloklar) {
+    const q = qatorlarniYig(
+      satrlar,
+      b.sarlavhaQatori,
+      b.ustunlar,
+      b.moslash,
+      b.bolim,
+      b.oxirgiQator,
+      qatorlar.length
+    );
+    b.qatorSoni = q.qatorlar.length;
+    qatorlar.push(...q.qatorlar);
+    jamiHisoblangan += q.jamiHisoblangan;
+    if (q.jamiFayldan !== null) jamiFayldan = (jamiFayldan ?? 0) + q.jamiFayldan;
+    // Bitta blokda ham miqdor bo'lsa — bu faktura
+    if (q.rejim === 'faktura') rejim = 'faktura';
+  }
 
-  const { qatorlar, jamiHisoblangan, jamiFayldan, rejim } = qatorlarniYig(
-    satrlar,
-    sarlavhaQatori,
-    ustunlar,
-    moslash
-  );
+  // Asosiy blok — panel ustun moslashtirish jadvali va shablon xotirasi
+  // shunga tayanadi (avvalgi xatti-harakat saqlanadi)
+  const asosiy = bloklar[0];
 
   return {
     fileName,
     sheetName,
-    sarlavhaQatori,
-    ustunlar,
-    moslash,
-    imzo: imzoYasa(ustunlar),
+    sarlavhaQatori: asosiy.sarlavhaQatori,
+    ustunlar: asosiy.ustunlar,
+    moslash: asosiy.moslash,
+    imzo: imzoYasa(asosiy.ustunlar),
     qatorlar,
+    bloklar,
     jamiHisoblangan,
     jamiFayldan,
     rejim,
-    faktura: bosh(satrlar, sarlavhaQatori),
+    faktura: bosh(satrlar, asosiy.sarlavhaQatori),
   };
 }
 
@@ -470,11 +691,15 @@ export function qatorlarniYig(
   satrlar: unknown[][],
   sarlavhaQatori: number,
   ustunlar: Ustun[],
-  moslash: Moslash
+  moslash: Moslash,
+  bolim: Bolim = 'asosiy',
+  oxirgiQator?: number,
+  boshLineNo = 0
 ): { qatorlar: Qator[]; jamiHisoblangan: number; jamiFayldan: number | null; rejim: Rejim } {
   const qatorlar: Qator[] = [];
   let jamiHisoblangan = 0;
   let jamiFayldan: number | null = null;
+  const oxiri = oxirgiQator ?? satrlar.length - 1;
 
   // Har bir fayl faktura emas. Miqdor ham, summa ham yo'q bo'lsa — bu
   // narxlar ro'yxati (assortiment). Unda "miqdor yo'q" deb har bir qatorni
@@ -484,9 +709,12 @@ export function qatorlarniYig(
 
   const moslanganIndekslar = new Set(Object.values(moslash));
 
-  for (let i = sarlavhaQatori + 1; i < satrlar.length; i++) {
+  for (let i = sarlavhaQatori + 1; i <= oxiri; i++) {
     const s = satrlar[i] ?? [];
     if (s.every((k) => k === null || matn(k) === '')) continue;
+    // Blok ichida sarlavha takrorlansa (Excel'da uzun ro'yxatda odatiy)
+    // u dori bo'lib qolmasin
+    if (sarlavhaBali(s) >= 2) continue;
 
     const olish = (m: Maydon) => (moslash[m] === undefined ? undefined : s[moslash[m]!]);
 
@@ -541,7 +769,8 @@ export function qatorlarniYig(
     }
 
     qatorlar.push({
-      line_no: qatorlar.length + 1,
+      line_no: boshLineNo + qatorlar.length + 1,
+      bolim,
       name: nomi || undefined,
       manufacturer: matn(olish('manufacturer')) || undefined,
       series: matn(olish('series')) || undefined,
@@ -556,6 +785,12 @@ export function qatorlarniYig(
       stock: songa(olish('stock')),
       group: matn(olish('group')) || undefined,
       made_at: sanaga(olish('made_at')),
+      // Aksiya sharti ("5+1") SON EMAS — matn bo'lib qoladi. Uni narx
+      // deb o'qish jonli bazada 56 ta dorini 51 so'mga tushirgan edi.
+      aksiya: matn(olish('aksiya')) || undefined,
+      aksiya_narx: songa(olish('aksiya_narx')),
+      narx_real: songa(olish('narx_real')),
+      org_upk: songa(olish('org_upk')),
       qoshimcha,
       ogohlar,
     });

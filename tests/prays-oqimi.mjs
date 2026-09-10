@@ -211,12 +211,20 @@ if (K?.mgmt_token) {
     imzo.length + ' ta imzo',
   );
 
+  // Tartibda UNIKAL ustun bo'lishi shart, aks holda bir xil nomli
+  // qatorlar bo'lak chegarasida ikki marta tushib, boshqasi umuman
+  // tushmay qolardi.
+  //
+  // Avval tekshiruv qat'iy 'order by p.name, p.id' matnini qidirardi.
+  // Eksport uch bo'limga (asosiy / qo'shimchalar / aksiya) bo'lingach
+  // so'rov o'zgardi va sinov eskirib yolg'on xato berdi. Endi savol
+  // nomga emas, MAQSADGA bog'langan: tartibda id bormi.
   const tartib = await sqlE(`
-    select position('order by p.name, p.id' in pg_get_functiondef(oid)) > 0 as bor
+    select pg_get_functiondef(oid) ~* 'order by[^;]*\\.?id' as bor
     from pg_proc where proname = 'dori_prays_eksport'
   `);
   tekshir(
-    'tartib barqaror (nom + id)',
+    'tartib barqaror (unikal ustun bilan)',
     tartib[0]?.bor === true,
     'aks holda bo‘laklar chegarasida qator yo‘qolardi',
   );
