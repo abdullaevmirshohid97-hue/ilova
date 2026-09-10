@@ -218,9 +218,15 @@ if (!K?.mgmt_token) {
        ${q}`,
     );
 
+  // Tekshiruv qat'iy "is_super_admin" nomini qidirardi. Dorixona
+  // alohida biznesga chiqarilgach kirish qoidasi dori_ruxsat() ga
+  // o'tdi — kod to'g'ri edi, sinov esa eskirib yolg'on xato berardi.
+  // Endi savol nomga emas, MAQSADGA bog'langan: funksiyada umuman
+  // ruxsat tekshiruvi bormi.
   const fn = await sql(`
     select p.prosecdef as definer,
-           position('is_super_admin' in pg_get_functiondef(p.oid)) > 0 as tekshiruv,
+           (pg_get_functiondef(p.oid) like '%dori_ruxsat%'
+            or pg_get_functiondef(p.oid) like '%is_super_admin%') as tekshiruv,
            has_function_privilege('anon', p.oid, 'execute') as anon
     from pg_proc p join pg_namespace n on n.oid = p.pronamespace
     where n.nspname = 'public' and p.proname = 'dori_sotuv_narxlar'
@@ -228,7 +234,7 @@ if (!K?.mgmt_token) {
   tekshir('dori_sotuv_narxlar mavjud', fn.length === 1);
   if (fn.length === 1) {
     tekshir('security definer', fn[0].definer === true);
-    tekshir('super admin tekshiruvi bor', fn[0].tekshiruv === true);
+    tekshir('ruxsat tekshiruvi bor', fn[0].tekshiruv === true);
     tekshir('anon chaqirolmaydi', fn[0].anon === false);
   }
 

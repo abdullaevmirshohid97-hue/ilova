@@ -124,16 +124,20 @@ if (!K?.mgmt_token) {
     return j;
   };
 
+  // Nomga emas, maqsadga bog'langan tekshiruv: dorixona alohida
+  // biznesga chiqarilgach kirish qoidasi is_super_admin() dan
+  // dori_ruxsat() ga o'tdi va bu sinov eskirib yolg'on xato berardi.
   for (const fn of ['dori_sklad_ustama', 'dori_sklad_pozitsiya']) {
     const r = await sql(`
       select count(*)::int as n,
              bool_or(p.prosecdef) as definer,
-             bool_or(position('is_super_admin' in pg_get_functiondef(p.oid)) > 0) as tekshiruv
+             bool_or(pg_get_functiondef(p.oid) like '%dori_ruxsat%'
+                     or pg_get_functiondef(p.oid) like '%is_super_admin%') as tekshiruv
       from pg_proc p join pg_namespace n on n.oid = p.pronamespace
       where n.nspname = 'public' and p.proname = '${fn}'
     `);
     tekshir(`${fn}: mavjud`, r[0].n > 0);
-    tekshir(`${fn}: super admin tekshiruvi bor`, r[0].tekshiruv === true);
+    tekshir(`${fn}: ruxsat tekshiruvi bor`, r[0].tekshiruv === true);
   }
 
   // Anon chaqira olmasin

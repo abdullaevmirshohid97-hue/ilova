@@ -270,12 +270,16 @@ try {
     'faqat funksiya yozadi',
   );
 
+  // Nomga emas, maqsadga bog'langan tekshiruv: dorixona alohida
+  // biznesga chiqarilgach kirish qoidasi is_super_admin() dan
+  // dori_ruxsat() ga o'tdi va bu sinov eskirib yolg'on xato berardi.
   for (const fn of ['dori_sotuv_tahrir', 'dori_sotuv_ochish', 'dori_sotuv_tahrirlari']) {
     const r = await sql(`
-      select position('is_super_admin' in pg_get_functiondef(oid)) > 0 as tekshiruv,
+      select (pg_get_functiondef(oid) like '%dori_ruxsat%'
+              or pg_get_functiondef(oid) like '%is_super_admin%') as tekshiruv,
              has_function_privilege('anon', oid, 'execute') as anon
       from pg_proc where proname = '${fn}' limit 1;`);
-    tekshir(`${fn}: super admin tekshiruvi`, r[0]?.tekshiruv === true);
+    tekshir(`${fn}: ruxsat tekshiruvi`, r[0]?.tekshiruv === true);
     tekshir(`${fn}: anon chaqirolmaydi`, r[0]?.anon === false);
   }
   // ---------- 8. Ekran ----------
