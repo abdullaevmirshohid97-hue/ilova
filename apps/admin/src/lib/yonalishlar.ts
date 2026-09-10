@@ -63,8 +63,11 @@ const DORIXONA_MODULLAR: TenantModul[] = [
   { to: '/dori/mijozlar', icon: '☎', label: 'Mijozlar' },
 ];
 
-// Qarzdorlik tizimi. Hozircha agentlar ekrani — usiz bot ishlamaydi.
+// Qarzdorlik tizimi. Tartib ish oqimi bo'yicha: avval umumiy manzara,
+// keyin klientlar (sverka shu yerda), oxirida agentlarni boshqarish.
 const QARZ_MODULLAR: TenantModul[] = [
+  { to: '/qarz', icon: '📊', label: 'Boshqaruv' },
+  { to: '/qarz/klientlar', icon: '👥', label: 'Klientlar' },
   { to: '/qarz/agentlar', icon: '🧑‍💼', label: 'Agentlar' },
 ];
 
@@ -92,9 +95,9 @@ export const TENANT_YONALISHLAR: TenantYonalish[] = [
     belgi: '💳',
     nom: 'QARZDORLIK',
     izoh: 'klient, chiqim, kirim, sverka, agentlar',
-    // Agentlar ekrani tayyor: bot ishlashi uchun admin agent
-    // yarata olishi SHART — agent panelga kirmaydi, u telefon
-    // raqami bilan botga kiradi. Qolgan ekranlar keyingi bosqichda.
+    // Agent panelga KIRMAYDI — u telefon raqami bilan Telegram botga
+    // kiradi. Shuning uchun paneldagi "Agentlar" ekrani botning
+    // eshigi: usiz hech kim botdan foydalana olmaydi.
     modullar: QARZ_MODULLAR,
   },
   { key: 'sklad', belgi: '📦', nom: 'SKLAD', izoh: 'ombor va qoldiq boshqaruvi', modullar: [] },

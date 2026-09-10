@@ -148,10 +148,27 @@ try {
   tekshir('chiqim yozildi', chiqim.j?.ok === true);
   tekshir('qarz 1 250 000 bo‘ldi', Number(chiqim.j?.qoldiq) === 1250000, String(chiqim.j?.qoldiq));
 
+  // Kirimda TO'LOV USULI majburiy: oy oxirida "kassada qancha naqd
+  // bo'lishi kerak" degan savolga javob shundan chiqadi
+  const usulsiz = await sql(`
+    select qarz_bot_yozuv(${CHAT_A}, '${klientA}', 'kirim', 500000, null, null) as j
+  `);
+  tekshir(
+    'usulsiz kirim o‘tmaydi',
+    Boolean(usulsiz.xato) && /USUL_MAJBURIY/.test(usulsiz.xato),
+    usulsiz.xato ? '' : 'YOZILDI!'
+  );
+
+  const notogriUsul = await sql(`
+    select qarz_bot_yozuv(${CHAT_A}, '${klientA}', 'kirim', 100, null, 'bitcoin') as j
+  `);
+  tekshir('noma’lum usul o‘tmaydi', Boolean(notogriUsul.xato) && /NOTOGRI_USUL/.test(notogriUsul.xato));
+
   const kirim = await bir(`
-    select qarz_bot_yozuv(${CHAT_A}, '${klientA}', 'kirim', 500000, null) as j
+    select qarz_bot_yozuv(${CHAT_A}, '${klientA}', 'kirim', 500000, null, 'plastik') as j
   `);
   tekshir('kirim yozildi', kirim.j?.ok === true);
+  tekshir('usul saqlandi', kirim.j?.usul === 'plastik', String(kirim.j?.usul));
   tekshir(
     'oldingi qarz to‘g‘ri ko‘rsatildi',
     Number(kirim.j?.oldingi) === 1250000,
@@ -252,7 +269,36 @@ try {
   const h = await bir(`select qarz_bot_hisobot(${CHAT_A}) as j`);
   tekshir('hisobot chiqimi 1 250 000', Number(h.j?.chiqim) === 1250000, String(h.j?.chiqim));
   tekshir('bekor qilingan kirim hisobga olinmadi', Number(h.j?.kirim) === 0, String(h.j?.kirim));
+  tekshir('bekor qilingach plastik ham 0', Number(h.j?.plastik) === 0, String(h.j?.plastik));
   tekshir('agentning klientlari 1 ta', Number(h.j?.klientlar) === 1, String(h.j?.klientlar));
+
+  // Uch usulda uch kirim — hisobot ularni ajratib bersinmi
+  await sql(`select qarz_bot_yozuv(${CHAT_A}, '${klientA}', 'kirim', 100000, null, 'naqd')`);
+  await sql(`select qarz_bot_yozuv(${CHAT_A}, '${klientA}', 'kirim', 200000, null, 'plastik')`);
+  await sql(`select qarz_bot_yozuv(${CHAT_A}, '${klientA}', 'kirim', 300000, null, 'klik')`);
+  const h2 = await bir(`select qarz_bot_hisobot(${CHAT_A}) as j`);
+  tekshir('naqd 100 000', Number(h2.j?.naqd) === 100000, String(h2.j?.naqd));
+  tekshir('plastik 200 000', Number(h2.j?.plastik) === 200000, String(h2.j?.plastik));
+  tekshir('klik 300 000', Number(h2.j?.klik) === 300000, String(h2.j?.klik));
+  tekshir(
+    'usullar yig‘indisi jami kirimga teng',
+    Number(h2.j?.naqd) + Number(h2.j?.plastik) + Number(h2.j?.klik) === Number(h2.j?.kirim),
+    `${h2.j?.kirim}`
+  );
+
+  // Chiqimga usul yozib bo'lmasin — hisobot yolg'on gapirardi
+  const chiqimUsul = await sql(`
+    select qarz_yozuv_qosh('${klientA}', 'chiqim', 1000, null, null, '${agentA}', 'naqd') as id
+  `);
+  if (!chiqimUsul.xato) {
+    const u = await bir(`
+      select usul from qarz_transactions where client_id = '${klientA}'
+        and tur = 'chiqim' and summa = 1000 limit 1
+    `);
+    tekshir('chiqimda usul yozilmaydi', u?.usul === null, String(u?.usul));
+  } else {
+    tekshir('chiqimda usul yozilmaydi', false, chiqimUsul.xato);
+  }
 
   // ---------- 8. Webhook himoyasi ----------
   console.log('\n8. Webhook');

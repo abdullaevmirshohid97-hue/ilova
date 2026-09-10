@@ -84,6 +84,25 @@ const KONTAKT = {
   one_time_keyboard: true,
 };
 
+// Pul kirimi uch xil bo'ladi. Bu shunchaki yorliq emas: oy oxirida
+// "kassada qancha naqd bo'lishi kerak" degan savolga javob shundan
+// chiqadi. Chiqimda usul YO'Q — u to'lov emas, qarz yozuvi.
+const USUL_NOM: Record<string, string> = {
+  naqd: '💵 Naqd',
+  plastik: '💳 Plastik',
+  klik: '🔵 Click',
+};
+
+const USUL_TUGMA = {
+  inline_keyboard: [
+    [
+      { text: '💵 Naqd', callback_data: 'usul:naqd' },
+      { text: '💳 Plastik', callback_data: 'usul:plastik' },
+      { text: '🔵 Click', callback_data: 'usul:klik' },
+    ],
+  ],
+};
+
 /** Davr tugmalari — sverka va hisobot uchun bir xil */
 const DAVR_TUGMA = (prefiks: string) => ({
   inline_keyboard: [
@@ -270,9 +289,18 @@ Deno.serve(async (req) => {
         `👤 ${esc(k.apteka || k.ism)}\n` +
         `📅 ${esc(d.nom)}\n\n` +
         `📦 Tovar chiqimi:\n<b>${pul(s.chiqim)}</b>\n\n` +
-        `💰 Pul kirimi:\n<b>${pul(s.kirim)}</b>\n\n` +
-        `━━━━━━━━━━━━━━\n\n` +
-        `💳 Qoldiq:\n<b>${pul(s.qoldiq)}</b>`;
+        `💰 Pul kirimi:\n<b>${pul(s.kirim)}</b>`;
+
+      // Kirim usullari — faqat bo'lganlari yoziladi, aks holda
+      // uchta nol qator har sverkani uzaytirardi
+      const usullar = (s.usullar ?? {}) as Record<string, number>;
+      const usulYozuv = Object.entries(usullar)
+        .filter(([, v]) => Number(v) > 0)
+        .map(([k, v]) => `   ${USUL_NOM[k] ?? k}: ${pul(v)}`)
+        .join('\n');
+      if (usulYozuv) matn += `\n${usulYozuv}`;
+
+      matn += `\n\n━━━━━━━━━━━━━━\n\n💳 Qoldiq:\n<b>${pul(s.qoldiq)}</b>`;
 
       const amallar = (s.amallar ?? []) as any[];
       if (amallar.length) {
@@ -284,6 +312,7 @@ Deno.serve(async (req) => {
           const ishora = a.tur === 'chiqim' ? '+' : '−';
           matn +=
             `\n\n${sanaVaqt(a.sana)}\n${belgi}   ${ishora}${raqam(a.summa)}` +
+            (a.usul ? `  ·  ${USUL_NOM[a.usul] ?? a.usul}` : '') +
             (a.bekor ? `\n<s>BEKOR QILINGAN</s> — ${esc(a.bekor_sabab ?? '')}` : '');
         }
         if (amallar.length > 25) matn += `\n\n<i>...va yana ${amallar.length - 25} ta</i>`;
@@ -311,12 +340,47 @@ Deno.serve(async (req) => {
         chat,
         `📊 <b>${esc(d.nom.toUpperCase())}</b>\n\n` +
           `📦 Jami tovar chiqimi:\n<b>${pul(r.chiqim)}</b>\n\n` +
-          `💰 Jami pul kirimi:\n<b>${pul(r.kirim)}</b>\n\n` +
+          `💰 Jami pul kirimi:\n<b>${pul(r.kirim)}</b>\n` +
+          `   💵 Naqd:    ${pul(r.naqd)}\n` +
+          `   💳 Plastik: ${pul(r.plastik)}\n` +
+          `   🔵 Click:   ${pul(r.klik)}\n\n` +
           `━━━━━━━━━━━━━━\n\n` +
           `💳 Jami qarzdorlik:\n<b>${pul(r.qarz)}</b>\n` +
           `<i>(bugungi holat, davrga bog'liq emas)</i>\n\n` +
           `👥 Klientlar: <b>${r.klientlar}</b> ta`,
         { reply_markup: MENYU },
+      );
+      return new Response('ok');
+    }
+
+    // ---- to'lov usuli tanlandi ----
+    if (tur === 'usul') {
+      const h = await holatOl(chat);
+      const d = h.data ?? {};
+      if (!d.client_id || !d.summa) {
+        await menyuniKorsat(chat, agent);
+        return new Response('ok');
+      }
+      await holatQoy(chat, 'kirim_tasdiq', { ...d, usul: qiymat, tur: 'kirim' });
+      await yubor(
+        chat,
+        `📋 <b>KIRIM</b>\n\n` +
+          `Klient: ${esc(d.nom)}\n` +
+          `Summa: <b>${pul(d.summa)}</b>\n` +
+          `Usul: <b>${USUL_NOM[qiymat] ?? qiymat}</b>\n` +
+          `Sana: ${sanaVaqt(new Date().toISOString())}\n\n` +
+          `Qolgan qarz: <b>${pul(Number(d.qarz || 0) - Number(d.summa))}</b>\n\n` +
+          `Tasdiqlaysizmi?`,
+        {
+          reply_markup: {
+            inline_keyboard: [
+              [
+                { text: '✅ SAQLASH', callback_data: 'saqla:1' },
+                { text: '❌ BEKOR QILISH', callback_data: 'bekorla:1' },
+              ],
+            ],
+          },
+        },
       );
       return new Response('ok');
     }
@@ -335,6 +399,7 @@ Deno.serve(async (req) => {
         p_tur: d.tur,
         p_summa: d.summa,
         p_izoh: null,
+        p_usul: d.usul ?? null,
       });
       if (error) {
         await yubor(chat, '❌ Saqlanmadi: ' + esc(error.message), { reply_markup: MENYU });
@@ -348,7 +413,9 @@ Deno.serve(async (req) => {
         chat,
         (chiqimmi ? '📋 <b>CHIQIM SAQLANDI</b>' : '💰 <b>KIRIM SAQLANDI</b>') +
           `\n\n👤 ${esc(r.klient)}\n` +
-          `${chiqimmi ? '+' : '−'}${pul(r.summa)}\n\n` +
+          `${chiqimmi ? '+' : '−'}${pul(r.summa)}` +
+          (r.usul ? `  ·  ${USUL_NOM[r.usul] ?? r.usul}` : '') +
+          `\n\n` +
           `Oldingi qarz:  ${pul(r.oldingi)}\n` +
           `${chiqimmi ? 'Chiqim:       ' : "To'lov:       "} ${pul(r.summa)}\n` +
           `<b>Qolgan qarz:  ${pul(r.qoldiq)}</b>`,
@@ -509,17 +576,30 @@ Deno.serve(async (req) => {
         return new Response('ok');
       }
       const tur = holat.state === 'chiqim_summa' ? 'chiqim' : 'kirim';
+
+      // Kirimda avval TO'LOV USULI so'raladi — naqd, plastik yoki
+      // Click. Usulsiz yozib bo'lmaydi (baza ham USUL_MAJBURIY beradi).
+      if (tur === 'kirim') {
+        await holatQoy(chat, 'kirim_usul', { ...holat.data, summa, tur });
+        await yubor(
+          chat,
+          `💰 <b>PUL KIRIMI</b>\n\n` +
+            `Klient: ${esc(holat.data.nom)}\n` +
+            `Summa: <b>${pul(summa)}</b>\n\n` +
+            `To‘lov qanday olindi?`,
+          { reply_markup: USUL_TUGMA },
+        );
+        return new Response('ok');
+      }
+
       await holatQoy(chat, `${tur}_tasdiq`, { ...holat.data, summa, tur });
-      const chiqimmi = tur === 'chiqim';
       await yubor(
         chat,
-        `📋 <b>${chiqimmi ? 'CHIQIM' : 'KIRIM'}</b>\n\n` +
+        `📋 <b>CHIQIM</b>\n\n` +
           `Klient: ${esc(holat.data.nom)}\n` +
           `Summa: <b>${pul(summa)}</b>\n` +
           `Sana: ${sanaVaqt(new Date().toISOString())}\n\n` +
-          (chiqimmi
-            ? `Qarz bo‘ladi: <b>${pul(Number(holat.data.qarz || 0) + summa)}</b>`
-            : `Qolgan qarz: <b>${pul(Number(holat.data.qarz || 0) - summa)}</b>`) +
+          `Qarz bo‘ladi: <b>${pul(Number(holat.data.qarz || 0) + summa)}</b>` +
           `\n\nTasdiqlaysizmi?`,
         {
           reply_markup: {

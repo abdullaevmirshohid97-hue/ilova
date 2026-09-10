@@ -40,6 +40,8 @@ const SkladKabinet = lazy(() => import('./pages/SkladKabinet'));
 
 // Qarzdorlik yo'nalishi — agentlar Telegram bot orqali ishlaydi,
 // admin esa ularni shu ekranda yaratadi
+const QarzBoshqaruv = lazy(() => import('./pages/QarzBoshqaruv'));
+const QarzKlientlar = lazy(() => import('./pages/QarzKlientlar'));
 const QarzAgentlar = lazy(() => import('./pages/QarzAgentlar'));
 
 // Dorixona — alohida biznes. Ekranlari avval super admin konsolining
@@ -356,6 +358,8 @@ function AppIchki() {
           <Route path="/customers/new" element={<CustomerNew />} />
           <Route path="/customers/:id" element={<CustomerDetail />} />
           <Route path="/managers" element={<Managers />} />
+          <Route path="/qarz" element={<QarzBoshqaruv />} />
+          <Route path="/qarz/klientlar" element={<QarzKlientlar />} />
           <Route path="/qarz/agentlar" element={<QarzAgentlar />} />
           <Route path="/finance" element={<Finance />} />
           <Route path="/reports" element={<Reports />} />
