@@ -402,6 +402,35 @@ ExcelJS bilan qayta ochib tekshiradi.
 
 ---
 
+## 4b. Kutubxonasiz XLSX va PDF (Deno)
+
+Chekka funksiyada `ExcelJS` ham, `pdfkit` ham ishlamaydi — ikkalasi
+Node oqimlariga tayanadi. `supabase/functions/telegram-qarz/hujjat.ts`
+ikkalasini standartning sodda qismidan yig'adi:
+
+- **XLSX** — ZIP ichidagi XML. Yozuvlar **siqilmagan** (store), CRC32
+  qo'lda hisoblanadi. XML UTF-8, ya'ni kirill o'z holicha chiqadi.
+  XML 1.0 taqiqlagan boshqaruv belgilari **olib tashlanishi shart** —
+  qolsa Excel faylni umuman ochmaydi ("unreadable content").
+- **PDF** — obyektlar ro'yxati + `xref` jadvali. Hujjat butunlay
+  latin1 satr sifatida yig'iladi, shuning uchun **belgi siljishi bayt
+  siljishiga teng** va `xref` ni hisoblash sodda bo'ladi.
+
+**Standart Helvetica kirillni bilmaydi.** PDF'da kirill matn lotinga
+o'giriladi (`winansi()`), aks holda hujjatda bo'sh joy qolardi. Excel'da
+bunday cheklov yo'q.
+
+`tests/qarz-fayl.mjs` faylni yasab, **qayta ochadi**: ZIP yozuvlarining
+CRC32 si, `xref` siljishlari haqiqiy obyektga tushishi, `/Length` oqim
+uzunligiga tengligi va sahifalash tekshiriladi. Bitta noto'g'ri siljish
+faylni ochilmas qiladi va buni faqat mijoz bilardi.
+
+**Telegram `callback_data` 64 BAYT.** Sverka fayli tugmasi eng uzuni:
+`sf:<uuid>:<davr>:xlsx`. Sig'masa tugma jimgina ishlamaydi — sinovda
+o'lchab qo'yilgan.
+
+---
+
 ## 5. Panel (React) tuzoqlari
 
 ### `window.open` `await` dan OLDIN
@@ -513,6 +542,25 @@ tekshirmayotgani shunday aniqlandi:
 Bir tekshiruv ikki faylda tursa, biri o'zgarganda ikkinchisi eskirib
 yolg'on xato beradi.
 
+### Panel funksiyasini SQL bilan sinab bo'lmaydi
+
+`current_org_id()` va `is_admin()` `auth.uid()` ga tayanadi. Management
+API bilan yuborilgan SQL'da u `null` — funksiya `RUXSAT_YOQ` beradi
+yoki bo'sh qaytaradi. Panel RPC'si uchun REST orqali **admin JWT bilan**
+kiring (`/auth/v1/token?grant_type=password`, keyin `/rest/v1/rpc/...`).
+`tests/qarz-bot.mjs` shunday qiladi.
+
+Va sinov ma'lumotini **adminning tashkilotida** yarating. "Birinchi
+organizations" olinsa, panel funksiyasi bo'sh qaytarib, sinov yashil
+turgan holda hech narsani tekshirmagan bo'lardi.
+
+### Chekka funksiyadagi sof mantiqni alohida faylga chiqaring
+
+`index.ts` ichida `Deno.serve` bor — uni sinovdan import qilib
+bo'lmaydi. Sana, hujjat, format kabi sof mantiq alohida modulda tursa
+(`davr.ts`, `hujjat.ts`), esbuild bilan yig'ib Node'da chaqirsa
+bo'ladi.
+
 ---
 
 ## 7. Deploy
@@ -541,6 +589,15 @@ o'zgaruvchisidan olinadi — aks holda `versiya.json` yolg'on gapiradi.
 funksiyalarda (`dori-faktura`, `telegram-*`, `dori-miniapp`) u `false`.
 Skript endi mavjud qiymatni saqlaydi; qo'lda deploy qilsangiz ham shuni
 tekshiring.
+
+**Funksiya bir necha fayldan iborat bo'lsa — u YIG'ILISHI kerak.**
+Management API `body` ga BITTA fayl oladi. `telegram-qarz` ga
+`hujjat.ts` va `davr.ts` qo'shilganda deploy "muvaffaqiyatli" dedi,
+funksiya esa `BOOT_ERROR` bilan turdi va sabab faqat loglarda edi.
+Skript endi yonida `.ts` fayl bo'lsa esbuild bilan bittaga yig'adi
+(`--external:npm:* --external:jsr:* --external:node:* --external:https://*`).
+**Deploydan keyin har doim bir marta chaqirib ko'ring:** maxfiy kalitsiz
+so'rov `403` qaytarsa funksiya ko'tarilgan, `503` qaytarsa — yo'q.
 
 **`SUPABASE_SERVICE_ROLE_KEY` bu loyihada eski `eyJ...` JWT emas,
 yangi `sb_secret_...` kaliti.** Funksiyani `service_role` sifatida
