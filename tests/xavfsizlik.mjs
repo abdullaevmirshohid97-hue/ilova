@@ -169,34 +169,65 @@ async function sqlMgmt(q) {
   return r.json();
 }
 
-try {
-  const ochiq = await sqlMgmt(`
-    select p.proname,
-           pg_get_function_identity_arguments(p.oid) as args
-    from pg_proc p
-    join pg_namespace n on n.oid = p.pronamespace
-    where n.nspname = 'public'
-      and p.prokind = 'f'
-      and p.prosecdef                       -- security definer: RLS'ni chetlab o'tadi
-      and has_function_privilege('anon', p.oid, 'execute')
-      -- Tanasida yozish amali bormi
-      and pg_get_functiondef(p.oid) ~* '(insert into|update [a-z_]+ +set|delete from)'
-      -- Telegram bot va mini-ilova ATAYLAB tokensiz ishlaydi: ular
-      -- chaqiruvchini chat_id/kod bilan o'zi tekshiradi
-      and p.proname not like 'dori_kabinet%'
-      and p.proname not in (
-        'dori_mijoz_ulash', 'dori_mijoz_kod', 'handle_new_user',
-        'report_client_error', 'tg_set_updated_at'
-      )
-    order by 1
-  `);
-  tekshir(
-    'anon uchun ochiq yozuvchi funksiya yo‘q',
-    ochiq.length === 0,
-    ochiq.length ? ochiq.map((r) => r.proname).join(', ') : ''
-  );
-} catch (e) {
-  tekshir('funksiya huquqlarini tekshirish', false, e.message);
+// ANON YETARLI EMAS. Loyihada ALTER DEFAULT PRIVILEGES turibdi:
+// postgres yaratgan har bir funksiya avtomatik `authenticated` ga
+// beriladi. Mijoz ham, sklad xodimi ham `authenticated` — ya'ni
+// anon yopilgani bilan ish tugamaydi.
+//
+// Shu sababdan uchta funksiya ochiq qolgan edi:
+//   menejer_xaridori(uuid)          — customers ga yozadi
+//   menejer_hisobini_moslash(uuid)  — ledger_entries ga yozadi
+//   qarz_agent_ulash(text, bigint)  — "men shu agentman" deb bog'lanish
+const ROLLAR = ['anon', 'authenticated'];
+
+// Ichida kim chaqirayotgani tekshiriladigan naqshlar.
+//
+// auth.uid() ham SHU RO'YXATDA: create_order va staff_telegram_code
+// aynan shu bilan himoyalangan (chaqiruvchining o'z yozuvini topadi)
+// va ular ATAYLAB har bir kirgan foydalanuvchiga ochiq. Ularsiz
+// tekshiruv shovqin berardi — shovqinli qo'riqchi esa e'tibordan
+// qoladi va himoya qilishni to'xtatadi.
+const TEKSHIRUV =
+  '(is_admin|is_manager|is_direktor|is_super_admin|dori_ruxsat|' +
+  'current_customer_id|current_manager_id|current_org_id)';
+
+for (const rol of ROLLAR) {
+  try {
+    const ochiq = await sqlMgmt(`
+      select p.proname
+      from pg_proc p
+      join pg_namespace n on n.oid = p.pronamespace
+      where n.nspname = 'public'
+        and p.prokind = 'f'
+        and p.prosecdef                     -- security definer: RLS'ni chetlab o'tadi
+        -- Trigger funksiyasini PostgREST orqali chaqirib bo'lmaydi
+        and p.prorettype <> 'trigger'::regtype
+        and has_function_privilege('${rol}', p.oid, 'execute')
+        -- Tanasida yozish amali bormi
+        and pg_get_functiondef(p.oid) ~* '(insert into|update [a-z_]+ +set|delete from)'
+        -- Ichida chaqiruvchi tekshirilmaydimi.
+        -- auth.uid() alohida: regexda qochirish oson chalkashadi,
+        -- aniq matn tekshiruvi ishonchliroq.
+        and pg_get_functiondef(p.oid) !~* '${TEKSHIRUV}'
+        and position('auth.uid()' in pg_get_functiondef(p.oid)) = 0
+        -- Telegram bot va mini-ilova ATAYLAB tokensiz ishlaydi: ular
+        -- chaqiruvchini chat_id/kod bilan o'zi tekshiradi
+        and p.proname not like 'dori_kabinet%'
+        and p.proname not in (
+          'dori_mijoz_ulash', 'dori_mijoz_kod', 'handle_new_user',
+          'report_client_error', 'tg_set_updated_at',
+          'dori_sklad_men', 'staff_telegram_unlink'
+        )
+      order by 1
+    `);
+    tekshir(
+      `${rol}: tekshiruvsiz yozuvchi funksiya yo‘q`,
+      ochiq.length === 0,
+      ochiq.length ? ochiq.map((r) => r.proname).join(', ') : ''
+    );
+  } catch (e) {
+    tekshir(`${rol}: funksiya huquqlarini tekshirish`, false, e.message);
+  }
 }
 
 console.log('\n' + (yiqildi === 0 ? '\x1b[32mHAMMASI YOPIQ\x1b[0m' : `\x1b[31m${yiqildi} TA OCHIQ NUQTA\x1b[0m`) + '\n');
