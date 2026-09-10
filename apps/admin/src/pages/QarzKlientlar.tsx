@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { xabarKorsat, tasdiqlaSoz } from '../components/Xabar';
 import { formatSum, supabase } from '../lib/supabase';
+import { altbilgi, blank, hujjatniYoz, logoniOl, oynaOch, sozlamaniOl, uslub } from '../lib/hujjat';
+import { klientNomi, sanaYozuv, sverkaKitobi, sverkaTanasi } from '../lib/qarz-eksport';
 
 // QARZDORLIK — klientlar va sverka.
 //
@@ -271,6 +273,54 @@ function SverkaModal({ klient, onClose, onOzgardi }: { klient: Klient; onClose: 
   }
 
   const usullar = s?.usullar ?? {};
+  const davrNomi = DAVRLAR.find((d) => d.key === davr)?.nom ?? '';
+
+  async function excelga() {
+    if (!s) return;
+    try {
+      const { data: soz } = await supabase
+        .from('dori_settings')
+        .select('firma_nomi')
+        .maybeSingle();
+      const bayt = await sverkaKitobi(
+        s as any,
+        (soz as any)?.firma_nomi || 'IDAA FARM',
+        davrNomi,
+      );
+      const url = URL.createObjectURL(
+        new Blob([bayt], {
+          type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        }),
+      );
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `sverka-${klientNomi(s.klient).replace(/[^\wа-яА-Я\- ]/g, '')}-${new Date()
+        .toISOString()
+        .slice(0, 10)}.xlsx`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (e: any) {
+      xabarKorsat('❌ ' + (e?.message ?? 'Hujjat yasalmadi'));
+    }
+  }
+
+  async function chopEt() {
+    if (!s) return;
+    // Oyna DARHOL ochiladi — await'dan keyin ochilsa brauzer bloklaydi
+    // va hech qanday xato ham chiqmaydi
+    const w = oynaOch();
+    if (!w) return;
+    const soz = await sozlamaniOl();
+    const logo = await logoniOl(soz);
+    hujjatniYoz(w, {
+      nom: 'Sverka — ' + klientNomi(s.klient),
+      uslub: uslub(soz),
+      tana:
+        blank(soz, null, logo, { turi: 'SVERKA', sana: sanaYozuv(new Date()) }) +
+        sverkaTanasi(s as any, davrNomi) +
+        altbilgi(soz),
+    });
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-6">
@@ -305,7 +355,19 @@ function SverkaModal({ klient, onClose, onOzgardi }: { klient: Klient; onClose: 
               </button>
             ))}
           </div>
-          <div className="ml-auto flex gap-2">
+          <div className="ml-auto flex flex-wrap gap-2">
+            <button
+              onClick={excelga}
+              className="rounded-xl border border-gray-200 px-4 py-2 text-sm font-bold text-gray-700 hover:border-brand"
+            >
+              📥 Excel
+            </button>
+            <button
+              onClick={chopEt}
+              className="rounded-xl border border-gray-200 px-4 py-2 text-sm font-bold text-gray-700 hover:border-brand"
+            >
+              📄 PDF / Chop etish
+            </button>
             <button
               onClick={() => setYozuv('chiqim')}
               className="rounded-xl border border-gray-200 px-4 py-2 text-sm font-bold text-gray-700 hover:border-brand"
