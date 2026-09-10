@@ -147,6 +147,35 @@ keyin tiklanganini **alohida tekshiring**:
 select position('manager_id = v_mgr' in pg_get_functiondef(oid)) > 0
 ```
 
+### `authenticated` ham xavf — anon yopilgani yetarli emas
+
+Loyihada **ALTER DEFAULT PRIVILEGES** turibdi: `postgres` yaratgan
+har bir funksiya avtomatik `authenticated` va `service_role` ga
+EXECUTE bilan beriladi.
+
+Ya'ni funksiya yozgan odam hech narsa qilmasa, u **kirgan har qanday
+foydalanuvchi** uchun ochiq bo'ladi. Mijoz ham, sklad xodimi ham
+`authenticated` — anon dan revoke qilish ishni tugatmaydi.
+
+Shu sababdan uchta funksiya ochiq qolgan edi:
+
+| Funksiya | Nima qilardi |
+|---|---|
+| `menejer_xaridori(uuid)` | `customers` ga qator qo'shadi |
+| `menejer_hisobini_moslash(uuid)` | `ledger_entries` ga yozadi/o'chiradi |
+| `qarz_agent_ulash(text, bigint)` | «men shu agentman» deb bog'lanish |
+
+**Qoida:** har yangi funksiyadan keyin
+`revoke all ... from public, anon, authenticated`, keyin **aniq**
+kimga kerak bo'lsa `grant`. Faqat bot chaqiradigan funksiyaga
+`service_role` default orqali allaqachon berilgan — qo'shimcha
+grant kerak emas.
+
+`chat_id` ga tayanadigan funksiyani `authenticated` ga bermang:
+chat_id maxfiy emas, uni bilgan odam o'sha agent nomidan yozardi.
+
+`tests/xavfsizlik.mjs` ikkala rolni ham tekshiradi.
+
 ### Yangi rol qo'shsangiz — niqoblarni qayta o'qing
 
 `customers_masked` menejer mijozining telefonini shunday yashirardi:
