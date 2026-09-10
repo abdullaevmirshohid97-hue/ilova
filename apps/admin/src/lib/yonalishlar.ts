@@ -63,6 +63,11 @@ const DORIXONA_MODULLAR: TenantModul[] = [
   { to: '/dori/mijozlar', icon: '☎', label: 'Mijozlar' },
 ];
 
+// Qarzdorlik tizimi. Hozircha agentlar ekrani — usiz bot ishlamaydi.
+const QARZ_MODULLAR: TenantModul[] = [
+  { to: '/qarz/agentlar', icon: '🧑‍💼', label: 'Agentlar' },
+];
+
 export const TENANT_YONALISHLAR: TenantYonalish[] = [
   {
     key: 'b2b',
@@ -87,11 +92,10 @@ export const TENANT_YONALISHLAR: TenantYonalish[] = [
     belgi: '💳',
     nom: 'QARZDORLIK',
     izoh: 'klient, chiqim, kirim, sverka, agentlar',
-    // Baza tayyor (qarz_* jadvallari, RLS, sverka). Ekranlar keyingi
-    // bosqichda qo'shiladi — shu sababdan ro'yxat hozircha bo'sh va
-    // kartochka "TEZ ORADA" bo'lib turadi. Yo'q sahifaga marshrut
-    // yozilsa tenant paneli bo'sh ochilardi.
-    modullar: [],
+    // Agentlar ekrani tayyor: bot ishlashi uchun admin agent
+    // yarata olishi SHART — agent panelga kirmaydi, u telefon
+    // raqami bilan botga kiradi. Qolgan ekranlar keyingi bosqichda.
+    modullar: QARZ_MODULLAR,
   },
   { key: 'sklad', belgi: '📦', nom: 'SKLAD', izoh: 'ombor va qoldiq boshqaruvi', modullar: [] },
   {
