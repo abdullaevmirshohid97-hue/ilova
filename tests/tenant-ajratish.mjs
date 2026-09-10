@@ -64,6 +64,16 @@ const JADVALLAR = [
   { nom: 'categories', pk: 'id', egasi: 'select org_id from categories where id = t.id' },
   { nom: 'price_groups', pk: 'id', egasi: 'select org_id from price_groups where id = t.id' },
   { nom: 'managers', pk: 'id', egasi: 'select org_id from managers where id = t.id' },
+  // Qarzdorlik yo'nalishi — jadval qo'shilgan kunning o'zida bu ro'yxatga
+  // tushdi. Keyinroq qo'shilsa, oradagi vaqtda hech kim tekshirmasdi.
+  { nom: 'qarz_agents', pk: 'id', egasi: 'select org_id from qarz_agents where id = t.id' },
+  { nom: 'qarz_clients', pk: 'id', egasi: 'select org_id from qarz_clients where id = t.id' },
+  {
+    nom: 'qarz_transactions',
+    pk: 'id',
+    egasi: 'select org_id from qarz_transactions where id = t.id',
+  },
+  { nom: 'qarz_audit', pk: 'id', egasi: 'select org_id from qarz_audit where id = t.id' },
   { nom: 'design_orders', pk: 'id', egasi: 'select org_id from design_orders where id = t.id' },
   {
     nom: 'orders',
@@ -237,6 +247,68 @@ if (ozga[0]?.id) {
     body: JSON.stringify({ p_xodim: xodimId, p_tur: 'bonus', p_summa: 100 }),
   });
   tekshir('begona xodimga maosh yozib bo‘lmaydi', amal.status >= 400, 'HTTP ' + amal.status);
+
+  // ---- Qarzdorlik: begona tenantning agenti, klienti va yozuvi ----
+  // Bo'sh jadvalda "0 qator" hech narsani isbotlamaydi, shuning uchun
+  // begona tenantga vaqtincha yozuv qo'yiladi.
+  const qAgent = await sql(`
+    insert into qarz_agents (org_id, ism, rayon, telefon)
+    values ('${ozgaOrg}', '${belgi}', 'sinov', '+998900000${Math.floor(Math.random() * 900 + 100)}')
+    returning id
+  `);
+  const qAgentId = qAgent[0].id;
+  const qClient = await sql(`
+    insert into qarz_clients (org_id, agent_id, ism, apteka)
+    values ('${ozgaOrg}', '${qAgentId}', '${belgi}', 'sinov apteka')
+    returning id
+  `);
+  const qClientId = qClient[0].id;
+  await sql(`
+    insert into qarz_transactions (org_id, client_id, tur, summa, izoh)
+    values ('${ozgaOrg}', '${qClientId}', 'chiqim', 1000, '${belgi}')
+  `);
+  await sql(`
+    insert into qarz_audit (org_id, amal, jadval, yozuv_id, sabab)
+    values ('${ozgaOrg}', 'qoshildi', 'qarz_transactions', '${qClientId}', '${belgi}')
+  `);
+
+  for (const [jadval, pk] of [
+    ['qarz_agents', 'id'],
+    ['qarz_clients', 'id'],
+    ['qarz_transactions', 'id'],
+    ['qarz_audit', 'id'],
+  ]) {
+    const r = await fetch(`${URL}/rest/v1/${jadval}?select=${pk}&limit=100`, {
+      headers: { apikey: K.anon_key, Authorization: 'Bearer ' + token },
+    });
+    const rows = await r.json();
+    const soni = Array.isArray(rows) ? rows.length : -1;
+    tekshir(
+      `${jadval}: begona tenant yozuvi ko‘rinmaydi`,
+      soni === 0,
+      soni === 0 ? 'ko‘rinmadi' : `${soni} qator KO‘RINDI`,
+    );
+  }
+
+  // Begona klientga yozuv qo'shib ko'ramiz — RPC ni ham sinaymiz
+  const qYoz = await fetch(`${URL}/rest/v1/rpc/qarz_yozuv_qosh`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', apikey: K.anon_key, Authorization: 'Bearer ' + token },
+    body: JSON.stringify({ p_client_id: qClientId, p_tur: 'chiqim', p_summa: 100 }),
+  });
+  tekshir('begona klientga yozuv qo‘shib bo‘lmaydi', qYoz.status >= 400, 'HTTP ' + qYoz.status);
+
+  const qSverka = await fetch(`${URL}/rest/v1/rpc/qarz_sverka`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', apikey: K.anon_key, Authorization: 'Bearer ' + token },
+    body: JSON.stringify({ p_client_id: qClientId }),
+  });
+  tekshir('begona klient sverkasi ochilmaydi', qSverka.status >= 400, 'HTTP ' + qSverka.status);
+
+  await sql(`delete from qarz_audit where sabab = '${belgi}'`);
+  await sql(`delete from qarz_transactions where client_id = '${qClientId}'`);
+  await sql(`delete from qarz_clients where id = '${qClientId}'`);
+  await sql(`delete from qarz_agents where id = '${qAgentId}'`);
 
   await sql(`delete from maosh_amallari where izoh = '${belgi}' or xodim_id = '${xodimId}'`);
   await sql(`delete from xodimlar where id = '${xodimId}'`);

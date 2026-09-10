@@ -14,7 +14,13 @@
 // ro'yxatda ko'rinib tursin, lekin ochilmasin.
 // ============================================================================
 
-export type YonalishKalit = 'dorixona' | 'sklad' | 'ishlab_chiqarish' | 'b2b' | 'marketplace';
+export type YonalishKalit =
+  | 'dorixona'
+  | 'sklad'
+  | 'ishlab_chiqarish'
+  | 'b2b'
+  | 'marketplace'
+  | 'qarzdorlik';
 
 export type TenantModul = { to: string; icon: string; label: string };
 
@@ -75,6 +81,17 @@ export const TENANT_YONALISHLAR: TenantYonalish[] = [
     // qatorda. Kim kirishini bazadagi `dori_ruxsat()` hal qiladi:
     // dorixona AYNAN qaysi tenantniki bo'lsa, o'shaning admini.
     modullar: DORIXONA_MODULLAR,
+  },
+  {
+    key: 'qarzdorlik',
+    belgi: '💳',
+    nom: 'QARZDORLIK',
+    izoh: 'klient, chiqim, kirim, sverka, agentlar',
+    // Baza tayyor (qarz_* jadvallari, RLS, sverka). Ekranlar keyingi
+    // bosqichda qo'shiladi — shu sababdan ro'yxat hozircha bo'sh va
+    // kartochka "TEZ ORADA" bo'lib turadi. Yo'q sahifaga marshrut
+    // yozilsa tenant paneli bo'sh ochilardi.
+    modullar: [],
   },
   { key: 'sklad', belgi: '📦', nom: 'SKLAD', izoh: 'ombor va qoldiq boshqaruvi', modullar: [] },
   {
