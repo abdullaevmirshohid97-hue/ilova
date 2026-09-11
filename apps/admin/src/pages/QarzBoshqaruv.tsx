@@ -135,26 +135,34 @@ export default function QarzBoshqaruv() {
     (agentId ? ' · ' + (agentlar.find((a) => a.id === agentId)?.ism ?? '') : ' · barcha agentlar');
 
   /**
-   * Hisobotdagi klientlar ro'yxati ekrandagi filtrga MOS bo'lishi shart.
-   * Agent tanlangan bo'lsa faqat o'sha agentning klientlari chiqadi —
-   * aks holda qog'ozdagi jami ekrandagi qarz bilan to'g'ri kelmasdi.
+   * Hisobotdagi klientlar ro'yxati ekrandagi filtrga MOS bo'lishi shart —
+   * davr ham, agent ham. Aks holda qog'ozdagi jami ekrandagi raqam bilan
+   * to'g'ri kelmasdi va qaysi biri haqiqiy ekani bilinmasdi.
+   *
+   * Har qatorda davrdagi chiqim/kirim va to'lov turlari bor; qarz esa
+   * BUGUNGI holat — u davrga bog'liq emas.
    */
   async function klientlarniOl() {
-    const { data, error } = await supabase.rpc('qarz_klientlar', {
+    const d = davrOraliq(davr);
+    const { data, error } = await supabase.rpc('qarz_hisobot_klientlar', {
+      p_dan: d.dan,
+      p_gacha: d.gacha,
       p_agent_id: agentId || null,
-      p_q: null,
     });
     if (error) throw new Error(error.message);
-    return ((data ?? []) as any[])
-      .map((k) => ({
-        ism: k.ism,
-        familiya: k.familiya,
-        apteka: k.apteka,
-        telefon: k.telefon,
-        agent: k.agent,
-        qarz: Number(k.qarz) || 0,
-      }))
-      .sort((a, b) => b.qarz - a.qarz);
+    return ((data ?? []) as any[]).map((k) => ({
+      ism: k.ism,
+      familiya: k.familiya,
+      apteka: k.apteka,
+      telefon: k.telefon,
+      agent: k.agent,
+      chiqim: Number(k.chiqim) || 0,
+      kirim: Number(k.kirim) || 0,
+      naqd: Number(k.naqd) || 0,
+      plastik: Number(k.plastik) || 0,
+      klik: Number(k.klik) || 0,
+      qarz: Number(k.qarz) || 0,
+    }));
   }
 
   async function excelga() {

@@ -205,6 +205,136 @@ tekshir('manfiy qoldiq (haqi) belgisi bilan', /-50 000/.test(
   E.sverkaTanasi({ ...SVERKA, qoldiq: -50000, amallar: [] }, 'Bugun')
 ));
 
+// =============================================================
+//  5. UMUMIY HISOBOT — har bir klient qatori
+//
+//  Hisobotda avval faqat qoldiq turardi. Endi har qatorda davrdagi
+//  chiqim, kirim va to'lov turlari ham bor. Eng nozik joyi: QARZ
+//  ustuni davrga bog'liq EMAS (bugungi holat), chiqim/kirim esa
+//  davrga bog'liq. Ikkovi bir jadvalda turgani uchun jami qatori
+//  har uchala ustunda ham to'g'ri chiqishi kerak.
+// =============================================================
+console.log('\n5. Umumiy hisobot');
+
+const HISOBOT = {
+  chiqim: 9000000, kirim: 4500000, naqd: 3000000, plastik: 1000000,
+  klik: 500000, qarz: 7500000, klientlar: 3, agentlar: 2,
+};
+
+const KLIENTLAR = [
+  {
+    ism: 'Valijon', familiya: 'Aliyev', apteka: 'Valijon Farm', telefon: '+998901112233',
+    agent: 'Aziz', chiqim: 5000000, kirim: 3500000,
+    naqd: 2000000, plastik: 1000000, klik: 500000, qarz: 2500000,
+  },
+  {
+    ism: 'Bobur', familiya: null, apteka: 'Shifo', telefon: null, agent: 'Aziz',
+    chiqim: 4000000, kirim: 1000000, naqd: 1000000, plastik: 0, klik: 0, qarz: 3000000,
+  },
+  // Davrda harakat qilmagan, lekin qarzi bor — qatori chiqishi shart
+  {
+    ism: 'Dilnoza', familiya: 'Yo‘ldosheva', apteka: null, telefon: '+998911111111',
+    agent: 'Bekzod', chiqim: 0, kirim: 0, naqd: 0, plastik: 0, klik: 0, qarz: 2000000,
+  },
+];
+
+const hBayt = await E.hisobotKitobi(HISOBOT, KLIENTLAR, 'IDAA FARM', 'sentabr 2026');
+writeFileSync(join(kesh, 'hisobot.xlsx'), Buffer.from(hBayt));
+
+const hKitob = new ExcelJS.Workbook();
+await hKitob.xlsx.load(hBayt);
+const hv = hKitob.worksheets[0];
+
+tekshir('hisobot varag‘i yasaldi', hv.name === 'Hisobot', hv.name);
+tekshir('yetti ustun', E.HISOBOT_USTUNLAR.length === 7, String(E.HISOBOT_USTUNLAR.length));
+
+// Jadval sarlavhasini topamiz
+let hBosh = 0;
+hv.eachRow((r, i) => {
+  if (String(r.getCell(7).value ?? '') === 'Qarzdorlik') hBosh = i;
+});
+tekshir('jadval sarlavhasi topildi', hBosh > 0, String(hBosh));
+tekshir('C — Apteka', hv.getRow(hBosh).getCell(3).value === 'Apteka');
+tekshir('D — Tovar chiqimi', hv.getRow(hBosh).getCell(4).value === 'Tovar chiqimi');
+tekshir('E — Pul kirimi', hv.getRow(hBosh).getCell(5).value === 'Pul kirimi');
+tekshir('F — To‘lov turi', hv.getRow(hBosh).getCell(6).value === 'To‘lov turi');
+
+const q1 = hv.getRow(hBosh + 1);
+tekshir('1-qator: klient', q1.getCell(2).value === 'Valijon Aliyev', String(q1.getCell(2).value));
+tekshir('1-qator: apteka', q1.getCell(3).value === 'Valijon Farm', String(q1.getCell(3).value));
+tekshir('1-qator: chiqim SON', q1.getCell(4).value === 5000000, String(q1.getCell(4).value));
+tekshir('1-qator: kirim SON', q1.getCell(5).value === 3500000, String(q1.getCell(5).value));
+tekshir(
+  '1-qator: to‘lov turlari summasi bilan',
+  q1.getCell(6).value === 'Naqd 2 000 000 · Plastik 1 000 000 · Click 500 000',
+  String(q1.getCell(6).value)
+);
+tekshir('1-qator: qarz SON', q1.getCell(7).value === 2500000, String(q1.getCell(7).value));
+tekshir('1-qator: qarz qizil', /B91C1C/i.test(JSON.stringify(q1.getCell(7).font ?? {})),
+  JSON.stringify(q1.getCell(7).font ?? {}));
+
+// Bo'lmagan usul yozilmasin — uchta nol qatorni uzaytirardi
+tekshir(
+  '2-qator: faqat naqd',
+  hv.getRow(hBosh + 2).getCell(6).value === 'Naqd 1 000 000',
+  String(hv.getRow(hBosh + 2).getCell(6).value)
+);
+
+const q3 = hv.getRow(hBosh + 3);
+tekshir('3-qator: harakatsiz klient ham chiqdi', q3.getCell(2).value === 'Dilnoza Yo‘ldosheva');
+// Nol emas, BO'SH: har qatorda ikkita nol turib, ko'z haqiqiy summani
+// ajrata olmasdi
+tekshir('3-qator: chiqim bo‘sh qoldi', q3.getCell(4).value == null, String(q3.getCell(4).value));
+tekshir('3-qator: qarzi ko‘rinadi', q3.getCell(7).value === 2000000, String(q3.getCell(7).value));
+
+// JAMI — FORMULA bo'lishi shart: qo'lda yozilsa qator qo'shilganda eskirardi
+const hJami = hv.getRow(hBosh + 4);
+tekshir('JAMI qatori', String(hJami.getCell(1).value ?? '') === 'JAMI', String(hJami.getCell(1).value));
+for (const [ustun, harf] of [[4, 'D'], [5, 'E'], [7, 'G']]) {
+  const v = hJami.getCell(ustun).value;
+  tekshir(
+    `JAMI ${harf} formula bilan`,
+    Boolean(v && typeof v === 'object' && 'formula' in v && v.formula === `SUM(${harf}${hBosh + 1}:${harf}${hBosh + 3})`),
+    JSON.stringify(v)
+  );
+}
+
+tekshir(
+  'sarlavha muzlatilgan',
+  hv.views?.[0]?.state === 'frozen' && hv.views[0].ySplit === hBosh,
+  JSON.stringify(hv.views?.[0] ?? {})
+);
+
+// ---- chop etish ko'rinishi ----
+const hHtml = E.hisobotTanasi(HISOBOT, KLIENTLAR, 'sentabr 2026');
+writeFileSync(join(kesh, 'hisobot.html'), hHtml);
+
+tekshir('PDF: sarlavha', /QARZDORLIK HISOBOTI/.test(hHtml));
+// `<th` emas `<th[ >]` — aks holda <thead> ham sanalib ketardi
+tekshir('PDF: yetti ustun sarlavhasi', (hHtml.match(/<th[ >]/g) ?? []).length === 7,
+  String((hHtml.match(/<th[ >]/g) ?? []).length));
+const hBirinchiQator = hHtml.split('<tbody>')[1].split('</tr>')[0];
+tekshir('PDF: qatorda ham yettita katak', (hBirinchiQator.match(/<td/g) ?? []).length === 7,
+  String((hBirinchiQator.match(/<td/g) ?? []).length));
+tekshir('PDF: apteka ko‘rinadi', /Valijon Farm/.test(hHtml));
+tekshir('PDF: to‘lov turlari', /Naqd 2 000 000/.test(hHtml));
+tekshir('PDF: qarz qizil', /#b91c1c/i.test(hHtml));
+tekshir('PDF: jami chiqim', /9 000 000/.test(hHtml));
+tekshir(
+  'PDF: jami qarz qatorlar yig‘indisiga teng',
+  new RegExp(String(7500000).replace(/\B(?=(\d{3})+(?!\d))/g, ' ')).test(hHtml)
+);
+tekshir(
+  'PDF: klient nomidagi HTML qochiriladi',
+  !/<script>/.test(
+    E.hisobotTanasi(HISOBOT, [{ ...KLIENTLAR[0], apteka: '<script>x</script>' }], 'Bugun')
+  )
+);
+tekshir(
+  'PDF: klientsiz hisobot ham yasaladi',
+  /Klient yo/.test(E.hisobotTanasi(HISOBOT, [], 'Bugun'))
+);
+
 console.log(`\n  hujjatlar: ${kesh}`);
 console.log(
   yiqildi === 0

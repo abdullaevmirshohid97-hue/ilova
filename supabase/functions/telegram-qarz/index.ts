@@ -431,18 +431,22 @@ Deno.serve(async (req) => {
     if (tur === 'hf') {
       const [davrKalit, format] = qiymat.split(':');
       const d = davrOraliq(davrKalit);
-      const [{ data: r, error: xato1 }, { data: kl }] = await Promise.all([
+      // Klient qatorlari AYNI davrdan olinadi: xulosadagi jami bilan
+      // qatorlar yig'indisi mos kelmasa, qaysi biri to'g'riligi bilinmasdi
+      const [{ data: r, error: xato1 }, { data: kl, error: xato2 }] = await Promise.all([
         supabase.rpc('qarz_bot_hisobot', { p_chat_id: chat, p_dan: d.dan, p_gacha: d.gacha }),
-        supabase.rpc('qarz_bot_klientlar', { p_chat_id: chat, p_limit: 100 }),
+        supabase.rpc('qarz_bot_hisobot_klientlar', {
+          p_chat_id: chat,
+          p_dan: d.dan,
+          p_gacha: d.gacha,
+        }),
       ]);
-      if (xato1) {
-        await yubor(chat, '❌ Hujjat yasalmadi: ' + esc(xato1.message));
+      if (xato1 || xato2) {
+        await yubor(chat, '❌ Hujjat yasalmadi: ' + esc((xato1 ?? xato2)!.message));
         return new Response('ok');
       }
       // Qarzi katta klient tepada: hisobotni ochgan odam avval shuni qidiradi
-      const klientlar = ((kl ?? []) as any[])
-        .map((k) => ({ ...k, qarz: Number(k.qarz) || 0 }))
-        .sort((a, b) => b.qarz - a.qarz);
+      const klientlar = (kl ?? []) as any[];
       const firma = agent.org ?? '';
       const davrNomi = `${d.nom} · ${agent.ism ?? ''}`;
       const bayt =

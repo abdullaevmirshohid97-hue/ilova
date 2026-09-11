@@ -107,6 +107,25 @@ function crc32(b) {
   return (c ^ 0xffffffff) >>> 0;
 }
 
+/** Varaq XML'idan kataklar: {A1: 'matn' | son} */
+function kataklar(sheet) {
+  const katak = {};
+  const re =
+    /<c r="([A-Z]+\d+)"[^>]*?(?: t="inlineStr")?>(?:<is><t[^>]*>([\s\S]*?)<\/t><\/is>|<v>([^<]*)<\/v>)<\/c>/g;
+  let m;
+  while ((m = re.exec(sheet))) {
+    katak[m[1]] =
+      m[2] !== undefined
+        ? m[2]
+            .replace(/&lt;/g, '<')
+            .replace(/&gt;/g, '>')
+            .replace(/&quot;/g, '"')
+            .replace(/&amp;/g, '&')
+        : Number(m[3]);
+  }
+  return katak;
+}
+
 // ---------------------------------------------------------------------------
 // Sinov ma'lumoti — ataylab "og'ir": kirill nomi, bekor qilingan amal,
 // XML buzadigan belgilar va nolinchi qoldiq
@@ -134,9 +153,22 @@ const HISOBOT = {
 };
 
 const KLIENTLAR = [
-  { ism: 'Aziz', familiya: 'Rahimov', apteka: 'Аптека №5', telefon: '+998901234567', qarz: 2500000 },
-  { ism: 'Bobur', familiya: null, apteka: 'Shifo', telefon: null, qarz: 3000000 },
-  { ism: 'Dilnoza', familiya: 'Yo‘ldosheva', apteka: null, telefon: '+998911111111', qarz: 2000000 },
+  {
+    ism: 'Aziz', familiya: 'Rahimov', apteka: 'Аптека №5', telefon: '+998901234567',
+    chiqim: 5000000, kirim: 3500000, naqd: 2000000, plastik: 1000000, klik: 500000,
+    qarz: 2500000,
+  },
+  {
+    ism: 'Bobur', familiya: null, apteka: 'Shifo', telefon: null,
+    chiqim: 4000000, kirim: 1000000, naqd: 1000000, plastik: 0, klik: 0,
+    qarz: 3000000,
+  },
+  // Bu davrda umuman harakat qilmagan klient — qarzi bor, qatori chiqishi shart
+  {
+    ism: 'Dilnoza', familiya: 'Yo‘ldosheva', apteka: null, telefon: '+998911111111',
+    chiqim: 0, kirim: 0, naqd: 0, plastik: 0, klik: 0,
+    qarz: 2000000,
+  },
 ];
 
 // ===========================================================================
@@ -186,15 +218,7 @@ console.log('\n— XLSX: sverka mazmuni —');
 {
   const sheet = fayllar['xl/worksheets/sheet1.xml'].matn;
 
-  // Kataklarni o'qib olamiz: {A1: 'matn'|son}
-  const katak = {};
-  const re = /<c r="([A-Z]+\d+)"[^>]*?(?: t="inlineStr")?>(?:<is><t[^>]*>([\s\S]*?)<\/t><\/is>|<v>([^<]*)<\/v>)<\/c>/g;
-  let m;
-  while ((m = re.exec(sheet))) {
-    katak[m[1]] = m[2] !== undefined
-      ? m[2].replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&amp;/g, '&')
-      : Number(m[3]);
-  }
+  const katak = kataklar(sheet);
 
   tekshir('A1 — firma nomi', katak.A1 === 'IDAA FARM', String(katak.A1));
   tekshir(
@@ -257,13 +281,62 @@ console.log('\n— XLSX: umumiy hisobot —');
   const hb = H.hisobotXlsx(HISOBOT, KLIENTLAR, 'IDAA FARM', 'Shu oy · barcha agentlar');
   const f = zipOch(hb);
   const sheet = f['xl/worksheets/sheet1.xml'].matn;
+  const katak = kataklar(sheet);
+
   tekshir('hisobotda sarlavha bor', sheet.includes('QARZDORLIK HISOBOTI'));
-  tekshir('klientlar ro‘yxati chiqqan', sheet.includes('Dilnoza'));
-  tekshir('JAMI qatori bor', sheet.includes('JAMI'));
-  // JAMI klientlar yig'indisiga teng bo'lishi shart
-  const jamiQarz = KLIENTLAR.reduce((s, k) => s + k.qarz, 0);
-  tekshir('JAMI yig‘indisi to‘g‘ri', sheet.includes('<v>' + jamiQarz + '</v>'), String(jamiQarz));
   tekshir('varaq nomi Hisobot', f['xl/workbook.xml'].matn.includes('name="Hisobot"'));
+
+  // Jadval sarlavhasi — yangi ustunlar
+  const sarlavhaKatak = Object.entries(katak).find(([, v]) => v === 'Qarzdorlik');
+  tekshir('Qarzdorlik ustuni bor', !!sarlavhaKatak);
+  const bosh = Number(sarlavhaKatak[0].replace(/\D/g, ''));
+  tekshir('Apteka ustuni C da', katak['C' + bosh] === 'Apteka', String(katak['C' + bosh]));
+  tekshir('Tovar chiqimi ustuni D da', katak['D' + bosh] === 'Tovar chiqimi', String(katak['D' + bosh]));
+  tekshir('Pul kirimi ustuni E da', katak['E' + bosh] === 'Pul kirimi', String(katak['E' + bosh]));
+  tekshir('To‘lov turi ustuni F da', katak['F' + bosh] === "To'lov turi", String(katak['F' + bosh]));
+
+  // 1-klient qatori
+  const r1 = bosh + 1;
+  tekshir('1-klient: ismi', katak['B' + r1] === 'Aziz Rahimov', String(katak['B' + r1]));
+  tekshir('1-klient: apteka kirillicha', katak['C' + r1] === 'Аптека №5', String(katak['C' + r1]));
+  tekshir('1-klient: chiqim SON', katak['D' + r1] === 5000000, String(katak['D' + r1]));
+  tekshir('1-klient: kirim SON', katak['E' + r1] === 3500000, String(katak['E' + r1]));
+  tekshir(
+    '1-klient: to‘lov turlari summasi bilan',
+    katak['F' + r1] === 'Naqd 2 000 000 · Plastik 1 000 000 · Click 500 000',
+    String(katak['F' + r1]),
+  );
+  tekshir('1-klient: qarz SON', katak['G' + r1] === 2500000, String(katak['G' + r1]));
+
+  // 2-klient: faqat naqd ishlatgan — bo'sh usullar yozilmasin
+  const r2 = bosh + 2;
+  tekshir('2-klient: faqat naqd yozilgan', katak['F' + r2] === 'Naqd 1 000 000', String(katak['F' + r2]));
+
+  // 3-klient: davrda harakat yo'q, lekin qarzi bor
+  const r3 = bosh + 3;
+  tekshir('3-klient: qatori chiqqan', katak['B' + r3] === 'Dilnoza Yo‘ldosheva', String(katak['B' + r3]));
+  tekshir('3-klient: chiqim bo‘sh (nol emas)', katak['D' + r3] === undefined, String(katak['D' + r3]));
+  tekshir('3-klient: to‘lov turi bo‘sh', !katak['F' + r3], String(katak['F' + r3]));
+  tekshir('3-klient: qarzi ko‘rinadi', katak['G' + r3] === 2000000, String(katak['G' + r3]));
+
+  // JAMI uchta ustunda ham qatorlar yig'indisiga teng bo'lishi shart
+  const jami = bosh + 4;
+  tekshir('JAMI qatori bor', katak['A' + jami] === 'JAMI', String(katak['A' + jami]));
+  tekshir(
+    'JAMI chiqim',
+    katak['D' + jami] === KLIENTLAR.reduce((s, k) => s + k.chiqim, 0),
+    String(katak['D' + jami]),
+  );
+  tekshir(
+    'JAMI kirim',
+    katak['E' + jami] === KLIENTLAR.reduce((s, k) => s + k.kirim, 0),
+    String(katak['E' + jami]),
+  );
+  tekshir(
+    'JAMI qarz',
+    katak['G' + jami] === KLIENTLAR.reduce((s, k) => s + k.qarz, 0),
+    String(katak['G' + jami]),
+  );
 }
 
 // ===========================================================================

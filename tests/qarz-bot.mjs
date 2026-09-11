@@ -386,6 +386,77 @@ try {
   tekshir('kelajak oralig‘i bo‘sh', (p4.j?.qatorlar ?? []).length === 0);
   tekshir('bo‘sh oraliqda jami ham nol', Number(p4.j?.jami?.chiqim) === 0);
 
+  // ---- hisobotdagi klient qatorlari ----
+  // Har qatorda davrdagi chiqim/kirim va to'lov turlari; qarz esa
+  // BUGUNGI holat. Ikkovi bir jadvalda turgani uchun ular ajralib
+  // qolsa hisobot ichidan qarama-qarshi ikki raqam chiqardi.
+  const hk = await panel('qarz_hisobot_klientlar', { p_agent_id: agentA });
+  tekshir('hisobot qatorlari keldi', !hk.xato, hk.xato ?? '');
+  const qator = ((hk.j ?? []).find((x) => x.id === klientA)) ?? {};
+  tekshir('klient qatori bor', Boolean(qator.id));
+  tekshir('apteka ustuni to‘lgan', qator.apteka === 'Valijon Farm', String(qator.apteka));
+  tekshir('qatordagi chiqim 1 251 000', Number(qator.chiqim) === 1251000, String(qator.chiqim));
+  tekshir('qatordagi kirim 600 000', Number(qator.kirim) === 600000, String(qator.kirim));
+  tekshir('naqd 100 000', Number(qator.naqd) === 100000, String(qator.naqd));
+  tekshir('plastik 200 000', Number(qator.plastik) === 200000, String(qator.plastik));
+  tekshir('klik 300 000', Number(qator.klik) === 300000, String(qator.klik));
+  tekshir(
+    'usullar yig‘indisi qatordagi kirimga teng',
+    Number(qator.naqd) + Number(qator.plastik) + Number(qator.klik) === Number(qator.kirim)
+  );
+  tekshir(
+    'qatordagi qarz = chiqim − kirim',
+    Number(qator.qarz) === Number(qator.chiqim) - Number(qator.kirim),
+    `${qator.qarz}`
+  );
+  // Bekor qilingan 500 000 lik kirim hisobga kirmasligi shart
+  tekshir('bekor qilingan kirim qatorga qo‘shilmadi', Number(qator.kirim) === 600000);
+
+  // Xulosa va qatorlar AJRALMASLIGI shart
+  tekshir(
+    'qatorlar yig‘indisi xulosadagi chiqimga teng',
+    (hk.j ?? []).reduce((s, x) => s + Number(x.chiqim), 0) === Number(jami.chiqim),
+    `${(hk.j ?? []).reduce((s, x) => s + Number(x.chiqim), 0)} / ${jami.chiqim}`
+  );
+
+  // Kelajak oralig'i: harakat nol, lekin qarzi bor klient QATORI QOLADI
+  const hk2 = await panel('qarz_hisobot_klientlar', {
+    p_agent_id: agentA,
+    p_dan: '2099-01-01T00:00:00',
+  });
+  const q2099 = ((hk2.j ?? []).find((x) => x.id === klientA)) ?? {};
+  tekshir('kelajak oralig‘ida ham qatori bor', Boolean(q2099.id));
+  tekshir('kelajakda chiqim 0', Number(q2099.chiqim) === 0, String(q2099.chiqim));
+  tekshir(
+    'kelajakda ham qarz o‘zgarmaydi (davrga bog‘liq emas)',
+    Number(q2099.qarz) === Number(qator.qarz),
+    `${q2099.qarz} / ${qator.qarz}`
+  );
+
+  // Boshqa agentning klienti chiqmasin
+  const hk3 = await panel('qarz_hisobot_klientlar', { p_agent_id: agentB });
+  tekshir(
+    'agent filtri boshqa agent klientini bermaydi',
+    !(hk3.j ?? []).some((x) => x.id === klientA)
+  );
+
+  // Bot funksiyasi: agent FAQAT o'z klientini ko'radi
+  const bk = await bir(`select qarz_bot_hisobot_klientlar(${CHAT_A}) as j`);
+  const botIdlar = (bk.j ?? []).map((x) => x.id);
+  tekshir('bot hisobotida faqat o‘z klienti', botIdlar.length === 1 && botIdlar[0] === klientA,
+    botIdlar.length + ' ta');
+  tekshir(
+    'bot qatoridagi chiqim panelniki bilan bir xil',
+    Number((bk.j ?? [])[0]?.chiqim) === Number(qator.chiqim),
+    `${(bk.j ?? [])[0]?.chiqim} / ${qator.chiqim}`
+  );
+
+  const botB = await bir(`select qarz_bot_hisobot_klientlar(${CHAT_B}) as j`);
+  tekshir(
+    'agent B ning hisobotida agent A ning klienti yo‘q',
+    !((botB.j ?? []).some((x) => x.id === klientA))
+  );
+
   // anon uchun yopiq bo'lishi shart
   const anon = await fetch(`${URL_}/rest/v1/rpc/qarz_yozuvlar`, {
     method: 'POST',

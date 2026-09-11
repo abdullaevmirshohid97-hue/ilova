@@ -56,6 +56,12 @@ export type KlientQator = {
   familiya?: string | null;
   apteka?: string | null;
   telefon?: string | null;
+  // Davrdagi harakat. Qarz esa BUGUNGI holat — u davrga bog'liq emas.
+  chiqim?: number | null;
+  kirim?: number | null;
+  naqd?: number | null;
+  plastik?: number | null;
+  klik?: number | null;
   qarz: number;
 };
 
@@ -621,7 +627,15 @@ export function sverkaPdf(s: Sverka, firma: string, davr: string): Uint8Array {
 // Hisobot hujjatlari
 // ---------------------------------------------------------------------------
 
-const HISOBOT_USTUNLAR = ['№', 'Klient', 'Apteka', 'Telefon', 'Qarz'];
+const HISOBOT_USTUNLAR = [
+  '№',
+  'Klient',
+  'Apteka',
+  'Tovar chiqimi',
+  'Pul kirimi',
+  "To'lov turi",
+  'Qarzdorlik',
+];
 
 function hisobotXulosa(r: Hisobot): [string, number][] {
   return [
@@ -633,6 +647,20 @@ function hisobotXulosa(r: Hisobot): [string, number][] {
     ['QARZDORLIK (bugungi holat)', Number(r.qarz) || 0],
     ['Klientlar', Number(r.klientlar) || 0],
   ];
+}
+
+/**
+ * To'lov turlari bitta katakda: "Naqd 500 000 · Click 200 000".
+ *
+ * Faqat BO'LGAN usullar yoziladi — uchta nol qator har qatorni
+ * uzaytirib, ko'z haqiqiy raqamni topa olmasdi.
+ */
+export function usulMatni(k: KlientQator): string {
+  const qism: string[] = [];
+  if (Number(k.naqd) > 0) qism.push('Naqd ' + raqam(k.naqd));
+  if (Number(k.plastik) > 0) qism.push('Plastik ' + raqam(k.plastik));
+  if (Number(k.klik) > 0) qism.push('Click ' + raqam(k.klik));
+  return qism.join(' · ');
 }
 
 export function hisobotXlsx(
@@ -648,29 +676,39 @@ export function hisobotXlsx(
     [],
   ];
   for (const [nom, qiy] of hisobotXulosa(r)) {
-    qatorlar.push([{ matn: nom, qalin: nom === nom.toUpperCase() }, null, null, null, qiy]);
+    qatorlar.push([{ matn: nom, qalin: nom === nom.toUpperCase() }, null, null, null, null, null, qiy]);
   }
   qatorlar.push([]);
   qatorlar.push(HISOBOT_USTUNLAR.map((u) => ({ matn: u, qalin: true })));
+
   klientlar.forEach((k, i) => {
     qatorlar.push([
       i + 1,
       [k.ism, k.familiya].filter(Boolean).join(' '),
       k.apteka ?? '',
-      k.telefon ?? '',
+      // Nol yozilmaydi: har qatorda ikkita nol turib, ko'z haqiqiy
+      // summani ajrata olmasdi
+      Number(k.chiqim) ? Number(k.chiqim) : null,
+      Number(k.kirim) ? Number(k.kirim) : null,
+      usulMatni(k),
       Number(k.qarz) || 0,
     ]);
   });
+
   if (klientlar.length) {
+    const j = (f: (k: KlientQator) => number) =>
+      klientlar.reduce((s, k) => s + (Number(f(k)) || 0), 0);
     qatorlar.push([
       { matn: 'JAMI', qalin: true },
       null,
       null,
+      j((k) => Number(k.chiqim) || 0),
+      j((k) => Number(k.kirim) || 0),
       null,
-      klientlar.reduce((s, k) => s + (Number(k.qarz) || 0), 0),
+      j((k) => Number(k.qarz) || 0),
     ]);
   }
-  return xlsx('Hisobot', qatorlar, [5, 26, 26, 18, 16]);
+  return xlsx('Hisobot', qatorlar, [5, 24, 26, 16, 16, 30, 18]);
 }
 
 export function hisobotPdf(
@@ -683,16 +721,22 @@ export function hisobotPdf(
     String(i + 1),
     [k.ism, k.familiya].filter(Boolean).join(' '),
     k.apteka ?? '',
-    k.telefon ?? '',
+    Number(k.chiqim) ? raqam(k.chiqim) : '',
+    Number(k.kirim) ? raqam(k.kirim) : '',
+    usulMatni(k),
     raqam(k.qarz),
   ]);
   if (klientlar.length) {
+    const j = (f: (k: KlientQator) => number) =>
+      klientlar.reduce((s, k) => s + (Number(f(k)) || 0), 0);
     qatorlar.push([
       '',
       'JAMI',
       '',
+      raqam(j((k) => Number(k.chiqim) || 0)),
+      raqam(j((k) => Number(k.kirim) || 0)),
       '',
-      raqam(klientlar.reduce((s, k) => s + (Number(k.qarz) || 0), 0)),
+      raqam(j((k) => Number(k.qarz) || 0)),
     ]);
   }
   return pdf({
@@ -701,11 +745,13 @@ export function hisobotPdf(
     qator3: 'Hujjat sanasi: ' + sanaYozuv(new Date()),
     xulosa: hisobotXulosa(r).map(([n, v]) => [n, raqam(v)] as [string, string]),
     ustunlar: [
-      { nom: '№', en: 5 },
-      { nom: 'Klient', en: 28 },
-      { nom: 'Apteka', en: 28 },
-      { nom: 'Telefon', en: 19 },
-      { nom: 'Qarz', en: 16, ong: true },
+      { nom: '№', en: 4 },
+      { nom: 'Klient', en: 19 },
+      { nom: 'Apteka', en: 20 },
+      { nom: 'Tovar chiqimi', en: 13, ong: true },
+      { nom: 'Pul kirimi', en: 13, ong: true },
+      { nom: "To'lov turi", en: 18 },
+      { nom: 'Qarzdorlik', en: 13, ong: true },
     ],
     qatorlar,
   });
