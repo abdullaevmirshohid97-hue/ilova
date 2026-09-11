@@ -1,6 +1,8 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
 import { QarzBekorModal } from '../components/QarzBekorModal';
+import { QarzTahrirModal } from '../components/QarzTahrirModal';
 import { xabarKorsat } from '../components/Xabar';
+import { kunlarga } from '../lib/qarz-eksport';
 import { formatSum, supabase } from '../lib/supabase';
 
 // QARZDORLIK — chiqim va kirim yozuvlari.
@@ -112,6 +114,18 @@ function sanaVaqt(iso: string): string {
   return `${ik(d.getDate())}.${ik(d.getMonth() + 1)}.${d.getFullYear()} ${ik(d.getHours())}:${ik(d.getMinutes())}`;
 }
 
+function sanaQisqa(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '—';
+  return `${ik(d.getDate())}.${ik(d.getMonth() + 1)}.${d.getFullYear()}`;
+}
+
+function soat(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '—';
+  return `${ik(d.getHours())}:${ik(d.getMinutes())}`;
+}
+
 export default function QarzYozuvlar() {
   const [davr, setDavr] = useState('oy');
   const [dan, setDan] = useState('');
@@ -129,6 +143,7 @@ export default function QarzYozuvlar() {
   const [sahifa, setSahifa] = useState(0);
   const [yuklandi, setYuklandi] = useState(false);
   const [bekorYozuv, setBekorYozuv] = useState<Yozuv | null>(null);
+  const [tahrirYozuv, setTahrirYozuv] = useState<Yozuv | null>(null);
 
   useEffect(() => {
     supabase.rpc('qarz_agentlar').then(({ data }) => {
@@ -197,7 +212,44 @@ export default function QarzYozuvlar() {
     await yukla();
   }
 
+  async function tahrirla(x: { summa: number; sana: string; usul: string | null; sabab: string }) {
+    if (!tahrirYozuv) return;
+    const { error } = await supabase.rpc('qarz_yozuv_tahrir', {
+      p_id: tahrirYozuv.id,
+      p_summa: x.summa,
+      p_sana: x.sana,
+      p_usul: x.usul,
+      p_izoh: null,
+      p_sabab: x.sabab,
+      p_agent_id: null,
+    });
+    if (error) {
+      xabarKorsat('❌ ' + error.message);
+      return;
+    }
+    setTahrirYozuv(null);
+    xabarKorsat('✅ O‘zgartirildi');
+    await yukla();
+  }
+
   const yana = qatorlar.length === SAHIFA;
+
+  // Kunlar kesimi: bir kunda ikki marta chiqim bo'lsa, ro'yxatda ular
+  // ajralib turmasdi. Har kunning o'z jami ham bor — "shu kuni qancha
+  // chiqdi, qancha tushdi" degan savol ko'p so'raladi.
+  const kunlar = useMemo(
+    () =>
+      kunlarga(qatorlar, (y) => y.sana).map((kun) => ({
+        ...kun,
+        chiqim: kun.qatorlar
+          .filter((y) => !y.bekor && y.tur === 'chiqim')
+          .reduce((s, y) => s + Number(y.summa), 0),
+        kirim: kun.qatorlar
+          .filter((y) => !y.bekor && y.tur === 'kirim')
+          .reduce((s, y) => s + Number(y.summa), 0),
+      })),
+    [qatorlar],
+  );
 
   return (
     <div className="space-y-4">
@@ -363,13 +415,38 @@ export default function QarzYozuvlar() {
                   </td>
                 </tr>
               )}
-              {qatorlar.map((y) => (
+              {kunlar.map((kun) => (
+                <Fragment key={kun.kalit}>
+                  {/* Kun sarlavhasi — bir kunda ikki yozuv bo'lsa ham
+                      qaysi kunga tegishli ekani darrov ko'rinadi */}
+                  <tr className="border-t-2 border-gray-200 bg-gray-50">
+                    <td colSpan={4} className="px-5 py-2.5">
+                      <span className="text-sm font-extrabold text-gray-800">{kun.yorliq}</span>
+                      <span className="ml-2 text-xs text-gray-500">
+                        {sanaQisqa(kun.sana)} · {kun.qatorlar.length} ta yozuv
+                      </span>
+                    </td>
+                    <td colSpan={3} className="px-5 py-2.5 text-right text-xs">
+                      {kun.chiqim > 0 && (
+                        <span className="mr-3 font-bold text-gray-700">
+                          📦 {formatSum(kun.chiqim)}
+                        </span>
+                      )}
+                      {kun.kirim > 0 && (
+                        <span className="font-bold text-emerald-700">
+                          💰 {formatSum(kun.kirim)}
+                        </span>
+                      )}
+                    </td>
+                  </tr>
+                  {kun.qatorlar.map((y) => (
                 <tr
                   key={y.id}
                   className={`border-t border-gray-50 ${y.bekor ? 'bg-red-50/60' : ''}`}
                 >
+                  {/* Kun sarlavhada turibdi — bu yerda faqat vaqt */}
                   <td className="whitespace-nowrap px-5 py-3 text-gray-500">
-                    {sanaVaqt(y.sana)}
+                    {soat(y.sana)}
                     {y.manba === 'bot' && (
                       <div className="text-xs text-gray-500">🤖 botdan</div>
                     )}
@@ -417,17 +494,27 @@ export default function QarzYozuvlar() {
                       y.izoh ?? '—'
                     )}
                   </td>
-                  <td className="px-5 py-3 text-right">
+                  <td className="whitespace-nowrap px-5 py-3 text-right">
                     {!y.bekor && (
-                      <button
-                        onClick={() => setBekorYozuv(y)}
-                        className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-bold text-red-600 transition hover:border-red-300 hover:bg-red-50"
-                      >
-                        Bekor qilish
-                      </button>
+                      <>
+                        <button
+                          onClick={() => setTahrirYozuv(y)}
+                          className="mr-2 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-bold text-gray-600 transition hover:border-gray-300 hover:bg-gray-50"
+                        >
+                          Tahrir
+                        </button>
+                        <button
+                          onClick={() => setBekorYozuv(y)}
+                          className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-bold text-red-600 transition hover:border-red-300 hover:bg-red-50"
+                        >
+                          Bekor qilish
+                        </button>
+                      </>
                     )}
                   </td>
                 </tr>
+                  ))}
+                </Fragment>
               ))}
             </tbody>
           </table>
@@ -452,6 +539,14 @@ export default function QarzYozuvlar() {
             Keyingi →
           </button>
         </div>
+      )}
+
+      {tahrirYozuv && (
+        <QarzTahrirModal
+          yozuv={tahrirYozuv}
+          onYopish={() => setTahrirYozuv(null)}
+          onTasdiq={tahrirla}
+        />
       )}
 
       {bekorYozuv && (

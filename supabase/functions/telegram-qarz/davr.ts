@@ -62,6 +62,46 @@ export function davrOraliq(kalit: string, hozir: Date = new Date()): Davr {
   return { dan: null, gacha: null, nom: 'Butun davr' };
 }
 
+/** 'YYYY-MM-DD' — mahalliy kun kaliti */
+export function kunKaliti(d: Date): string {
+  return `${d.getFullYear()}-${ik(d.getMonth() + 1)}-${ik(d.getDate())}`;
+}
+
+/** "Bugun" / "Kecha" / "09.09.2026" */
+export function kunYorligi(kalit: string, hozir: Date = new Date()): string {
+  const kecha = new Date(hozir);
+  kecha.setDate(kecha.getDate() - 1);
+  if (kalit === kunKaliti(hozir)) return 'Bugun';
+  if (kalit === kunKaliti(kecha)) return 'Kecha';
+  const [y, o, k] = kalit.split('-');
+  return `${k}.${o}.${y}`;
+}
+
+/**
+ * Bitta sana: "09.09.2026" yoki "9.9.26" -> "2026-09-09".
+ *
+ * Kelajak sana RAD ETILADI. Baza ham uni to'xtatadi (SANA_KELAJAKDA),
+ * lekin agent buni yozgan zahoti bilsin — saqlashga urinib, keyin
+ * tushunarsiz xato olgandan ko'ra yaxshiroq.
+ */
+export function sanaOqi(matn: string, hozir: Date = new Date()): string | null {
+  const m = String(matn ?? '').match(/(\d{1,2})[.\-/](\d{1,2})[.\-/](\d{2,4})/);
+  if (!m) return null;
+  const k = Number(m[1]);
+  const o = Number(m[2]);
+  let y = Number(m[3]);
+  if (y < 100) y += 2000;
+  if (k < 1 || k > 31 || o < 1 || o > 12) return null;
+
+  const d = new Date(y, o - 1, k);
+  // "31.02" ni Date jimgina 1-martga surib yuborardi
+  if (d.getFullYear() !== y || d.getMonth() !== o - 1 || d.getDate() !== k) return null;
+
+  const kalit = kunKaliti(d);
+  if (kalit > kunKaliti(hozir)) return null;
+  return kalit;
+}
+
 /**
  * "01.09.2026 - 30.09.2026" -> "d2026090120260930"
  *

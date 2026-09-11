@@ -386,6 +386,121 @@ try {
   tekshir('kelajak oralig‘i bo‘sh', (p4.j?.qatorlar ?? []).length === 0);
   tekshir('bo‘sh oraliqda jami ham nol', Number(p4.j?.jami?.chiqim) === 0);
 
+  // ---- o'tgan kunga yozish ----
+  // Avval har yozuv "hozir" bo'lib tushardi: kechagi chiqimni bugun
+  // kiritsa, u kechagi kunga emas, bugunga yozilardi.
+  const kecha = new Date();
+  kecha.setDate(kecha.getDate() - 1);
+  const kechaKun = kecha.toISOString().slice(0, 10);
+
+  const eskiYozuv = await bir(`
+    select qarz_bot_yozuv(${CHAT_A}, '${klientA}', 'chiqim', 777000, null, null,
+                          '${kechaKun}T12:00:00'::timestamptz) as j
+  `);
+  tekshir('o‘tgan kunga yozuv o‘tdi', eskiYozuv.j?.ok === true);
+  const eskiId = eskiYozuv.j?.id;
+  const eskiSana = await bir(`
+    select (sana at time zone 'UTC')::date::text as kun from qarz_transactions where id = '${eskiId}'
+  `);
+  tekshir('yozuv KECHAGI kunga tushdi', eskiSana.kun === kechaKun, `${eskiSana.kun} / ${kechaKun}`);
+
+  const kelajak = await sql(`
+    select qarz_bot_yozuv(${CHAT_A}, '${klientA}', 'chiqim', 1000, null, null,
+                          (now() + interval '2 days')) as j
+  `);
+  tekshir(
+    'kelajak sanaga yozib bo‘lmaydi',
+    Boolean(kelajak.xato) && /SANA_KELAJAKDA/.test(kelajak.xato),
+    kelajak.xato ? '' : 'YOZILDI!'
+  );
+
+  // ---- tahrir ----
+  const qarzOldin = Number((await bir(`select qarz_balans('${klientA}') as q`)).q);
+
+  const tahrirSababsiz = await sql(`select qarz_bot_tahrir(${CHAT_A}, '${eskiId}', 500000, null, null, 'ab') as j`);
+  tekshir(
+    'sababsiz tahrir o‘tmaydi',
+    Boolean(tahrirSababsiz.xato) && /SABAB_MAJBURIY/.test(tahrirSababsiz.xato),
+    tahrirSababsiz.xato ? '' : 'O‘TDI!'
+  );
+
+  const th = await bir(`
+    select qarz_bot_tahrir(${CHAT_A}, '${eskiId}', 500000, null, null, 'summa xato kiritilgan') as j
+  `);
+  tekshir('tahrir o‘tdi', th.j?.ok === true, JSON.stringify(th.j ?? {}));
+  tekshir('eski summa qaytarildi', Number(th.j?.eski_summa) === 777000, String(th.j?.eski_summa));
+  tekshir('yangi summa yozildi', Number(th.j?.summa) === 500000, String(th.j?.summa));
+  // Qoldiq AYNAN farqqa siljishi shart
+  tekshir(
+    'qoldiq farqqa siljidi',
+    Number(th.j?.qoldiq) === qarzOldin - (777000 - 500000),
+    `${th.j?.qoldiq} / ${qarzOldin - 277000}`
+  );
+
+  // Eski qiymat jurnalda qolishi shart — bu butun nazoratning asosi
+  const jurnal = await bir(`
+    select eski ->> 'summa' as eski, yangi ->> 'summa' as yangi, sabab
+    from qarz_audit
+    where yozuv_id = '${eskiId}' and amal = 'tahrir'
+    order by id desc limit 1
+  `);
+  tekshir('jurnalda eski summa bor', Number(jurnal?.eski) === 777000, String(jurnal?.eski));
+  tekshir('jurnalda yangi summa bor', Number(jurnal?.yangi) === 500000, String(jurnal?.yangi));
+  tekshir('jurnalda sabab bor', jurnal?.sabab === 'summa xato kiritilgan', String(jurnal?.sabab));
+
+  // Chegara: agent B boshqa agentning yozuviga tegmasin
+  const tahrirBegona = await sql(`
+    select qarz_bot_tahrir(${CHAT_B}, '${eskiId}', 1, null, null, 'sinov') as j
+  `);
+  tekshir(
+    'boshqa agent tahrirlay olmaydi',
+    Boolean(tahrirBegona.xato) && /RUXSAT_YOQ/.test(tahrirBegona.xato),
+    tahrirBegona.xato ? '' : 'TAHRIRLADI!'
+  );
+
+  // Botning tahrir ekrani yozuvni ID bo'yicha o'qiydi. Avval u
+  // "oxirgi 30 ta" ro'yxatidan qidirardi va eski yozuv topilmasdi.
+  const bitta = await bir(`select qarz_bot_yozuv_ol(${CHAT_A}, '${eskiId}') as j`);
+  tekshir('yozuv ID bo‘yicha o‘qildi', bitta.j?.id === eskiId);
+  tekshir('turi qaytdi', bitta.j?.tur === 'chiqim', String(bitta.j?.tur));
+  tekshir('tahrirdan keyingi summa', Number(bitta.j?.summa) === 500000, String(bitta.j?.summa));
+  tekshir('klient nomi bor', bitta.j?.klient === 'Valijon Farm', String(bitta.j?.klient));
+
+  const begonaOqish = await sql(`select qarz_bot_yozuv_ol(${CHAT_B}, '${eskiId}') as j`);
+  tekshir(
+    'boshqa agent yozuvni o‘qiy olmaydi',
+    Boolean(begonaOqish.xato) && /YOZUV_TOPILMADI|RUXSAT_YOQ/.test(begonaOqish.xato),
+    begonaOqish.xato ? '' : 'O‘QIDI!'
+  );
+
+  // Sverkadan tuzatish: klient kesimidagi ro'yxat
+  const klientYozuvlari = await bir(`
+    select qarz_bot_yozuvlar(${CHAT_A}, '${klientA}', 15) as j
+  `);
+  tekshir('klient yozuvlari keldi', Array.isArray(klientYozuvlari.j) && klientYozuvlari.j.length > 0,
+    String((klientYozuvlari.j ?? []).length) + ' ta');
+  tekshir(
+    'bekor qilinganlar ro‘yxatga kirmaydi',
+    (klientYozuvlari.j ?? []).every((x) => x.bekor === false)
+  );
+  const begonaRoyxat = await sql(`select qarz_bot_yozuvlar(${CHAT_B}, '${klientA}', 15) as j`);
+  tekshir(
+    'boshqa agent klient yozuvlarini ko‘rmaydi',
+    Boolean(begonaRoyxat.xato) && /RUXSAT_YOQ/.test(begonaRoyxat.xato),
+    begonaRoyxat.xato ? '' : 'KO‘RDI!'
+  );
+
+  // Bekor qilingan yozuvni tahrirlab bo'lmasin — qoldiq jimgina silijirdi
+  await sql(`select qarz_bot_bekor(${CHAT_A}, '${eskiId}', 'sinov uchun bekor')`);
+  const olik = await sql(`
+    select qarz_bot_tahrir(${CHAT_A}, '${eskiId}', 900000, null, null, 'qayta urinish') as j
+  `);
+  tekshir(
+    'bekor qilingan yozuv tahrirlanmaydi',
+    Boolean(olik.xato) && /ALLAQACHON_BEKOR/.test(olik.xato),
+    olik.xato ? '' : 'TAHRIRLANDI!'
+  );
+
   // ---- hisobotdagi klient qatorlari ----
   // Har qatorda davrdagi chiqim/kirim va to'lov turlari; qarz esa
   // BUGUNGI holat. Ikkovi bir jadvalda turgani uchun ular ajralib

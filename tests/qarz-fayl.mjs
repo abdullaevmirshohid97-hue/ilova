@@ -493,6 +493,43 @@ console.log('\n— Sana oralig‘i —');
   );
 }
 
+// ===========================================================================
+console.log('\n— Bitta sana (o‘tgan kunga yozish) —');
+// ===========================================================================
+{
+  const H_ = new Date(2026, 8, 11); // 11.09.2026
+
+  for (const yozuv of ['09.09.2026', '9.9.2026', '09/09/2026', '9-9-26']) {
+    tekshir(
+      '«' + yozuv + '» tushuniladi',
+      D.sanaOqi(yozuv, H_) === '2026-09-09',
+      String(D.sanaOqi(yozuv, H_)),
+    );
+  }
+
+  tekshir('bugun ham qabul qilinadi', D.sanaOqi('11.09.2026', H_) === '2026-09-11');
+  // Kelajak sanani baza ham rad etadi, lekin agent buni YOZGAN ZAHOTI bilsin
+  tekshir('ertangi kun rad etiladi', D.sanaOqi('12.09.2026', H_) === null);
+  tekshir('mavjud bo‘lmagan sana rad etiladi', D.sanaOqi('31.02.2026', H_) === null);
+  tekshir('sanasiz matn rad etiladi', D.sanaOqi('kecha', H_) === null);
+
+  // Kun yorlig'i
+  tekshir('bugun → «Bugun»', D.kunYorligi('2026-09-11', H_) === 'Bugun');
+  tekshir('kecha → «Kecha»', D.kunYorligi('2026-09-10', H_) === 'Kecha');
+  tekshir('oldingi kun sana bo‘lib chiqadi', D.kunYorligi('2026-09-09', H_) === '09.09.2026',
+    D.kunYorligi('2026-09-09', H_));
+
+  // Oy boshida "kecha" oldingi oyga tushadi — sodda ayirish buni
+  // noto'g'ri hisoblardi
+  const oyBoshi = new Date(2026, 8, 1);
+  tekshir('oy boshida kecha oldingi oyga tushadi',
+    D.kunYorligi('2026-08-31', oyBoshi) === 'Kecha', D.kunYorligi('2026-08-31', oyBoshi));
+
+  tekshir('kun kaliti mahalliy kun bo‘yicha',
+    D.kunKaliti(new Date(2026, 8, 11, 23, 59)) === '2026-09-11',
+    D.kunKaliti(new Date(2026, 8, 11, 23, 59)));
+}
+
 console.log(`\n${jami - xato} / ${jami} tekshiruv o'tdi`);
 if (xato) {
   console.log(`${xato} ta XATO`);

@@ -1,9 +1,17 @@
-import { useCallback, useEffect, useState } from 'react';
+import { Fragment, useCallback, useEffect, useState } from 'react';
 import { QarzBekorModal } from '../components/QarzBekorModal';
 import { xabarKorsat } from '../components/Xabar';
 import { formatSum, supabase } from '../lib/supabase';
 import { altbilgi, blank, hujjatniYoz, logoniOl, oynaOch, sozlamaniOl, uslub } from '../lib/hujjat';
-import { klientNomi, sanaYozuv, sverkaKitobi, sverkaTanasi } from '../lib/qarz-eksport';
+import { QarzTahrirModal } from '../components/QarzTahrirModal';
+import {
+  klientNomi,
+  kunKaliti as kunKunKaliti,
+  kunlarga,
+  sanaYozuv,
+  sverkaKitobi,
+  sverkaTanasi,
+} from '../lib/qarz-eksport';
 
 // QARZDORLIK — klientlar va sverka.
 //
@@ -81,6 +89,14 @@ function sanaVaqt(iso: string): string {
   return `${ik(d.getDate())}.${ik(d.getMonth() + 1)}.${d.getFullYear()} ${ik(d.getHours())}:${ik(d.getMinutes())}`;
 }
 
+// Kun sarlavhada turadi — qatorda faqat vaqt kerak
+function soat(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '—';
+  const ik = (n: number) => String(n).padStart(2, '0');
+  return `${ik(d.getHours())}:${ik(d.getMinutes())}`;
+}
+
 function qarzRang(n: number): string {
   return n > 0 ? 'text-red-600' : n < 0 ? 'text-emerald-600' : 'text-gray-500';
 }
@@ -103,12 +119,24 @@ function YozuvModal({
   const [band, setBand] = useState(false);
   const [x, setX] = useState<string | null>(null);
 
+  // SANA. Avval har yozuv "hozir" bo'lib tushardi: kechagi chiqimni
+  // bugun kiritsa, u kechagi kunga emas, bugunga yozilardi va kunlar
+  // kesimidagi hisob buzilardi.
+  const [sana, setSana] = useState<string>(() => kunKunKaliti(new Date()));
+  const bugunKalit = kunKunKaliti(new Date());
+  const kechaKalit = (() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 1);
+    return kunKunKaliti(d);
+  })();
+
   const n = Number(summa.replace(/\D/g, '')) || 0;
   const yangiQarz = tur === 'chiqim' ? klient.qarz + n : klient.qarz - n;
 
   async function saqla() {
     setX(null);
     if (n <= 0) return setX('Summani kiriting');
+    if (sana > bugunKalit) return setX('Sana kelajakda bo‘lishi mumkin emas');
     setBand(true);
     try {
       const { error } = await supabase.rpc('qarz_yozuv_qosh', {
@@ -116,7 +144,11 @@ function YozuvModal({
         p_tur: tur,
         p_summa: n,
         p_izoh: izoh.trim() || null,
-        p_sana: null,
+        // Bugun tanlansa vaqt ham hozirgi bo'lsin (null = now()).
+        // O'tgan kunga esa kun o'rtasi yoziladi: 00:00 bo'lsa soat
+        // mintaqasi bir soatga surilganda yozuv oldingi kunga
+        // tushib ketardi.
+        p_sana: sana === bugunKalit ? null : `${sana}T12:00:00`,
         p_agent_id: null,
         p_usul: tur === 'kirim' ? usul : null,
       });
@@ -181,6 +213,40 @@ function YozuvModal({
           )}
 
           <div>
+            <label className="text-xs font-semibold text-gray-500">QAYSI KUN UCHUN</label>
+            <div className="mt-1 flex flex-wrap items-center gap-2">
+              {[
+                { kalit: bugunKalit, nom: 'Bugun' },
+                { kalit: kechaKalit, nom: 'Kecha' },
+              ].map((d) => (
+                <button
+                  key={d.kalit}
+                  onClick={() => setSana(d.kalit)}
+                  className={`rounded-xl border px-4 py-2.5 text-sm font-bold transition ${
+                    sana === d.kalit
+                      ? 'border-brand bg-brand-soft text-brand'
+                      : 'border-gray-200 text-gray-500 hover:border-gray-300'
+                  }`}
+                >
+                  {d.nom}
+                </button>
+              ))}
+              <input
+                type="date"
+                value={sana}
+                max={bugunKalit}
+                onChange={(e) => setSana(e.target.value)}
+                className="flex-1 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm outline-none focus:border-brand"
+              />
+            </div>
+            {sana !== bugunKalit && (
+              <p className="mt-1 text-xs text-amber-600">
+                Bu yozuv <b>o‘tgan kunga</b> tushadi — sverkada ham o‘sha kunda ko‘rinadi.
+              </p>
+            )}
+          </div>
+
+          <div>
             <label className="text-xs font-semibold text-gray-500">IZOH (ixtiyoriy)</label>
             <input value={izoh} onChange={(e) => setIzoh(e.target.value)} className={inputCls} />
           </div>
@@ -231,6 +297,7 @@ function SverkaModal({ klient, onClose, onOzgardi }: { klient: Klient; onClose: 
   const [s, setS] = useState<Sverka | null>(null);
   const [yozuv, setYozuv] = useState<'chiqim' | 'kirim' | null>(null);
   const [bekorAmal, setBekorAmal] = useState<Amal | null>(null);
+  const [tahrirAmal, setTahrirAmal] = useState<Amal | null>(null);
 
   const yukla = useCallback(async () => {
     const d = davrOraliq(davr);
@@ -266,6 +333,44 @@ function SverkaModal({ klient, onClose, onOzgardi }: { klient: Klient; onClose: 
     }
     setBekorAmal(null);
     xabarKorsat('✅ Bekor qilindi');
+    await yukla();
+    onOzgardi();
+  }
+
+  // Kunlar kesimi. Sverkada tartib ESKIDAN yangiga — yugurib
+  // boradigan qoldiq shu tartibda ma'noga ega.
+  const kunlar = kunlarga(s?.amallar ?? [], (a) => a.sana).map((kun) => ({
+    ...kun,
+    chiqim: kun.qatorlar
+      .filter((a) => !a.bekor && a.tur === 'chiqim')
+      .reduce((x, a) => x + Number(a.summa), 0),
+    kirim: kun.qatorlar
+      .filter((a) => !a.bekor && a.tur === 'kirim')
+      .reduce((x, a) => x + Number(a.summa), 0),
+  }));
+
+  async function tahrirla(x: {
+    summa: number;
+    sana: string;
+    usul: string | null;
+    sabab: string;
+  }) {
+    if (!tahrirAmal) return;
+    const { error } = await supabase.rpc('qarz_yozuv_tahrir', {
+      p_id: tahrirAmal.id,
+      p_summa: x.summa,
+      p_sana: x.sana,
+      p_usul: x.usul,
+      p_izoh: null,
+      p_sabab: x.sabab,
+      p_agent_id: null,
+    });
+    if (error) {
+      xabarKorsat('❌ ' + error.message);
+      return;
+    }
+    setTahrirAmal(null);
+    xabarKorsat('✅ O‘zgartirildi');
     await yukla();
     onOzgardi();
   }
@@ -417,42 +522,68 @@ function SverkaModal({ klient, onClose, onOzgardi }: { klient: Klient; onClose: 
           {(s?.amallar ?? []).length === 0 && (
             <p className="py-8 text-center text-gray-500">Bu davrda harakat yo‘q.</p>
           )}
-          {(s?.amallar ?? []).map((a) => (
-            <div
-              key={a.id}
-              className={`flex flex-wrap items-center gap-3 border-b border-gray-50 py-3 ${
-                a.bekor ? 'opacity-50' : ''
-              }`}
-            >
-              <div className="min-w-0 flex-1">
-                <div className="text-sm font-semibold text-gray-900">
-                  {a.tur === 'chiqim' ? '📦 Tovar chiqimi' : '💰 Pul kirimi'}
-                  {a.usul ? ` · ${USUL_NOM[a.usul] ?? a.usul}` : ''}
-                  {a.manba === 'telegram' ? ' · 🤖' : ''}
-                </div>
-                <div className="text-xs text-gray-500">
-                  {sanaVaqt(a.sana)}
-                  {a.izoh ? ` · ${a.izoh}` : ''}
-                  {a.bekor ? ` · BEKOR: ${a.bekor_sabab ?? ''}` : ''}
-                </div>
+          {kunlar.map((kun) => (
+            <Fragment key={kun.kalit}>
+              {/* Kun sarlavhasi: bir kunda ikki yozuv bo'lsa ham qaysi
+                  kunga tegishli ekani darrov ko'rinadi */}
+              <div className="sticky top-0 flex items-baseline justify-between gap-2 bg-gray-50 px-3 py-1.5">
+                <span className="text-xs font-extrabold uppercase tracking-wide text-gray-700">
+                  {kun.yorliq}
+                </span>
+                <span className="text-xs text-gray-500">
+                  {kun.chiqim > 0 && <>📦 {formatSum(kun.chiqim)}</>}
+                  {kun.chiqim > 0 && kun.kirim > 0 && ' · '}
+                  {kun.kirim > 0 && (
+                    <span className="text-emerald-700">💰 {formatSum(kun.kirim)}</span>
+                  )}
+                </span>
               </div>
-              <div
-                className={`shrink-0 font-bold ${
-                  a.tur === 'chiqim' ? 'text-gray-900' : 'text-emerald-600'
-                }`}
-              >
-                {a.tur === 'chiqim' ? '+' : '−'}
-                {formatSum(a.summa)}
-              </div>
-              {!a.bekor && (
-                <button
-                  onClick={() => setBekorAmal(a)}
-                  className="shrink-0 rounded-xl border border-red-200 px-3 py-1 text-xs font-bold text-red-500 hover:bg-red-50"
+              {kun.qatorlar.map((a) => (
+                <div
+                  key={a.id}
+                  className={`flex flex-wrap items-center gap-3 border-b border-gray-50 py-3 ${
+                    a.bekor ? 'opacity-50' : ''
+                  }`}
                 >
-                  Bekor
-                </button>
-              )}
-            </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="text-sm font-semibold text-gray-900">
+                      {a.tur === 'chiqim' ? '📦 Tovar chiqimi' : '💰 Pul kirimi'}
+                      {a.usul ? ` · ${USUL_NOM[a.usul] ?? a.usul}` : ''}
+                      {a.manba === 'telegram' ? ' · 🤖' : ''}
+                    </div>
+                    <div className="text-xs text-gray-500">
+                      {soat(a.sana)}
+                      {a.izoh ? ` · ${a.izoh}` : ''}
+                      {a.bekor ? ` · BEKOR: ${a.bekor_sabab ?? ''}` : ''}
+                    </div>
+                  </div>
+                  <div
+                    className={`shrink-0 font-bold ${
+                      a.tur === 'chiqim' ? 'text-gray-900' : 'text-emerald-600'
+                    }`}
+                  >
+                    {a.tur === 'chiqim' ? '+' : '−'}
+                    {formatSum(a.summa)}
+                  </div>
+                  {!a.bekor && (
+                    <div className="flex shrink-0 gap-2">
+                      <button
+                        onClick={() => setTahrirAmal(a)}
+                        className="rounded-xl border border-gray-200 px-3 py-1 text-xs font-bold text-gray-600 hover:bg-gray-50"
+                      >
+                        Tahrir
+                      </button>
+                      <button
+                        onClick={() => setBekorAmal(a)}
+                        className="rounded-xl border border-red-200 px-3 py-1 text-xs font-bold text-red-500 hover:bg-red-50"
+                      >
+                        Bekor
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </Fragment>
           ))}
         </div>
 
@@ -466,6 +597,14 @@ function SverkaModal({ klient, onClose, onOzgardi }: { klient: Klient; onClose: 
               await yukla();
               onOzgardi();
             }}
+          />
+        )}
+
+        {tahrirAmal && (
+          <QarzTahrirModal
+            yozuv={{ ...tahrirAmal, klient: klientNomi(klient as any) }}
+            onYopish={() => setTahrirAmal(null)}
+            onTasdiq={tahrirla}
           />
         )}
 

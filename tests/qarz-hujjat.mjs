@@ -335,6 +335,72 @@ tekshir(
   /Klient yo/.test(E.hisobotTanasi(HISOBOT, [], 'Bugun'))
 );
 
+// =============================================================
+//  6. KUNLAR KESIMI
+//
+//  Bir kunda ikki marta chiqim bo'lsa, ro'yxatda ular ajralib
+//  turmasdi: ikkalasi ham "11.09.2026" deb yozilardi. Endi qatorlar
+//  kun bo'yicha guruhlanadi.
+//
+//  Eng nozik joyi — KALIT MAHALLIY kun bo'yicha bo'lishi.
+//  toISOString() UTC beradi va kechqurun yozilgan yozuv ertangi
+//  kunga tushib ketardi.
+// =============================================================
+console.log('\n6. Kunlar kesimi');
+
+const HOZIR = new Date(2026, 8, 11, 14, 0); // 11.09.2026, payshanba
+
+tekshir('bugun → «Bugun»', E.kunYorligi(new Date(2026, 8, 11, 9, 0), HOZIR) === 'Bugun');
+tekshir('kecha → «Kecha»', E.kunYorligi(new Date(2026, 8, 10, 23, 30), HOZIR) === 'Kecha');
+tekshir(
+  'oldingi kun — kun, oy va hafta kuni',
+  E.kunYorligi(new Date(2026, 8, 9), HOZIR) === '9 sentabr, chorshanba',
+  E.kunYorligi(new Date(2026, 8, 9), HOZIR)
+);
+// O'tgan yil bo'lsa yil ham yozilsin — aks holda "9 sentabr" ikki xil
+// yilni bildirib, hisob solishtirib bo'lmasdi
+tekshir(
+  'o‘tgan yilda yil ham ko‘rinadi',
+  /2025/.test(E.kunYorligi(new Date(2025, 8, 9), HOZIR)),
+  E.kunYorligi(new Date(2025, 8, 9), HOZIR)
+);
+// Oy boshida "kecha" oldingi oyga tushadi
+tekshir(
+  'oy boshida kecha oldingi oyga tushadi',
+  E.kunYorligi(new Date(2026, 7, 31), new Date(2026, 8, 1, 10, 0)) === 'Kecha'
+);
+// Kechasi soat 23:30 da yozilgan yozuv O'SHA kunga tegishli bo'lsin
+tekshir(
+  'kalit mahalliy kun bo‘yicha (UTC emas)',
+  E.kunKaliti(new Date(2026, 8, 11, 23, 30)) === '2026-09-11',
+  E.kunKaliti(new Date(2026, 8, 11, 23, 30))
+);
+
+const AMALLAR = [
+  { id: 'a', sana: new Date(2026, 8, 9, 10, 0).toISOString(), tur: 'chiqim', summa: 1000 },
+  { id: 'b', sana: new Date(2026, 8, 9, 16, 0).toISOString(), tur: 'kirim', summa: 400 },
+  { id: 'c', sana: new Date(2026, 8, 11, 9, 0).toISOString(), tur: 'chiqim', summa: 2000 },
+  { id: 'd', sana: new Date(2026, 8, 11, 18, 0).toISOString(), tur: 'chiqim', summa: 3000 },
+];
+
+const kunlar = E.kunlarga(AMALLAR, (a) => a.sana, HOZIR);
+tekshir('ikki kunga bo‘lindi', kunlar.length === 2, kunlar.length + ' kun');
+tekshir('birinchi kun 9-sentabr', kunlar[0].kalit === '2026-09-09', kunlar[0].kalit);
+tekshir('9-sentabrda ikki yozuv', kunlar[0].qatorlar.length === 2);
+tekshir('bugungi kun yorlig‘i', kunlar[1].yorliq === 'Bugun', kunlar[1].yorliq);
+// Bir kunda IKKI chiqim — aynan shu holat ajralib turishi kerak edi
+tekshir('bugun ikkita chiqim bir guruhda', kunlar[1].qatorlar.length === 2);
+tekshir(
+  'tartib saqlanadi',
+  kunlar[1].qatorlar.map((a) => a.id).join('') === 'cd',
+  kunlar[1].qatorlar.map((a) => a.id).join('')
+);
+tekshir(
+  'birorta yozuv yo‘qolmadi',
+  kunlar.reduce((n, k) => n + k.qatorlar.length, 0) === AMALLAR.length
+);
+tekshir('bo‘sh ro‘yxat bo‘sh natija beradi', E.kunlarga([], (a) => a.sana).length === 0);
+
 console.log(`\n  hujjatlar: ${kesh}`);
 console.log(
   yiqildi === 0

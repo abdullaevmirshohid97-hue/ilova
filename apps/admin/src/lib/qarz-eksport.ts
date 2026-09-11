@@ -92,6 +92,72 @@ export function klientNomi(k: QarzSverka['klient']): string {
   return k.apteka || [k.ism, k.familiya].filter(Boolean).join(' ') || '—';
 }
 
+// ---------------------------------------------------------------------------
+// KUNLAR KESIMI
+//
+// Bir kunda ikki marta chiqim bo'lsa, ro'yxatda ular ajralib turmasdi:
+// ikkalasi ham "11.09.2026" deb yozilardi va qaysi biri qaysi kunga
+// tegishli ekani faqat vaqtga qarab bilinardi. Endi qatorlar kun
+// bo'yicha guruhlanadi va har guruhning o'z jami bor.
+//
+// Kalit MAHALLIY kun bo'yicha: toISOString() UTC beradi va kechqurun
+// yozilgan yozuv ertangi kunga tushib ketardi.
+// ---------------------------------------------------------------------------
+
+export function kunKaliti(iso: string | Date): string {
+  const d = iso instanceof Date ? iso : new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  const ik = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${ik(d.getMonth() + 1)}-${ik(d.getDate())}`;
+}
+
+/** "Bugun" / "Kecha" / "9 sentabr, chorshanba" */
+export function kunYorligi(iso: string | Date, hozir: Date = new Date()): string {
+  const d = iso instanceof Date ? iso : new Date(iso);
+  if (Number.isNaN(d.getTime())) return '—';
+
+  const kecha = new Date(hozir);
+  kecha.setDate(kecha.getDate() - 1);
+  const k = kunKaliti(d);
+  if (k === kunKaliti(hozir)) return 'Bugun';
+  if (k === kunKaliti(kecha)) return 'Kecha';
+
+  const HAFTA = [
+    'yakshanba', 'dushanba', 'seshanba', 'chorshanba',
+    'payshanba', 'juma', 'shanba',
+  ];
+  const yil = d.getFullYear() === hozir.getFullYear() ? '' : ` ${d.getFullYear()}`;
+  return `${d.getDate()} ${OYLAR[d.getMonth()]}${yil}, ${HAFTA[d.getDay()]}`;
+}
+
+export type Kun<T> = { kalit: string; yorliq: string; sana: string; qatorlar: T[] };
+
+/**
+ * Qatorlarni kunlarga bo'ladi. Tartib SAQLANADI — kelgan tartib
+ * qanday bo'lsa, kunlar ham shunday chiqadi (ro'yxatda yangisi
+ * tepada, sverkada eskisi tepada).
+ */
+export function kunlarga<T>(
+  qatorlar: T[],
+  sanaOl: (x: T) => string,
+  hozir: Date = new Date(),
+): Kun<T>[] {
+  const kunlar: Kun<T>[] = [];
+  const indeks = new Map<string, Kun<T>>();
+  for (const q of qatorlar) {
+    const sana = sanaOl(q);
+    const kalit = kunKaliti(sana);
+    let kun = indeks.get(kalit);
+    if (!kun) {
+      kun = { kalit, yorliq: kunYorligi(sana, hozir), sana, qatorlar: [] };
+      indeks.set(kalit, kun);
+      kunlar.push(kun);
+    }
+    kun.qatorlar.push(q);
+  }
+  return kunlar;
+}
+
 /**
  * Yugurib boradigan qoldiq.
  *
