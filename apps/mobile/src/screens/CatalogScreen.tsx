@@ -27,7 +27,9 @@ const PAGE_SIZE = 20;
 // ko'rinsin" deb qo'ysa). Eski kesh qolsa null narx 0 bo'lib ko'rinardi.
 // v4: mahsulot tavsifi qo'shildi — eski keshda u yo'q, ya'ni tavsif
 // yozilgan bo'lsa ham ekranda chiqmasdi.
-const CACHE_KEY = '@ilova/catalog-cache-v4';
+// v5: brend va minimal partiya qo'shildi. Eski keshda minMiqdor yo'q —
+// u yerdan ochilgan mahsulotda savat tugmasi ishlamay qolardi.
+const CACHE_KEY = '@ilova/catalog-cache-v5';
 
 async function saveCache(products: Product[]) {
   try {
@@ -81,6 +83,11 @@ type Product = {
   model: string | null;
   material: string | null;
   description: string | null; // admin panelda yozadigan tavsif
+  brand: string | null;
+  // Minimal partiya: ulgurjida tovar bittalab sotilmaydi. SERVERDA ham
+  // tekshiriladi (create_order -> MIN_MIQDOR); bu yerdagi to'siq esa
+  // xaridor bekorga urinib ko'rmasligi uchun
+  minMiqdor: number;
   image: string | null; // kichik nusxa (birinchi rasm) — grid uchun
   images: string[]; // katta nusxalar — mahsulot sahifasida swipe galereya
   variants: Variant[];
@@ -179,10 +186,17 @@ function ProductSheet({ product, onClose }: { product: Product; onClose: () => v
   const [selected, setSelected] = useState<Variant | null>(
     product.variants.find((v) => v.available > 0 && v.price != null) ?? null
   );
-  const [qtyText, setQtyText] = useState('');
+  // Minimal partiya mahsulot darajasida. Maydon darhol shu son bilan
+  // to'ldiriladi — xaridor "1" yozib, keyin xato ko'rib o'tirmasin.
+  // `Number(...) || 1` ATAYLAB: eski keshdan kelgan mahsulotda bu maydon
+  // yo'q va Math.max(1, undefined) NaN beradi — o'shanda qty >= NaN doim
+  // false bo'lib, savat tugmasi butunlay ishlamay qolardi
+  const minMiqdor = Math.max(1, Number(product.minMiqdor) || 1);
+  const [qtyText, setQtyText] = useState(minMiqdor > 1 ? String(minMiqdor) : '');
   const qty = parseInt(qtyText, 10) || 0;
+  const kamMiqdor = qty > 0 && qty < minMiqdor;
   const canAdd =
-    selected != null && selected.price != null && qty > 0 && qty <= selected.available;
+    selected != null && selected.price != null && qty >= minMiqdor && qty <= selected.available;
 
   function addToCart() {
     if (!selected || !canAdd || selected.price == null || selected.dispPrice == null) return;
@@ -217,7 +231,17 @@ function ProductSheet({ product, onClose }: { product: Product; onClose: () => v
           {product.name}
           {product.model ? `  ·  ${product.model}` : ''}
         </Text>
+        {product.brand ? (
+          <Text style={ps.brend}>
+            {t('brandLabel')}: <Text style={ps.brendNom}>{product.brand}</Text>
+          </Text>
+        ) : null}
         {product.material && <Text style={ps.material}>{product.material}</Text>}
+        {minMiqdor > 1 && (
+          <View style={ps.minBelgi}>
+            <Text style={ps.minBelgiText}>{t('minQty', { n: String(minMiqdor) })}</Text>
+          </View>
+        )}
         {/* Tavsif. Admin uni panelda yozadi, lekin katalog so'rovi bu
             ustunni UMUMAN olmasdi — mijoz hech qachon ko'rmagan. */}
         {product.description ? (
@@ -269,11 +293,11 @@ function ProductSheet({ product, onClose }: { product: Product; onClose: () => v
   const footer = (
     <>
       <TextInput
-        style={ps.qtyInput}
+        style={[ps.qtyInput, kamMiqdor && ps.qtyInputXato]}
         value={qtyText}
         onChangeText={(txt) => setQtyText(txt.replace(/\D/g, ''))}
         keyboardType="number-pad"
-        placeholder={t('qtyPlaceholder')}
+        placeholder={minMiqdor > 1 ? String(minMiqdor) : t('qtyPlaceholder')}
         placeholderTextColor={C.faint}
       />
       <TouchableOpacity
@@ -282,11 +306,16 @@ function ProductSheet({ product, onClose }: { product: Product; onClose: () => v
         disabled={!canAdd}
       >
         <Text style={ps.addBtnText}>
-          {qty > 0 && selected != null && selected.dispPrice != null
-            ? t('addToCartWithSum', {
-                sum: formatNarx(qty * selected.dispPrice, selected.dispCurrency),
-              })
-            : t('addToCart')}
+          {/* Miqdor minimaldan kam bo'lsa — summa emas, SABAB yoziladi.
+              "Savatga" o'chiq turgani yetarli emas: xaridor nega
+              ishlamayotganini bilmasdi */}
+          {kamMiqdor
+            ? t('minQty', { n: String(minMiqdor) })
+            : qty > 0 && selected != null && selected.dispPrice != null
+              ? t('addToCartWithSum', {
+                  sum: formatNarx(qty * selected.dispPrice, selected.dispCurrency),
+                })
+              : t('addToCart')}
         </Text>
       </TouchableOpacity>
     </>
@@ -381,16 +410,22 @@ export default function CatalogScreen() {
   const [saralash, setSaralash] = useState<Saralash>('nom');
   const [material, setMaterial] = useState<string | null>(null);
   const [olcham, setOlcham] = useState<string | null>(null);
+  const [brend, setBrend] = useState<string | null>(null);
   const [faqatQoldiq, setFaqatQoldiq] = useState(false);
   const [filtrOchiq, setFiltrOchiq] = useState(false);
   const [materiallar, setMateriallar] = useState<string[]>([]);
   const [olchamlar, setOlchamlar] = useState<string[]>([]);
+  const [brendlar, setBrendlar] = useState<string[]>([]);
   const pageRef = useRef(0);
 
   // Nechta filtr yoqilgani — tugmada raqam bo'lib turadi, aks holda
   // xaridor "nega ro'yxat qisqa" deb tushunmay qoladi
   const faolFiltr =
-    (material ? 1 : 0) + (olcham ? 1 : 0) + (faqatQoldiq ? 1 : 0) + (saralash !== 'nom' ? 1 : 0);
+    (material ? 1 : 0) +
+    (olcham ? 1 : 0) +
+    (brend ? 1 : 0) +
+    (faqatQoldiq ? 1 : 0) +
+    (saralash !== 'nom' ? 1 : 0);
   // Grid ustunlari qurilma eniga qarab moslashadi (telefon 2, planshet 3,
   // kompyuter 4) — App.tsx allaqachon katalog uchun kengni cheklaydi (max 1200)
   const [gridWidth, setGridWidth] = useState(0);
@@ -434,6 +469,12 @@ export default function CatalogScreen() {
       .select('size')
       .eq('is_active', true)
       .then(({ data }) => setOlchamlar(yigish(data, 'size')));
+
+    supabase
+      .from('products')
+      .select('brand')
+      .eq('is_active', true)
+      .then(({ data }) => setBrendlar(yigish(data, 'brand')));
   }, []);
 
   // Qidiruvni 350ms kechiktiramiz — har harfda serverga so'rov yubormaslik uchun
@@ -488,6 +529,8 @@ export default function CatalogScreen() {
       model: p.model,
       material: p.material,
       description: p.description ?? null,
+      brand: p.brand ?? null,
+      minMiqdor: Math.max(1, Number(p.min_order_qty ?? 1)),
       image: imgs[0] ? imageUrl(imgs[0].thumb_path || imgs[0].storage_path) : null,
       images: imgs.map((im: any) => imageUrl(im.storage_path)),
       variants,
@@ -510,7 +553,7 @@ export default function CatalogScreen() {
     let q = supabase
       .from('products')
       .select(
-        `id, name, model, material, description,
+        `id, name, model, material, description, brand, min_order_qty,
          product_images ( storage_path, thumb_path, is_primary, sort_order ),
          ${variantJoin} ( id, sku, size, color,
            stock_levels ( qty, reserved )
@@ -525,6 +568,7 @@ export default function CatalogScreen() {
 
     if (categoryId) q = q.eq('category_id', categoryId);
     if (material) q = q.eq('material', material);
+    if (brend) q = q.eq('brand', brend);
     if (olcham) q = q.eq('product_variants.size', olcham);
     if (debouncedSearch) q = q.or(`name.ilike.%${debouncedSearch}%,model.ilike.%${debouncedSearch}%`);
 
@@ -581,7 +625,13 @@ export default function CatalogScreen() {
     // Kesh FAQAT toza ko'rinish uchun: filtrlangan ro'yxatni saqlab
     // qo'ysak, oflayn holatda xaridor uni butun katalog deb o'ylardi
     const isDefaultView =
-      !categoryId && !debouncedSearch && !material && !olcham && !faqatQoldiq && saralash === 'nom';
+      !categoryId &&
+      !debouncedSearch &&
+      !material &&
+      !olcham &&
+      !brend &&
+      !faqatQoldiq &&
+      saralash === 'nom';
 
     if (failed) {
       // Internet yo'q (yoki server javob bermadi) — faqat filtrsiz asosiy
@@ -602,7 +652,7 @@ export default function CatalogScreen() {
   useEffect(() => {
     loadFirstPage();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [categoryId, debouncedSearch, material, olcham, faqatQoldiq, saralash]);
+  }, [categoryId, debouncedSearch, material, olcham, brend, faqatQoldiq, saralash]);
 
   useEffect(() => {
     // Jonli: kimdir buyurtma bersa — mavjud son hammada darhol kamayadi
@@ -728,6 +778,15 @@ export default function CatalogScreen() {
             />
           )}
 
+          {brendlar.length > 0 && (
+            <FiltrQatori
+              sarlavha={t('filterBrand')}
+              qiymatlar={brendlar.map((b) => ({ key: b, nom: b }))}
+              tanlangan={brend}
+              onTanla={(k) => setBrend(k === brend ? null : k)}
+            />
+          )}
+
           {olchamlar.length > 0 && (
             <FiltrQatori
               sarlavha={t('filterSize')}
@@ -752,6 +811,7 @@ export default function CatalogScreen() {
                   setSaralash('nom');
                   setMaterial(null);
                   setOlcham(null);
+                  setBrend(null);
                   setFaqatQoldiq(false);
                 }}
               >
@@ -854,6 +914,11 @@ export default function CatalogScreen() {
                   {item.name}
                   {item.model ? ` · ${item.model}` : ''}
                 </Text>
+                {/* Ulgurjining eng muhim sharti — xaridor uni kartochkadayoq
+                    ko'rsin, mahsulotni ochib yurmasin */}
+                {item.minMiqdor > 1 && (
+                  <Text style={s.minMiqdor}>{t('minQty', { n: String(item.minMiqdor) })}</Text>
+                )}
                 <View style={s.kartochkaOxiri}>
                   <Text style={[s.stock, totalAvail === 0 && { color: C.red }]} numberOfLines={1}>
                     {totalAvail > 0
@@ -986,6 +1051,7 @@ const s = StyleSheet.create({
   price: { color: C.text, fontSize: 16, fontWeight: '800' },
   narxDan: { color: C.muted, fontSize: 12, fontWeight: '600' },
   name: { color: C.text2, fontSize: 13, marginTop: 3, lineHeight: 17 },
+  minMiqdor: { color: C.primary, fontSize: 12, fontWeight: '700', marginTop: 4 },
   kartochkaOxiri: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1062,6 +1128,17 @@ const ps = StyleSheet.create({
   body: { padding: 16 },
   name: { color: C.text, fontSize: 20, fontWeight: '800' },
   material: { color: C.muted, fontSize: 14, marginTop: 4 },
+  brend: { color: C.muted, fontSize: 14, marginTop: 6 },
+  brendNom: { color: C.text, fontWeight: '700' },
+  minBelgi: {
+    alignSelf: 'flex-start',
+    marginTop: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+    backgroundColor: C.primarySoft,
+  },
+  minBelgiText: { color: C.primary, fontSize: 13, fontWeight: '700' },
   // Tavsif uzun matn bo'ladi — qatorlar orasi keng, o'qishga qulay
   tavsif: { color: C.text2, fontSize: 14, lineHeight: 21, marginTop: 10 },
   sectionTitle: { color: C.text, fontSize: 15, fontWeight: '700', marginTop: 18, marginBottom: 8 },
@@ -1116,6 +1193,7 @@ const ps = StyleSheet.create({
     textAlign: 'center',
     backgroundColor: C.bg,
   },
+  qtyInputXato: { borderColor: C.red },
   addBtn: {
     flex: 1,
     backgroundColor: C.primary,

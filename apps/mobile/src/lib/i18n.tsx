@@ -68,6 +68,10 @@ const uz = {
   filterSize: "O`lcham",
   filterInStockOnly: 'Faqat omborda borlari',
   filterClear: 'Tozalash',
+  filterBrand: 'Brend',
+  brandLabel: 'Brend',
+  // Minimal partiya — ulgurjining asosiy sharti
+  minQty: 'Min. {n} dona',
 
   cartEmptyTitle: "Savat bo'sh",
   cartEmptyHint: 'Katalogdan tovar tanlang',
@@ -224,6 +228,9 @@ const ru: Record<keyof typeof uz, string> = {
   filterSize: 'Размер',
   filterInStockOnly: 'Только в наличии',
   filterClear: 'Очистить',
+  filterBrand: 'Бренд',
+  brandLabel: 'Бренд',
+  minQty: 'Мин. {n} шт.',
 
   cartEmptyTitle: 'Корзина пуста',
   cartEmptyHint: 'Выберите товар в каталоге',

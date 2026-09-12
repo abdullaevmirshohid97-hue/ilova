@@ -15,13 +15,17 @@ type ParsedRow = {
   size: string;
   color: string;
   sku: string;
+  brand: string;
+  minQty: string;
   prices: Record<string, string>; // group name -> raw qiymat
   initQty: string;
   status: 'ok' | 'error';
   reason?: string;
 };
 
-const FIXED_COLS = ['Nomi', 'Model', 'Kategoriya', 'Material', 'Razmer', 'Rang', 'SKU'];
+const FIXED_COLS = ['Nomi', 'Model', 'Brend', 'Kategoriya', 'Material', 'Razmer', 'Rang', 'SKU'];
+// Minimal partiya — ulgurjining asosiy sharti. Bo'sh qoldirilsa 1.
+const MIN_COL = 'Min_partiya';
 const QTY_COL = 'Boshlangich_qoldiq';
 
 function makeSku(name: string, model: string, size: string, color: string): string {
@@ -57,10 +61,13 @@ export default function ProductImport() {
   }, []);
 
   function downloadTemplate() {
-    const header = [...FIXED_COLS, ...groups.map((g) => g.name), QTY_COL];
+    const header = [...FIXED_COLS, ...groups.map((g) => g.name), MIN_COL, QTY_COL];
+    // Tartib FIXED_COLS bilan AYNAN bir xil bo'lishi shart — ustun
+    // qo'shilganda namuna qatori ham siljiydi
     const example = [
-      'Versace', 'V25', 'Choyshab to\'plamlari', 'Paxta', '170x200', "Ko'k", '',
+      'Versace', 'V25', 'ChunSe', 'Choyshab to\'plamlari', 'Paxta', '170x200', "Ko'k", '',
       ...groups.map(() => '3000'),
+      '50',
       '1000',
     ];
     const ws = XLSX.utils.aoa_to_sheet([header, example]);
@@ -83,6 +90,8 @@ export default function ProductImport() {
       size: get('Razmer'),
       color: get('Rang'),
       sku: get('SKU'),
+      brand: get('Brend'),
+      minQty: get(MIN_COL),
       prices,
       initQty: get(QTY_COL),
       status: 'ok',
@@ -104,6 +113,13 @@ export default function ProductImport() {
     if (row.initQty && (!/^\d+$/.test(row.initQty) || parseInt(row.initQty, 10) < 0)) {
       row.status = 'error';
       row.reason = `Boshlang'ich qoldiq noto'g'ri: "${row.initQty}"`;
+      return row;
+    }
+    // Minimal partiya 0 bo'lolmaydi: u holda mahsulotni umuman
+    // buyurtma qilib bo'lmasdi
+    if (row.minQty && (!/^\d+$/.test(row.minQty) || parseInt(row.minQty, 10) < 1)) {
+      row.status = 'error';
+      row.reason = `Min. partiya noto'g'ri: "${row.minQty}" (kamida 1)`;
       return row;
     }
     return row;
@@ -194,6 +210,8 @@ export default function ProductImport() {
               name: row.name,
               model: row.model || null,
               material: row.material || null,
+              brand: row.brand || null,
+              min_order_qty: row.minQty ? parseInt(row.minQty, 10) : 1,
               category_id: categoryId,
             })
             .select('id')
@@ -202,6 +220,20 @@ export default function ProductImport() {
           productId = (prod as any).id;
           productMap.set(prodKey, productId!);
           productsCreated++;
+        } else {
+          // Mahsulot allaqachon bor. Faqat TO'LDIRILGAN kataklar
+          // yoziladi: bo'sh katak "o'chir" degani emas, aks holda
+          // narxni qo'shish uchun qayta yuklaganda brend yo'qolardi.
+          const yangilash: Record<string, unknown> = {};
+          if (row.brand) yangilash.brand = row.brand;
+          if (row.minQty) yangilash.min_order_qty = parseInt(row.minQty, 10);
+          if (Object.keys(yangilash).length > 0) {
+            const { error: uErr } = await supabase
+              .from('products')
+              .update(yangilash)
+              .eq('id', productId);
+            if (uErr) throw new Error('Mahsulot yangilash: ' + uErr.message);
+          }
         }
 
         // 3. Variant (SKU bo'yicha — mavjud bo'lsa yangilanadi, aks holda yaratiladi)

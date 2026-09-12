@@ -63,7 +63,21 @@ tekshir(
   kartochka ? `kenglikning ${kartochka[1]} barobari` : 'koeffitsiyent topilmadi',
 );
 
-console.log('\n3. Katalog filtri');
+console.log('\n3. Brend va minimal partiya');
+
+tekshir(
+  'so‘rov `brand` va `min_order_qty` ni oladi',
+  sorov != null && /\bbrand\b/.test(sorov[1]) && /\bmin_order_qty\b/.test(sorov[1]),
+);
+tekshir('kartochkada minimal partiya ko‘rinadi', /item\.minMiqdor > 1/.test(kod));
+tekshir('mahsulot sahifasida brend ko‘rinadi', /product\.brand/.test(kod));
+tekshir(
+  'minimaldan kam miqdorda savat tugmasi o‘chiq',
+  /qty >= minMiqdor/.test(kod),
+  'serverda ham tekshiriladi (create_order → MIN_MIQDOR)',
+);
+
+console.log('\n4. Katalog filtri');
 
 tekshir(
   'saralash, material, o‘lcham va qoldiq filtri bor',
@@ -94,7 +108,7 @@ tekshir(
 
 // ---------- Jonli baza: mijoz tavsifni o'qiy oladimi ----------
 
-console.log('\n4. Jonli baza (RLS)');
+console.log('\n5. Jonli baza (RLS)');
 
 let K = null;
 try {

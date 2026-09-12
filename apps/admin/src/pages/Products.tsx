@@ -35,6 +35,8 @@ type Product = {
   model: string | null;
   material: string | null;
   description: string | null;
+  brand: string | null;
+  min_order_qty: number;
   category_id: string | null;
   images: ProductImageRow[]; // birinchi = asosiy (galereya tartibida)
   is_active: boolean;
@@ -90,6 +92,11 @@ function ProductModal({
   const [model, setModel] = useState(product?.model ?? '');
   const [material, setMaterial] = useState(product?.material ?? '');
   const [description, setDescription] = useState(product?.description ?? '');
+  const [brand, setBrand] = useState(product?.brand ?? '');
+  // Minimal partiya. Bo'sh yoki 1 bo'lsa — bittalab ham sotiladi.
+  // Bu shunchaki yozuv emas: `create_order` undan kam buyurtmani
+  // MIN_MIQDOR bilan rad etadi.
+  const [minMiqdor, setMinMiqdor] = useState(String(product?.min_order_qty ?? 1));
   const [categoryId, setCategoryId] = useState(product?.category_id ?? '');
   const [images, setImages] = useState<ProductImageRow[]>(product?.images ?? []);
   const [newFiles, setNewFiles] = useState<{ file: File; preview: string }[]>([]);
@@ -219,6 +226,8 @@ function ProductModal({
             model: model.trim() || null,
             material: material.trim() || null,
             description: description.trim() || null,
+            brand: brand.trim() || null,
+            min_order_qty: Math.max(1, parseInt(minMiqdor, 10) || 1),
             category_id: categoryId || null,
           })
           .eq('id', productId!);
@@ -231,6 +240,8 @@ function ProductModal({
             model: model.trim() || null,
             material: material.trim() || null,
             description: description.trim() || null,
+            brand: brand.trim() || null,
+            min_order_qty: Math.max(1, parseInt(minMiqdor, 10) || 1),
             category_id: categoryId || null,
           })
           .select('id')
@@ -434,6 +445,23 @@ function ProductModal({
               <div>
                 <label className="text-xs font-semibold text-gray-500">MATERIAL</label>
                 <input value={material} onChange={(e) => setMaterial(e.target.value)} className={inputCls} placeholder="Paxta" />
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-gray-500">BREND</label>
+                <input value={brand} onChange={(e) => setBrand(e.target.value)} className={inputCls} placeholder="ChunSe" />
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-gray-500">MIN. PARTIYA (DONA)</label>
+                <input
+                  value={minMiqdor}
+                  onChange={(e) => setMinMiqdor(e.target.value.replace(/\D/g, ''))}
+                  className={inputCls}
+                  placeholder="1"
+                  inputMode="numeric"
+                />
+                <p className="mt-1 text-xs text-gray-500">
+                  Mijoz shundan kam buyurtma bera olmaydi. 1 — cheklovsiz.
+                </p>
               </div>
               <div>
                 <label className="text-xs font-semibold text-gray-500">KATEGORIYA</label>
@@ -752,7 +780,7 @@ export default function Products() {
       supabase
         .from('products')
         .select(
-          `id, name, model, material, description, category_id, is_active,
+          `id, name, model, material, description, brand, min_order_qty, category_id, is_active,
            product_images ( id, storage_path, thumb_path, is_primary, sort_order ),
            product_variants ( id, sku, size, color, is_active,
              stock_levels ( qty, reserved ),
@@ -782,6 +810,8 @@ export default function Products() {
           model: p.model,
           material: p.material,
           description: p.description,
+          brand: p.brand ?? null,
+          min_order_qty: p.min_order_qty ?? 1,
           category_id: p.category_id,
           is_active: p.is_active,
           images: imgs,
