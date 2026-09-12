@@ -53,6 +53,21 @@ const uz = {
   // qo'ygandagina chiqadi va buyurtma qilib bo'lmaydi.
   priceOnRequest: 'Narx kelishiladi',
   priceOnRequestHint: "Narx uchun bog'laning",
+  // Kartochkadagi narx eng arzon variantniki. O'zbekchada belgi narxdan
+  // KEYIN («12 500 so'm dan»), ruschada OLDIN («от 12 500 сум») —
+  // shuning uchun ikki kalit, bittasi bo'sh qoladi
+  priceFromPrefix: '',
+  priceFromSuffix: 'dan',
+  // Katalog filtri
+  filterSort: 'Saralash',
+  sortByName: 'Nomi bo`yicha',
+  sortCheapest: 'Avval arzoni',
+  sortExpensive: 'Avval qimmati',
+  sortNewest: 'Yangilari',
+  filterMaterial: 'Material',
+  filterSize: "O`lcham",
+  filterInStockOnly: 'Faqat omborda borlari',
+  filterClear: 'Tozalash',
 
   cartEmptyTitle: "Savat bo'sh",
   cartEmptyHint: 'Katalogdan tovar tanlang',
@@ -198,6 +213,17 @@ const ru: Record<keyof typeof uz, string> = {
   addToCart: 'В корзину',
   priceOnRequest: 'Цена по запросу',
   priceOnRequestHint: 'Уточните цену',
+  priceFromPrefix: 'от',
+  priceFromSuffix: '',
+  filterSort: 'Сортировка',
+  sortByName: 'По названию',
+  sortCheapest: 'Сначала дешёвые',
+  sortExpensive: 'Сначала дорогие',
+  sortNewest: 'Новинки',
+  filterMaterial: 'Материал',
+  filterSize: 'Размер',
+  filterInStockOnly: 'Только в наличии',
+  filterClear: 'Очистить',
 
   cartEmptyTitle: 'Корзина пуста',
   cartEmptyHint: 'Выберите товар в каталоге',

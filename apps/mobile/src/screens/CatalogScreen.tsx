@@ -88,6 +88,22 @@ type Product = {
 
 type Category = { id: string; name: string };
 
+// Saralash turlari. Narx bo'yicha saralash SERVERDA bo'lmaydi: narx har
+// mijoz uchun my_effective_prices() da hisoblanadi (menejer narxi,
+// valyuta). Shuning uchun narx tanlansa ro'yxat bir marta to'liq
+// olinadi va shu yerda saralanadi — katalog hajmida bu arzon.
+type Saralash = 'nom' | 'arzon' | 'qimmat' | 'yangi';
+
+// Mahsulotning eng arzon narxi (narxsiz variantlar hisobga olinmaydi)
+function engArzon(p: Product): number | null {
+  let min: number | null = null;
+  for (const v of p.variants) {
+    if (v.dispPrice == null) continue;
+    if (min == null || v.dispPrice < min) min = v.dispPrice;
+  }
+  return min;
+}
+
 function first<T>(v: T | T[] | null): T | null {
   if (v == null) return null;
   return Array.isArray(v) ? (v[0] ?? null) : v;
@@ -308,6 +324,42 @@ function ProductSheet({ product, onClose }: { product: Product; onClose: () => v
   );
 }
 
+// Filtr paneli ichidagi bitta qator: sarlavha + gorizontal chiplar.
+// Bitta komponent — qatorlar orasidagi masofa va o'lcham hamma joyda
+// bir xil bo'lsin.
+function FiltrQatori({
+  sarlavha,
+  qiymatlar,
+  tanlangan,
+  onTanla,
+}: {
+  sarlavha: string;
+  qiymatlar: { key: string; nom: string }[];
+  tanlangan: string | null;
+  onTanla: (k: string) => void;
+}) {
+  return (
+    <View style={s.filtrQator}>
+      <Text style={s.filtrSarlavha}>{sarlavha}</Text>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={s.filtrChiplar}
+      >
+        {qiymatlar.map((q) => (
+          <TouchableOpacity
+            key={q.key}
+            style={[s.chip, tanlangan === q.key && s.chipActive]}
+            onPress={() => onTanla(q.key)}
+          >
+            <Text style={[s.chipText, tanlangan === q.key && s.chipTextActive]}>{q.nom}</Text>
+          </TouchableOpacity>
+        ))}
+      </ScrollView>
+    </View>
+  );
+}
+
 // ---------- Katalog (2 ustunli grid, server qidiruv + sahifalash) ----------
 export default function CatalogScreen() {
   const { t } = useLanguage();
@@ -322,7 +374,23 @@ export default function CatalogScreen() {
   const [hasMore, setHasMore] = useState(true);
   const [offline, setOffline] = useState(false);
   const [openProduct, setOpenProduct] = useState<Product | null>(null);
+  // Ulgurji xaridor katalogni varaqlab o'tirmaydi — unga kerakli narsani
+  // tez ajratib beradigan filtr kerak. Hammasi BOR ma'lumot ustida
+  // ishlaydi: material mahsulotda, o'lcham variantda, qoldiq stock_levels
+  // da, narx esa my_effective_prices() dan keladi.
+  const [saralash, setSaralash] = useState<Saralash>('nom');
+  const [material, setMaterial] = useState<string | null>(null);
+  const [olcham, setOlcham] = useState<string | null>(null);
+  const [faqatQoldiq, setFaqatQoldiq] = useState(false);
+  const [filtrOchiq, setFiltrOchiq] = useState(false);
+  const [materiallar, setMateriallar] = useState<string[]>([]);
+  const [olchamlar, setOlchamlar] = useState<string[]>([]);
   const pageRef = useRef(0);
+
+  // Nechta filtr yoqilgani — tugmada raqam bo'lib turadi, aks holda
+  // xaridor "nega ro'yxat qisqa" deb tushunmay qoladi
+  const faolFiltr =
+    (material ? 1 : 0) + (olcham ? 1 : 0) + (faqatQoldiq ? 1 : 0) + (saralash !== 'nom' ? 1 : 0);
   // Grid ustunlari qurilma eniga qarab moslashadi (telefon 2, planshet 3,
   // kompyuter 4) — App.tsx allaqachon katalog uchun kengni cheklaydi (max 1200)
   const [gridWidth, setGridWidth] = useState(0);
@@ -343,6 +411,29 @@ export default function CatalogScreen() {
       .select('id, name')
       .order('sort_order')
       .then(({ data }) => setCategories((data ?? []) as Category[]));
+
+    // Filtr ro'yxatlari katalogning O'ZIDAN olinadi — qo'lda yozilgan
+    // ro'yxat bo'lsa, yangi material qo'shilganda filtr eskirib qolardi.
+    // RLS tufayli bu doim shu tenantning qiymatlari.
+    const nom = (v: unknown) => String(v ?? '').trim();
+    const yigish = (rows: any[] | null, ustun: string) =>
+      Array.from(new Set((rows ?? []).map((r) => nom(r[ustun])).filter(Boolean)))
+        // localeCompare ATAYLAB ishlatilmadi: Telegram WebView'da Intl
+        // yo'q va til bilan bog'liq chaqiruvlar RangeError beradi
+        .sort((a, b) => (a < b ? -1 : a > b ? 1 : 0))
+        .slice(0, 24); // chiplar qatori cheksiz cho'zilib ketmasin
+
+    supabase
+      .from('products')
+      .select('material')
+      .eq('is_active', true)
+      .then(({ data }) => setMateriallar(yigish(data, 'material')));
+
+    supabase
+      .from('product_variants')
+      .select('size')
+      .eq('is_active', true)
+      .then(({ data }) => setOlchamlar(yigish(data, 'size')));
   }, []);
 
   // Qidiruvni 350ms kechiktiramiz — har harfda serverga so'rov yubormaslik uchun
@@ -404,19 +495,37 @@ export default function CatalogScreen() {
   }
 
   async function fetchPage(page: number): Promise<{ rows: Product[]; full: boolean; failed: boolean }> {
+    // Narx va qoldiq SERVERDA filtrlanmaydi (narx — RPC dan, qoldiq —
+    // qty minus reserved). Shunday filtr yoqilganda ro'yxat bitta
+    // so'rovda to'liq olinadi va shu yerda saralanadi. Sahifalash
+    // bilan aralashtirilsa tartib yolg'on chiqardi: birinchi 20 ta
+    // ichidagi eng arzoni "eng arzon" bo'lib ko'rinardi.
+    const ozimizFiltrlaymiz = faqatQoldiq || saralash === 'arzon' || saralash === 'qimmat';
+    const TOLIQ_CHEK = 500;
+
+    // O'lcham variantda — embedded filtr uchun `!inner` kerak,
+    // aks holda mos kelmaydigan variantlar ham qaytadi
+    const variantJoin = olcham ? 'product_variants!inner' : 'product_variants';
+
     let q = supabase
       .from('products')
       .select(
         `id, name, model, material, description,
          product_images ( storage_path, thumb_path, is_primary, sort_order ),
-         product_variants ( id, sku, size, color,
+         ${variantJoin} ( id, sku, size, color,
            stock_levels ( qty, reserved )
          )`
       )
-      .eq('is_active', true)
-      .order('name')
-      .range(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE - 1);
+      .eq('is_active', true);
+
+    q = saralash === 'yangi' ? q.order('created_at', { ascending: false }) : q.order('name');
+    q = ozimizFiltrlaymiz
+      ? q.range(0, TOLIQ_CHEK - 1)
+      : q.range(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE - 1);
+
     if (categoryId) q = q.eq('category_id', categoryId);
+    if (material) q = q.eq('material', material);
+    if (olcham) q = q.eq('product_variants.size', olcham);
     if (debouncedSearch) q = q.or(`name.ilike.%${debouncedSearch}%,model.ilike.%${debouncedSearch}%`);
 
     const [{ data, error }, { data: priceRows }] = await Promise.all([
@@ -441,15 +550,38 @@ export default function CatalogScreen() {
       ])
     );
     // Mijoz guruhida narxi bo'lmagan mahsulot (barcha variantlari filtrlanib) grid'da chiqmaydi
-    const rows = data.map((p: any) => mapRow(p, priceMap)).filter((p) => p.variants.length > 0);
-    return { rows, full: data.length === PAGE_SIZE, failed: false };
+    let rows = data.map((p: any) => mapRow(p, priceMap)).filter((p) => p.variants.length > 0);
+
+    if (faqatQoldiq) {
+      rows = rows.filter((p) => p.variants.some((v) => v.available > 0));
+    }
+    if (saralash === 'arzon' || saralash === 'qimmat') {
+      // Narxsiz mahsulot doim oxirida: uni "eng arzon" deb ko'rsatish
+      // xaridorni aldardi
+      rows = [...rows].sort((a, b) => {
+        const x = engArzon(a);
+        const y = engArzon(b);
+        if (x == null) return y == null ? 0 : 1;
+        if (y == null) return -1;
+        return saralash === 'arzon' ? x - y : y - x;
+      });
+    }
+
+    return {
+      rows,
+      full: ozimizFiltrlaymiz ? false : data.length === PAGE_SIZE,
+      failed: false,
+    };
   }
 
   async function loadFirstPage() {
     setLoading(true);
     pageRef.current = 0;
     const { rows, full, failed } = await fetchPage(0);
-    const isDefaultView = !categoryId && !debouncedSearch;
+    // Kesh FAQAT toza ko'rinish uchun: filtrlangan ro'yxatni saqlab
+    // qo'ysak, oflayn holatda xaridor uni butun katalog deb o'ylardi
+    const isDefaultView =
+      !categoryId && !debouncedSearch && !material && !olcham && !faqatQoldiq && saralash === 'nom';
 
     if (failed) {
       // Internet yo'q (yoki server javob bermadi) — faqat filtrsiz asosiy
@@ -470,7 +602,7 @@ export default function CatalogScreen() {
   useEffect(() => {
     loadFirstPage();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [categoryId, debouncedSearch]);
+  }, [categoryId, debouncedSearch, material, olcham, faqatQoldiq, saralash]);
 
   useEffect(() => {
     // Jonli: kimdir buyurtma bersa — mavjud son hammada darhol kamayadi
@@ -547,16 +679,88 @@ export default function CatalogScreen() {
           <Text style={s.offlineBannerText}>{t('offlineBanner')}</Text>
         </View>
       )}
-      <View style={s.searchWrap}>
-        <Text style={s.searchIcon}>🔍</Text>
-        <TextInput
-          style={s.search}
-          value={search}
-          onChangeText={setSearch}
-          placeholder={t('searchPlaceholder')}
-          placeholderTextColor={C.faint}
-        />
+      <View style={s.searchRow}>
+        <View style={[s.searchWrap, { flex: 1 }]}>
+          <Text style={s.searchIcon}>🔍</Text>
+          <TextInput
+            style={s.search}
+            value={search}
+            onChangeText={setSearch}
+            placeholder={t('searchPlaceholder')}
+            placeholderTextColor={C.faint}
+          />
+        </View>
+        <TouchableOpacity
+          style={[s.filtrBtn, (filtrOchiq || faolFiltr > 0) && s.filtrBtnActive]}
+          onPress={() => setFiltrOchiq((v) => !v)}
+        >
+          <Text style={[s.filtrBtnText, (filtrOchiq || faolFiltr > 0) && s.filtrBtnTextActive]}>
+            ⚙︎
+          </Text>
+          {faolFiltr > 0 && (
+            <View style={s.filtrBadge}>
+              <Text style={s.filtrBadgeText}>{faolFiltr}</Text>
+            </View>
+          )}
+        </TouchableOpacity>
       </View>
+
+      {filtrOchiq && (
+        <View style={s.filtrPanel}>
+          <FiltrQatori
+            sarlavha={t('filterSort')}
+            qiymatlar={[
+              { key: 'nom', nom: t('sortByName') },
+              { key: 'arzon', nom: t('sortCheapest') },
+              { key: 'qimmat', nom: t('sortExpensive') },
+              { key: 'yangi', nom: t('sortNewest') },
+            ]}
+            tanlangan={saralash}
+            onTanla={(k) => setSaralash(k as Saralash)}
+          />
+
+          {materiallar.length > 0 && (
+            <FiltrQatori
+              sarlavha={t('filterMaterial')}
+              qiymatlar={materiallar.map((m) => ({ key: m, nom: m }))}
+              tanlangan={material}
+              onTanla={(k) => setMaterial(k === material ? null : k)}
+            />
+          )}
+
+          {olchamlar.length > 0 && (
+            <FiltrQatori
+              sarlavha={t('filterSize')}
+              qiymatlar={olchamlar.map((o) => ({ key: o, nom: o }))}
+              tanlangan={olcham}
+              onTanla={(k) => setOlcham(k === olcham ? null : k)}
+            />
+          )}
+
+          <View style={s.filtrOxirgiQator}>
+            <TouchableOpacity
+              style={[s.chip, faqatQoldiq && s.chipActive]}
+              onPress={() => setFaqatQoldiq((v) => !v)}
+            >
+              <Text style={[s.chipText, faqatQoldiq && s.chipTextActive]}>
+                {t('filterInStockOnly')}
+              </Text>
+            </TouchableOpacity>
+            {faolFiltr > 0 && (
+              <TouchableOpacity
+                onPress={() => {
+                  setSaralash('nom');
+                  setMaterial(null);
+                  setOlcham(null);
+                  setFaqatQoldiq(false);
+                }}
+              >
+                <Text style={s.filtrTozala}>{t('filterClear')}</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
+      )}
 
       {categories.length > 0 && (
         <ScrollView
@@ -608,6 +812,9 @@ export default function CatalogScreen() {
             null
           );
           const kartochkaVariant = minVariant ?? item.variants[0] ?? null;
+          // Variantlar narxi har xil bo'lsa narx yonida «dan» turadi
+          const kopNarx =
+            new Set(item.variants.map((v) => v.dispPrice).filter((p) => p != null)).size > 1;
           const totalAvail = item.variants.reduce((sum, v) => sum + v.available, 0);
           return (
             <TouchableOpacity
@@ -627,18 +834,43 @@ export default function CatalogScreen() {
                 </View>
               )}
               <View style={s.cardBody}>
-                <Text style={s.price}>
-                  {kartochkaVariant != null
-                    ? fmtVariantPrice(kartochkaVariant, t('priceOnRequest'))
-                    : '—'}
-                </Text>
+                <View style={s.narxQatori}>
+                  {/* «dan» — ulgurjining muhim signali: bu eng arzon
+                      variant narxi, boshqalari qimmatroq. O'rni tilga
+                      qarab o'zgaradi (uz: keyin, ru: oldin) */}
+                  {kopNarx && t('priceFromPrefix') !== '' && (
+                    <Text style={s.narxDan}>{t('priceFromPrefix')}</Text>
+                  )}
+                  <Text style={s.price}>
+                    {kartochkaVariant != null
+                      ? fmtVariantPrice(kartochkaVariant, t('priceOnRequest'))
+                      : '—'}
+                  </Text>
+                  {kopNarx && t('priceFromSuffix') !== '' && (
+                    <Text style={s.narxDan}>{t('priceFromSuffix')}</Text>
+                  )}
+                </View>
                 <Text style={s.name} numberOfLines={2}>
                   {item.name}
                   {item.model ? ` · ${item.model}` : ''}
                 </Text>
-                <Text style={[s.stock, totalAvail === 0 && { color: C.red }]}>
-                  {totalAvail > 0 ? t('stockAvailable', { n: totalAvail.toLocaleString() }) : t('stockOut')}
-                </Text>
+                <View style={s.kartochkaOxiri}>
+                  <Text style={[s.stock, totalAvail === 0 && { color: C.red }]} numberOfLines={1}>
+                    {totalAvail > 0
+                      ? t('stockAvailable', { n: totalAvail.toLocaleString() })
+                      : t('stockOut')}
+                  </Text>
+                  {/* Tugma buyurtmani JIM qo'shmaydi — mahsulot sahifasini
+                      ochadi. Ulgurjida miqdor tanlanmasdan savatga tashlash
+                      xato: minimal partiya va qoldiq bor */}
+                  <TouchableOpacity
+                    style={[s.savatBtn, totalAvail === 0 && s.savatBtnOff]}
+                    onPress={() => setOpenProduct(item)}
+                    disabled={totalAvail === 0}
+                  >
+                    <Text style={s.savatBtnText}>🛒</Text>
+                  </TouchableOpacity>
+                </View>
               </View>
             </TouchableOpacity>
           );
@@ -659,6 +891,7 @@ const s = StyleSheet.create({
     paddingHorizontal: 16,
   },
   offlineBannerText: { color: '#8A6D1F', fontSize: 12, fontWeight: '700', textAlign: 'center' },
+  searchRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingRight: 16 },
   searchWrap: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -671,6 +904,58 @@ const s = StyleSheet.create({
     marginBottom: 12,
     paddingHorizontal: 12,
   },
+  filtrBtn: {
+    width: 44,
+    height: 42,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: C.border,
+    backgroundColor: C.card,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  filtrBtnActive: { backgroundColor: C.primarySoft, borderColor: C.primary },
+  filtrBtnText: { fontSize: 18, color: C.text2 },
+  filtrBtnTextActive: { color: C.primary },
+  filtrBadge: {
+    position: 'absolute',
+    top: -5,
+    right: -5,
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    paddingHorizontal: 4,
+    backgroundColor: C.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  filtrBadgeText: { color: '#fff', fontSize: 11, fontWeight: '800' },
+  filtrPanel: {
+    backgroundColor: C.card,
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: C.border,
+    paddingTop: 12,
+    paddingBottom: 4,
+    marginBottom: 12,
+  },
+  filtrQator: { marginBottom: 10 },
+  filtrSarlavha: {
+    color: C.muted,
+    fontSize: 12,
+    fontWeight: '700',
+    paddingHorizontal: 16,
+    marginBottom: 6,
+  },
+  filtrChiplar: { gap: 8, paddingHorizontal: 16 },
+  filtrOxirgiQator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingBottom: 10,
+  },
+  filtrTozala: { color: C.primary, fontSize: 13, fontWeight: '700' },
   searchIcon: { fontSize: 15, marginRight: 6 },
   search: { flex: 1, color: C.text, paddingVertical: 10, fontSize: 15 },
   chipsWrap: { gap: 8, paddingHorizontal: 16, paddingBottom: 12 },
@@ -697,9 +982,28 @@ const s = StyleSheet.create({
   imagePh: { backgroundColor: C.primarySoft, justifyContent: 'center', alignItems: 'center' },
   imagePhText: { color: C.primary, fontSize: 48, fontWeight: '800' },
   cardBody: { padding: 10 },
+  narxQatori: { flexDirection: 'row', alignItems: 'baseline', gap: 4 },
   price: { color: C.text, fontSize: 16, fontWeight: '800' },
+  narxDan: { color: C.muted, fontSize: 12, fontWeight: '600' },
   name: { color: C.text2, fontSize: 13, marginTop: 3, lineHeight: 17 },
-  stock: { color: C.green, fontSize: 12, marginTop: 5, fontWeight: '600' },
+  kartochkaOxiri: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 6,
+    marginTop: 5,
+  },
+  stock: { color: C.green, fontSize: 12, fontWeight: '600', flexShrink: 1 },
+  savatBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    backgroundColor: C.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  savatBtnOff: { backgroundColor: C.faint },
+  savatBtnText: { fontSize: 15 },
 });
 
 const ps = StyleSheet.create({

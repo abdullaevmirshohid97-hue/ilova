@@ -63,9 +63,38 @@ tekshir(
   kartochka ? `kenglikning ${kartochka[1]} barobari` : 'koeffitsiyent topilmadi',
 );
 
+console.log('\n3. Katalog filtri');
+
+tekshir(
+  'saralash, material, o‘lcham va qoldiq filtri bor',
+  /saralash/.test(kod) && /material/.test(kod) && /olcham/.test(kod) && /faqatQoldiq/.test(kod),
+);
+tekshir(
+  'o‘lcham filtri `!inner` bilan qo‘shiladi',
+  /product_variants!inner/.test(kod),
+  'aks holda mos kelmaydigan variantlar ham qaytardi',
+);
+tekshir(
+  'narx bo‘yicha saralash sahifalash bilan aralashmaydi',
+  /ozimizFiltrlaymiz/.test(kod) && /range\(0, TOLIQ_CHEK - 1\)/.test(kod),
+  'birinchi 20 talik ichidagi arzoni "eng arzon" bo‘lib ko‘rinardi',
+);
+tekshir(
+  'kesh filtrlangan ro‘yxatni saqlamaydi',
+  /isDefaultView[\s\S]{0,200}faqatQoldiq/.test(kod),
+  'oflayn holatda filtrlangan ro‘yxat butun katalog bo‘lib ko‘rinardi',
+);
+// Izohda "localeCompare" so'zi turishi mumkin (nega ishlatilmagani
+// yozilgan) — shuning uchun CHAQIRUV qidiriladi, so'z emas
+tekshir(
+  'localeCompare chaqirilmagan',
+  !/\.localeCompare\s*\(/.test(kod),
+  'Telegram WebView’da Intl yo‘q — RangeError beradi',
+);
+
 // ---------- Jonli baza: mijoz tavsifni o'qiy oladimi ----------
 
-console.log('\n3. Jonli baza (RLS)');
+console.log('\n4. Jonli baza (RLS)');
 
 let K = null;
 try {
