@@ -39,7 +39,17 @@ export default function ProductImport() {
   const [fileName, setFileName] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState({ done: 0, total: 0 });
-  const [result, setResult] = useState<{ products: number; newVariants: number; updatedVariants: number; errors: string[] } | null>(null);
+  // `narxlar` — nechta narx yozilgani. Bu shunchaki statistika emas:
+  // narxsiz mahsulot mijoz katalogida UMUMAN ko'rinmaydi
+  // (`my_effective_prices` uni qaytarmaydi), shuning uchun nol bo'lsa
+  // import "muvaffaqiyatli" deb yakunlanib, do'kon bo'sh qolardi.
+  const [result, setResult] = useState<{
+    products: number;
+    newVariants: number;
+    updatedVariants: number;
+    narxlar: number;
+    errors: string[];
+  } | null>(null);
 
   useEffect(() => {
     supabase.from('price_groups').select('id, name').order('name').then(({ data }) => setGroups((data ?? []) as Group[]));
@@ -136,6 +146,7 @@ export default function ProductImport() {
     let productsCreated = 0;
     let newVariants = 0;
     let updatedVariants = 0;
+    let narxlar = 0;
 
     // Mavjud mahsulot/variant/kategoriyalarni oldindan yuklab olamiz (dublikat yaratmaslik uchun)
     const [{ data: existingProducts }, { data: existingVariants }] = await Promise.all([
@@ -234,6 +245,7 @@ export default function ProductImport() {
         if (priceRows.length > 0) {
           const { error: pErr } = await supabase.from('prices').upsert(priceRows, { onConflict: 'variant_id,price_group_id' });
           if (pErr) throw new Error('Narx: ' + pErr.message);
+          narxlar += priceRows.length;
         }
       } catch (e: any) {
         errors.push(`Qator ${row.rowNum} (${row.name}): ${e.message ?? 'xatolik'}`);
@@ -241,12 +253,19 @@ export default function ProductImport() {
       setProgress((p) => ({ ...p, done: p.done + 1 }));
     }
 
-    setResult({ products: productsCreated, newVariants, updatedVariants, errors });
+    setResult({ products: productsCreated, newVariants, updatedVariants, narxlar, errors });
     setUploading(false);
   }
 
   const okRows = rows.filter((r) => r.status === 'ok');
   const errorRows = rows.filter((r) => r.status === 'error');
+
+  // Narx ustuni tarif NOMI bilan aynan bir xil bo'lishi kerak ("Standart"
+  // tarifi -> "Standart" ustuni). Mos kelmasa narx jimgina tushib
+  // qolardi va mahsulot mijoz katalogida ko'rinmasdi — import esa
+  // "hammasi joyida" derdi. Shuning uchun oldindan ogohlantiramiz.
+  const narxsizFayl =
+    groups.length > 0 && okRows.length > 0 && okRows.every((r) => !groups.some((g) => r.prices[g.name]));
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">
@@ -261,19 +280,34 @@ export default function ProductImport() {
           yangi SKU — yaratiladi. Bir xil nomi+model qatorlari bitta mahsulotning variantlari sifatida birlashadi.
         </p>
 
+        {groups.length === 0 && (
+          <div className="mt-6 rounded-xl border border-amber-300 bg-amber-50 p-5 text-sm text-amber-900">
+            <b>Avval tarif yarating.</b> Bu tashkilotda birorta narx guruhi (tarif) yo'q, shuning
+            uchun shablonda <b>narx ustuni ham bo'lmaydi</b> — mahsulotlar narxsiz yuklanadi va mijoz
+            katalogida <b>umuman ko'rinmaydi</b>. Sozlamalar → Tariflar bo'limida kamida bittasini
+            qo'shing, keyin shu yerga qayting.
+          </div>
+        )}
+
         <div className="mt-6 flex flex-wrap items-center gap-3">
           <button
             onClick={downloadTemplate}
-            className="rounded-xl border border-gray-200 px-5 py-3 text-sm font-bold text-gray-600 hover:border-brand hover:text-brand"
+            disabled={groups.length === 0}
+            className="rounded-xl border border-gray-200 px-5 py-3 text-sm font-bold text-gray-600 hover:border-brand hover:text-brand disabled:opacity-40 disabled:hover:border-gray-200 disabled:hover:text-gray-600"
           >
             📄 Shablon yuklab olish
           </button>
-          <label className="cursor-pointer rounded-xl bg-brand px-5 py-3 text-sm font-bold text-white hover:opacity-90">
+          <label
+            className={`rounded-xl bg-brand px-5 py-3 text-sm font-bold text-white ${
+              groups.length === 0 ? 'cursor-not-allowed opacity-40' : 'cursor-pointer hover:opacity-90'
+            }`}
+          >
             📤 Faylni tanlash
             <input
               type="file"
               accept=".xlsx,.xls,.csv"
               className="hidden"
+              disabled={groups.length === 0}
               onChange={(e) => pickFile(e.target.files?.[0] ?? null)}
             />
           </label>
@@ -287,6 +321,13 @@ export default function ProductImport() {
             <h3 className="font-bold text-gray-900">
               Ko'rib chiqish: {rows.length} qator ({okRows.length} to'g'ri, {errorRows.length} xato)
             </h3>
+            {narxsizFayl && (
+              <div className="w-full rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">
+                <b>Faylda narx topilmadi.</b> Narx ustuni tarif nomi bilan <b>aynan bir xil</b>{' '}
+                bo'lishi kerak: {groups.map((g) => `«${g.name}»`).join(', ')}. Hozir yuklasangiz
+                mahsulotlar narxsiz tushadi va mijoz katalogida ko'rinmaydi.
+              </div>
+            )}
             <button
               onClick={runImport}
               disabled={uploading || okRows.length === 0}
@@ -340,7 +381,16 @@ export default function ProductImport() {
             <li>Yangi mahsulot: <b>{result.products}</b></li>
             <li>Yangi variant: <b>{result.newVariants}</b></li>
             <li>Yangilangan variant: <b>{result.updatedVariants}</b></li>
+            <li>Yozilgan narx: <b>{result.narxlar}</b></li>
           </ul>
+          {result.narxlar === 0 && (
+            <div className="mt-4 rounded-xl border border-red-300 bg-red-50 p-4 text-sm text-red-800">
+              <b>Diqqat: birorta narx yozilmadi.</b> Narxsiz mahsulot mijoz katalogida{' '}
+              <b>umuman ko'rinmaydi</b> — do'kon bo'sh bo'lib turaveradi. Faylga tarif nomidagi narx
+              ustunini ({groups.map((g) => `«${g.name}»`).join(', ') || 'tarif yo\'q'}) qo'shib qayta
+              yuklang: bir xil SKU dublikat yaratmaydi, ustiga narx qo'shiladi.
+            </div>
+          )}
           {result.errors.length > 0 && (
             <div className="mt-4">
               <div className="font-bold text-red-500">Xatoliklar ({result.errors.length}):</div>
