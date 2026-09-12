@@ -336,7 +336,14 @@ function MahsulotQatori({
           <Text style={s.hammasi}>{hammasiMatn} →</Text>
         </TouchableOpacity>
       </View>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 12 }}>
+      {/* RN'da ScrollView bazasida flexGrow:1, flexShrink:1 turadi —
+          ustun ichida gorizontal qator siqilib yo'qolib ketishi mumkin */}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={s.qatorSiqilmasin}
+        contentContainerStyle={{ gap: 12 }}
+      >
         {mahsulotlar.map((m) => {
           const narxli = m.variants.filter((v) => v.dispPrice != null);
           const eng = narxli.length > 0 ? narxli.reduce((a, b) => (a.dispPrice! < b.dispPrice! ? a : b)) : null;
@@ -365,6 +372,7 @@ function MahsulotQatori({
 
 const s = StyleSheet.create({
   container: { flex: 1, backgroundColor: C.bg },
+  qatorSiqilmasin: { flexGrow: 0, flexShrink: 0 },
   center: { alignItems: 'center', justifyContent: 'center' },
 
   qarzKarta: {

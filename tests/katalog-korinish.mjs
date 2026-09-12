@@ -116,7 +116,56 @@ tekshir(
 
 // ---------- Jonli baza: mijoz tavsifni o'qiy oladimi ----------
 
-console.log('\n5. Jonli baza (RLS)');
+// ---------- Joylashuv: gorizontal qator yo'qolmasin ----------
+//
+// BO'LGAN HODISA: katalogda kategoriyalar qatori butunlay yo'qoldi.
+// Sabab RN'ning o'zida: ScrollView bazasida `flexGrow: 1, flexShrink: 1`
+// turadi (Libraries/Components/ScrollView/ScrollView.js → baseHorizontal).
+// Ustun ichida, yonida FlatList bo'lganda, gorizontal qator siqilib
+// nolga tushadi. Sarlavha qismi kattalashgani sayin xavf ortadi.
+//
+// Shuning uchun QOIDA: shu ekranlardagi har bir gorizontal ScrollView
+// `qatorSiqilmasin` uslubini olishi shart.
+
+console.log('\n5. Joylashuv (gorizontal qatorlar)');
+
+const uy = readFileSync(join(ROOT, 'apps/mobile/src/screens/HomeScreen.tsx'), 'utf8');
+
+function gorizontalQatorlar(manba, nom) {
+  const bolaklar = manba.split('<ScrollView').slice(1);
+  let jami = 0;
+  let himoyalangan = 0;
+  for (const b of bolaklar) {
+    const tag = b.slice(0, b.indexOf('>'));
+    if (!/\bhorizontal\b/.test(tag)) continue;
+    jami++;
+    if (/qatorSiqilmasin/.test(tag)) himoyalangan++;
+  }
+  tekshir(
+    `${nom}: gorizontal qatorlar siqilishdan himoyalangan`,
+    jami > 0 && jami === himoyalangan,
+    `${himoyalangan} / ${jami}`,
+  );
+}
+
+gorizontalQatorlar(kod, 'Katalog');
+gorizontalQatorlar(uy, 'Bosh sahifa');
+
+tekshir(
+  'uslub haqiqatan siqilishni to‘xtatadi',
+  /qatorSiqilmasin:\s*\{\s*flexGrow:\s*0,\s*flexShrink:\s*0\s*\}/.test(kod),
+);
+tekshir(
+  'filtr ro‘yxat ustida joy egallamaydi (modal)',
+  /visible=\{filtrOchiq\}/.test(kod) && /animationType="slide"/.test(kod),
+  'avval panel ochilganda mahsulotlar ekrandan chiqib ketardi',
+);
+tekshir(
+  'bo‘sh natijada filtrni tozalash taklif qilinadi',
+  /nothingFoundTitle/.test(kod) && /onPress=\{filtrniTozala\}/.test(kod),
+);
+
+console.log('\n6. Jonli baza (RLS)');
 
 let K = null;
 try {

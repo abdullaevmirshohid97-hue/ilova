@@ -246,6 +246,7 @@ function ImageGallery({
         horizontal
         pagingEnabled
         showsHorizontalScrollIndicator={false}
+        style={s.qatorSiqilmasin}
         onMomentumScrollEnd={(e) => {
           const i = Math.round(e.nativeEvent.contentOffset.x / width);
           setIndex(i);
@@ -453,6 +454,23 @@ export function ProductSheet({ product, onClose }: { product: Product; onClose: 
   );
 }
 
+// Yoqilgan filtr — sarlavha ostidagi olib tashlanadigan chip
+function FaolChip({ nom, onOchir }: { nom: string; onOchir: () => void }) {
+  return (
+    <TouchableOpacity style={s.faolChip} onPress={onOchir}>
+      <Text style={s.faolChipText}>{nom}</Text>
+      <Text style={s.faolChipX}>✕</Text>
+    </TouchableOpacity>
+  );
+}
+
+function saralashNomi(v: Saralash, t: (k: any) => string): string {
+  if (v === 'arzon') return t('sortCheapest');
+  if (v === 'qimmat') return t('sortExpensive');
+  if (v === 'yangi') return t('sortNewest');
+  return t('sortByName');
+}
+
 // Filtr paneli ichidagi bitta qator: sarlavha + gorizontal chiplar.
 // Bitta komponent — qatorlar orasidagi masofa va o'lcham hamma joyda
 // bir xil bo'lsin.
@@ -470,9 +488,12 @@ function FiltrQatori({
   return (
     <View style={s.filtrQator}>
       <Text style={s.filtrSarlavha}>{sarlavha}</Text>
+      {/* RN'da ScrollView bazasida flexGrow:1, flexShrink:1 turadi —
+          ustun ichida u siqilib nolga tushadi va qator YO'QOLADI */}
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
+        style={s.qatorSiqilmasin}
         contentContainerStyle={s.filtrChiplar}
       >
         {qiymatlar.map((q) => (
@@ -718,6 +739,14 @@ export default function CatalogScreen() {
     };
   }, []);
 
+  function filtrniTozala() {
+    setSaralash('nom');
+    setMaterial(null);
+    setOlcham(null);
+    setBrend(null);
+    setFaqatQoldiq(false);
+  }
+
   async function onRefresh() {
     setRefreshing(true);
     await loadFirstPage();
@@ -781,77 +810,123 @@ export default function CatalogScreen() {
         </TouchableOpacity>
       </View>
 
-      {filtrOchiq && (
-        <View style={s.filtrPanel}>
-          <FiltrQatori
-            sarlavha={t('filterSort')}
-            qiymatlar={[
-              { key: 'nom', nom: t('sortByName') },
-              { key: 'arzon', nom: t('sortCheapest') },
-              { key: 'qimmat', nom: t('sortExpensive') },
-              { key: 'yangi', nom: t('sortNewest') },
-            ]}
-            tanlangan={saralash}
-            onTanla={(k) => setSaralash(k as Saralash)}
-          />
-
-          {materiallar.length > 0 && (
-            <FiltrQatori
-              sarlavha={t('filterMaterial')}
-              qiymatlar={materiallar.map((m) => ({ key: m, nom: m }))}
-              tanlangan={material}
-              onTanla={(k) => setMaterial(k === material ? null : k)}
-            />
-          )}
-
-          {brendlar.length > 0 && (
-            <FiltrQatori
-              sarlavha={t('filterBrand')}
-              qiymatlar={brendlar.map((b) => ({ key: b, nom: b }))}
-              tanlangan={brend}
-              onTanla={(k) => setBrend(k === brend ? null : k)}
-            />
-          )}
-
-          {olchamlar.length > 0 && (
-            <FiltrQatori
-              sarlavha={t('filterSize')}
-              qiymatlar={olchamlar.map((o) => ({ key: o, nom: o }))}
-              tanlangan={olcham}
-              onTanla={(k) => setOlcham(k === olcham ? null : k)}
-            />
-          )}
-
-          <View style={s.filtrOxirgiQator}>
-            <TouchableOpacity
-              style={[s.chip, faqatQoldiq && s.chipActive]}
-              onPress={() => setFaqatQoldiq((v) => !v)}
-            >
-              <Text style={[s.chipText, faqatQoldiq && s.chipTextActive]}>
-                {t('filterInStockOnly')}
-              </Text>
-            </TouchableOpacity>
-            {faolFiltr > 0 && (
-              <TouchableOpacity
-                onPress={() => {
-                  setSaralash('nom');
-                  setMaterial(null);
-                  setOlcham(null);
-                  setBrend(null);
-                  setFaqatQoldiq(false);
-                }}
-              >
-                <Text style={s.filtrTozala}>{t('filterClear')}</Text>
+      {/* Filtr — pastdan chiqadigan MODAL.
+          Avval u ro'yxat ustida ochiladigan panel edi va uch narsani
+          buzardi: (1) ochilganda mahsulotlar ekrandan chiqib ketardi,
+          (2) sarlavha qismi cho'zilib, kategoriyalar qatorini siqib
+          qo'yardi, (3) telefonda filtrni ko'rib, natijani ko'rib
+          bo'lmasdi. Modal bularning uchalasini ham yechadi. */}
+      <Modal
+        visible={filtrOchiq}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setFiltrOchiq(false)}
+      >
+        <View style={s.filtrOverlay}>
+          <Pressable style={StyleSheet.absoluteFill} onPress={() => setFiltrOchiq(false)} />
+          <View style={s.filtrSheet}>
+            <View style={s.filtrSheetBosh}>
+              <Text style={s.filtrSheetNom}>{t('filterTitle')}</Text>
+              <TouchableOpacity onPress={() => setFiltrOchiq(false)} hitSlop={12}>
+                <Text style={s.filtrYopish}>✕</Text>
               </TouchableOpacity>
-            )}
+            </View>
+
+            <ScrollView style={s.filtrSheetTana}>
+              <FiltrQatori
+                sarlavha={t('filterSort')}
+                qiymatlar={[
+                  { key: 'nom', nom: t('sortByName') },
+                  { key: 'arzon', nom: t('sortCheapest') },
+                  { key: 'qimmat', nom: t('sortExpensive') },
+                  { key: 'yangi', nom: t('sortNewest') },
+                ]}
+                tanlangan={saralash}
+                onTanla={(k) => setSaralash(k as Saralash)}
+              />
+
+              {materiallar.length > 0 && (
+                <FiltrQatori
+                  sarlavha={t('filterMaterial')}
+                  qiymatlar={materiallar.map((m) => ({ key: m, nom: m }))}
+                  tanlangan={material}
+                  onTanla={(k) => setMaterial(k === material ? null : k)}
+                />
+              )}
+
+              {brendlar.length > 0 && (
+                <FiltrQatori
+                  sarlavha={t('filterBrand')}
+                  qiymatlar={brendlar.map((b) => ({ key: b, nom: b }))}
+                  tanlangan={brend}
+                  onTanla={(k) => setBrend(k === brend ? null : k)}
+                />
+              )}
+
+              {olchamlar.length > 0 && (
+                <FiltrQatori
+                  sarlavha={t('filterSize')}
+                  qiymatlar={olchamlar.map((o) => ({ key: o, nom: o }))}
+                  tanlangan={olcham}
+                  onTanla={(k) => setOlcham(k === olcham ? null : k)}
+                />
+              )}
+
+              <View style={s.filtrOxirgiQator}>
+                <TouchableOpacity
+                  style={[s.chip, faqatQoldiq && s.chipActive]}
+                  onPress={() => setFaqatQoldiq((v) => !v)}
+                >
+                  <Text style={[s.chipText, faqatQoldiq && s.chipTextActive]}>
+                    {t('filterInStockOnly')}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </ScrollView>
+
+            <View style={s.filtrSheetOyoq}>
+              <TouchableOpacity onPress={filtrniTozala} disabled={faolFiltr === 0}>
+                <Text style={[s.filtrTozala, faolFiltr === 0 && { color: C.faint }]}>
+                  {t('filterClear')}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={s.filtrKorish} onPress={() => setFiltrOchiq(false)}>
+                <Text style={s.filtrKorishText}>
+                  {t('filterShowResults', { n: String(products.length) })}
+                </Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
+      </Modal>
+
+      {/* Yoqilgan filtrlar — ro'yxat nega qisqargani KO'RINIB tursin.
+          Avval faqat tugmadagi raqam bor edi: xaridor ro'yxat qisqarganini
+          ko'rardi, sababini esa filtrni ochmaguncha bilmasdi. */}
+      {faolFiltr > 0 && (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={s.qatorSiqilmasin}
+          contentContainerStyle={s.faolChiplar}
+        >
+          {saralash !== 'nom' && (
+            <FaolChip nom={saralashNomi(saralash, t)} onOchir={() => setSaralash('nom')} />
+          )}
+          {brend && <FaolChip nom={brend} onOchir={() => setBrend(null)} />}
+          {material && <FaolChip nom={material} onOchir={() => setMaterial(null)} />}
+          {olcham && <FaolChip nom={olcham} onOchir={() => setOlcham(null)} />}
+          {faqatQoldiq && (
+            <FaolChip nom={t('filterInStockOnly')} onOchir={() => setFaqatQoldiq(false)} />
+          )}
+        </ScrollView>
       )}
 
       {categories.length > 0 && (
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
+          style={s.qatorSiqilmasin}
           contentContainerStyle={s.chipsWrap}
         >
           <TouchableOpacity
@@ -884,7 +959,25 @@ export default function CatalogScreen() {
         }
         onEndReachedThreshold={0.4}
         onEndReached={loadMore}
-        ListEmptyComponent={<Text style={s.empty}>{t('emptyCatalog')}</Text>}
+        ListEmptyComponent={
+          // Bo'sh ro'yxat ikki xil bo'ladi: katalogda hech narsa yo'q,
+          // yoki filtr hammasini kesib tashlagan. Ikkinchisida chiqish
+          // yo'li ham ko'rsatiladi — aks holda xaridor "ilova buzuq"
+          // deb o'ylab yopib ketardi.
+          faolFiltr > 0 || debouncedSearch ? (
+            <View style={s.boshHolat}>
+              <Text style={s.boshHolatNom}>{t('nothingFoundTitle')}</Text>
+              <Text style={s.boshHolatIzoh}>{t('nothingFoundHint')}</Text>
+              {faolFiltr > 0 && (
+                <TouchableOpacity style={s.boshHolatBtn} onPress={filtrniTozala}>
+                  <Text style={s.boshHolatBtnText}>{t('filterClear')}</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          ) : (
+            <Text style={s.empty}>{t('emptyCatalog')}</Text>
+          )
+        }
         ListFooterComponent={
           loadingMore ? <ActivityIndicator style={{ marginTop: 12 }} color={C.primary} /> : null
         }
@@ -1021,6 +1114,72 @@ const s = StyleSheet.create({
     justifyContent: 'center',
   },
   filtrBadgeText: { color: '#fff', fontSize: 11, fontWeight: '800' },
+  // RN'da ScrollView bazasida flexGrow:1, flexShrink:1 turadi. Ustun
+  // ichida (ayniqsa yonida FlatList bo'lsa) gorizontal qator siqilib
+  // NOLGA tushadi va butunlay yo'qoladi — kategoriyalar shu sababdan
+  // ko'rinmay qolgan edi.
+  qatorSiqilmasin: { flexGrow: 0, flexShrink: 0 },
+  boshHolat: { alignItems: 'center', paddingTop: 48, paddingHorizontal: 32 },
+  boshHolatNom: { color: C.text, fontSize: 16, fontWeight: '800' },
+  boshHolatIzoh: { color: C.muted, fontSize: 14, marginTop: 6, textAlign: 'center' },
+  boshHolatBtn: {
+    marginTop: 16,
+    backgroundColor: C.primary,
+    borderRadius: 12,
+    paddingHorizontal: 20,
+    paddingVertical: 11,
+  },
+  boshHolatBtnText: { color: '#fff', fontSize: 14, fontWeight: '700' },
+  filtrOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(20,21,26,0.45)' },
+  filtrSheet: {
+    backgroundColor: C.card,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingTop: 8,
+    maxHeight: '85%',
+  },
+  filtrSheetBosh: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  filtrSheetNom: { color: C.text, fontSize: 17, fontWeight: '800' },
+  filtrYopish: { color: C.muted, fontSize: 18, fontWeight: '700' },
+  filtrSheetTana: { paddingTop: 4 },
+  filtrSheetOyoq: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 24,
+    borderTopWidth: 1,
+    borderTopColor: C.border,
+  },
+  filtrKorish: {
+    flex: 1,
+    marginLeft: 12,
+    backgroundColor: C.primary,
+    borderRadius: 14,
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  filtrKorishText: { color: '#fff', fontSize: 15, fontWeight: '800' },
+  faolChiplar: { gap: 8, paddingHorizontal: 16, paddingBottom: 10 },
+  faolChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 20,
+    backgroundColor: C.primarySoft,
+  },
+  faolChipText: { color: C.primary, fontSize: 13, fontWeight: '700' },
+  faolChipX: { color: C.primary, fontSize: 12, fontWeight: '800' },
   filtrPanel: {
     backgroundColor: C.card,
     borderTopWidth: 1,
