@@ -25,7 +25,9 @@ const PAGE_SIZE = 20;
 // almashmasa eski keshdan narxsiz variant kelib, ekranda "—" chiqardi.
 // v3: narx endi null bo'lishi mumkin (admin "narxsiz mahsulot ham
 // ko'rinsin" deb qo'ysa). Eski kesh qolsa null narx 0 bo'lib ko'rinardi.
-const CACHE_KEY = '@ilova/catalog-cache-v3';
+// v4: mahsulot tavsifi qo'shildi — eski keshda u yo'q, ya'ni tavsif
+// yozilgan bo'lsa ham ekranda chiqmasdi.
+const CACHE_KEY = '@ilova/catalog-cache-v4';
 
 async function saveCache(products: Product[]) {
   try {
@@ -78,6 +80,7 @@ type Product = {
   name: string;
   model: string | null;
   material: string | null;
+  description: string | null; // admin panelda yozadigan tavsif
   image: string | null; // kichik nusxa (birinchi rasm) — grid uchun
   images: string[]; // katta nusxalar — mahsulot sahifasida swipe galereya
   variants: Variant[];
@@ -95,16 +98,20 @@ function ImageGallery({
   images,
   placeholderLetter,
   width,
+  height,
 }: {
   images: string[];
   placeholderLetter: string;
   width: number;
+  // Balandlik ekran kengligidan hisoblanadi — avval 320px qat'iy edi va
+  // katta telefonda rasm kichkina bo'lib qolardi
+  height: number;
 }) {
   const [index, setIndex] = useState(0);
 
   if (images.length === 0) {
     return (
-      <View style={[ps.image, ps.imagePh]}>
+      <View style={[ps.image, ps.imagePh, { height }]}>
         <Text style={ps.imagePhText}>{placeholderLetter}</Text>
       </View>
     );
@@ -122,7 +129,7 @@ function ImageGallery({
         }}
       >
         {images.map((uri, i) => (
-          <Image key={i} source={{ uri }} style={[ps.image, { width }]} resizeMode="cover" />
+          <Image key={i} source={{ uri }} style={[ps.image, { width, height }]} resizeMode="cover" />
         ))}
       </ScrollView>
       {images.length > 1 && (
@@ -146,6 +153,11 @@ function ProductSheet({ product, onClose }: { product: Product; onClose: () => v
   const { width } = useWindowDimensions();
   const isWide = width >= 700;
   const galleryWidth = isWide ? 560 : width;
+  // Rasm — mahsulot sahifasidagi ASOSIY narsa. Avval balandlik 320px
+  // qat'iy edi: katta telefonda ham, planshetda ham bir xil kichkina
+  // ko'rinardi. Endi kenglikka bog'liq (telefonda deyarli kvadratdan
+  // balandroq — WB/Uzum uslubi), planshetda oyna sig'ishi uchun cheklangan.
+  const galleryHeight = isWide ? 420 : Math.round(galleryWidth * 1.15);
   // Narxsiz variant tanlanmaydi: uni sotib bo'lmaydi. Narxlisi bo'lsa
   // o'sha ochiladi, bo'lmasa tanlov bo'sh qoladi va tugma o'chiq turadi.
   const [selected, setSelected] = useState<Variant | null>(
@@ -178,13 +190,23 @@ function ProductSheet({ product, onClose }: { product: Product; onClose: () => v
 
   const body = (
     <ScrollView contentContainerStyle={{ paddingBottom: isWide ? 8 : 140 }}>
-      <ImageGallery images={product.images} placeholderLetter={product.name.slice(0, 1)} width={galleryWidth} />
+      <ImageGallery
+        images={product.images}
+        placeholderLetter={product.name.slice(0, 1)}
+        width={galleryWidth}
+        height={galleryHeight}
+      />
       <View style={ps.body}>
         <Text style={ps.name}>
           {product.name}
           {product.model ? `  ·  ${product.model}` : ''}
         </Text>
         {product.material && <Text style={ps.material}>{product.material}</Text>}
+        {/* Tavsif. Admin uni panelda yozadi, lekin katalog so'rovi bu
+            ustunni UMUMAN olmasdi — mijoz hech qachon ko'rmagan. */}
+        {product.description ? (
+          <Text style={ps.tavsif}>{product.description}</Text>
+        ) : null}
 
         <Text style={ps.sectionTitle}>{t('variantsSectionTitle')}</Text>
         {product.variants.map((v) => {
@@ -309,6 +331,11 @@ export default function CatalogScreen() {
   const columns = gridWidth >= 1000 ? 4 : gridWidth >= 640 ? 3 : 2;
   const cardWidth =
     gridWidth > 0 ? (gridWidth - GRID_PADDING * 2 - GRID_GAP * (columns - 1)) / columns : 160;
+  // Rasm avval kvadrat edi (balandlik = kenglik). Mijoz tovarni rasmdan
+  // tanlaydi — bo'yiga cho'zilgani ko'proq joy beradi va mato/naqsh
+  // ko'rinadi. Ustunlar soni o'zgarmaydi: ro'yxat baribir siqilib
+  // qolmasin.
+  const kartochkaRasmBalandligi = Math.round(cardWidth * 1.25);
 
   useEffect(() => {
     supabase
@@ -369,6 +396,7 @@ export default function CatalogScreen() {
       name: p.name,
       model: p.model,
       material: p.material,
+      description: p.description ?? null,
       image: imgs[0] ? imageUrl(imgs[0].thumb_path || imgs[0].storage_path) : null,
       images: imgs.map((im: any) => imageUrl(im.storage_path)),
       variants,
@@ -379,7 +407,7 @@ export default function CatalogScreen() {
     let q = supabase
       .from('products')
       .select(
-        `id, name, model, material,
+        `id, name, model, material, description,
          product_images ( storage_path, thumb_path, is_primary, sort_order ),
          product_variants ( id, sku, size, color,
            stock_levels ( qty, reserved )
@@ -588,9 +616,13 @@ export default function CatalogScreen() {
               activeOpacity={0.8}
             >
               {item.image ? (
-                <Image source={{ uri: item.image }} style={[s.image, { height: cardWidth }]} resizeMode="cover" />
+                <Image
+                  source={{ uri: item.image }}
+                  style={[s.image, { height: kartochkaRasmBalandligi }]}
+                  resizeMode="cover"
+                />
               ) : (
-                <View style={[s.image, s.imagePh, { height: cardWidth }]}>
+                <View style={[s.image, s.imagePh, { height: kartochkaRasmBalandligi }]}>
                   <Text style={s.imagePhText}>{item.name.slice(0, 1)}</Text>
                 </View>
               )}
@@ -706,7 +738,10 @@ const ps = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: C.border,
   },
-  image: { width: '100%', height: 320 },
+  // Balandlik ataylab yo'q — uni ImageGallery ekran kengligidan
+  // hisoblab beradi. Bu yerda qat'iy 320px turganda katta telefonda
+  // ham, planshetda ham rasm bir xil kichkina ko'rinardi.
+  image: { width: '100%' },
   imagePh: { backgroundColor: C.primarySoft, justifyContent: 'center', alignItems: 'center' },
   imagePhText: { color: C.primary, fontSize: 80, fontWeight: '800' },
   dotsRow: {
@@ -723,6 +758,8 @@ const ps = StyleSheet.create({
   body: { padding: 16 },
   name: { color: C.text, fontSize: 20, fontWeight: '800' },
   material: { color: C.muted, fontSize: 14, marginTop: 4 },
+  // Tavsif uzun matn bo'ladi — qatorlar orasi keng, o'qishga qulay
+  tavsif: { color: C.text2, fontSize: 14, lineHeight: 21, marginTop: 10 },
   sectionTitle: { color: C.text, fontSize: 15, fontWeight: '700', marginTop: 18, marginBottom: 8 },
   variant: {
     flexDirection: 'row',
