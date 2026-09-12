@@ -23,7 +23,9 @@ import { C } from '../lib/theme';
 const PAGE_SIZE = 20;
 // v2: keshdagi variantlarga disp_price/disp_currency qo'shildi. Kalit
 // almashmasa eski keshdan narxsiz variant kelib, ekranda "—" chiqardi.
-const CACHE_KEY = '@ilova/catalog-cache-v2';
+// v3: narx endi null bo'lishi mumkin (admin "narxsiz mahsulot ham
+// ko'rinsin" deb qo'ysa). Eski kesh qolsa null narx 0 bo'lib ko'rinardi.
+const CACHE_KEY = '@ilova/catalog-cache-v3';
 
 async function saveCache(products: Product[]) {
   try {
@@ -47,11 +49,14 @@ type Variant = {
   sku: string;
   size: string | null;
   color: string | null;
-  price: number; // so'mdagi narx — buyurtma shu bo'yicha yoziladi
+  // null — narx qo'yilmagan. Bunday variant faqat admin "narxsiz
+  // mahsulot ham ko'rinsin" deb qo'ygan bo'lsa keladi va SOTILMAYDI:
+  // savatga tushmaydi, create_order ham NARX_TOPILMADI beradi.
+  price: number | null; // so'mdagi narx — buyurtma shu bo'yicha yoziladi
   currency: string; // narx qaysi valyutada KIRITILGAN (manba)
   origPrice: number | null;
   // Mijozga ko'rsatiladigan narx va valyuta — my_effective_prices() hisoblaydi
-  dispPrice: number;
+  dispPrice: number | null;
   dispCurrency: string;
   available: number;
 };
@@ -63,7 +68,8 @@ type Variant = {
 // Menejer narx qo'ymagan variant baza narxidan keladi va so'mda
 // bo'ladi — natijada bitta katalogda narxlar aralash chiqardi.
 // Endi o'girishni baza qiladi (my_effective_prices.disp_price).
-function fmtVariantPrice(v: Variant): string {
+function fmtVariantPrice(v: Variant, narxYoqMatn: string): string {
+  if (v.dispPrice == null) return narxYoqMatn;
   return formatNarx(v.dispPrice, v.dispCurrency);
 }
 
@@ -140,15 +146,18 @@ function ProductSheet({ product, onClose }: { product: Product; onClose: () => v
   const { width } = useWindowDimensions();
   const isWide = width >= 700;
   const galleryWidth = isWide ? 560 : width;
+  // Narxsiz variant tanlanmaydi: uni sotib bo'lmaydi. Narxlisi bo'lsa
+  // o'sha ochiladi, bo'lmasa tanlov bo'sh qoladi va tugma o'chiq turadi.
   const [selected, setSelected] = useState<Variant | null>(
-    product.variants.find((v) => v.available > 0) ?? null
+    product.variants.find((v) => v.available > 0 && v.price != null) ?? null
   );
   const [qtyText, setQtyText] = useState('');
   const qty = parseInt(qtyText, 10) || 0;
-  const canAdd = selected != null && qty > 0 && qty <= selected.available;
+  const canAdd =
+    selected != null && selected.price != null && qty > 0 && qty <= selected.available;
 
   function addToCart() {
-    if (!selected || !canAdd) return;
+    if (!selected || !canAdd || selected.price == null || selected.dispPrice == null) return;
     cart.add({
       variantId: selected.id,
       productName: product.name,
@@ -180,7 +189,10 @@ function ProductSheet({ product, onClose }: { product: Product; onClose: () => v
         <Text style={ps.sectionTitle}>{t('variantsSectionTitle')}</Text>
         {product.variants.map((v) => {
           const active = selected?.id === v.id;
-          const out = v.available <= 0;
+          // Narxsiz variant ham tugagan variant kabi: ko'rinadi,
+          // lekin tanlanmaydi
+          const narxsiz = v.price == null;
+          const out = v.available <= 0 || narxsiz;
           return (
             <TouchableOpacity
               key={v.id}
@@ -196,10 +208,14 @@ function ProductSheet({ product, onClose }: { product: Product; onClose: () => v
               </View>
               <View style={{ alignItems: 'flex-end' }}>
                 <Text style={[ps.variantPrice, out && { color: C.faint }]}>
-                  {fmtVariantPrice(v)}
+                  {fmtVariantPrice(v, t('priceOnRequest'))}
                 </Text>
-                <Text style={[ps.variantStock, out && { color: C.red }]}>
-                  {out ? t('stockOut') : t('stockAvailable', { n: v.available.toLocaleString() })}
+                <Text style={[ps.variantStock, out && !narxsiz && { color: C.red }]}>
+                  {narxsiz
+                    ? t('priceOnRequestHint')
+                    : out
+                      ? t('stockOut')
+                      : t('stockAvailable', { n: v.available.toLocaleString() })}
                 </Text>
               </View>
               <View style={[ps.radio, active && ps.radioActive]}>
@@ -228,7 +244,7 @@ function ProductSheet({ product, onClose }: { product: Product; onClose: () => v
         disabled={!canAdd}
       >
         <Text style={ps.addBtnText}>
-          {qty > 0 && selected != null
+          {qty > 0 && selected != null && selected.dispPrice != null
             ? t('addToCartWithSum', {
                 sum: formatNarx(qty * selected.dispPrice, selected.dispCurrency),
               })
@@ -313,7 +329,16 @@ export default function CatalogScreen() {
   // yakuniy narxni qaytaradigan my_effective_prices() RPC orqali olinadi.
   // Aks holda mijoz katalogda hali buyurtma bermay turib ham noto'g'ri
   // (baza) narxni ko'rib, chalkashib qolardi.
-  type EffPrice = { price: number; currency: string; origPrice: number | null; dispPrice: number; dispCurrency: string };
+  // price/dispPrice null bo'lishi mumkin: admin "narxsiz mahsulot ham
+  // ko'rinsin" deb qo'ysa, my_effective_prices() narxsiz variantlarni
+  // ham qaytaradi — narx ustunlari bo'sh holda.
+  type EffPrice = {
+    price: number | null;
+    currency: string;
+    origPrice: number | null;
+    dispPrice: number | null;
+    dispCurrency: string;
+  };
 
   function mapRow(p: any, priceMap: Map<string, EffPrice>): Product {
     const imgs = (p.product_images ?? []).sort(
@@ -375,12 +400,14 @@ export default function CatalogScreen() {
       (priceRows ?? []).map((r: any) => [
         r.variant_id,
         {
-          price: Number(r.price),
+          price: r.price != null ? Number(r.price) : null,
           currency: r.currency ?? 'UZS',
           origPrice: r.orig_price != null ? Number(r.orig_price) : null,
           // disp_* bo'lmasa (eski keshdan kelgan javob) so'mdagi narxga
-          // qaytamiz — ekran bo'sh qolmasin
-          dispPrice: r.disp_price != null ? Number(r.disp_price) : Number(r.price),
+          // qaytamiz — ekran bo'sh qolmasin. Narxning O'ZI yo'q bo'lsa
+          // (narxsiz mahsulot) null qoladi: 0 deb ko'rsatib bo'lmaydi.
+          dispPrice:
+            r.disp_price != null ? Number(r.disp_price) : r.price != null ? Number(r.price) : null,
           dispCurrency: r.disp_currency ?? 'UZS',
         },
       ])
@@ -544,10 +571,15 @@ export default function CatalogScreen() {
           loadingMore ? <ActivityIndicator style={{ marginTop: 12 }} color={C.primary} /> : null
         }
         renderItem={({ item }) => {
+          // Eng arzon narx — FAQAT narxi bor variantlar orasidan.
+          // Hech birida narx bo'lmasa kartochkada "Narx kelishiladi"
+          // chiqadi (pastdagi fmtVariantPrice null'ni shunday o'qiydi).
           const minVariant = item.variants.reduce<Variant | null>(
-            (min, v) => (min == null || v.price < min.price ? v : min),
+            (min, v) =>
+              v.price == null ? min : min == null || v.price < (min.price ?? Infinity) ? v : min,
             null
           );
+          const kartochkaVariant = minVariant ?? item.variants[0] ?? null;
           const totalAvail = item.variants.reduce((sum, v) => sum + v.available, 0);
           return (
             <TouchableOpacity
@@ -563,7 +595,11 @@ export default function CatalogScreen() {
                 </View>
               )}
               <View style={s.cardBody}>
-                <Text style={s.price}>{minVariant != null ? fmtVariantPrice(minVariant) : "—"}</Text>
+                <Text style={s.price}>
+                  {kartochkaVariant != null
+                    ? fmtVariantPrice(kartochkaVariant, t('priceOnRequest'))
+                    : '—'}
+                </Text>
                 <Text style={s.name} numberOfLines={2}>
                   {item.name}
                   {item.model ? ` · ${item.model}` : ''}

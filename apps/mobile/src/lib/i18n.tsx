@@ -49,6 +49,10 @@ const uz = {
   qtyPlaceholder: 'Necha dona?',
   addToCartWithSum: 'Savatga · {sum}',
   addToCart: 'Savatga qo`shish',
+  // Narxi hali qo'yilmagan mahsulot. Admin sozlamada "ko'rinsin" deb
+  // qo'ygandagina chiqadi va buyurtma qilib bo'lmaydi.
+  priceOnRequest: 'Narx kelishiladi',
+  priceOnRequestHint: "Narx uchun bog'laning",
 
   cartEmptyTitle: "Savat bo'sh",
   cartEmptyHint: 'Katalogdan tovar tanlang',
@@ -192,6 +196,8 @@ const ru: Record<keyof typeof uz, string> = {
   qtyPlaceholder: 'Сколько штук?',
   addToCartWithSum: 'В корзину · {sum}',
   addToCart: 'В корзину',
+  priceOnRequest: 'Цена по запросу',
+  priceOnRequestHint: 'Уточните цену',
 
   cartEmptyTitle: 'Корзина пуста',
   cartEmptyHint: 'Выберите товар в каталоге',

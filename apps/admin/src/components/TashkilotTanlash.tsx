@@ -110,7 +110,7 @@ export default function TashkilotTanlash({
             >
               <span className="min-w-0">
                 <span className="block truncate text-sm font-bold text-gray-900">{u.org_nom}</span>
-                <span className="mt-0.5 block text-xs text-gray-400">
+                <span className="mt-0.5 block text-xs text-gray-500">
                   {u.joriymi ? 'oxirgi marta shu yerda ishlagansiz' : 'menejer'}
                 </span>
               </span>
@@ -123,7 +123,7 @@ export default function TashkilotTanlash({
 
         <button
           onClick={() => supabase.auth.signOut()}
-          className="mt-6 w-full rounded-xl py-3 text-sm font-medium text-gray-400 hover:text-gray-600"
+          className="mt-6 w-full rounded-xl py-3 text-sm font-medium text-gray-500 hover:text-gray-600"
         >
           Chiqish
         </button>

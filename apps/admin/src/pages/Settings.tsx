@@ -254,6 +254,92 @@ function PriceGroupsPanel() {
   );
 }
 
+// Narxi qo'yilmagan mahsulot mijoz katalogida ko'rinsinmi.
+//
+// Standart holat — ko'rinmasin: narxsiz tovarni sotib bo'lmaydi.
+// Lekin yangi tashkilot mahsulotni yuklab, narxni keyin qo'yishi
+// oddiy hol — o'shanda do'kon butunlay bo'sh ko'rinib, "ilova
+// ishlamayapti" degan xulosa chiqadi. Endi buni admin o'zi hal
+// qiladi.
+//
+// Ko'rinish BUYURTMA degani emas: narxsiz variant savatga tushmaydi
+// va `create_order` uni NARX_TOPILMADI bilan rad etadi.
+function NarxsizKorinishPanel() {
+  const [qiymat, setQiymat] = useState<boolean | null>(null);
+  const [band, setBand] = useState(false);
+  const [narxsizSoni, setNarxsizSoni] = useState<number | null>(null);
+
+  const load = useCallback(async () => {
+    const { data } = await supabase
+      .from('organizations')
+      .select('narxsiz_korinsin')
+      .limit(1)
+      .maybeSingle();
+    setQiymat(((data as any)?.narxsiz_korinsin ?? false) as boolean);
+  }, []);
+
+  useEffect(() => {
+    load();
+    // Nechta mahsulot narxsiz turgani — admin holatni ko'rib tursin
+    supabase
+      .from('product_variants')
+      .select('id, prices(price_group_id), products!inner(is_active)', { count: 'exact' })
+      .eq('is_active', true)
+      .eq('products.is_active', true)
+      .then(({ data }) => {
+        if (!data) return;
+        setNarxsizSoni(data.filter((v: any) => (v.prices ?? []).length === 0).length);
+      });
+  }, [load]);
+
+  async function almashtir(yangi: boolean) {
+    setBand(true);
+    const { error } = await supabase.rpc('narxsiz_korinishni_saqla', { p_qiymat: yangi });
+    setBand(false);
+    if (error) return xabarKorsat('Saqlanmadi: ' + error.message);
+    setQiymat(yangi);
+  }
+
+  if (qiymat === null) return null;
+
+  const tugmaCls = (faol: boolean) =>
+    `flex-1 rounded-xl border px-4 py-3 text-sm font-bold transition ${
+      faol
+        ? 'border-brand bg-brand/5 text-brand'
+        : 'border-gray-200 bg-white text-gray-500 hover:border-gray-300'
+    }`;
+
+  return (
+    <div className="rounded-2xl border border-gray-200 bg-white p-6">
+      <h3 className="font-bold text-gray-900">🏷 Narxsiz mahsulotlar</h3>
+      <p className="mt-1 text-xs leading-relaxed text-gray-500">
+        Narxi qo'yilmagan mahsulot mijoz katalogida ko'rinsinmi?
+        {narxsizSoni != null && narxsizSoni > 0 && (
+          <>
+            {' '}
+            Hozir <b>{narxsizSoni} ta</b> variantda narx yo'q.
+          </>
+        )}
+      </p>
+
+      <div className="mt-4 flex gap-2">
+        <button disabled={band} onClick={() => almashtir(true)} className={tugmaCls(qiymat === true)}>
+          👁 Ko'rinsin
+        </button>
+        <button disabled={band} onClick={() => almashtir(false)} className={tugmaCls(qiymat === false)}>
+          🚫 Ko'rinmasin
+        </button>
+      </div>
+
+      <p className="mt-3 text-xs leading-relaxed text-gray-500">
+        {qiymat
+          ? "Mijoz assortimentni ko'radi, narx o'rnida «Narx kelishiladi» yozuvi chiqadi. Bunday mahsulotni savatga qo'shib bo'lmaydi — narxsiz buyurtma hisobni buzadi."
+          : "Narxsiz mahsulot katalogda umuman chiqmaydi. Narx qo'yilishi bilan o'zi paydo bo'ladi."}
+      </p>
+    </div>
+  );
+}
+
 function StaffPanel() {
   const [email, setEmail] = useState('');
   const [fullName, setFullName] = useState('');
@@ -410,6 +496,7 @@ export default function Settings() {
       <OrgProfilePanel />
       <CategoriesPanel />
       <PriceGroupsPanel />
+      <NarxsizKorinishPanel />
       <HujjatSozlamaPanel />
       <DirektorlarPanel />
       <XodimlarPanel />
