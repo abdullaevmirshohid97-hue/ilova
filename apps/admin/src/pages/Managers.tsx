@@ -38,7 +38,15 @@ function ManagerNewModal({ onClose, onCreated }: { onClose: () => void; onCreate
   const [password, setPassword] = useState(genPassword());
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [done, setDone] = useState<{ phone: string; password: string } | null>(null);
+  // `mavjud` — bu raqamda hisob allaqachon bor edi va menejer shu
+  // tashkilotga BIRIKTIRILDI. O'shanda parol ko'rsatilmaydi: u
+  // o'rnatilmagan, odam o'z eski paroli bilan kiradi.
+  const [done, setDone] = useState<{
+    phone: string;
+    password: string;
+    mavjud?: boolean;
+    xabar?: string;
+  } | null>(null);
 
   const inputCls =
     'w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm outline-none focus:border-brand';
@@ -55,7 +63,12 @@ function ManagerNewModal({ onClose, onCreated }: { onClose: () => void; onCreate
       });
       if (fnErr) throw new Error(await fnXato(fnErr));
       if (data?.error) throw new Error(data.error);
-      setDone({ phone: phone.trim(), password });
+      setDone({
+        phone: phone.trim(),
+        password,
+        mavjud: !!(data as any)?.mavjud_hisob,
+        xabar: (data as any)?.xabar,
+      });
     } catch (e: any) {
       setError(e.message ?? 'Xatolik');
     } finally {
@@ -64,12 +77,19 @@ function ManagerNewModal({ onClose, onCreated }: { onClose: () => void; onCreate
   }
 
   if (done) {
-    const msg = `Assalomu alaykum! Yukchibolla admin panelga kirish ma'lumotlaringiz:\nTelefon: ${done.phone}\nParol: ${done.password}`;
+    const msg = done.mavjud
+      ? `Assalomu alaykum! Sizni Yukchibolla panelida shu tashkilotga menejer qilib qo'shdik.\nTelefon: ${done.phone}\nParol: o'zgarmadi — eski parolingiz bilan kiring.\nKirgandan keyin yuqorida tashkilotni tanlaysiz.`
+      : `Assalomu alaykum! Yukchibolla admin panelga kirish ma'lumotlaringiz:\nTelefon: ${done.phone}\nParol: ${done.password}`;
     return (
       <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-6">
         <div className="w-full max-w-md rounded-2xl border border-emerald-200 bg-emerald-50 p-8 text-center shadow-2xl">
-          <div className="text-4xl">✅</div>
-          <h2 className="mt-3 text-xl font-extrabold text-gray-900">Menejer yaratildi!</h2>
+          <div className="text-4xl">{done.mavjud ? '🔗' : '✅'}</div>
+          <h2 className="mt-3 text-xl font-extrabold text-gray-900">
+            {done.mavjud ? 'Mavjud hisobga ulandi' : 'Menejer yaratildi!'}
+          </h2>
+          {done.mavjud && done.xabar && (
+            <p className="mt-3 text-left text-sm leading-relaxed text-gray-600">{done.xabar}</p>
+          )}
           <div className="mt-6 rounded-xl bg-white p-6 text-left">
             <div className="flex justify-between text-sm">
               <span className="text-gray-500">Telefon (login):</span>
@@ -77,7 +97,9 @@ function ManagerNewModal({ onClose, onCreated }: { onClose: () => void; onCreate
             </div>
             <div className="mt-1 flex justify-between text-sm">
               <span className="text-gray-500">Parol:</span>
-              <b className="font-mono text-gray-900">{done.password}</b>
+              <b className={done.mavjud ? 'text-gray-500' : 'font-mono text-gray-900'}>
+                {done.mavjud ? "o'zgarmadi" : done.password}
+              </b>
             </div>
           </div>
           <button

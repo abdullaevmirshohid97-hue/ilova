@@ -108,6 +108,44 @@ sini qayta hisoblaydi va korxona tomonidagi yozuvlarni qo'shadi yoki
 olib tashlaydi. Belgi yolg'iz o'zgartirilsa, eski buyurtmalar eski
 tomonda qolib, bekor qilishda qarz noto'g'ri tomondan qaytarardi.
 
+### Bitta menejer — bir nechta tashkilot
+
+Menejer erkin sotuvchi: bir vaqtda ikki korxona bilan ishlashi mumkin.
+Baza buni ko'targan (`managers` unikali `(org_id, phone)`), lekin
+**kirish** ko'tarmagan: login emaili telefondan yasaladi
+(`998...@menejer.ilova`), `auth.users.email` esa GLOBAL unikal. Ikkinchi
+tashkilot «already been registered» olib, endigina yaratgan menejer
+qatorini o'chirib tashlardi.
+
+Yechimning kaliti — **`profiles`**. Butun tizim shu ikki funksiyaga
+tayanadi:
+
+```sql
+current_org_id()     -- profiles.org_id
+current_manager_id() -- profiles.manager_id
+```
+
+Har bir RLS siyosati va har bir SECURITY DEFINER funksiya shular orqali
+o'tadi. Demak «tashkilotni almashtirish» = `profiles` dagi ikki ustunni
+qayta yozish. RLS'ni qayta yozish, JWT'ga da'vo qo'shish **kerak emas** —
+`tashkilotni_tanla()` a'zolikni (`uzvliklar`) tekshirib `profiles` ni
+ko'chiradi, qolgani o'z-o'zidan ergashadi.
+
+Shundan kelib chiqadigan uch narsa:
+
+1. Tanlov **serverda** turadi, brauzerda emas — ikkinchi qurilmadagi
+   ochiq sessiya ham o'sha tashkilotga o'tadi.
+2. Almashgandan keyin sahifa **to'liq qayta yuklanadi**, aks holda
+   ekranlarda eski tashkilotning mijozi va narxi qolib ketadi.
+3. Mavjud hisob biriktirilganda **parolga tegilmaydi**. Aks holda
+   ikkinchi tashkilot admini formaga parol yozib, begona odamning
+   hisobini egallab olardi. `uzvliklar.qoshgan_user_id` — kim
+   biriktirgani izi.
+
+Qamrov ataylab tor: hozircha faqat `role = 'manager'` almasha oladi.
+`tests/kop-tashkilot.mjs` hammasini bitta DO blokida sinab, oxirida
+`raise` bilan qaytarib oladi — jonli bazada iz qolmaydi.
+
 ### Yashirish qo'shsangiz — SECURITY DEFINER'larni qayta ko'ring
 
 `record_payment` da org filtri bor edi:

@@ -44,7 +44,7 @@ Sinovlar (`node tests/<nom>.mjs`): `tenant-ajratish`, `xavfsizlik`, `dizayn`,
 `miniapp-savat`, `tarif`, `faktura-dizayn`, `sotuv-varaq`, `dona-tahrir`,
 `sklad-solishtir`, `favqulodda-kirish`, `dorixona-tenant`, `valyuta`,
 `direktor`, `menejer-yashirin`, `menejer-hisob`, `prays-bloklar`,
-`qarz-bot`, `qarz-hujjat`, `qarz-fayl`.
+`qarz-bot`, `qarz-hujjat`, `qarz-fayl`, `kop-tashkilot`.
 
 ## Uch qoida — buzilsa zarar keladi
 

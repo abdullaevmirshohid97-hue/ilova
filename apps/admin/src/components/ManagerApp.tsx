@@ -1,5 +1,11 @@
 import { lazy, Suspense, useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
+import TashkilotTanlash, {
+  TashkilotAlmashtirgich,
+  tanlovBorMi,
+  uzvliklarniOl,
+  type Uzvlik,
+} from './TashkilotTanlash';
 
 // Har bir bo'lim ochilganda yuklanadi — menejer kirishi bilan beshtasini
 // birdan yuklab kutib turmaydi
@@ -67,12 +73,46 @@ export default function ManagerApp() {
   const [name, setName] = useState('');
   const [tab, setTab] = useState<Tab>('customers');
   const [drawerOpen, setDrawerOpen] = useState(false);
+  // undefined — hali so'ralmoqda. Bitta menejer bir necha korxonada
+  // ishlashi mumkin, shuning uchun panelni ochishdan oldin qaysi
+  // tashkilotda ekani aniq bo'lishi kerak.
+  const [uzvliklar, setUzvliklar] = useState<Uzvlik[] | undefined>(undefined);
+  const [userId, setUserId] = useState('');
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
       setName(((data.user?.user_metadata as any)?.full_name as string) ?? '');
+      setUserId(data.user?.id ?? '');
     });
+    uzvliklarniOl()
+      .then(setUzvliklar)
+      // So'rov yiqilsa panel butunlay yopilib qolmasin: a'zolik
+      // ro'yxatisiz ham menejer o'z tashkilotida ishlayveradi
+      // (profiles.org_id joyida turibdi).
+      .catch(() => setUzvliklar([]));
   }, []);
+
+  if (uzvliklar === undefined) {
+    return (
+      <div className="flex h-screen items-center justify-center text-gray-500">
+        Tekshirilmoqda...
+      </div>
+    );
+  }
+
+  // Bir nechta tashkilotda a'zo bo'lsa — kirgandan keyin bir marta
+  // so'raladi. Bitta bo'lsa hech narsa so'ralmaydi.
+  if (uzvliklar.length > 1 && userId && !tanlovBorMi(userId)) {
+    return (
+      <TashkilotTanlash
+        uzvliklar={uzvliklar}
+        userId={userId}
+        // To'liq qayta yuklash: tanlov serverda o'zgardi, hamma ekran
+        // ma'lumotni yangi tashkilot bo'yicha qaytadan olishi kerak
+        onTanlandi={() => window.location.reload()}
+      />
+    );
+  }
 
   return (
     <div className="flex h-screen overflow-hidden bg-gray-50">
@@ -110,6 +150,7 @@ export default function ManagerApp() {
           <h1 className="flex-1 truncate text-base font-bold text-gray-900 md:text-lg">
             {TABS.find((t) => t.key === tab)?.label}
           </h1>
+          <TashkilotAlmashtirgich uzvliklar={uzvliklar} />
         </header>
         <main className="flex-1 overflow-y-auto p-4 md:p-8">
           <Suspense
