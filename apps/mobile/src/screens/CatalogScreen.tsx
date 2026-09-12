@@ -48,7 +48,7 @@ async function loadCache(): Promise<Product[] | null> {
   }
 }
 
-type Variant = {
+export type Variant = {
   id: string;
   sku: string;
   size: string | null;
@@ -77,7 +77,7 @@ function fmtVariantPrice(v: Variant, narxYoqMatn: string): string {
   return formatNarx(v.dispPrice, v.dispCurrency);
 }
 
-type Product = {
+export type Product = {
   id: string;
   name: string;
   model: string | null;
@@ -115,6 +115,106 @@ function first<T>(v: T | T[] | null): T | null {
   if (v == null) return null;
   return Array.isArray(v) ? (v[0] ?? null) : v;
 }
+
+// Narx to'g'ridan-to'g'ri `prices` (baza) jadvalidan emas — mijozning
+// o'ziga (menejeri qo'ygan narx bo'lsa, o'shani hisobga olib) tegishli
+// yakuniy narxni qaytaradigan my_effective_prices() RPC orqali olinadi.
+// Aks holda mijoz katalogda hali buyurtma bermay turib ham noto'g'ri
+// (baza) narxni ko'rib, chalkashib qolardi.
+// price/dispPrice null bo'lishi mumkin: admin "narxsiz mahsulot ham
+// ko'rinsin" deb qo'ysa, my_effective_prices() narxsiz variantlarni
+// ham qaytaradi — narx ustunlari bo'sh holda.
+export type EffPrice = {
+  price: number | null;
+  currency: string;
+  origPrice: number | null;
+  dispPrice: number | null;
+  dispCurrency: string;
+};
+
+// my_effective_prices() javobini variant_id -> narx xaritasiga aylantiradi
+export function narxXaritasi(priceRows: any[] | null): Map<string, EffPrice> {
+  return new Map<string, EffPrice>(
+    (priceRows ?? []).map((r: any) => [
+      r.variant_id,
+      {
+        price: r.price != null ? Number(r.price) : null,
+        currency: r.currency ?? 'UZS',
+        origPrice: r.orig_price != null ? Number(r.orig_price) : null,
+        // disp_* bo'lmasa (eski keshdan kelgan javob) so'mdagi narxga
+        // qaytamiz — ekran bo'sh qolmasin. Narxning O'ZI yo'q bo'lsa
+        // (narxsiz mahsulot) null qoladi: 0 deb ko'rsatib bo'lmaydi.
+        dispPrice:
+          r.disp_price != null ? Number(r.disp_price) : r.price != null ? Number(r.price) : null,
+        dispCurrency: r.disp_currency ?? 'UZS',
+      },
+    ])
+  );
+}
+
+// Katalog so'rovidagi ustunlar — bosh sahifa ham AYNAN shu ro'yxatni
+// ishlatadi, aks holda bir ekranda tavsif bor, ikkinchisida yo'q bo'lardi
+export const MAHSULOT_USTUNLARI = `id, name, model, material, description, brand, min_order_qty,
+   product_images ( storage_path, thumb_path, is_primary, sort_order ),
+   product_variants ( id, sku, size, color,
+     stock_levels ( qty, reserved )
+   )`;
+
+// Berilgan id'lar bo'yicha mahsulotlarni narxi bilan oladi va AYNAN
+// shu tartibda qaytaradi (eng ko'p sotilganlar tartibi muhim).
+export async function mahsulotlarniOl(ids: string[]): Promise<Product[]> {
+  if (ids.length === 0) return [];
+  const [{ data }, { data: priceRows }] = await Promise.all([
+    supabase.from('products').select(MAHSULOT_USTUNLARI).in('id', ids).eq('is_active', true),
+    supabase.rpc('my_effective_prices'),
+  ]);
+  const priceMap = narxXaritasi(priceRows);
+  const xarita = new Map<string, Product>();
+  for (const p of data ?? []) {
+    const m = mapRow(p, priceMap);
+    if (m.variants.length > 0) xarita.set(m.id, m);
+  }
+  return ids.map((id) => xarita.get(id)).filter((p): p is Product => p != null);
+}
+
+export function mapRow(p: any, priceMap: Map<string, EffPrice>): Product {
+  const imgs = (p.product_images ?? []).sort(
+    (a: any, b: any) => Number(b.is_primary) - Number(a.is_primary) || a.sort_order - b.sort_order
+  );
+  // Narxsiz variant (mijoz guruhida narx yo'q) katalogda ko'rsatilmaydi
+  const variants: Variant[] = (p.product_variants ?? [])
+    .map((v: any): Variant | null => {
+      const eff = priceMap.get(v.id);
+      if (eff == null) return null;
+      const sl = first<any>(v.stock_levels);
+      return {
+        id: v.id,
+        sku: v.sku,
+        size: v.size,
+        color: v.color,
+        price: eff.price,
+        currency: eff.currency,
+        origPrice: eff.origPrice,
+        dispPrice: eff.dispPrice,
+        dispCurrency: eff.dispCurrency,
+        available: Math.max(0, (sl?.qty ?? 0) - (sl?.reserved ?? 0)),
+      };
+    })
+    .filter((v: Variant | null): v is Variant => v != null);
+  return {
+    id: p.id,
+    name: p.name,
+    model: p.model,
+    material: p.material,
+    description: p.description ?? null,
+    brand: p.brand ?? null,
+    minMiqdor: Math.max(1, Number(p.min_order_qty ?? 1)),
+    image: imgs[0] ? imageUrl(imgs[0].thumb_path || imgs[0].storage_path) : null,
+    images: imgs.map((im: any) => imageUrl(im.storage_path)),
+    variants,
+  };
+}
+
 
 // ---------- Rasm galereyasi (bir nechta rasm — swipe) ----------
 function ImageGallery({
@@ -169,7 +269,7 @@ function ImageGallery({
 // ---------- Mahsulot sahifasi (WB/Uzum uslubidagi modal) ----------
 // Telefonda: pastdan chiqadigan to'liq ekran sheet. Kompyuter/planshetda (>=700px):
 // ekran o'rtasida cho'zilmagan, o'lchami cheklangan dialog.
-function ProductSheet({ product, onClose }: { product: Product; onClose: () => void }) {
+export function ProductSheet({ product, onClose }: { product: Product; onClose: () => void }) {
   const cart = useCart();
   const { t } = useLanguage();
 
@@ -483,60 +583,6 @@ export default function CatalogScreen() {
     return () => clearTimeout(t);
   }, [search]);
 
-  // Narx to'g'ridan-to'g'ri `prices` (baza) jadvalidan emas — mijozning
-  // o'ziga (menejeri qo'ygan narx bo'lsa, o'shani hisobga olib) tegishli
-  // yakuniy narxni qaytaradigan my_effective_prices() RPC orqali olinadi.
-  // Aks holda mijoz katalogda hali buyurtma bermay turib ham noto'g'ri
-  // (baza) narxni ko'rib, chalkashib qolardi.
-  // price/dispPrice null bo'lishi mumkin: admin "narxsiz mahsulot ham
-  // ko'rinsin" deb qo'ysa, my_effective_prices() narxsiz variantlarni
-  // ham qaytaradi — narx ustunlari bo'sh holda.
-  type EffPrice = {
-    price: number | null;
-    currency: string;
-    origPrice: number | null;
-    dispPrice: number | null;
-    dispCurrency: string;
-  };
-
-  function mapRow(p: any, priceMap: Map<string, EffPrice>): Product {
-    const imgs = (p.product_images ?? []).sort(
-      (a: any, b: any) => Number(b.is_primary) - Number(a.is_primary) || a.sort_order - b.sort_order
-    );
-    // Narxsiz variant (mijoz guruhida narx yo'q) katalogda ko'rsatilmaydi
-    const variants: Variant[] = (p.product_variants ?? [])
-      .map((v: any): Variant | null => {
-        const eff = priceMap.get(v.id);
-        if (eff == null) return null;
-        const sl = first<any>(v.stock_levels);
-        return {
-          id: v.id,
-          sku: v.sku,
-          size: v.size,
-          color: v.color,
-          price: eff.price,
-          currency: eff.currency,
-          origPrice: eff.origPrice,
-          dispPrice: eff.dispPrice,
-          dispCurrency: eff.dispCurrency,
-          available: Math.max(0, (sl?.qty ?? 0) - (sl?.reserved ?? 0)),
-        };
-      })
-      .filter((v: Variant | null): v is Variant => v != null);
-    return {
-      id: p.id,
-      name: p.name,
-      model: p.model,
-      material: p.material,
-      description: p.description ?? null,
-      brand: p.brand ?? null,
-      minMiqdor: Math.max(1, Number(p.min_order_qty ?? 1)),
-      image: imgs[0] ? imageUrl(imgs[0].thumb_path || imgs[0].storage_path) : null,
-      images: imgs.map((im: any) => imageUrl(im.storage_path)),
-      variants,
-    };
-  }
-
   async function fetchPage(page: number): Promise<{ rows: Product[]; full: boolean; failed: boolean }> {
     // Narx va qoldiq SERVERDA filtrlanmaydi (narx — RPC dan, qoldiq —
     // qty minus reserved). Shunday filtr yoqilganda ro'yxat bitta
@@ -547,19 +593,14 @@ export default function CatalogScreen() {
     const TOLIQ_CHEK = 500;
 
     // O'lcham variantda — embedded filtr uchun `!inner` kerak,
-    // aks holda mos kelmaydigan variantlar ham qaytadi
-    const variantJoin = olcham ? 'product_variants!inner' : 'product_variants';
+    // aks holda mos kelmaydigan variantlar ham qaytadi.
+    // Ustunlar ro'yxati bitta joyda (MAHSULOT_USTUNLARI): bosh sahifa
+    // ham shuni ishlatadi.
+    const ustunlar = olcham
+      ? MAHSULOT_USTUNLARI.replace('product_variants (', 'product_variants!inner (')
+      : MAHSULOT_USTUNLARI;
 
-    let q = supabase
-      .from('products')
-      .select(
-        `id, name, model, material, description, brand, min_order_qty,
-         product_images ( storage_path, thumb_path, is_primary, sort_order ),
-         ${variantJoin} ( id, sku, size, color,
-           stock_levels ( qty, reserved )
-         )`
-      )
-      .eq('is_active', true);
+    let q = supabase.from('products').select(ustunlar).eq('is_active', true);
 
     q = saralash === 'yangi' ? q.order('created_at', { ascending: false }) : q.order('name');
     q = ozimizFiltrlaymiz
@@ -577,22 +618,7 @@ export default function CatalogScreen() {
       supabase.rpc('my_effective_prices'),
     ]);
     if (error || !data) return { rows: [], full: false, failed: true };
-    const priceMap = new Map<string, EffPrice>(
-      (priceRows ?? []).map((r: any) => [
-        r.variant_id,
-        {
-          price: r.price != null ? Number(r.price) : null,
-          currency: r.currency ?? 'UZS',
-          origPrice: r.orig_price != null ? Number(r.orig_price) : null,
-          // disp_* bo'lmasa (eski keshdan kelgan javob) so'mdagi narxga
-          // qaytamiz — ekran bo'sh qolmasin. Narxning O'ZI yo'q bo'lsa
-          // (narxsiz mahsulot) null qoladi: 0 deb ko'rsatib bo'lmaydi.
-          dispPrice:
-            r.disp_price != null ? Number(r.disp_price) : r.price != null ? Number(r.price) : null,
-          dispCurrency: r.disp_currency ?? 'UZS',
-        },
-      ])
-    );
+    const priceMap = narxXaritasi(priceRows);
     // Mijoz guruhida narxi bo'lmagan mahsulot (barcha variantlari filtrlanib) grid'da chiqmaydi
     let rows = data.map((p: any) => mapRow(p, priceMap)).filter((p) => p.variants.length > 0);
 

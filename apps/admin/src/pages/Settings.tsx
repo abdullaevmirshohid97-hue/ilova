@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { xabarKorsat, tasdiqlaSoz } from '../components/Xabar';
-import { formatDate, formatSum, genPassword, supabase, fnXato } from '../lib/supabase';
+import { formatDate, formatSum, genPassword, imageUrl, resizeImage, supabase, fnXato } from '../lib/supabase';
 import ChangePasswordPanel from '../components/ChangePasswordPanel';
 import XodimlarPanel from '../components/XodimlarPanel';
 import DirektorlarPanel from '../components/DirektorlarPanel';
@@ -254,6 +254,182 @@ function PriceGroupsPanel() {
   );
 }
 
+// Mijoz ilovasining bosh sahifasidagi banner.
+//
+// Rasm alohida bucket ochmasdan `product-images` ichida turadi (u
+// allaqachon ochiq va mijozga ko'rinadi), yo'l: bannerlar/<org_id>/...
+// Mos storage siyosatlari migratsiyada — mavjud "product images"
+// siyosatlari yo'lning birinchi bo'lagini MAHSULOT id'si deb bilardi,
+// shuning uchun admin o'z bannerini o'chira olmasdi.
+type Banner = {
+  id: string;
+  sarlavha: string;
+  matn: string | null;
+  tugma_matni: string | null;
+  rasm_path: string | null;
+  tartib: number;
+  faol: boolean;
+};
+
+function BannerlarPanel() {
+  const [rows, setRows] = useState<Banner[]>([]);
+  const [orgId, setOrgId] = useState<string | null>(null);
+  const [sarlavha, setSarlavha] = useState('');
+  const [matn, setMatn] = useState('');
+  const [tugma, setTugma] = useState('');
+  const [fayl, setFayl] = useState<File | null>(null);
+  const [band, setBand] = useState(false);
+
+  const load = useCallback(async () => {
+    const [{ data }, { data: org }] = await Promise.all([
+      supabase
+        .from('bannerlar')
+        .select('id, sarlavha, matn, tugma_matni, rasm_path, tartib, faol')
+        .order('tartib'),
+      supabase.from('organizations').select('id').limit(1).maybeSingle(),
+    ]);
+    setRows((data ?? []) as Banner[]);
+    setOrgId(((org as any)?.id as string) ?? null);
+  }, []);
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  async function qosh() {
+    if (!sarlavha.trim()) return xabarKorsat('Sarlavha majburiy');
+    setBand(true);
+    try {
+      let rasmPath: string | null = null;
+      if (fayl && orgId) {
+        // Yo'lning birinchi bo'lagi 'bannerlar', ikkinchisi org_id —
+        // storage siyosati aynan shunga qarab ruxsat beradi
+        rasmPath = `bannerlar/${orgId}/${Date.now()}.jpg`;
+        const blob = await resizeImage(fayl, 1200);
+        const { error: upErr } = await supabase.storage
+          .from('product-images')
+          .upload(rasmPath, blob, { upsert: true, contentType: 'image/jpeg' });
+        if (upErr) throw upErr;
+      }
+      const tartib = rows.reduce((m, r) => Math.max(m, r.tartib), 0) + 1;
+      const { error } = await supabase
+        .from('bannerlar')
+        .insert({
+          sarlavha: sarlavha.trim(),
+          matn: matn.trim() || null,
+          tugma_matni: tugma.trim() || null,
+          rasm_path: rasmPath,
+          tartib,
+        });
+      if (error) throw error;
+      setSarlavha('');
+      setMatn('');
+      setTugma('');
+      setFayl(null);
+      load();
+    } catch (e: any) {
+      xabarKorsat('Saqlanmadi: ' + (e?.message ?? 'xatolik'));
+    } finally {
+      setBand(false);
+    }
+  }
+
+  async function faollikAlmashtir(b: Banner) {
+    const { error } = await supabase.from('bannerlar').update({ faol: !b.faol }).eq('id', b.id);
+    if (error) return xabarKorsat('Xatolik: ' + error.message);
+    load();
+  }
+
+  async function ochir(b: Banner) {
+    if (!(await tasdiqlaSoz(`"${b.sarlavha}" banneri o'chirilsinmi?`))) return;
+    // Avval rasm, keyin qator: teskarisi bo'lsa bazada yo'q rasm
+    // bucket'da abadiy qolib ketardi
+    if (b.rasm_path) await supabase.storage.from('product-images').remove([b.rasm_path]);
+    const { error } = await supabase.from('bannerlar').delete().eq('id', b.id);
+    if (error) return xabarKorsat('Xatolik: ' + error.message);
+    load();
+  }
+
+  return (
+    <div className="rounded-2xl border border-gray-200 bg-white p-6">
+      <h3 className="font-bold text-gray-900">🖼 Bosh sahifa bannerlari</h3>
+      <p className="mt-1 text-xs text-gray-500">
+        Mijoz ilovasining bosh sahifasida ko'rinadi. Rasm ixtiyoriy — faqat matn ham bo'ladi.
+      </p>
+
+      <div className="mt-4 space-y-2">
+        {rows.map((b) => (
+          <div key={b.id} className="flex items-center gap-3 rounded-xl border border-gray-100 p-3">
+            {b.rasm_path ? (
+              <img
+                src={imageUrl(b.rasm_path)}
+                alt=""
+                className="h-12 w-20 shrink-0 rounded-lg object-cover"
+              />
+            ) : (
+              <div className="h-12 w-20 shrink-0 rounded-lg bg-gray-100" />
+            )}
+            <div className="min-w-0 flex-1">
+              <div className="truncate text-sm font-bold text-gray-900">{b.sarlavha}</div>
+              {b.matn && <div className="truncate text-xs text-gray-500">{b.matn}</div>}
+            </div>
+            <button
+              onClick={() => faollikAlmashtir(b)}
+              className={`rounded-lg px-3 py-1.5 text-xs font-bold ${
+                b.faol ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-500'
+              }`}
+            >
+              {b.faol ? 'Faol' : "O'chiq"}
+            </button>
+            <button
+              onClick={() => ochir(b)}
+              className="rounded-lg px-2 py-1.5 text-sm text-red-400 hover:bg-red-50"
+            >
+              🗑
+            </button>
+          </div>
+        ))}
+        {rows.length === 0 && <p className="text-sm text-gray-500">Banner yo'q</p>}
+      </div>
+
+      <div className="mt-4 space-y-2 rounded-xl bg-gray-50 p-4">
+        <input
+          value={sarlavha}
+          onChange={(e) => setSarlavha(e.target.value)}
+          placeholder="Sarlavha (masalan, Yangi qadoqlar keldi)"
+          className={rowInputCls + ' w-full'}
+        />
+        <input
+          value={matn}
+          onChange={(e) => setMatn(e.target.value)}
+          placeholder="Izoh (ixtiyoriy)"
+          className={rowInputCls + ' w-full'}
+        />
+        <input
+          value={tugma}
+          onChange={(e) => setTugma(e.target.value)}
+          placeholder="Tugma matni (ixtiyoriy) — bosilsa katalog ochiladi"
+          className={rowInputCls + ' w-full'}
+        />
+        <div className="flex flex-wrap items-center gap-3">
+          <input
+            type="file"
+            accept="image/*"
+            onChange={(e) => setFayl(e.target.files?.[0] ?? null)}
+            className="text-sm text-gray-600"
+          />
+          <button
+            onClick={qosh}
+            disabled={band}
+            className="ml-auto rounded-xl bg-brand px-5 py-2 text-sm font-bold text-white hover:opacity-90 disabled:opacity-50"
+          >
+            {band ? 'Saqlanmoqda...' : '+ Banner qo`shish'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // Narxi qo'yilmagan mahsulot mijoz katalogida ko'rinsinmi.
 //
 // Standart holat — ko'rinmasin: narxsiz tovarni sotib bo'lmaydi.
@@ -497,6 +673,7 @@ export default function Settings() {
       <CategoriesPanel />
       <PriceGroupsPanel />
       <NarxsizKorinishPanel />
+      <BannerlarPanel />
       <HujjatSozlamaPanel />
       <DirektorlarPanel />
       <XodimlarPanel />

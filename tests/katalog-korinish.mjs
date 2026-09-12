@@ -36,9 +36,17 @@ const kod = readFileSync(join(ROOT, 'apps/mobile/src/screens/CatalogScreen.tsx')
 
 console.log('\n1. Tavsif');
 
-// So'rov — `product_images` bor shablon satri aynan katalog so'rovi
-const sorov = kod.match(/\.select\(\s*`([\s\S]*?product_images[\s\S]*?)`/);
-tekshir('katalog so‘rovi topildi', sorov != null);
+// Ustunlar ro'yxati BITTA joyda: `MAHSULOT_USTUNLARI`. Katalog ham,
+// bosh sahifa ham shuni ishlatadi — shuning uchun tekshiruv ham shu
+// yerda. (Avval `.select(` shablon satri qidirilardi; ro'yxat
+// konstantaga ko'chirilgach tekshiruv ko'r bo'lib qolgan edi.)
+const sorov = kod.match(/MAHSULOT_USTUNLARI = `([\s\S]*?)`/);
+tekshir('katalog ustunlari ro‘yxati topildi', sorov != null);
+tekshir(
+  'katalog so‘rovi aynan shu ro‘yxatni ishlatadi',
+  /\.select\(ustunlar\)/.test(kod) && /MAHSULOT_USTUNLARI/.test(kod),
+  'ikki joyda saqlansa biri eskirib qolardi',
+);
 tekshir(
   'so‘rov `description` ustunini oladi',
   sorov != null && /\bdescription\b/.test(sorov[1]),

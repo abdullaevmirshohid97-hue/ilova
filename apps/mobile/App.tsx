@@ -18,6 +18,7 @@ import { useIsWide } from './src/lib/responsive';
 import { C } from './src/lib/theme';
 import { telemetriyaniYoq, ekranBelgila } from './src/lib/xatolik';
 import LoginScreen from './src/screens/LoginScreen';
+import HomeScreen from './src/screens/HomeScreen';
 import CatalogScreen from './src/screens/CatalogScreen';
 import CartScreen from './src/screens/CartScreen';
 import OrdersScreen from './src/screens/OrdersScreen';
@@ -25,10 +26,11 @@ import DesignOrdersScreen from './src/screens/DesignOrdersScreen';
 import LedgerScreen from './src/screens/LedgerScreen';
 import ProfileScreen from './src/screens/ProfileScreen';
 
-type Screen = 'catalog' | 'cart' | 'orders' | 'designOrders' | 'ledger' | 'profile';
+type Screen = 'home' | 'catalog' | 'cart' | 'orders' | 'designOrders' | 'ledger' | 'profile';
 type CustomerInfo = { name: string; phone: string; balance: number };
 
-const MENU: { key: Screen; icon: string; labelKey: 'menuCatalog' | 'menuCart' | 'menuOrders' | 'menuDesignOrders' | 'menuLedger' | 'menuProfile' }[] = [
+const MENU: { key: Screen; icon: string; labelKey: 'menuHome' | 'menuCatalog' | 'menuCart' | 'menuOrders' | 'menuDesignOrders' | 'menuLedger' | 'menuProfile' }[] = [
+  { key: 'home', icon: '🏠', labelKey: 'menuHome' },
   { key: 'catalog', icon: '🏬', labelKey: 'menuCatalog' },
   { key: 'cart', icon: '🛒', labelKey: 'menuCart' },
   { key: 'orders', icon: '📦', labelKey: 'menuOrders' },
@@ -37,7 +39,8 @@ const MENU: { key: Screen; icon: string; labelKey: 'menuCatalog' | 'menuCart' | 
   { key: 'profile', icon: '👤', labelKey: 'menuProfile' },
 ];
 
-const TITLE_KEYS: Record<Screen, 'menuCatalog' | 'menuCart' | 'menuOrders' | 'menuDesignOrders' | 'menuLedger' | 'menuProfile'> = {
+const TITLE_KEYS: Record<Screen, 'menuHome' | 'menuCatalog' | 'menuCart' | 'menuOrders' | 'menuDesignOrders' | 'menuLedger' | 'menuProfile'> = {
+  home: 'menuHome',
   catalog: 'menuCatalog',
   cart: 'menuCart',
   orders: 'menuOrders',
@@ -49,6 +52,7 @@ const TITLE_KEYS: Record<Screen, 'menuCatalog' | 'menuCart' | 'menuOrders' | 'me
 // Kompyuter/planshetda content juda cho'zilib ketmasligi uchun — katalogga
 // ko'proq joy (grid ustunlari uchun), qolgan ekranlarga o'qish uchun qulay eni
 const WIDE_MAX_WIDTH: Record<Screen, number> = {
+  home: 1000,
   catalog: 1200,
   cart: 760,
   orders: 760,
@@ -242,7 +246,9 @@ function Sidebar({
 }
 
 function MainApp() {
-  const [screen, setScreen] = useState<Screen>('catalog');
+  // Ilova endi BOSH SAHIFAdan ochiladi: qarz, oxirgi buyurtmani
+  // takrorlash va tavsiyalar shu yerda. Katalog bir tegishda ochiladi.
+  const [screen, setScreen] = useState<Screen>('home');
   const [drawerOpen, setDrawerOpen] = useState(false);
   const cart = useCart();
   const { t } = useLanguage();
@@ -263,8 +269,8 @@ function MainApp() {
         setDrawerOpen(false);
         return true;
       }
-      if (screen !== 'catalog') {
-        setScreen('catalog');
+      if (screen !== 'home') {
+        setScreen('home');
         return true;
       }
       return false;
@@ -290,10 +296,10 @@ function MainApp() {
               <View style={h.burgerLine} />
             </TouchableOpacity>
           )}
-          {!isWide && screen !== 'catalog' && (
+          {!isWide && screen !== 'home' && (
             <TouchableOpacity
               style={h.backBtn}
-              onPress={() => setScreen('catalog')}
+              onPress={() => setScreen('home')}
               hitSlop={{ top: 12, bottom: 12, left: 8, right: 8 }}
             >
               <Text style={h.backArrow}>←</Text>
@@ -317,6 +323,13 @@ function MainApp() {
               isWide && { maxWidth: WIDE_MAX_WIDTH[screen] },
             ]}
           >
+            {screen === 'home' && (
+              <HomeScreen
+                onKatalog={() => setScreen('catalog')}
+                onSavat={() => setScreen('cart')}
+                onQarz={() => setScreen('ledger')}
+              />
+            )}
             {screen === 'catalog' && <CatalogScreen />}
             {screen === 'cart' && <CartScreen onOrdered={goOrders} />}
             {screen === 'orders' && <OrdersScreen />}
