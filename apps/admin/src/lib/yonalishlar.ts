@@ -31,6 +31,13 @@ export type TenantYonalish = {
   nom: string;
   izoh: string;
   modullar: TenantModul[];
+  /**
+   * Yo'nalishning ekranlari panelda EMAS, alohida ilovada bo'lsa —
+   * o'sha ilovaning manzili. Busiz kartochka "TEZ ORADA" bo'lib o'lik
+   * turardi: super admin yo'nalishni berardi, tenant esa bosib
+   * hech qayerga kira olmasdi va buni xato deb o'ylardi.
+   */
+  tashqi?: string;
 };
 
 // Tenant panelining hozirgi sahifalari — ulgurji savdo tizimi.
@@ -110,12 +117,13 @@ export const TENANT_YONALISHLAR: TenantYonalish[] = [
     // qoladi (jadvallar ham `kassa_*`): ko'rinadigan nom marketingga
     // qarab o'zgaradi, kalit esa migratsiya talab qiladi.
     nom: 'CREDIT DEBIT',
-    izoh: 'hisob-kitob daftari: kirim-chiqim, hisoblar, qarz — internetsiz ham',
-    // Bu yo'nalishning asosiy ekrani — MOBIL ilova (Play Market va
-    // app.yukchibolla.com). Tenant panelida hozircha sahifa yo'q,
-    // shuning uchun ro'yxat bo'sh: kartochka "TEZ ORADA" bo'lib turadi.
-    // Hisobot va sozlama ekranlari qo'shilganda shu yerga yoziladi.
+    izoh: 'hisob-kitob daftari: kirim-chiqim, hisoblar, qarz — alohida ilovada',
+    // Bu yo'nalishning ekranlari panelda emas, ALOHIDA ilovada
+    // (Play Market va app.yukchibolla.com/kassa). Shuning uchun
+    // modullar bo'sh, lekin kartochka o'lik emas — `tashqi` orqali
+    // o'sha ilovani ochadi.
     modullar: [],
+    tashqi: 'https://app.yukchibolla.com/kassa/',
   },
   { key: 'sklad', belgi: '📦', nom: 'SKLAD', izoh: 'ombor va qoldiq boshqaruvi', modullar: [] },
   {

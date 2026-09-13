@@ -183,16 +183,38 @@ cp -r apps/mobile/dist/. "$LANDING_WWW/"
 # U app.yukchibolla.com/kassa/ ostida turadi. Bundle yo'llari
 # app.json dagi experiments.baseUrl = "/kassa" bilan mos keladi —
 # ikkalasi ajralib qolsa sahifa OQ ochiladi va konsolda 404 chiqadi.
-pnpm --filter @ilova/kassa build:web
-rm -rf "${LANDING_WWW:?}/kassa"
-mkdir -p "$LANDING_WWW/kassa"
-cp -r apps/kassa/dist/. "$LANDING_WWW/kassa/"
+#
+# `set -e` sababli bu qadam yiqilsa butun skript to'xtardi — admin va
+# mijoz ilovasi allaqachon ko'chirilgan bo'lgani uchun deploy "yarim
+# bo'lgan" holatda qolardi va sabab ekrandan o'tib ketardi. Shuning
+# uchun xato ushlanadi va OXIRIDA yana bir bor aytiladi.
+#
+KASSA_XATO=0
+if pnpm --filter @ilova/kassa build:web; then
+  rm -rf "${LANDING_WWW:?}/kassa"
+  mkdir -p "$LANDING_WWW/kassa"
+  cp -r apps/kassa/dist/. "$LANDING_WWW/kassa/"
+else
+  KASSA_XATO=1
+fi
 
 echo ""
 echo "✅ Statik fayllar joylashtirildi:"
 echo "   $ADMIN_WWW/dist        (admin.yukchibolla.com, 4020.yukchibolla.com)"
 echo "   $LANDING_WWW           (app.yukchibolla.com — mijoz web-ilovasi)"
-echo "   $LANDING_WWW/kassa     (app.yukchibolla.com/kassa — Credit Debit)"
+if [ "$KASSA_XATO" = "0" ]; then
+  echo "   $LANDING_WWW/kassa     (app.yukchibolla.com/kassa — Credit Debit)"
+else
+  echo ""
+  echo "❌ CREDIT DEBIT YIG'ILMADI — /kassa yo'li 404 beradi."
+  echo "   Sababini ko'rish uchun shu buyruqni alohida ishga tushiring:"
+  echo "     cd $REPO_DIR && pnpm --filter @ilova/kassa build:web"
+  echo "   Eng ko'p uchraydigani — xotira yetmasligi (Metro). Shunda:"
+  echo "     NODE_OPTIONS=--max-old-space-size=2048 pnpm --filter @ilova/kassa build:web"
+  echo "   Yig'ilgach:"
+  echo "     rm -rf $LANDING_WWW/kassa && mkdir -p $LANDING_WWW/kassa \\"
+  echo "       && cp -r $REPO_DIR/apps/kassa/dist/. $LANDING_WWW/kassa/"
+fi
 if [ ! -f "$LANDING_WWW/yukchibolla.apk" ]; then
   echo ""
   echo "⚠️  $LANDING_WWW/yukchibolla.apk hali yo'q — 'APK yuklab olish' tugmasi"

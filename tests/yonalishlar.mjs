@@ -124,7 +124,17 @@ const token = (await kirish.json()).access_token ?? null;
 if (!token) {
   console.log('  \x1b[33m!\x1b[0m mijoz hisobi bilan kirib bo‘lmadi — bo‘lim o‘tkazib yuborildi');
 } else {
-  const orgId = (await sql('select id from organizations limit 1'))[0].id;
+  // `limit 1` tartibsiz bo'lsa har safar boshqa tenant tushadi —
+  // xatoni takrorlab bo'lmaydi. Shuning uchun eng eskisi olinadi.
+  const orgId = (await sql('select id from organizations order by created_at limit 1'))[0].id;
+
+  // Urinishdan OLDINGI holat. Avval sinov "marketplace yo'q" degan
+  // taxminga tayanardi va super admin o'sha tenantga marketplace
+  // bergan kuni KOD TO'G'RI turganda ham qizarardi (2026-09-13).
+  const oldin = String(
+    (await sql(`select yonalishlar from organizations where id = '${orgId}'`))[0].yonalishlar,
+  );
+
   const qoy = await rpc(token, 'org_yonalish_qoy', {
     p_org_id: orgId,
     p_yonalishlar: ['dorixona', 'b2b', 'sklad', 'marketplace'],
@@ -137,12 +147,10 @@ if (!token) {
 
   // Haqiqatan o'zgarmaganini bazadan tasdiqlaymiz — HTTP javobi
   // "muvaffaqiyatli" ko'rinib, ichkarida yozib yuborgan bo'lishi mumkin.
-  const keyin = await sql(`select yonalishlar from organizations where id = '${orgId}'`);
-  tekshir(
-    'baza o‘zgarmadi',
-    !(keyin[0].yonalishlar ?? []).includes('marketplace'),
-    String(keyin[0].yonalishlar),
+  const keyin = String(
+    (await sql(`select yonalishlar from organizations where id = '${orgId}'`))[0].yonalishlar,
   );
+  tekshir('baza o‘zgarmadi', keyin === oldin, keyin === oldin ? oldin : `${oldin} → ${keyin}`);
 }
 
 // ---------- 3. Panel va baza ro'yxati bir xilmi ----------

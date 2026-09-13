@@ -39,11 +39,18 @@ export function YonalishEkrani({
 
         <div className="mt-6 grid gap-4 sm:grid-cols-2">
           {yonalishlar.map((y) => {
-            const ochiq = y.modullar.length > 0;
+            // Yo'nalish panelda ochilishi (modullar) yoki alohida
+            // ilovaga olib borishi (tashqi) mumkin. Ikkalasi ham
+            // bo'lmasa — hali qurilmagan.
+            const ochiq = y.modullar.length > 0 || !!y.tashqi;
             return (
               <button
                 key={y.key}
-                onClick={() => ochiq && onTanla(y)}
+                onClick={() => {
+                  if (!ochiq) return;
+                  if (y.tashqi) window.open(y.tashqi, '_blank', 'noopener');
+                  else onTanla(y);
+                }}
                 disabled={!ochiq}
                 className={`rounded-2xl border bg-white p-5 text-left transition ${
                   ochiq
@@ -55,7 +62,11 @@ export function YonalishEkrani({
                 <div className="mt-3 text-base font-bold text-gray-900">{y.nom}</div>
                 <div className="mt-1 text-sm text-gray-500">{y.izoh}</div>
 
-                {ochiq ? (
+                {y.tashqi ? (
+                  <div className="mt-4 inline-block rounded-lg border border-navy/30 px-2 py-1 text-xs font-semibold text-navy">
+                    ILOVADA OCHILADI ↗
+                  </div>
+                ) : ochiq ? (
                   <div className="mt-4 flex flex-wrap gap-1.5">
                     {y.modullar.slice(0, 5).map((m) => (
                       <span
