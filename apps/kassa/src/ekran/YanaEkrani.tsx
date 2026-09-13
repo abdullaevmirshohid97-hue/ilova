@@ -26,6 +26,8 @@ import {
   turkumTahrirla,
 } from '../lib/baza';
 import { davrOraligi, oraliqdami, type DavrTuri } from '../lib/davr';
+import { hisobotPdf, hisobotXlsx } from '../lib/hisobot';
+import { ulash } from '../lib/ulash';
 import { useHolat } from '../lib/holat';
 import { supabase, xatoMatn } from '../lib/supabase';
 import { O, useTema, type TemaRejimi } from '../lib/tema';
@@ -389,9 +391,10 @@ function Turkumlar() {
 // =============================================================
 function Hisobot() {
   const { C } = useTema();
-  const { yozuvlar, turkumlar, hisoblar } = useHolat();
+  const { men, yozuvlar, turkumlar, hisoblar, klientlar } = useHolat();
   const [davr, setDavr] = useState<DavrTuri>('oy');
   const [siljish, setSiljish] = useState(0);
+  const [chiqarmoqda, setChiqarmoqda] = useState<'xlsx' | 'pdf' | null>(null);
 
   const oraliq = useMemo(() => davrOraligi(davr, siljish), [davr, siljish]);
   const davrniki = useMemo(() => yozuvlar.filter((y) => oraliqdami(y.sana, oraliq)), [yozuvlar, oraliq]);
@@ -414,6 +417,30 @@ function Hisobot() {
   const chiqimlar = turkumKesimi.filter((t) => t.turi === 'chiqim');
   const kirimlar = turkumKesimi.filter((t) => t.turi === 'kirim');
   const engKatta = Math.max(1, ...turkumKesimi.map((t) => t.summa));
+
+  async function chiqar(tur: 'xlsx' | 'pdf') {
+    if (davrniki.length === 0) {
+      Alert.alert('Bo‘sh hisobot', 'Bu davrda yozuv yo‘q — avval davrni almashtiring.');
+      return;
+    }
+    setChiqarmoqda(tur);
+    try {
+      const manba = {
+        biznes: men.biznes,
+        davr: oraliq.nom,
+        yozuvlar: davrniki,
+        hisoblar,
+        turkumlar,
+        klientlar,
+      };
+      const bayt = tur === 'xlsx' ? hisobotXlsx(manba) : hisobotPdf(manba);
+      await ulash(`${men.biznes}-${oraliq.nom}`, bayt, tur);
+    } catch (e) {
+      Alert.alert('Chiqarib bo‘lmadi', xatoMatn(e));
+    } finally {
+      setChiqarmoqda(null);
+    }
+  }
 
   return (
     <>
@@ -491,6 +518,25 @@ function Hisobot() {
         )}
         <View style={{ height: 16 }} />
       </ScrollView>
+
+      {/* Eksport — hisobot ekranining asosiy maqsadi: buxgalterga
+          yoki hamkorga yuborish. Fayl qurilmada yasaladi. */}
+      <View style={{ flexDirection: 'row', gap: 8, padding: 10, backgroundColor: C.karta }}>
+        <Tugma
+          matn="Excel"
+          ikkilamchi
+          kutmoqda={chiqarmoqda === 'xlsx'}
+          bos={() => chiqar('xlsx')}
+          uslub={{ flex: 1 }}
+        />
+        <Tugma
+          matn="PDF"
+          ikkilamchi
+          kutmoqda={chiqarmoqda === 'pdf'}
+          bos={() => chiqar('pdf')}
+          uslub={{ flex: 1 }}
+        />
+      </View>
 
       <YigindiPaneli
         chap={{ yorliq: 'Kirim', qiymat: formatla(yigindi.kirim, valyuta, { belgisiz: true, kasrsiz: true }), rang: C.kirim }}

@@ -1,6 +1,6 @@
 # Ilova — agent uchun asosiy qoidalar
 
-Bu fayl har sessiyada o'qiladi. Batafsil qo'llanma: `.claude/skills/ilova/SKILL.md`
+Bu fayl har sessiyada o'qiladi. Batafsil qo'llanma: `.Codex/skills/ilova/SKILL.md`
 (prays roboti, RLS tuzoqlari, Excel, sinov usullari). Shu loyihada ish
 boshlashdan oldin uni o'qing.
 
@@ -41,11 +41,8 @@ bash infra/tekshir.sh
 Sinovlar (`node tests/<nom>.mjs`): `tenant-ajratish`, `xavfsizlik`, `dizayn`,
 `hujjatlar`, `prays-oqimi`, `prays-hujjat`, `robot-ustunlar`, `qoralama`,
 `yonalishlar`, `panel-yonalish`, `dori-skladlar`, `kritik-yollar`,
-`miniapp-savat`, `tarif`, `faktura-dizayn`, `sotuv-varaq`, `dona-tahrir`,
-`sklad-solishtir`, `favqulodda-kirish`, `dorixona-tenant`, `valyuta`,
-`direktor`, `menejer-yashirin`, `menejer-hisob`, `prays-bloklar`,
-`qarz-bot`, `qarz-hujjat`, `qarz-fayl`, `kop-tashkilot`, `narxsiz-korinish`, `katalog-korinish`, `min-partiya`, `bosh-sahifa`,
-`kassa-raqam`, `kassa-balans`, `kassa-dizayn`, `kassa-hujjat`.
+`miniapp-savat`, `tarif`, `kassa-raqam`, `kassa-balans`, `kassa-dizayn`,
+`kassa-hujjat`.
 
 ## Uch qoida — buzilsa zarar keladi
 
