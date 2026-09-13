@@ -134,8 +134,9 @@ agent uni o'zi biladi.
   ham kalit bilan kirib bo'lmaydi.
 - **Yopish o'sha zahoti ishlaydi** — ilovadagi «yopish» tugmasi.
 - **Har so'rov jurnalga tushadi**: qaysi asbob, qachon, natija nima.
-- **Kunlik chegara — 500 so'rov.** Sikldagi agent hisobni
-  bo'shatmasligi uchun.
+- **Kunlik chegara — 100 so‘rov** (har tenantda alohida sozlanadi).
+  Model mijozning O‘Z AI obunasida ishlagani uchun bu chegara pul
+  uchun emas — sikldagi agent serverni bo‘g‘ib qo‘ymasligi uchun.
 - Bir vaqtda **10 tadan ko'p** faol kalit bo'lmaydi.
 
 ---

@@ -225,7 +225,7 @@ export default function AiUlanish() {
 
       <View style={{ padding: O.chekka, paddingTop: 20 }}>
         <Text style={{ color: C.xira, fontSize: 11, lineHeight: 17 }}>
-          Agentning har bir so‘rovi jurnalga yoziladi. Kunlik chegara — 500
+          Agentning har bir so‘rovi jurnalga yoziladi. Kunlik chegara — 100
           so‘rov. Ulanishni istalgan vaqtda yopsangiz, kalit o‘sha zahoti
           ishlamay qoladi.
         </Text>

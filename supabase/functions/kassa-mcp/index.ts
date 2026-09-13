@@ -23,8 +23,8 @@
 //      nima yoziladiganini ko'rsatadi va hech narsa yozmaydi.
 //      (CLAUDE.md 1-qoidasi: jonli ma'lumotga yozishdan oldin
 //      quruq sinov.)
-//   5. Kunlik chegara: bir tenant kuniga 500 so'rov. Busiz bitta
-//      sikldagi agent hisobni bo'shatardi.
+//   5. Kunlik chegara: har tenantda alohida (standart 100 so'rov).
+//      Busiz sikldagi agent serverni bo'g'ib qo'yardi.
 //
 //  verify_jwt = FALSE bo'lishi SHART: MCP mijozi Supabase JWT'sini
 //  emas, o'zimizning `cd_...` tokenimizni yuboradi.
@@ -32,7 +32,11 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { ASBOBLAR, javob, oraliq, pul, son, xatoJavob } from './asboblar.ts';
 
-const KUNLIK_CHEGARA = 500;
+// Chegara HAR TENANTDA alohida (organizations.kassa_ai_kunlik,
+// standart 100). Bu yerdagi son — baza javob bermasa ishlatiladigan
+// zaxira. MCP'da model MIJOZNING o'zida ishlaydi, ya'ni bu chegara
+// xarajat uchun emas — suiiste'molga qarshi.
+const ZAXIRA_CHEGARA = 100;
 
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -393,13 +397,15 @@ Deno.serve(async (req) => {
     const nom = String(params?.name ?? '');
     const arg = (params?.arguments ?? {}) as Record<string, unknown>;
 
-    const { data: soni } = await admin.rpc('kassa_mcp_hisob', { p_org: egasi.org_id });
-    if (Number(soni ?? 0) >= KUNLIK_CHEGARA) {
+    const { data: hisob } = await admin.rpc('kassa_mcp_hisob', { p_org: egasi.org_id });
+    const bugun = Number((hisob as { bugun?: number })?.bugun ?? 0);
+    const chegara = Number((hisob as { chegara?: number })?.chegara ?? ZAXIRA_CHEGARA);
+    if (bugun >= chegara) {
       await jurnal(egasi, nom, 'rad', 'kunlik chegara');
       return json({
         jsonrpc: '2.0',
         id,
-        result: xatoJavob(`Kunlik chegara (${KUNLIK_CHEGARA} so‘rov) tugadi. Ertaga qayta urinib ko‘ring.`),
+        result: xatoJavob(`Kunlik chegara (${chegara} so‘rov) tugadi. Ertaga qayta urinib ko‘ring.`),
       });
     }
 
