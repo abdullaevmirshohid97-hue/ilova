@@ -42,7 +42,7 @@ Sinovlar (`node tests/<nom>.mjs`): `tenant-ajratish`, `xavfsizlik`, `dizayn`,
 `hujjatlar`, `prays-oqimi`, `prays-hujjat`, `robot-ustunlar`, `qoralama`,
 `yonalishlar`, `panel-yonalish`, `dori-skladlar`, `kritik-yollar`,
 `miniapp-savat`, `tarif`, `kassa-raqam`, `kassa-balans`, `kassa-dizayn`,
-`kassa-hujjat`, `kassa-ochirish`, `kassa-sinx`, `kassa-sinx-baza`.
+`kassa-hujjat`, `kassa-ochirish`, `kassa-sinx`, `kassa-sinx-baza`, `kassa-mcp`.
 
 ## Uch qoida — buzilsa zarar keladi
 

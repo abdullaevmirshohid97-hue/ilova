@@ -364,3 +364,45 @@ export async function hisobniOchir(): Promise<{ tashkilot: string | null; yozuvl
   await ombor().tozala().catch(() => {});
   return j.ochirildi ?? { tashkilot: null, yozuvlar: 0 };
 }
+
+// ---------------------------------------------------------------
+//  AI ULANISHI (MCP) — tokenlar
+//
+//  Token SERVERDA yasaladi va javobda BIR MARTA qaytadi: bazada
+//  faqat sha256 xeshi turadi. Shuning uchun ilova uni ko'chirib
+//  olishni taklif qiladi va boshqa ko'rsatolmaydi.
+// ---------------------------------------------------------------
+export type Token = {
+  id: string;
+  nom: string;
+  prefiks: string;
+  yozishi: boolean;
+  faol: boolean;
+  oxirgi_ishlatilgan: string | null;
+  soralgan_soni: number;
+  created_at: string;
+};
+
+export async function tokenYarat(nom: string, yozishi: boolean): Promise<{ id: string; token: string }> {
+  const { data, error } = await supabase.rpc('kassa_token_yarat', {
+    p_nom: nom,
+    p_yozishi: yozishi,
+  });
+  if (error) throw error;
+  return data as { id: string; token: string };
+}
+
+export async function tokenlarOl(): Promise<Token[]> {
+  const { data, error } = await supabase
+    .from('kassa_tokenlar')
+    .select('id, nom, prefiks, yozishi, faol, oxirgi_ishlatilgan, soralgan_soni, created_at')
+    .order('created_at', { ascending: false });
+  if (error) throw error;
+  return (data ?? []) as Token[];
+}
+
+/** O'chirish emas, YOPISH: tarix va jurnal bog'lanishi saqlanadi */
+export async function tokenYop(id: string): Promise<void> {
+  const { error } = await supabase.from('kassa_tokenlar').update({ faol: false }).eq('id', id);
+  if (error) throw error;
+}

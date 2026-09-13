@@ -45,7 +45,7 @@ Sinovlar (`node tests/<nom>.mjs`): `tenant-ajratish`, `xavfsizlik`, `dizayn`,
 `sklad-solishtir`, `favqulodda-kirish`, `dorixona-tenant`, `valyuta`,
 `direktor`, `menejer-yashirin`, `menejer-hisob`, `prays-bloklar`,
 `qarz-bot`, `qarz-hujjat`, `qarz-fayl`, `kop-tashkilot`, `narxsiz-korinish`, `katalog-korinish`, `min-partiya`, `bosh-sahifa`,
-`kassa-raqam`, `kassa-balans`, `kassa-dizayn`, `kassa-hujjat`, `kassa-ochirish`, `kassa-sinx`, `kassa-sinx-baza`.
+`kassa-raqam`, `kassa-balans`, `kassa-dizayn`, `kassa-hujjat`, `kassa-ochirish`, `kassa-sinx`, `kassa-sinx-baza`, `kassa-mcp`.
 
 ## Uch qoida — buzilsa zarar keladi
 
