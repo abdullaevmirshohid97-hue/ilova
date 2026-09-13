@@ -63,4 +63,40 @@ if [ "$mahalliy" != "$uzoq" ]; then
   echo "  ! mahalliy HEAD origin/main bilan bir xil emas — push qilinmagan ish bor"
 fi
 
+# ---------------------------------------------------------------------------
+# Credit Debit (apps/kassa) — u alohida yo'lda (/kassa) va alohida Caddy
+# bloki bilan turadi. Ya'ni deploy.sh o'tib ketsa ham, Caddyfile qo'lda
+# yangilanmagan bo'lsa bu qism ISHLAMAYDI va buni faqat foydalanuvchi
+# ko'rardi. Shuning uchun alohida tekshiramiz.
+# ---------------------------------------------------------------------------
+echo ""
+echo "Credit Debit:"
+CD=${CD_MANZIL:-https://app.yukchibolla.com}
+
+sahifa=$(curl -s --max-time 15 "$CD/kassa/?t=$RANDOM$$")
+case "$sahifa" in
+  *'/kassa/_expo/'*)
+    echo "  ✓ $CD/kassa/ — sahifa o'z bundle'iga ishora qilyapti"
+    ;;
+  '')
+    echo "  x $CD/kassa/ — javob bo'sh (Caddy bloki qo'shilganmi?)"
+    ORTDA=1
+    ;;
+  *)
+    # Eng ehtimolli xato: /kassa/* uchun handle bloki yo'q va umumiy
+    # SPA fallback b2b ilovasining index.html ini qaytaryapti.
+    echo "  x $CD/kassa/ — boshqa sahifa qaytdi (b2b index.html bo'lishi mumkin)"
+    echo "    infra/Caddyfile.snippet dagi 'handle /kassa/*' bloki qo'shilganini tekshiring"
+    ORTDA=1
+    ;;
+esac
+
+apk=$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 "$CD/credit-debit.apk")
+if [ "$apk" = "200" ]; then
+  echo "  ✓ $CD/credit-debit.apk — yuklab olish ishlayapti"
+else
+  echo "  ! $CD/credit-debit.apk — HTTP $apk (APK serverga qo'yilmagan)"
+  echo "    scp apps/kassa/credit-debit.apk root@<server>:/var/www/ilova-app-landing/"
+fi
+
 exit $ORTDA
