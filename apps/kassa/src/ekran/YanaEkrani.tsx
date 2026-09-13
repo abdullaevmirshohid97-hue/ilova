@@ -27,6 +27,7 @@ import {
   turkumTahrirla,
 } from '../lib/baza';
 import { davrOraligi, oraliqdami, type DavrTuri } from '../lib/davr';
+import AiModel from './AiModel';
 import AiUlanish from './AiUlanish';
 import { hisobotPdf, hisobotXlsx } from '../lib/hisobot';
 import { ulash } from '../lib/ulash';
@@ -35,7 +36,7 @@ import { supabase, xatoMatn } from '../lib/supabase';
 import { O, useTema, type TemaRejimi } from '../lib/tema';
 import { BoshHolat, Chip, DavrOqlari, Karta, Qator, Sarlavha, Tanlagich, Tugma, YigindiPaneli, uslublar } from '../ui/qismlar';
 
-type Sahifa = 'asosiy' | 'hisoblar' | 'turkumlar' | 'hisobot' | 'sozlama' | 'ai';
+type Sahifa = 'asosiy' | 'hisoblar' | 'turkumlar' | 'hisobot' | 'sozlama' | 'ai' | 'aimodel';
 
 export default function YanaEkrani({ kochirma }: { kochirma: () => void }) {
   const { C } = useTema();
@@ -50,6 +51,7 @@ export default function YanaEkrani({ kochirma }: { kochirma: () => void }) {
       hisobot: 'Hisobot',
       sozlama: 'Sozlamalar',
       ai: 'AI ulanish',
+      aimodel: 'AI modeli',
     };
     return (
       <View style={s.ekran}>
@@ -64,6 +66,7 @@ export default function YanaEkrani({ kochirma }: { kochirma: () => void }) {
         {sahifa === 'hisobot' && <Hisobot />}
         {sahifa === 'sozlama' && <Sozlama />}
         {sahifa === 'ai' && <AiUlanish />}
+        {sahifa === 'aimodel' && <AiModel />}
       </View>
     );
   }
@@ -94,6 +97,12 @@ export default function YanaEkrani({ kochirma }: { kochirma: () => void }) {
         <Qator nom="Hisobot" izoh="Davr, turkum va hisob kesimida" ong="›" bos={() => setSahifa('hisobot')} />
 
         <Sarlavha matn="AI" />
+        <Qator
+          nom="AI modeli"
+          izoh="O‘z obunangizni ulang: Claude, ChatGPT yoki Gemini"
+          ong="›"
+          bos={() => setSahifa('aimodel')}
+        />
         <Qator
           nom="AI ulanish"
           izoh="Sun’iy intellekt agentini daftaringizga ulash"

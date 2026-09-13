@@ -406,3 +406,82 @@ export async function tokenYop(id: string): Promise<void> {
   const { error } = await supabase.from('kassa_tokenlar').update({ faol: false }).eq('id', id);
   if (error) throw error;
 }
+
+// ---------------------------------------------------------------
+//  MIJOZNING O'Z AI KALITI (BYOK)
+//
+//  Kalit bazada SHIFRLANGAN holda yotadi va uni hech kim —
+//  egasi ham — qayta o'qiy olmaydi. Ilova faqat provayder nomi,
+//  model va niqobni ko'radi ("sk-ant-…a1b2").
+// ---------------------------------------------------------------
+export type AiProvayder = 'anthropic' | 'openai' | 'google';
+
+export type AiKalit = {
+  provayder: AiProvayder;
+  model: string;
+  niqob: string;
+  faol: boolean;
+  oxirgi_sinov: string | null;
+  oxirgi_xato: string | null;
+};
+
+export async function aiKalitOl(): Promise<AiKalit | null> {
+  const { data, error } = await supabase.rpc('kassa_ai_kalit_ol');
+  if (error) throw error;
+  return (data as AiKalit) ?? null;
+}
+
+export async function aiKalitSaqla(
+  provayder: AiProvayder,
+  model: string,
+  kalit: string,
+): Promise<void> {
+  const { error } = await supabase.rpc('kassa_ai_kalit_saqla', {
+    p_provayder: provayder,
+    p_model: model,
+    p_kalit: kalit,
+  });
+  if (error) throw error;
+}
+
+export async function aiKalitOchir(): Promise<void> {
+  const { error } = await supabase.rpc('kassa_ai_kalit_ochir');
+  if (error) throw error;
+}
+
+/** Kalit haqiqatan ishlayaptimi — modelga bitta qisqa so'rov yuboradi */
+export async function aiSina(): Promise<string> {
+  const { data, error } = await supabase.functions.invoke('kassa-ai', {
+    body: { amal: 'sina' },
+  });
+  if (error) {
+    let sabab = error.message;
+    try {
+      const javob = await (error as { context?: Response }).context?.json();
+      if (javob?.error) sabab = javob.error;
+    } catch {
+      /* javob JSON emas */
+    }
+    throw new Error(sabab);
+  }
+  const j = data as { ok?: boolean; javob?: string; error?: string };
+  if (!j?.ok) throw new Error(j?.error ?? 'Javob kelmadi');
+  return j.javob ?? '';
+}
+
+/** Tenantning AI sarfi: so'rov soni va (Claude bo'lsa) dollar */
+export async function aiHolat(): Promise<{
+  kunlik_chegara: number;
+  bugun_soralgan: number;
+  oy_soralgan: number;
+  oy_narx_usd: number;
+}> {
+  const { data, error } = await supabase.rpc('kassa_ai_holat');
+  if (error) throw error;
+  return data as {
+    kunlik_chegara: number;
+    bugun_soralgan: number;
+    oy_soralgan: number;
+    oy_narx_usd: number;
+  };
+}
