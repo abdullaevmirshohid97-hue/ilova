@@ -91,6 +91,18 @@ case "$sahifa" in
     ;;
 esac
 
+# Play uchun majburiy ikki sahifa. Ular yo'q bo'lsa ilova do'konda
+# rad etiladi va sabab faqat Play Console'da ko'rinadi.
+for sahifa in maxfiylik hisob-ochirish; do
+  kod=$(curl -s -o /dev/null -w '%{http_code}' --max-time 15 "$CD/$sahifa.html")
+  if [ "$kod" = "200" ]; then
+    echo "  ✓ $CD/$sahifa.html"
+  else
+    echo "  x $CD/$sahifa.html — HTTP $kod (Play buni talab qiladi)"
+    ORTDA=1
+  fi
+done
+
 apk=$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 "$CD/credit-debit.apk")
 if [ "$apk" = "200" ]; then
   echo "  ✓ $CD/credit-debit.apk — yuklab olish ishlayapti"

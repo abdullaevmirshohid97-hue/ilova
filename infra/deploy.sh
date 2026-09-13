@@ -198,6 +198,12 @@ else
   KASSA_XATO=1
 fi
 
+# Huquqiy sahifalar — Google Play ULARSIZ ilovani qabul qilmaydi:
+# maxfiylik siyosati va hisobni o'chirish yo'li VEB manzilda ham
+# bo'lishi shart (ilova ichidagisi yetarli emas). Ular oddiy statik
+# HTML, ya'ni /kassa SPA'sidan mustaqil ochiladi.
+cp apps/kassa/ommaviy/*.html "$LANDING_WWW/"
+
 echo ""
 echo "✅ Statik fayllar joylashtirildi:"
 echo "   $ADMIN_WWW/dist        (admin.yukchibolla.com, 4020.yukchibolla.com)"

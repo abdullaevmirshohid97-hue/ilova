@@ -20,6 +20,7 @@ import { davrYigindi, formatla, hisobQoldiq, ifodaHisobla, tiyinga } from '@ilov
 import type { Hisob, Turkum } from '@ilova/kassa-yadro';
 import {
   biznesNomiQoy,
+  hisobniOchir,
   hisobQosh,
   hisobTahrirla,
   turkumQosh,
@@ -606,6 +607,61 @@ function Sozlama() {
     }
   }
 
+  /**
+   * Hisobni o'chirish — IKKI QADAM.
+   *
+   * Bitta "ishonchingiz komilmi" yetarli emas: odam odatlanib,
+   * o'qimasdan bosadi. Ikkinchi oynada nima yo'qolishi ro'yxat
+   * bilan yoziladi va tugma matni ham boshqacha.
+   */
+  function ochirishniBoshla() {
+    Alert.alert(
+      'Hisobni o‘chirish',
+      `«${men.biznes}» va undagi hamma narsa o‘chadi:\n\n` +
+        '· hisoblar va ularning qoldig‘i\n' +
+        '· hamma kirim va chiqim yozuvlari\n' +
+        '· kontaktlar va qarz tarixi\n' +
+        '· kirish hisobingiz\n\n' +
+        'Qaytarib bo‘lmaydi. Avval hisobotni Excel’ga chiqarib olishni maslahat beramiz.',
+      [
+        { text: 'Bekor qilish', style: 'cancel' },
+        { text: 'Davom etish', style: 'destructive', onPress: ochirishniTasdiqla },
+      ],
+    );
+  }
+
+  function ochirishniTasdiqla() {
+    Alert.alert(
+      'Oxirgi tasdiq',
+      'Ma’lumot butunlay yo‘q qilinadi. Davom etasizmi?',
+      [
+        { text: 'Yo‘q', style: 'cancel' },
+        {
+          text: 'Ha, o‘chirilsin',
+          style: 'destructive',
+          onPress: async () => {
+            setKutmoqda(true);
+            try {
+              const natija = await hisobniOchir();
+              // Sessiyani ham tozalaymiz: auth hisobi allaqachon yo'q,
+              // lekin qurilmadagi token qolib, ilova "xato" ekranida
+              // osilib turardi.
+              await supabase.auth.signOut();
+              Alert.alert(
+                'O‘chirildi',
+                `${natija.tashkilot ?? 'Hisob'} va ${natija.yozuvlar} ta yozuv o‘chirildi.`,
+              );
+            } catch (e) {
+              Alert.alert('O‘chirilmadi', xatoMatn(e));
+            } finally {
+              setKutmoqda(false);
+            }
+          },
+        },
+      ],
+    );
+  }
+
   return (
     <ScrollView style={{ flex: 1 }}>
       <Sarlavha matn="Biznes" />
@@ -661,10 +717,19 @@ function Sozlama() {
         }
       />
 
-      <View style={{ padding: O.chekka, paddingTop: 24 }}>
+      <Sarlavha matn="Xavfli zona" />
+      <Qator
+        nom="Hisobni o‘chirish"
+        izoh="Tashkilot, hisoblar, yozuvlar va kontaktlar — hammasi"
+        ongRang={C.chiqim}
+        ong="›"
+        bos={ochirishniBoshla}
+      />
+
+      <View style={{ padding: O.chekka, paddingTop: 20 }}>
         <Text style={{ color: C.xira, fontSize: 11, lineHeight: 17 }}>
-          Ma'lumotlaringiz bulutda saqlanadi va faqat sizga ko‘rinadi. Hisobni o‘chirish
-          imkoniyati keyingi yangilanishda qo‘shiladi.
+          Ma'lumotlaringiz bulutda saqlanadi va faqat sizga ko‘rinadi. Hisobni
+          o‘chirsangiz, ular butunlay yo‘q qilinadi va qaytarib bo‘lmaydi.
         </Text>
       </View>
     </ScrollView>

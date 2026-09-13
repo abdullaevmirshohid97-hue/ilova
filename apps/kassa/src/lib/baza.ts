@@ -270,3 +270,33 @@ export async function biznesNomiQoy(nom: string): Promise<string> {
   if (error) throw error;
   return data as string;
 }
+
+/**
+ * Hisobni BUTUNLAY o'chirish — Google Play talabi.
+ *
+ * Qaytarib bo'lmaydi: tashkilot, hisoblar, yozuvlar, kontaktlar va
+ * kirish hisobi yo'q qilinadi. Shuning uchun chekka funksiya
+ * `tasdiq` matnini talab qiladi va faqat yakka Credit Debit
+ * tenantida ishlaydi (`tests/kassa-ochirish.mjs` chegaralarni
+ * bosib ko'radi).
+ */
+export async function hisobniOchir(): Promise<{ tashkilot: string | null; yozuvlar: number }> {
+  const { data, error } = await supabase.functions.invoke('kassa-hisob-ochir', {
+    body: { tasdiq: 'OCHIRISH' },
+  });
+  if (error) {
+    // `functions.invoke` xato matnini yutadi — javob tanasini ochamiz,
+    // aks holda odam "noma'lum xatolik" dan boshqa hech narsa ko'rmaydi.
+    let sabab = error.message;
+    try {
+      const javob = await (error as { context?: Response }).context?.json();
+      if (javob?.error) sabab = javob.error;
+    } catch {
+      /* javob JSON emas */
+    }
+    throw new Error(sabab);
+  }
+  const j = data as { ok?: boolean; error?: string; ochirildi?: { tashkilot: string | null; yozuvlar: number } };
+  if (!j?.ok) throw new Error(j?.error ?? 'O‘chirilmadi');
+  return j.ochirildi ?? { tashkilot: null, yozuvlar: 0 };
+}

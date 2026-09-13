@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Credit Debit — maxfiylik siyosati</title>
+<meta name="description" content="Credit Debit qanday ma'lumot yig'adi, qayerda saqlaydi va qanday o‘chiradi.">
+<style>
+  :root {
+    --fon: #f4f6f8; --karta: #fff; --chegara: #e4e9ef;
+    --matn: #16202e; --matn2: #46556a; --xira: #8a97a8;
+    --kirim: #3e8e68; --chiqim: #b9615a;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --fon: #0f1720; --karta: #16202e; --chegara: #24323f;
+      --matn: #ecf1f6; --matn2: #b3c0ce; --xira: #7c8ca1;
+      --kirim: #5cac85; --chiqim: #d08078;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--fon); color: var(--matn);
+    font: 16px/1.6 -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  .sarlavha { background: #16202e; color: #f2f4f7; padding: 28px 20px; }
+  .ichki { max-width: 680px; margin: 0 auto; padding: 0 20px; }
+  .belgi { font-size: 30px; letter-spacing: -6px; }
+  .belgi span:first-child { color: #5cac85; }
+  .belgi span:last-child { color: #d08078; }
+  h1 { font-size: 22px; margin: 10px 0 4px; }
+  .past { color: #8a97a8; font-size: 14px; margin: 0; }
+  .karta {
+    background: var(--karta); border: 1px solid var(--chegara);
+    border-radius: 14px; padding: 20px; margin: 18px 0;
+  }
+  h2 { font-size: 17px; margin: 0 0 10px; }
+  ul { margin: 0; padding-left: 20px; }
+  li { margin: 6px 0; }
+  table { width: 100%; border-collapse: collapse; font-size: 15px; }
+  td { padding: 8px 0; border-bottom: 1px solid var(--chegara); vertical-align: top; }
+  td:first-child { color: var(--matn2); width: 45%; padding-right: 12px; }
+  a { color: var(--kirim); }
+  footer { color: var(--xira); font-size: 13px; text-align: center; padding: 30px 20px; }
+</style>
+</head>
+<body>
+
+<div class="sarlavha">
+  <div class="ichki">
+    <div class="belgi"><span>↑</span><span>↓</span></div>
+    <h1>Maxfiylik siyosati</h1>
+    <p class="past">Credit Debit · oxirgi yangilanish: 13.09.2026</p>
+  </div>
+</div>
+
+<div class="ichki">
+
+  <div class="karta">
+    <h2>Qisqacha</h2>
+    <p style="margin:0;color:var(--matn2)">
+      Credit Debit — shaxsiy va kichik biznes uchun hisob-kitob daftari.
+      Biz yozuvlaringizni <b>hech kimga sotmaymiz, reklama uchun
+      ishlatmaymiz va boshqa foydalanuvchilarga ko‘rsatmaymiz</b>.
+      Ma’lumot faqat sizniki — uni istalgan vaqtda butunlay o‘chira olasiz.
+    </p>
+  </div>
+
+  <div class="karta">
+    <h2>Qanday ma’lumot yig‘iladi</h2>
+    <table>
+      <tr><td>Email va parol</td><td>Kirish uchun. Parol shifrlangan holda saqlanadi, biz uni ko‘ra olmaymiz.</td></tr>
+      <tr><td>Ism (ixtiyoriy)</td><td>Ilovada murojaat qilish uchun.</td></tr>
+      <tr><td>Biznes nomi</td><td>Hisobotlarda ko‘rsatish uchun.</td></tr>
+      <tr><td>Moliyaviy yozuvlar</td><td>Siz kiritgan kirim, chiqim, hisoblar, turkumlar, kontaktlar va qarz tarixi.</td></tr>
+      <tr><td>Texnik jurnal</td><td>So‘rov vaqti va xato xabarlari — nosozlikni topish uchun, 30 kungacha.</td></tr>
+    </table>
+    <p style="margin:14px 0 0;color:var(--matn2)">
+      Ilova <b>joylashuvni, kontaktlar ro‘yxatini, kamerani, mikrofonni va
+      SMS’ni o‘qimaydi</b>. Reklama tarmoqlari va kuzatuv (tracking)
+      vositalari ulanmagan.
+    </p>
+  </div>
+
+  <div class="karta">
+    <h2>Qayerda saqlanadi</h2>
+    <p style="margin:0;color:var(--matn2)">
+      Ma’lumot <b>Supabase</b> (PostgreSQL) bulut xizmatida, shifrlangan
+      ulanish (HTTPS) orqali saqlanadi. Har foydalanuvchining ma’lumoti
+      baza darajasidagi qoidalar (Row Level Security) bilan ajratilgan:
+      bir foydalanuvchi ikkinchisining yozuvini texnik jihatdan ham
+      o‘qiy olmaydi.
+    </p>
+  </div>
+
+  <div class="karta">
+    <h2>Kim ko‘radi</h2>
+    <ul>
+      <li><b>Siz</b> — o‘z hisobingizdagi hamma narsani.</li>
+      <li><b>Biz</b> — texnik nosozlikni tuzatish uchun, faqat zarur bo‘lganda va faqat so‘rovingiz bo‘yicha.</li>
+      <li><b>Uchinchi tomon</b> — yo‘q. Ma’lumot sotilmaydi va uzatilmaydi.</li>
+    </ul>
+  </div>
+
+  <div class="karta">
+    <h2>Qancha saqlanadi va qanday o‘chiriladi</h2>
+    <p style="margin:0 0 10px;color:var(--matn2)">
+      Ma’lumot siz o‘chirmaguningizcha saqlanadi. Hisobni o‘chirsangiz,
+      u <b>o‘sha zahoti butunlay</b> yo‘q qilinadi — zaxira nusxa ham
+      qolmaydi.
+    </p>
+    <p style="margin:0">
+      <a href="/hisob-ochirish.html">Hisobni o‘chirish tartibi →</a>
+    </p>
+  </div>
+
+  <div class="karta">
+    <h2>Bolalar</h2>
+    <p style="margin:0;color:var(--matn2)">
+      Ilova 13 yoshgacha bo‘lgan bolalarga mo‘ljallanmagan va ulardan
+      ataylab ma’lumot yig‘maydi.
+    </p>
+  </div>
+
+  <div class="karta">
+    <h2>O‘zgarishlar va aloqa</h2>
+    <p style="margin:0 0 10px;color:var(--matn2)">
+      Siyosat o‘zgarsa, shu sahifada sana yangilanadi va muhim
+      o‘zgarish bo‘lsa ilovada xabar beriladi.
+    </p>
+    <ul>
+      <li>Email: <a href="mailto:yordam@yukchibolla.com">yordam@yukchibolla.com</a></li>
+      <li>Telegram: <a href="https://t.me/yukchibolla">@yukchibolla</a></li>
+    </ul>
+  </div>
+
+</div>
+
+<footer>
+  Yukchibolla · <a href="/hisob-ochirish.html">Hisobni o‘chirish</a>
+</footer>
+
+</body>
+</html>

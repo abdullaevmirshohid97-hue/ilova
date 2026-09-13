@@ -131,9 +131,9 @@ haqiqiy ekrandan olish kerak — soxta rasm qo'yish taqiqlangan.
 | Ekran rasmlari (2+) | ⏳ ilovadan olinadi |
 | Qisqa tavsif (80 belgi) | pastda |
 | To'liq tavsif (4000 belgi) | pastda |
-| Maxfiylik siyosati (URL) | ⏳ `app.yukchibolla.com/maxfiylik` yaratilishi kerak |
-| **Hisobni o'chirish** (ilova ichida + veb havola) | ⏳ qilinmagan — Play buni TEKSHIRADI |
-| Data safety anketasi | ⏳ to'ldirilishi kerak |
+| Maxfiylik siyosati (URL) | ✅ app.yukchibolla.com/maxfiylik.html |
+| **Hisobni o‘chirish** (ilova ichida + veb havola) | ✅ ilovada: Yana → Sozlamalar; vebda: /hisob-ochirish.html |
+| Data safety anketasi | ⏳ Play Console'da |
 | Target SDK | EAS o'zi eng yangisini qo'yadi |
 
 ### Qisqa tavsif (80 belgi)
@@ -160,32 +160,51 @@ Ilova Yukchibolla platformasining bir qismi.
 
 ---
 
-## 6. Hali qilinmagan, lekin Play uchun SHART
+## 6. Holat: nima bajarildi, nima qoldi
 
-1. **Hisobni o'chirish.** Ilova ichida «Hisobni o'chirish» tugmasi va
-   `app.yukchibolla.com/hisob-ochirish` sahifasi kerak. Buni chekka
-   funksiya qiladi: `auth.users` dan foydalanuvchini va uning
-   tashkilotini o'chiradi (`organizations` kaskad bilan `kassa_*` ni
-   ham olib ketadi).
+### Bajarildi
 
-   **TARTIB MUHIM** (sinovda ushlandi): `profiles.org_id` ning FK'sida
-   kaskad YO'Q, ya'ni profil turgan tashkilotni o'chirib bo'lmaydi —
-   so'rov jimgina yiqiladi va tashkilot yetim bo'lib qoladi. To'g'ri
-   ketma-ketlik:
+- **Hisobni o‘chirish.** Ilovada: Yana → Sozlamalar → «Hisobni o‘chirish»
+  (ikki qadamli tasdiq). Vebda: `app.yukchibolla.com/hisob-ochirish.html`.
+  Ichida `kassa-hisob-ochir` chekka funksiyasi ishlaydi.
 
-   ```sql
-   delete from auth.users where id = <uid>;   -- profiles kaskad bilan ketadi
-   delete from public.uzvliklar where org_id = <org>;
-   delete from public.organizations where id = <org>;  -- kassa_* kaskad
-   ```
-2. **Maxfiylik siyosati sahifasi.** Qaysi ma'lumot yig'iladi (email,
-   yozuvlar), qayerda saqlanadi (Supabase), kim ko'radi (faqat
-   foydalanuvchining o'zi), qanday o'chiriladi.
-3. **Email tasdiqlash yo'li.** Hozir Supabase'ning o'z pochtasi ishlaydi
-   va u soatiga ~2 ta xat bilan cheklangan — ya'ni ommaviy ro'yxatdan
-   o'tish uchun YETMAYDI. Ikki yo'l bor:
-   - SMTP ulash (Resend/SendGrid) — to'g'ri yo'l;
-   - yoki tasdiqlashni o'chirish (`mailer_autoconfirm = true`) — tez,
+  **TARTIB MUHIM** (sinovda ushlangan): `profiles.org_id` FK'sida kaskad
+  YO‘Q — profil turgan tashkilotni o‘chirib bo‘lmaydi, so‘rov jimgina
+  yiqiladi va tashkilot yetim qoladi. To‘g‘ri ketma-ketlik:
+
+  ```sql
+  delete from auth.users where id = <uid>;   -- profiles kaskad bilan ketadi
+  delete from public.uzvliklar where org_id = <org>;
+  delete from public.organizations where id = <org>;  -- kassa_* kaskad
+  ```
+
+  Chegaralar `tests/kassa-ochirish.mjs` da bosib ko‘riladi: tasdiqsiz
+  o‘chirmaydi, begona id yuborib bo‘lmaydi, b2b/dorixona tenanti
+  o‘chirilmaydi, tashkilotda ikkinchi odam bo‘lsa rad etiladi.
+
+- **Maxfiylik siyosati.** `apps/kassa/ommaviy/maxfiylik.html` →
+  `app.yukchibolla.com/maxfiylik.html`. Deploy uni avtomatik ko‘chiradi,
+  `infra/tekshir.sh` esa ikkala sahifa ochilishini tekshiradi.
+
+### Qoldi
+
+1. **Ekran rasmlari** — Play kamida 2 ta so‘raydi, haqiqiy ilovadan
+   olinadi (soxta rasm taqiqlangan).
+
+2. **Email tasdiqlash yo‘li.** Hozir Supabase’ning o‘z pochtasi ishlaydi
+   va u soatiga ~2 ta xat bilan cheklangan — ommaviy ro‘yxatdan o‘tish
+   uchun YETMAYDI. Ikki yo‘l:
+   - SMTP ulash (Resend/SendGrid) — to‘g‘ri yo‘l;
+   - yoki tasdiqlashni o‘chirish (`mailer_autoconfirm = true`) — tez,
      lekin email tekshirilmaydi.
 
    Bu **jonli sozlama**, shuning uchun qaror egasi — siz.
+
+3. **Aloqa ma'lumotlarini tekshiring.** Huquqiy sahifalarda hozir
+   `yordam@yukchibolla.com` va `t.me/yukchibolla` yozilgan — ular
+   TAXMIN qilib qo‘yilgan. Play ko‘rib chiquvchisi shu manzilga yozishi
+   mumkin, shuning uchun ular haqiqatan ishlashini tekshiring yoki
+   o‘z manzilingizga almashtiring (`apps/kassa/ommaviy/*.html`).
+
+4. **Data safety anketasi** — Play Console’da to‘ldiriladi. Javoblar
+   maxfiylik sahifasidagi jadvalga mos bo‘lsin.
