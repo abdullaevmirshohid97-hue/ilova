@@ -1,0 +1,11 @@
+{
+  "name": "@ilova/kassa-yadro",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Credit Debit (kassa) yadrosi: pul, raqam tahlili, qoldiq — mobil/web/sinov birga ishlatadi",
+  "main": "index.ts",
+  "types": "index.ts",
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  }
+}

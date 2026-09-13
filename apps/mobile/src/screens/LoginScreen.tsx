@@ -123,6 +123,38 @@ export default function LoginScreen() {
             <Text style={styles.apkBtnText}>📱 {t('downloadApk')}</Text>
           </TouchableOpacity>
         )}
+
+        {/* Credit Debit — ALOHIDA ilova, alohida hisob bilan ishlaydi.
+            Bu yerdagi login unga to'g'ri kelmaydi (u yerda odam o'zi
+            ro'yxatdan o'tadi), shuning uchun ajratgich va o'z bloki
+            bilan turadi — aks holda mijoz ikkovini chalkashtiradi. */}
+        {Platform.OS === 'web' && (
+          <View style={styles.cdBlok}>
+            <View style={styles.cdChiziq} />
+            <Text style={styles.cdSarlavha}>Credit Debit</Text>
+            <Text style={styles.cdIzoh}>
+              Hisob-kitob daftari: kirim-chiqim, hisoblar, qarz. Alohida ilova.
+            </Text>
+            <View style={styles.cdTugmalar}>
+              <TouchableOpacity
+                style={styles.cdTugmaAsosiy}
+                onPress={() => {
+                  window.location.href = '/credit-debit.apk';
+                }}
+              >
+                <Text style={styles.cdTugmaAsosiyMatn}>⬇  APK yuklab olish</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.cdTugma}
+                onPress={() => {
+                  window.location.href = '/kassa/';
+                }}
+              >
+                <Text style={styles.cdTugmaMatn}>Brauzerda ochish</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
       </View>
 
       {showForgot && <ForgotPasswordModal onClose={() => setShowForgot(false)} />}
@@ -238,4 +270,31 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
   },
+
+  // --- Credit Debit bloki ---
+  // Ranglar shu ilovaning o'ziniki (to'q ko'k + bosiq yashil), b2b
+  // panelining binafshasi emas: ikki mahsulot ko'zga ham ikki xil
+  // ko'rinsin.
+  cdBlok: { marginTop: 26 },
+  cdChiziq: { height: 1, backgroundColor: '#E9EAF2', marginBottom: 18 },
+  cdSarlavha: { color: '#16202E', fontSize: 15, fontWeight: '800', textAlign: 'center', letterSpacing: 0.5 },
+  cdIzoh: { color: '#8E92A3', fontSize: 12, textAlign: 'center', marginTop: 6, lineHeight: 17 },
+  cdTugmalar: { flexDirection: 'row', gap: 8, marginTop: 14 },
+  cdTugmaAsosiy: {
+    flex: 1,
+    backgroundColor: '#16202E',
+    borderRadius: 10,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  cdTugmaAsosiyMatn: { color: '#FFFFFF', fontSize: 13, fontWeight: '700' },
+  cdTugma: {
+    flex: 1,
+    borderWidth: 1.5,
+    borderColor: '#16202E',
+    borderRadius: 10,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  cdTugmaMatn: { color: '#16202E', fontSize: 13, fontWeight: '700' },
 });

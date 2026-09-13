@@ -20,7 +20,8 @@ export type YonalishKalit =
   | 'ishlab_chiqarish'
   | 'b2b'
   | 'marketplace'
-  | 'qarzdorlik';
+  | 'qarzdorlik'
+  | 'kassa';
 
 export type TenantModul = { to: string; icon: string; label: string };
 
@@ -101,6 +102,20 @@ export const TENANT_YONALISHLAR: TenantYonalish[] = [
     // kiradi. Shuning uchun paneldagi "Agentlar" ekrani botning
     // eshigi: usiz hech kim botdan foydalana olmaydi.
     modullar: QARZ_MODULLAR,
+  },
+  {
+    key: 'kassa',
+    belgi: '💰',
+    // Mahsulot nomi — "Credit Debit". Bazadagi kalit `kassa` bo'lib
+    // qoladi (jadvallar ham `kassa_*`): ko'rinadigan nom marketingga
+    // qarab o'zgaradi, kalit esa migratsiya talab qiladi.
+    nom: 'CREDIT DEBIT',
+    izoh: 'hisob-kitob daftari: kirim-chiqim, hisoblar, qarz — internetsiz ham',
+    // Bu yo'nalishning asosiy ekrani — MOBIL ilova (Play Market va
+    // app.yukchibolla.com). Tenant panelida hozircha sahifa yo'q,
+    // shuning uchun ro'yxat bo'sh: kartochka "TEZ ORADA" bo'lib turadi.
+    // Hisobot va sozlama ekranlari qo'shilganda shu yerga yoziladi.
+    modullar: [],
   },
   { key: 'sklad', belgi: '📦', nom: 'SKLAD', izoh: 'ombor va qoldiq boshqaruvi', modullar: [] },
   {

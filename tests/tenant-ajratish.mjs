@@ -138,6 +138,13 @@ const JADVALLAR = [
       'select s.org_id from pos_qatorlar q join pos_sotuvlar s on s.id = q.sotuv_id where q.id = t.id',
   },
   { nom: 'maosh_amallari', pk: 'id', egasi: 'select org_id from maosh_amallari where id = t.id' },
+  // Credit Debit (kassa) yo'nalishi — jadvallar qo'shilgan kunning
+  // o'zida ro'yxatga tushdi. Bu yerda pul turibdi: qaysi hisobda
+  // qancha borligi mijoz ro'yxatidan kam maxfiy emas.
+  { nom: 'kassa_hisoblar', pk: 'id', egasi: 'select org_id from kassa_hisoblar where id = t.id' },
+  { nom: 'kassa_turkumlar', pk: 'id', egasi: 'select org_id from kassa_turkumlar where id = t.id' },
+  { nom: 'kassa_klientlar', pk: 'id', egasi: 'select org_id from kassa_klientlar where id = t.id' },
+  { nom: 'kassa_yozuvlar', pk: 'id', egasi: 'select org_id from kassa_yozuvlar where id = t.id' },
 ];
 
 console.log('\n\x1b[1mTENANT AJRATILISHI\x1b[0m');
@@ -304,6 +311,92 @@ if (ozga[0]?.id) {
     body: JSON.stringify({ p_client_id: qClientId }),
   });
   tekshir('begona klient sverkasi ochilmaydi', qSverka.status >= 400, 'HTTP ' + qSverka.status);
+
+  // ---- Credit Debit: begona tenantning hisobi va yozuvi ----
+  // Yangi jadvalda "0 qator" hech narsani isbotlamaydi, shuning uchun
+  // begona tenantga haqiqiy hisob va yozuv qo'yiladi.
+  const kHisob = await sql(`
+    insert into kassa_hisoblar (org_id, nom, turi, valyuta, boshlangich)
+    values ('${ozgaOrg}', '${belgi}', 'naqd', 'UZS', 500)
+    returning id
+  `);
+  const kHisobId = kHisob[0].id;
+  const kTurkum = await sql(`
+    insert into kassa_turkumlar (org_id, nom, turi)
+    values ('${ozgaOrg}', '${belgi}', 'chiqim')
+    returning id
+  `);
+  const kTurkumId = kTurkum[0].id;
+  const kKlient = await sql(`
+    insert into kassa_klientlar (org_id, ism, turi)
+    values ('${ozgaOrg}', '${belgi}', 'mijoz')
+    returning id
+  `);
+  const kKlientId = kKlient[0].id;
+  await sql(`
+    insert into kassa_yozuvlar (org_id, hisob_id, turkum_id, klient_id, turi, summa, izoh)
+    values ('${ozgaOrg}', '${kHisobId}', '${kTurkumId}', '${kKlientId}', 'chiqim', 1000, '${belgi}')
+  `);
+
+  for (const [jadval, pk] of [
+    ['kassa_hisoblar', 'id'],
+    ['kassa_turkumlar', 'id'],
+    ['kassa_klientlar', 'id'],
+    ['kassa_yozuvlar', 'id'],
+  ]) {
+    const r = await fetch(`${URL}/rest/v1/${jadval}?select=${pk}&limit=100`, {
+      headers: { apikey: K.anon_key, Authorization: 'Bearer ' + token },
+    });
+    const rows = await r.json();
+    const soni = Array.isArray(rows) ? rows.length : -1;
+    tekshir(
+      `${jadval}: begona tenant yozuvi ko‘rinmaydi`,
+      soni === 0,
+      soni === 0 ? 'ko‘rinmadi' : `${soni} qator KO‘RINDI`,
+    );
+  }
+
+  // Qoldiq funksiyalari SECURITY DEFINER emas — ya'ni RLS ular orqali
+  // ham ishlashi kerak. Begona hisobning qoldig'i chiqsa, pul summasi
+  // jadval yopiq bo'lsa ham sizib chiqqan bo'lardi.
+  const kQoldiq = await fetch(`${URL}/rest/v1/rpc/kassa_hisob_qoldiq`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', apikey: K.anon_key, Authorization: 'Bearer ' + token },
+    body: JSON.stringify({ p_hisob_id: kHisobId }),
+  });
+  const kQoldiqJavob = await kQoldiq.text();
+  tekshir(
+    'begona hisob qoldig‘i ko‘rinmaydi',
+    kQoldiq.status >= 400 || kQoldiqJavob.trim() === 'null' || kQoldiqJavob.trim() === '',
+    'HTTP ' + kQoldiq.status + ' → ' + kQoldiqJavob.slice(0, 40),
+  );
+
+  const kBarcha = await fetch(`${URL}/rest/v1/rpc/kassa_qoldiqlar`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', apikey: K.anon_key, Authorization: 'Bearer ' + token },
+    body: JSON.stringify({}),
+  });
+  const kBarchaRows = await kBarcha.json().catch(() => null);
+  const begonaChiqdi =
+    Array.isArray(kBarchaRows) && kBarchaRows.some((x) => x.hisob_id === kHisobId);
+  tekshir(
+    'kassa_qoldiqlar begona hisobni qaytarmaydi',
+    !begonaChiqdi,
+    Array.isArray(kBarchaRows) ? `${kBarchaRows.length} hisob` : 'ro‘yxat kelmadi',
+  );
+
+  // Begona hisobga yozuv yozib ko'ramiz: RLS `with check` ni sinaymiz
+  const kYoz = await fetch(`${URL}/rest/v1/kassa_yozuvlar`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', apikey: K.anon_key, Authorization: 'Bearer ' + token },
+    body: JSON.stringify({ org_id: ozgaOrg, hisob_id: kHisobId, turi: 'kirim', summa: 100 }),
+  });
+  tekshir('begona hisobga yozuv yozib bo‘lmaydi', kYoz.status >= 400, 'HTTP ' + kYoz.status);
+
+  await sql(`delete from kassa_yozuvlar where hisob_id = '${kHisobId}'`);
+  await sql(`delete from kassa_klientlar where id = '${kKlientId}'`);
+  await sql(`delete from kassa_turkumlar where id = '${kTurkumId}'`);
+  await sql(`delete from kassa_hisoblar where id = '${kHisobId}'`);
 
   await sql(`delete from qarz_audit where sabab = '${belgi}'`);
   await sql(`delete from qarz_transactions where client_id = '${qClientId}'`);

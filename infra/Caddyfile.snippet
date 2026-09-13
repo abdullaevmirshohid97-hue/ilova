@@ -41,17 +41,32 @@ app.yukchibolla.com {
 	root * /var/www/ilova-app-landing
 	encode zstd gzip
 
-	@assets path /_expo/* /assets/*
+	@assets path /_expo/* /assets/* /kassa/_expo/*
 	header @assets Cache-Control "public, max-age=31536000, immutable"
 
-	@html path /index.html /
+	@html path /index.html / /kassa/ /kassa/index.html
 	header @html Cache-Control "no-cache, must-revalidate"
 
-	# APK to'g'ridan-to'g'ri yuklab olinsin (SPA fallback'ga tushmasin)
+	# APK to'g'ridan-to'g'ri yuklab olinsin (SPA fallback'ga tushmasin).
+	# Ikkita ilova, ikkita fayl: b2b mijoz ilovasi va Credit Debit.
 	@apk path /yukchibolla.apk
 	header @apk Content-Disposition "attachment; filename=yukchibolla.apk"
 
+	@apkcd path /credit-debit.apk
+	header @apkcd Content-Disposition "attachment; filename=credit-debit.apk"
+
+	# --- Credit Debit (alohida ilova) ---
+	# O'z SPA fallback'i bo'lishi SHART: umumiy `try_files ... /index.html`
+	# ishlatilsa, /kassa/ ichidagi sahifa b2b ilovasining index.html ini
+	# olib, Credit Debit o'rniga katalog ochilardi.
+	handle /kassa/* {
+		try_files {path} /kassa/index.html
+		file_server
+	}
+
 	# Expo web ham SPA — ichki sahifa yangilanganda 404 bo'lmasligi uchun
-	try_files {path} /index.html
-	file_server
+	handle {
+		try_files {path} /index.html
+		file_server
+	}
 }

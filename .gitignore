@@ -18,3 +18,10 @@ supabase/.branches/
 # OS
 .DS_Store
 Thumbs.db
+
+# APK imzo kaliti va parollari — hech qachon git`ga tushmasin
+credentials.json
+*.jks
+*.keystore
+*.apk
+*.aab

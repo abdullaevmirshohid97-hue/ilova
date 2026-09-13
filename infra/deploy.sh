@@ -154,10 +154,15 @@ EXPO_PUBLIC_SUPABASE_URL=$SUPABASE_URL
 EXPO_PUBLIC_SUPABASE_ANON_KEY=$SUPABASE_PUBLISHABLE_KEY
 ENVEOF
 
-echo "apps/admin/.env va apps/mobile/.env yozildi -> $SUPABASE_URL"
+cat > apps/kassa/.env <<ENVEOF
+EXPO_PUBLIC_SUPABASE_URL=$SUPABASE_URL
+EXPO_PUBLIC_SUPABASE_ANON_KEY=$SUPABASE_PUBLISHABLE_KEY
+ENVEOF
+
+echo "apps/admin/.env, apps/mobile/.env va apps/kassa/.env yozildi -> $SUPABASE_URL"
 
 corepack enable
-pnpm install --filter "@ilova/admin..." --filter "@ilova/mobile..." --frozen-lockfile
+pnpm install --filter "@ilova/admin..." --filter "@ilova/mobile..." --filter "@ilova/kassa..." --frozen-lockfile
 
 pnpm --filter @ilova/admin build
 mkdir -p "$ADMIN_WWW"
@@ -174,14 +179,30 @@ mkdir -p "$LANDING_WWW"
 rm -rf "${LANDING_WWW:?}/_expo"
 cp -r apps/mobile/dist/. "$LANDING_WWW/"
 
+# --- Credit Debit (apps/kassa) — alohida ilova, alohida yo'l ---
+# U app.yukchibolla.com/kassa/ ostida turadi. Bundle yo'llari
+# app.json dagi experiments.baseUrl = "/kassa" bilan mos keladi —
+# ikkalasi ajralib qolsa sahifa OQ ochiladi va konsolda 404 chiqadi.
+pnpm --filter @ilova/kassa build:web
+rm -rf "${LANDING_WWW:?}/kassa"
+mkdir -p "$LANDING_WWW/kassa"
+cp -r apps/kassa/dist/. "$LANDING_WWW/kassa/"
+
 echo ""
 echo "✅ Statik fayllar joylashtirildi:"
 echo "   $ADMIN_WWW/dist        (admin.yukchibolla.com, 4020.yukchibolla.com)"
 echo "   $LANDING_WWW           (app.yukchibolla.com — mijoz web-ilovasi)"
+echo "   $LANDING_WWW/kassa     (app.yukchibolla.com/kassa — Credit Debit)"
 if [ ! -f "$LANDING_WWW/yukchibolla.apk" ]; then
   echo ""
   echo "⚠️  $LANDING_WWW/yukchibolla.apk hali yo'q — 'APK yuklab olish' tugmasi"
   echo "   404 beradi. EAS build tugagach APK'ni shu yerga qo'ying."
+fi
+if [ ! -f "$LANDING_WWW/credit-debit.apk" ]; then
+  echo ""
+  echo "⚠️  $LANDING_WWW/credit-debit.apk hali yo'q — Credit Debit'ning"
+  echo "   'Yuklab olish' tugmasi 404 beradi."
+  echo "   EAS: pnpm --filter @ilova/kassa build:apk  → faylni shu yerga qo'ying."
 fi
 echo ""
 echo "Caddy blok hali qo'shilmagan bo'lsa: infra/Caddyfile.snippet ga qarang."
