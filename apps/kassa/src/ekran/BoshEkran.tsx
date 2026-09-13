@@ -1,345 +1,294 @@
 // =============================================================
-//  BOSH EKRAN — hisoblar, yozuvlar, yig'indi
+//  BOSH EKRAN — bir qarashda manzara
 //
-//  Tuzilishi bozordagi "Cash Book" ilovalaridan olingan, chunki u
-//  sinovdan o'tgan: yuqorida balans, o'rtada yozuvlar, PASTDA
-//  DOIMIY YIG'INDI va ikkita katta tugma. Odam ilovani kuniga
-//  o'nlab marta ochadi — har safar qidirmasin.
+//  Odam ilovani kuniga o'nlab marta ochadi va odatda BITTA savol
+//  bilan ochadi: "hozir qancha pulim bor?". Shuning uchun eng tepada
+//  balans, keyin shu oyning kirim-chiqimi, keyin oxirgi yozuvlar.
 //
-//  Qoldiq bu yerda HISOBLANADI (`@ilova/kassa-yadro`), bazadan
-//  tayyor raqam so'ralmaydi: 2-bosqichda ilova internetsiz ham
-//  aynan shu ko'rinishda ishlashi kerak.
+//  Grafik ataylab sodda: ettita ustun, kutubxonasiz. Kutubxona
+//  qo'shilsa bundle 200 KB o'sardi va sekin internetda ilova
+//  kechikib ochilardi — bitta ustun uchun bu qimmat.
 // =============================================================
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import {
-  ActivityIndicator,
-  Alert,
-  RefreshControl,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+import { useMemo } from 'react';
+import { RefreshControl, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import {
   davrYigindi,
   formatla,
   hisobQoldiq,
+  klientQoldiq,
   umumiyBalans,
-  yuruvchiQoldiq,
 } from '@ilova/kassa-yadro';
-import type { Hisob, Turkum, Yozuv, YozuvTuri } from '@ilova/kassa-yadro';
-import {
-  hisoblarOl,
-  turkumlarOl,
-  yozuvBekorQil,
-  yozuvlarOl,
-  yozuvQosh,
-  type Men,
-} from '../lib/baza';
-import { sanaMatn, supabase, xatoMatn } from '../lib/supabase';
-import { C, O } from '../lib/tema';
-import YozuvOynasi from './YozuvOynasi';
+import type { Yozuv } from '@ilova/kassa-yadro';
+import { davrOraligi, kunBoshi, kunKaliti, oraliqdami, sanaQisqa } from '../lib/davr';
+import { useHolat } from '../lib/holat';
+import { O, useTema } from '../lib/tema';
+import { BoshHolat, Karta, Qator, Sarlavha, uslublar } from '../ui/qismlar';
 
-export default function BoshEkran({ men }: { men: Men }) {
-  const [hisoblar, setHisoblar] = useState<Hisob[]>([]);
-  const [turkumlar, setTurkumlar] = useState<Turkum[]>([]);
-  const [yozuvlar, setYozuvlar] = useState<Yozuv[]>([]);
-  const [tanlangan, setTanlangan] = useState<string | null>(null); // null = hammasi
-  const [yuklanmoqda, setYuklanmoqda] = useState(true);
-  const [yangilanmoqda, setYangilanmoqda] = useState(false);
-  const [xato, setXato] = useState<string | null>(null);
-  const [oyna, setOyna] = useState<YozuvTuri | null>(null);
-
-  const yukla = useCallback(async () => {
-    try {
-      setXato(null);
-      const [h, t, y] = await Promise.all([hisoblarOl(), turkumlarOl(), yozuvlarOl()]);
-      setHisoblar(h);
-      setTurkumlar(t);
-      setYozuvlar(y);
-    } catch (e) {
-      setXato(xatoMatn(e));
-    } finally {
-      setYuklanmoqda(false);
-      setYangilanmoqda(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    yukla();
-  }, [yukla]);
-
-  const korinadigan = useMemo(
-    () => (tanlangan ? yozuvlar.filter((y) => y.hisob_id === tanlangan) : yozuvlar),
-    [yozuvlar, tanlangan],
-  );
-
-  const hisob = hisoblar.find((h) => h.id === tanlangan) ?? null;
-  const yigindi = useMemo(() => davrYigindi(korinadigan), [korinadigan]);
-
-  // Yuruvchi qoldiq faqat BITTA hisob tanlanganda ma'noli: turli
-  // hisoblarning qatorlari aralashsa, ustundagi raqam hech narsani
-  // bildirmaydi (va valyutalar ham har xil bo'lishi mumkin).
-  const qatorlar = useMemo(() => {
-    if (!hisob) return korinadigan.map((y) => ({ yozuv: y, qoldiq: null as number | null }));
-    return yuruvchiQoldiq(korinadigan, hisob.boshlangich)
-      .reverse()
-      .map((x) => ({ yozuv: x.yozuv, qoldiq: x.qoldiq }));
-  }, [korinadigan, hisob]);
+export default function BoshEkran({
+  ochQoshish,
+  ochYozuvlar,
+  ochKontaktlar,
+}: {
+  ochQoshish: (turi: 'kirim' | 'chiqim') => void;
+  ochYozuvlar: () => void;
+  ochKontaktlar: () => void;
+}) {
+  const { C } = useTema();
+  const s = uslublar(C);
+  const { men, hisoblar, turkumlar, klientlar, yozuvlar, yangila, yuklanmoqda } = useHolat();
 
   const balanslar = useMemo(() => umumiyBalans(hisoblar, yozuvlar), [hisoblar, yozuvlar]);
-  const valyuta = hisob?.valyuta ?? 'UZS';
+  const asosiyValyuta = hisoblar[0]?.valyuta ?? 'UZS';
 
-  async function saqla(p: {
-    hisob_id: string;
-    summa: number;
-    turkum_id: string | null;
-    izoh: string;
-    sana: string;
-  }) {
-    if (!oyna) return;
-    await yozuvQosh({ ...p, turi: oyna });
-    await yukla();
-  }
+  const oy = useMemo(() => davrOraligi('oy', 0), []);
+  const oylik = useMemo(
+    () => davrYigindi(yozuvlar.filter((y) => oraliqdami(y.sana, oy))),
+    [yozuvlar, oy],
+  );
 
-  function bekorQil(y: Yozuv) {
-    if (y.bekor_at) return;
-    Alert.alert(
-      'Yozuvni bekor qilish',
-      `${formatla(y.summa, y.valyuta)} — bu yozuv hisobdan chiqadi, lekin tarixda qoladi.`,
-      [
-        { text: 'Yo‘q', style: 'cancel' },
-        {
-          text: 'Bekor qilish',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await yozuvBekorQil(y.id, 'ilovadan bekor qilindi');
-              await yukla();
-            } catch (e) {
-              setXato(xatoMatn(e));
-            }
-          },
-        },
-      ],
-    );
-  }
+  // Qarz: kimdan olamiz, kimga qarzdormiz
+  const qarzlar = useMemo(() => {
+    let olamiz = 0;
+    let beramiz = 0;
+    for (const k of klientlar) {
+      const q = klientQoldiq(k.id, yozuvlar);
+      if (q > 0) olamiz += q;
+      else beramiz += -q;
+    }
+    return { olamiz, beramiz };
+  }, [klientlar, yozuvlar]);
 
-  if (yuklanmoqda) {
-    return (
-      <View style={s.yuklash}>
-        <ActivityIndicator size="large" color={C.tun} />
-      </View>
-    );
-  }
+  const oxirgilar = useMemo(
+    () => [...yozuvlar].sort((a, b) => Date.parse(b.sana) - Date.parse(a.sana)).slice(0, 6),
+    [yozuvlar],
+  );
+
+  // Oxirgi 7 kun — grafik uchun
+  const kunlar = useMemo(() => {
+    const natija: { kun: string; kirim: number; chiqim: number; sana: Date }[] = [];
+    const bugun = kunBoshi(new Date());
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(bugun);
+      d.setDate(d.getDate() - i);
+      natija.push({ kun: kunKaliti(d), kirim: 0, chiqim: 0, sana: d });
+    }
+    const xarita = new Map(natija.map((x) => [x.kun, x]));
+    for (const y of yozuvlar) {
+      if (y.bekor_at || y.kochirma_id) continue;
+      const x = xarita.get(kunKaliti(y.sana));
+      if (!x) continue;
+      if (y.turi === 'kirim') x.kirim += y.summa;
+      else x.chiqim += y.summa;
+    }
+    return natija;
+  }, [yozuvlar]);
+
+  const eng = Math.max(1, ...kunlar.map((k) => Math.max(k.kirim, k.chiqim)));
 
   return (
-    <View style={s.tashqi}>
-      {/* Sarlavha */}
-      <View style={s.sarlavha}>
-        <View style={{ flex: 1 }}>
-          <Text style={s.biznes} numberOfLines={1}>{men.biznes}</Text>
-          <Text style={s.balansYorliq}>Umumiy balans</Text>
+    <View style={s.ekran}>
+      <View style={s.boshliq}>
+        <Text style={s.boshliqIzoh}>{men.biznes}</Text>
+        <Text style={s.boshliqMatn}>Umumiy balans</Text>
+        <View style={{ marginTop: 6 }}>
           {balanslar.length === 0 ? (
-            <Text style={s.balans}>{formatla(0, 'UZS')}</Text>
+            <Text style={{ color: C.tunMatn, fontSize: 28, fontWeight: '800' }}>
+              {formatla(0, asosiyValyuta)}
+            </Text>
           ) : (
             balanslar.map((b) => (
-              <Text key={b.valyuta} style={s.balans}>
+              <Text key={b.valyuta} style={{ color: C.tunMatn, fontSize: 28, fontWeight: '800' }}>
                 {formatla(b.qoldiq, b.valyuta)}
               </Text>
             ))
           )}
         </View>
-        <TouchableOpacity onPress={() => supabase.auth.signOut()} hitSlop={10}>
-          <Text style={s.chiqish}>Chiqish</Text>
-        </TouchableOpacity>
       </View>
 
-      {/* Hisoblar */}
-      <View style={s.hisoblarQator}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.hisoblar}>
-          <Chip matn="Hammasi" tanlangan={tanlangan === null} bos={() => setTanlangan(null)} />
-          {hisoblar.filter((h) => h.faol).map((h) => (
-            <Chip
-              key={h.id}
-              matn={`${h.nom} · ${formatla(hisobQoldiq(h, yozuvlar), h.valyuta, { kasrsiz: true, belgisiz: true })}`}
-              tanlangan={h.id === tanlangan}
-              bos={() => setTanlangan(h.id)}
-            />
-          ))}
-        </ScrollView>
-      </View>
-
-      {xato && <Text style={s.xato}>{xato}</Text>}
-
-      {/* Yozuvlar */}
       <ScrollView
-        style={{ flex: 1 }}
-        refreshControl={
-          <RefreshControl
-            refreshing={yangilanmoqda}
-            onRefresh={() => {
-              setYangilanmoqda(true);
-              yukla();
-            }}
-          />
-        }
+        refreshControl={<RefreshControl refreshing={yuklanmoqda} onRefresh={yangila} tintColor={C.xira} />}
       >
-        {qatorlar.length === 0 && (
-          <View style={s.bosh}>
-            <Text style={s.boshBelgi}>↑↓</Text>
-            <Text style={s.boshMatn}>Hali yozuv yo‘q</Text>
-            <Text style={s.boshIzoh}>Pastdagi «Kirim» yoki «Chiqim» tugmasi bilan boshlang</Text>
+        {/* Shu oy */}
+        <Sarlavha matn={`Shu oy · ${oy.nom}`} />
+        <View style={{ flexDirection: 'row', paddingHorizontal: O.chekka, gap: 10 }}>
+          <Karta uslub={{ flex: 1, paddingVertical: 14 }}>
+            <Text style={{ color: C.xira, fontSize: 12 }}>↑ Kirim</Text>
+            <Text style={{ color: C.kirim, fontSize: 17, fontWeight: '800', marginTop: 4 }} numberOfLines={1}>
+              {formatla(oylik.kirim, asosiyValyuta, { belgisiz: true, kasrsiz: true })}
+            </Text>
+          </Karta>
+          <Karta uslub={{ flex: 1, paddingVertical: 14 }}>
+            <Text style={{ color: C.xira, fontSize: 12 }}>↓ Chiqim</Text>
+            <Text style={{ color: C.chiqim, fontSize: 17, fontWeight: '800', marginTop: 4 }} numberOfLines={1}>
+              {formatla(oylik.chiqim, asosiyValyuta, { belgisiz: true, kasrsiz: true })}
+            </Text>
+          </Karta>
+          <Karta uslub={{ flex: 1, paddingVertical: 14 }}>
+            <Text style={{ color: C.xira, fontSize: 12 }}>Farq</Text>
+            <Text
+              style={{
+                color: oylik.farq >= 0 ? C.kirim : C.chiqim,
+                fontSize: 17,
+                fontWeight: '800',
+                marginTop: 4,
+              }}
+              numberOfLines={1}
+            >
+              {formatla(oylik.farq, asosiyValyuta, { belgisiz: true, kasrsiz: true })}
+            </Text>
+          </Karta>
+        </View>
+
+        {/* 7 kunlik grafik */}
+        <Sarlavha matn="Oxirgi 7 kun" />
+        <Karta uslub={{ marginHorizontal: O.chekka }}>
+          <View style={{ flexDirection: 'row', alignItems: 'flex-end', height: 96, gap: 6 }}>
+            {kunlar.map((k) => (
+              <View key={k.kun} style={{ flex: 1, alignItems: 'center' }}>
+                <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 2, height: 72 }}>
+                  <View
+                    style={{
+                      width: 7,
+                      height: Math.max(2, (k.kirim / eng) * 72),
+                      backgroundColor: C.kirim,
+                      borderRadius: 3,
+                    }}
+                  />
+                  <View
+                    style={{
+                      width: 7,
+                      height: Math.max(2, (k.chiqim / eng) * 72),
+                      backgroundColor: C.chiqim,
+                      borderRadius: 3,
+                    }}
+                  />
+                </View>
+                <Text style={{ color: C.xira, fontSize: 10, marginTop: 6 }}>{k.sana.getDate()}</Text>
+              </View>
+            ))}
+          </View>
+        </Karta>
+
+        {/* Qarz */}
+        {klientlar.length > 0 && (
+          <>
+            <Sarlavha
+              matn="Qarzlar"
+              yon={
+                <TouchableOpacity onPress={ochKontaktlar}>
+                  <Text style={{ color: C.matn2, fontSize: 12, fontWeight: '600' }}>Hammasi ›</Text>
+                </TouchableOpacity>
+              }
+            />
+            <View style={{ flexDirection: 'row', paddingHorizontal: O.chekka, gap: 10 }}>
+              <Karta uslub={{ flex: 1, paddingVertical: 14 }}>
+                <Text style={{ color: C.xira, fontSize: 12 }}>Bizga qarzdor</Text>
+                <Text style={{ color: C.kirim, fontSize: 16, fontWeight: '800', marginTop: 4 }} numberOfLines={1}>
+                  {formatla(qarzlar.olamiz, asosiyValyuta, { belgisiz: true, kasrsiz: true })}
+                </Text>
+              </Karta>
+              <Karta uslub={{ flex: 1, paddingVertical: 14 }}>
+                <Text style={{ color: C.xira, fontSize: 12 }}>Biz qarzdormiz</Text>
+                <Text style={{ color: C.chiqim, fontSize: 16, fontWeight: '800', marginTop: 4 }} numberOfLines={1}>
+                  {formatla(qarzlar.beramiz, asosiyValyuta, { belgisiz: true, kasrsiz: true })}
+                </Text>
+              </Karta>
+            </View>
+          </>
+        )}
+
+        {/* Hisoblar */}
+        <Sarlavha matn="Hisoblar" />
+        <View style={{ paddingHorizontal: O.chekka, gap: 8 }}>
+          {hisoblar
+            .filter((h) => h.faol)
+            .map((h) => (
+              <Karta key={h.id} uslub={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 13 }}>
+                <Text style={{ flex: 1, color: C.matn, fontSize: 15, fontWeight: '600' }}>{h.nom}</Text>
+                <Text style={{ color: C.matn, fontSize: 15, fontWeight: '700' }}>
+                  {formatla(hisobQoldiq(h, yozuvlar), h.valyuta, { kasrsiz: true })}
+                </Text>
+              </Karta>
+            ))}
+        </View>
+
+        {/* Oxirgi yozuvlar */}
+        <Sarlavha
+          matn="Oxirgi yozuvlar"
+          yon={
+            <TouchableOpacity onPress={ochYozuvlar}>
+              <Text style={{ color: C.matn2, fontSize: 12, fontWeight: '600' }}>Hammasi ›</Text>
+            </TouchableOpacity>
+          }
+        />
+        {oxirgilar.length === 0 ? (
+          <BoshHolat
+            belgi="↑↓"
+            matn="Hali yozuv yo‘q"
+            izoh="Pastdagi + tugmasi bilan birinchi yozuvni kiriting"
+          />
+        ) : (
+          <View style={{ borderTopWidth: 1, borderTopColor: C.chegara }}>
+            {oxirgilar.map((y) => (
+              <YozuvQatori key={y.id} y={y} turkumNomi={turkumlar.find((t) => t.id === y.turkum_id)?.nom} />
+            ))}
           </View>
         )}
 
-        {qatorlar.map(({ yozuv: y, qoldiq }) => {
-          const turkum = turkumlar.find((t) => t.id === y.turkum_id);
-          const kirim = y.turi === 'kirim';
-          return (
-            <TouchableOpacity key={y.id} style={s.qator} onLongPress={() => bekorQil(y)} delayLongPress={400}>
-              <View style={{ flex: 1 }}>
-                <Text style={[s.qatorNom, y.bekor_at && s.bekor]} numberOfLines={1}>
-                  {y.izoh || turkum?.nom || (kirim ? 'Kirim' : 'Chiqim')}
-                </Text>
-                <Text style={s.qatorIzoh} numberOfLines={1}>
-                  {sanaMatn(y.sana)}
-                  {turkum ? ` · ${turkum.nom}` : ''}
-                  {y.bekor_at ? ' · BEKOR QILINGAN' : ''}
-                </Text>
-              </View>
-              <View style={{ alignItems: 'flex-end' }}>
-                <Text
-                  style={[
-                    s.qatorSumma,
-                    { color: kirim ? C.kirim : C.chiqim },
-                    y.bekor_at && s.bekor,
-                  ]}
-                >
-                  {kirim ? '+' : '−'} {formatla(y.summa, y.valyuta, { belgisiz: true })}
-                </Text>
-                {qoldiq !== null && !y.bekor_at && (
-                  <Text style={s.qatorQoldiq}>{formatla(qoldiq, valyuta, { belgisiz: true, kasrsiz: true })}</Text>
-                )}
-              </View>
-            </TouchableOpacity>
-          );
-        })}
-        <View style={{ height: 12 }} />
+        <View style={{ height: 24 }} />
       </ScrollView>
 
-      {/* Pastdagi yig'indi — har doim ko'rinadi */}
-      <View style={s.yigindi}>
-        <View style={s.yigindiQism}>
-          <Text style={s.yigindiYorliq}>Kirim</Text>
-          <Text style={[s.yigindiSon, { color: C.kirim }]} numberOfLines={1}>
-            {formatla(yigindi.kirim, valyuta, { belgisiz: true, kasrsiz: true })}
-          </Text>
-        </View>
-        <View style={s.yigindiQism}>
-          <Text style={s.yigindiYorliq}>Chiqim</Text>
-          <Text style={[s.yigindiSon, { color: C.chiqim }]} numberOfLines={1}>
-            {formatla(yigindi.chiqim, valyuta, { belgisiz: true, kasrsiz: true })}
-          </Text>
-        </View>
-        <View style={s.yigindiQism}>
-          <Text style={s.yigindiYorliq}>{hisob ? 'Qoldiq' : 'Farq'}</Text>
-          <Text style={s.yigindiSon} numberOfLines={1}>
-            {formatla(
-              hisob ? hisobQoldiq(hisob, yozuvlar) : yigindi.farq,
-              valyuta,
-              { belgisiz: true, kasrsiz: true },
-            )}
-          </Text>
-        </View>
-      </View>
-
-      {/* Ikki katta tugma */}
-      <View style={s.tugmalar}>
-        <TouchableOpacity style={[s.katta, { backgroundColor: C.kirim }]} onPress={() => setOyna('kirim')}>
-          <Text style={s.kattaMatn}>↑ Kirim</Text>
+      {/* Ikki katta tugma — eng ko'p ishlatiladigan ikki amal */}
+      <View style={{ flexDirection: 'row', padding: 10, gap: 10, backgroundColor: C.karta }}>
+        <TouchableOpacity
+          style={{ flex: 1, backgroundColor: C.kirim, paddingVertical: 14, borderRadius: O.radiusKichik, alignItems: 'center' }}
+          onPress={() => ochQoshish('kirim')}
+        >
+          <Text style={{ color: '#fff', fontSize: 16, fontWeight: '700' }}>↑ Kirim</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={[s.katta, { backgroundColor: C.chiqim }]} onPress={() => setOyna('chiqim')}>
-          <Text style={s.kattaMatn}>↓ Chiqim</Text>
+        <TouchableOpacity
+          style={{ flex: 1, backgroundColor: C.chiqim, paddingVertical: 14, borderRadius: O.radiusKichik, alignItems: 'center' }}
+          onPress={() => ochQoshish('chiqim')}
+        >
+          <Text style={{ color: '#fff', fontSize: 16, fontWeight: '700' }}>↓ Chiqim</Text>
         </TouchableOpacity>
       </View>
-
-      {oyna && (
-        <YozuvOynasi
-          turi={oyna}
-          hisoblar={hisoblar}
-          turkumlar={turkumlar}
-          boshHisob={tanlangan}
-          yopish={() => setOyna(null)}
-          saqla={saqla}
-        />
-      )}
     </View>
   );
 }
 
-function Chip({ matn, tanlangan, bos }: { matn: string; tanlangan: boolean; bos: () => void }) {
+export function YozuvQatori({
+  y,
+  turkumNomi,
+  klientNomi,
+  bos,
+  uzoqBos,
+  qoldiq,
+}: {
+  y: Yozuv;
+  turkumNomi?: string;
+  klientNomi?: string;
+  bos?: () => void;
+  uzoqBos?: () => void;
+  qoldiq?: number | null;
+}) {
+  const { C } = useTema();
+  const kirim = y.turi === 'kirim';
+  const izohlar = [sanaQisqa(y.sana), turkumNomi, klientNomi, y.kochirma_id ? 'o‘tkazma' : null, y.bekor_at ? 'BEKOR QILINGAN' : null]
+    .filter(Boolean)
+    .join(' · ');
+
   return (
-    <TouchableOpacity style={[s.chip, tanlangan && s.chipTanlangan]} onPress={bos}>
-      <Text style={[s.chipMatn, tanlangan && s.chipMatnTanlangan]} numberOfLines={1}>
-        {matn}
-      </Text>
-    </TouchableOpacity>
+    <Qator
+      nom={y.izoh || turkumNomi || (kirim ? 'Kirim' : 'Chiqim')}
+      izoh={izohlar}
+      ong={`${kirim ? '+' : '−'} ${formatla(y.summa, y.valyuta, { belgisiz: true, kasrsiz: true })}`}
+      ongRang={y.kochirma_id ? C.matn2 : kirim ? C.kirim : C.chiqim}
+      ongIzoh={qoldiq !== null && qoldiq !== undefined ? formatla(qoldiq, y.valyuta, { belgisiz: true, kasrsiz: true }) : undefined}
+      sozilgan={!!y.bekor_at}
+      bos={bos}
+      uzoqBos={uzoqBos}
+    />
   );
 }
-
-const s = StyleSheet.create({
-  tashqi: { flex: 1, backgroundColor: C.fon },
-  yuklash: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: C.fon },
-
-  sarlavha: {
-    backgroundColor: C.tun, paddingTop: 48, paddingBottom: 18, paddingHorizontal: O.chekka,
-    flexDirection: 'row', alignItems: 'flex-start',
-  },
-  biznes: { color: '#C7D2E0', fontSize: 14, fontWeight: '600' },
-  balansYorliq: { color: '#7C8CA1', fontSize: 12, marginTop: 10 },
-  balans: { color: '#F2F4F7', fontSize: 26, fontWeight: '800', marginTop: 2 },
-  chiqish: { color: '#8A97A8', fontSize: 13 },
-
-  hisoblarQator: { backgroundColor: C.karta, borderBottomWidth: 1, borderBottomColor: C.chegara },
-  hisoblar: { paddingHorizontal: O.chekka, paddingVertical: 10 },
-  chip: {
-    backgroundColor: C.fon, borderWidth: 1, borderColor: C.chegara,
-    borderRadius: 20, paddingHorizontal: 14, paddingVertical: 7, marginRight: 8, maxWidth: 220,
-  },
-  chipTanlangan: { backgroundColor: C.tun, borderColor: C.tun },
-  chipMatn: { color: C.matn2, fontSize: 13 },
-  chipMatnTanlangan: { color: '#fff', fontWeight: '600' },
-
-  xato: { color: C.chiqim, fontSize: 13, padding: O.chekka, backgroundColor: C.chiqimYumshoq },
-
-  bosh: { alignItems: 'center', paddingTop: 60, paddingHorizontal: 40 },
-  boshBelgi: { fontSize: 40, color: C.xira, letterSpacing: -4 },
-  boshMatn: { color: C.matn2, fontSize: 16, fontWeight: '600', marginTop: 12 },
-  boshIzoh: { color: C.xira, fontSize: 13, textAlign: 'center', marginTop: 6, lineHeight: 19 },
-
-  qator: {
-    flexDirection: 'row', alignItems: 'center', backgroundColor: C.karta,
-    paddingHorizontal: O.chekka, paddingVertical: 13,
-    borderBottomWidth: 1, borderBottomColor: C.ajratgich,
-  },
-  qatorNom: { color: C.matn, fontSize: 15, fontWeight: '600' },
-  qatorIzoh: { color: C.xira, fontSize: 12, marginTop: 3 },
-  qatorSumma: { fontSize: 15, fontWeight: '700' },
-  qatorQoldiq: { color: C.xira, fontSize: 11, marginTop: 3 },
-  bekor: { textDecorationLine: 'line-through', opacity: 0.55 },
-
-  yigindi: {
-    flexDirection: 'row', backgroundColor: C.karta,
-    borderTopWidth: 1, borderTopColor: C.chegara, paddingVertical: 10,
-  },
-  yigindiQism: { flex: 1, alignItems: 'center', paddingHorizontal: 4 },
-  yigindiYorliq: { color: C.xira, fontSize: 11 },
-  yigindiSon: { color: C.matn, fontSize: 15, fontWeight: '700', marginTop: 2 },
-
-  tugmalar: { flexDirection: 'row', padding: 10, gap: 10, backgroundColor: C.karta },
-  katta: { flex: 1, paddingVertical: 15, borderRadius: O.radiusKichik, alignItems: 'center' },
-  kattaMatn: { color: '#fff', fontSize: 16, fontWeight: '700' },
-});

@@ -27,6 +27,77 @@ pochtasi soatiga ~2 ta xat yuboradi — ommaviy ro'yxatdan o'tishga yetmaydi).
 
 ---
 
+## Ilovaning to'liq qamrovi (2026-09-13 da aniqlashtirildi)
+
+Birinchi qurilgan versiya — **yadro**: hisoblar, kirim/chiqim, yig'indi
+paneli. Foydalanuvchi to'g'ri aytdi: rejadagi qolgan hamma narsa yo'q
+edi. Quyida — Credit Debit "tugadi" deyish uchun kerak bo'lgan ro'yxat.
+Tartib ataylab: har bir qator o'zidan oldingisiz ma'nosiz.
+
+### A. Qobiq va harakat (asos)
+
+| Nima | Nega kerak |
+|---|---|
+| Pastki 5 ta bo'lim: Bosh · Yozuvlar · Kontaktlar · Kalendar · Yana | Hozir bitta ekran bor, qolganiga yo'l yo'q |
+| Markazda katta **+** tugmasi | Yozuv kiritish — eng ko'p takrorlanadigan amal |
+| Yorug'/tungi rejim, qurilma sozlamasiga ergashadi | Kechqurun daftar yuritiladi |
+| Bo'sh holat, yuklanish, xato ekranlari | Bo'sh ilova "buzuq" ko'rinadi |
+
+### B. Pul (yadro kengaytmasi)
+
+| Nima | Holat |
+|---|---|
+| Yozuvni **tahrirlash** va bekor qilish | bekor qilish bor, tahrir yo'q |
+| **Hisoblararo o'tkazma** (ikki yozuv, bitta `kochirma_id`) | baza tayyor, ekran yo'q |
+| Hisob qo'shish / tahrirlash / yashirish | yo'q |
+| Turkum qo'shish / tahrirlash | yo'q |
+| Har qatorda yuruvchi qoldiq | bor |
+
+### C. Qarz — mahsulotning nomi shundan («Credit Debit»)
+
+| Nima |
+|---|
+| Mijoz / ta'minotchi ro'yxati, **Hammasi · Qarzi bor · Oldindan** filtri |
+| Kontakt kartochkasi: tarix, qoldiq, «Berdim» / «Oldim» tugmalari |
+| Umumiy qarz paneli: jami berilgan, jami olingan, farq |
+| Telefon daftaridan kontakt olish (keyinroq) |
+
+### D. Ko'rish va topish
+
+| Nima |
+|---|
+| Yozuvlar ro'yxati: **Kunlik · Haftalik · Oylik · Hammasi** + sana o'qlari |
+| Qidiruv (izoh, summa, kontakt) va filtr (hisob, turkum, tur) |
+| **Kalendar**: har kunda kirim/chiqim, kun bosilsa o'sha kun yozuvlari |
+| Bosh ekran: balans, oylik kirim/chiqim, oddiy grafik, oxirgi yozuvlar |
+
+### E. Hisobot va hujjat
+
+| Nima |
+|---|
+| Davr bo'yicha hisobot: turkum kesimi, hisob kesimi, kontakt kesimi |
+| **PDF va Excel eksport** — `telegram-qarz/hujjat.ts` moduli qayta ishlatiladi |
+| Zaxira: `.json` eksport (odam bulutga ishonmasa) |
+
+### F. Sozlama va huquqiy
+
+| Nima |
+|---|
+| Biznes nomi, valyuta, til (o'zbek/rus) |
+| Tungi rejim tanlovi |
+| **Hisobni o'chirish** — Play talabi |
+| Chiqish, qurilmalar ro'yxati (sinx bilan birga) |
+
+### G. Keyingi bosqichlar (o'zgarmadi)
+
+Offline qatlam → robot (matn) → robot (ovoz) → desktop.
+
+**UI/UX qarorlari menda** (foydalanuvchi ishonib topshirdi): tinch
+palitra, uch bosishda yozuv, har ro'yxatda yig'indi, rangga qo'shimcha
+ishora, `Intl` ishlatilmaydi.
+
+---
+
 ## 0. Bir jumlada
 
 **Yukchibolla platformasiga oltinchi yo'nalish — `kassa`: telefonda,

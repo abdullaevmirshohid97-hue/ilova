@@ -1,0 +1,220 @@
+// =============================================================
+//  YOZUVLAR — ro'yxat, davr, qidiruv, tahrir
+//
+//  Uch narsa birga ishlaydi: davr tanlagichi (kunlik/haftalik/
+//  oylik/hammasi), sana o'qlari va qidiruv. Pastda esa DOIMIY
+//  yig'indi paneli — bozordagi ilovalardan olingan eng foydali
+//  detal: odam ro'yxatni aylantirib yurganda ham jami ko'rinib
+//  turadi.
+//
+//  Yuruvchi qoldiq faqat BITTA hisob tanlanganda ko'rsatiladi:
+//  turli hisoblarning qatorlari aralashsa, ustundagi raqam hech
+//  narsani bildirmaydi.
+// =============================================================
+
+import { useMemo, useState } from 'react';
+import { Alert, RefreshControl, ScrollView, Text, TextInput, View } from 'react-native';
+import { davrYigindi, formatla, hisobQoldiq, solishtir } from '@ilova/kassa-yadro';
+import type { Yozuv } from '@ilova/kassa-yadro';
+import { yozuvBekorQil } from '../lib/baza';
+import { davrOraligi, oraliqdami, type DavrTuri } from '../lib/davr';
+import { useHolat } from '../lib/holat';
+import { xatoMatn } from '../lib/supabase';
+import { O, useTema } from '../lib/tema';
+import { BoshHolat, Chip, DavrOqlari, Tanlagich, YigindiPaneli, uslublar } from '../ui/qismlar';
+import { YozuvQatori } from './BoshEkran';
+
+const DAVRLAR: { kalit: DavrTuri; matn: string }[] = [
+  { kalit: 'kun', matn: 'Kunlik' },
+  { kalit: 'hafta', matn: 'Haftalik' },
+  { kalit: 'oy', matn: 'Oylik' },
+  { kalit: 'hammasi', matn: 'Hammasi' },
+];
+
+export default function YozuvlarEkrani({ tahrirla }: { tahrirla: (y: Yozuv) => void }) {
+  const { C } = useTema();
+  const s = uslublar(C);
+  const { hisoblar, turkumlar, klientlar, yozuvlar, yangila, yuklanmoqda } = useHolat();
+
+  const [davr, setDavr] = useState<DavrTuri>('oy');
+  const [siljish, setSiljish] = useState(0);
+  const [hisobId, setHisobId] = useState<string | null>(null);
+  const [qidiruv, setQidiruv] = useState('');
+
+  const oraliq = useMemo(() => davrOraligi(davr, siljish), [davr, siljish]);
+
+  const korinadigan = useMemo(() => {
+    const q = qidiruv.trim().toLowerCase();
+    return yozuvlar
+      .filter((y) => oraliqdami(y.sana, oraliq))
+      .filter((y) => (hisobId ? y.hisob_id === hisobId : true))
+      .filter((y) => {
+        if (!q) return true;
+        const turkum = turkumlar.find((t) => t.id === y.turkum_id)?.nom ?? '';
+        const klient = klientlar.find((k) => k.id === y.klient_id)?.ism ?? '';
+        const summa = String(Math.round(y.summa / 100));
+        return (
+          (y.izoh ?? '').toLowerCase().includes(q) ||
+          turkum.toLowerCase().includes(q) ||
+          klient.toLowerCase().includes(q) ||
+          summa.includes(q)
+        );
+      })
+      .sort((a, b) => solishtir(b, a)); // yangisi tepada
+  }, [yozuvlar, oraliq, hisobId, qidiruv, turkumlar, klientlar]);
+
+  const yigindi = useMemo(() => davrYigindi(korinadigan), [korinadigan]);
+  const hisob = hisoblar.find((h) => h.id === hisobId) ?? null;
+  const valyuta = hisob?.valyuta ?? hisoblar[0]?.valyuta ?? 'UZS';
+
+  // Yuruvchi qoldiq: eng eskisidan boshlab yig'iladi, ro'yxat esa
+  // teskari ko'rsatiladi — shuning uchun alohida hisoblanadi.
+  const qoldiqlar = useMemo(() => {
+    if (!hisob) return new Map<string, number>();
+    const xarita = new Map<string, number>();
+    let q = hisob.boshlangich;
+    const barchasi = yozuvlar
+      .filter((y) => y.hisob_id === hisob.id && !y.bekor_at)
+      .sort(solishtir);
+    for (const y of barchasi) {
+      q += y.turi === 'kirim' ? y.summa : -y.summa;
+      xarita.set(y.id, q);
+    }
+    return xarita;
+  }, [yozuvlar, hisob]);
+
+  function bekor(y: Yozuv) {
+    if (y.bekor_at) return;
+    Alert.alert(
+      'Yozuvni bekor qilish',
+      `${formatla(y.summa, y.valyuta)} — hisobdan chiqadi, lekin tarixda qoladi.`,
+      [
+        { text: 'Yo‘q', style: 'cancel' },
+        {
+          text: 'Bekor qilish',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await yozuvBekorQil(y.id, 'ilovadan bekor qilindi');
+              await yangila();
+            } catch (e) {
+              Alert.alert('Xatolik', xatoMatn(e));
+            }
+          },
+        },
+      ],
+    );
+  }
+
+  return (
+    <View style={s.ekran}>
+      <View style={s.boshliq}>
+        <Text style={s.boshliqMatn}>Yozuvlar</Text>
+        <Text style={s.boshliqIzoh}>
+          {korinadigan.length} ta · {oraliq.nom}
+        </Text>
+      </View>
+
+      {/* Qidiruv */}
+      <View style={{ backgroundColor: C.karta, paddingHorizontal: O.chekka, paddingTop: 10 }}>
+        <TextInput
+          value={qidiruv}
+          onChangeText={setQidiruv}
+          placeholder="Izoh, turkum, kontakt yoki summa"
+          placeholderTextColor={C.xira}
+          style={{
+            backgroundColor: C.fon,
+            borderWidth: 1,
+            borderColor: C.chegara,
+            borderRadius: O.radiusKichik,
+            paddingHorizontal: 12,
+            paddingVertical: 9,
+            fontSize: 14,
+            color: C.matn,
+          }}
+        />
+      </View>
+
+      <View style={{ backgroundColor: C.karta }}>
+        <Tanlagich
+          qiymat={davr}
+          variantlar={DAVRLAR}
+          qoy={(k) => {
+            setDavr(k);
+            setSiljish(0);
+          }}
+        />
+      </View>
+
+      {davr !== 'hammasi' && (
+        <DavrOqlari
+          nom={oraliq.nom}
+          oldin={() => setSiljish((x) => x - 1)}
+          keyin={() => setSiljish((x) => Math.min(0, x + 1))}
+          keyinOchiq={siljish < 0}
+        />
+      )}
+
+      {/* Hisob filtri */}
+      {hisoblar.length > 1 && (
+        <View style={{ backgroundColor: C.karta, borderBottomWidth: 1, borderBottomColor: C.chegara }}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ padding: 10 }}>
+            <Chip matn="Hamma hisob" tanlangan={hisobId === null} bos={() => setHisobId(null)} />
+            {hisoblar
+              .filter((h) => h.faol)
+              .map((h) => (
+                <Chip key={h.id} matn={h.nom} tanlangan={h.id === hisobId} bos={() => setHisobId(h.id)} />
+              ))}
+          </ScrollView>
+        </View>
+      )}
+
+      <ScrollView
+        style={{ flex: 1 }}
+        refreshControl={<RefreshControl refreshing={yuklanmoqda} onRefresh={yangila} tintColor={C.xira} />}
+      >
+        {korinadigan.length === 0 ? (
+          <BoshHolat
+            belgi="⌕"
+            matn={qidiruv ? 'Topilmadi' : 'Bu davrda yozuv yo‘q'}
+            izoh={qidiruv ? 'Boshqa so‘z bilan qidirib ko‘ring' : 'Davrni almashtiring yoki yangi yozuv qo‘shing'}
+          />
+        ) : (
+          korinadigan.map((y) => (
+            <YozuvQatori
+              key={y.id}
+              y={y}
+              turkumNomi={turkumlar.find((t) => t.id === y.turkum_id)?.nom}
+              klientNomi={klientlar.find((k) => k.id === y.klient_id)?.ism}
+              qoldiq={hisob ? (qoldiqlar.get(y.id) ?? null) : null}
+              bos={() => (y.bekor_at ? undefined : tahrirla(y))}
+              uzoqBos={() => bekor(y)}
+            />
+          ))
+        )}
+        <View style={{ height: 12 }} />
+      </ScrollView>
+
+      <YigindiPaneli
+        chap={{
+          yorliq: 'Kirim',
+          qiymat: formatla(yigindi.kirim, valyuta, { belgisiz: true, kasrsiz: true }),
+          rang: C.kirim,
+        }}
+        orta={{
+          yorliq: 'Chiqim',
+          qiymat: formatla(yigindi.chiqim, valyuta, { belgisiz: true, kasrsiz: true }),
+          rang: C.chiqim,
+        }}
+        ong={{
+          yorliq: hisob ? 'Qoldiq' : 'Farq',
+          qiymat: formatla(
+            hisob ? hisobQoldiq(hisob, yozuvlar) : yigindi.farq,
+            valyuta,
+            { belgisiz: true, kasrsiz: true },
+          ),
+        }}
+      />
+    </View>
+  );
+}

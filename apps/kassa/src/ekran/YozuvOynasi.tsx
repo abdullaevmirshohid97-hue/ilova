@@ -1,13 +1,16 @@
 // =============================================================
-//  YANGI YOZUV — kirim yoki chiqim
+//  YOZUV OYNASI — kirim, chiqim, o'tkazma va tahrir
 //
-//  Eng ko'p ochiladigan ekran. Shuning uchun bitta o'lchov bor:
-//  yozuv UCH BOSISHDA kiritilsin — summa, turkum, saqlash. Turkum
-//  va hisob oldindan tanlangan holda keladi.
+//  Eng ko'p ochiladigan ekran. Bitta o'lchov bor: yozuv UCH BOSISHDA
+//  kiritilsin — summa, turkum, saqlash. Hisob va sana oldindan
+//  to'ldirilgan holda keladi.
 //
 //  Klaviatura ILOVANING O'ZIDA (tizim klaviaturasi emas): raqamlar
-//  katta, `+ − × ÷` bor. Sabab — bozordagi ilovalardan ko'chirilgan
-//  odat: odam "1200+300" deb yozadi va javobini o'zi hisoblamaydi.
+//  katta, `+ − × ÷` bor. Bozordagi ilovalardan ko'chirilgan odat:
+//  odam "1200+300" deb yozadi va javobini o'zi hisoblamaydi.
+//
+//  O'TKAZMA shu yerda, alohida ekranda emas: odam uchun bu ham
+//  "pul harakati", faqat ikki hisob orasida.
 // =============================================================
 
 import { useMemo, useState } from 'react';
@@ -15,48 +18,66 @@ import {
   Modal,
   Pressable,
   ScrollView,
-  StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
-import { formatla, ifodaHisobla } from '@ilova/kassa-yadro';
-import type { Hisob, Turkum, YozuvTuri } from '@ilova/kassa-yadro';
-import { C, O } from '../lib/tema';
+import { formatla, ifodaHisobla, tiyinga } from '@ilova/kassa-yadro';
+import type { Yozuv } from '@ilova/kassa-yadro';
+import { kochirmaYarat, yozuvQosh, yozuvTahrirla } from '../lib/baza';
+import { sanaQisqa } from '../lib/davr';
+import { useHolat } from '../lib/holat';
+import { xatoMatn } from '../lib/supabase';
+import { O, useTema } from '../lib/tema';
+import { Chip } from '../ui/qismlar';
 
 const TUGMALAR = ['7', '8', '9', '÷', '4', '5', '6', '×', '1', '2', '3', '−', '0', '000', '.', '+'];
 
+export type OynaRejimi = 'kirim' | 'chiqim' | 'kochirma';
+
 export default function YozuvOynasi({
-  turi,
-  hisoblar,
-  turkumlar,
+  rejim,
+  tahrir,
   boshHisob,
+  boshKlient,
   yopish,
-  saqla,
+  saqlandi,
 }: {
-  turi: YozuvTuri;
-  hisoblar: Hisob[];
-  turkumlar: Turkum[];
-  boshHisob: string | null;
+  rejim: OynaRejimi;
+  tahrir?: Yozuv | null;
+  boshHisob?: string | null;
+  boshKlient?: string | null;
   yopish: () => void;
-  saqla: (p: { hisob_id: string; summa: number; turkum_id: string | null; izoh: string; sana: string }) => Promise<void>;
+  saqlandi: () => void;
 }) {
-  const [ifoda, setIfoda] = useState('');
-  const [hisobId, setHisobId] = useState(boshHisob ?? hisoblar[0]?.id ?? '');
-  const [turkumId, setTurkumId] = useState<string | null>(null);
-  const [izoh, setIzoh] = useState('');
-  const [kecha, setKecha] = useState(false);
+  const { C } = useTema();
+  const { hisoblar, turkumlar, klientlar } = useHolat();
+
+  const faolHisoblar = hisoblar.filter((h) => h.faol);
+  const [ifoda, setIfoda] = useState(tahrir ? String(tahrir.summa / 100) : '');
+  const [hisobId, setHisobId] = useState(tahrir?.hisob_id ?? boshHisob ?? faolHisoblar[0]?.id ?? '');
+  const [hisobId2, setHisobId2] = useState(faolHisoblar[1]?.id ?? '');
+  const [turkumId, setTurkumId] = useState<string | null>(tahrir?.turkum_id ?? null);
+  const [klientId, setKlientId] = useState<string | null>(tahrir?.klient_id ?? boshKlient ?? null);
+  const [izoh, setIzoh] = useState(tahrir?.izoh ?? '');
+  const [sana, setSana] = useState<Date>(tahrir ? new Date(tahrir.sana) : new Date());
   const [saqlanmoqda, setSaqlanmoqda] = useState(false);
   const [xato, setXato] = useState<string | null>(null);
 
-  const kerakli = useMemo(() => turkumlar.filter((t) => t.turi === turi), [turkumlar, turi]);
+  const kochirma = rejim === 'kochirma';
+  const turi = rejim === 'kirim' ? 'kirim' : 'chiqim';
+  const rang = kochirma ? C.matn2 : rejim === 'kirim' ? C.kirim : C.chiqim;
+
+  const kerakli = useMemo(() => turkumlar.filter((t) => t.turi === turi && t.faol), [turkumlar, turi]);
   const hisob = hisoblar.find((h) => h.id === hisobId);
 
   // Ifodani har bosishda hisoblaymiz: odam natijani DARHOL ko'rsin,
   // "=" ni qidirmasin.
-  const tiyin = useMemo(() => ifodaHisobla(ifoda.replace(/×/g, '*').replace(/÷/g, '/').replace(/−/g, '-')), [ifoda]);
-  const rang = turi === 'kirim' ? C.kirim : C.chiqim;
+  const tiyin = useMemo(
+    () => ifodaHisobla(ifoda.replace(/×/g, '*').replace(/÷/g, '/').replace(/−/g, '-')),
+    [ifoda],
+  );
 
   function bos(t: string) {
     setXato(null);
@@ -66,99 +87,281 @@ export default function YozuvOynasi({
     setIfoda((x) => x + t);
   }
 
+  function sanaSiljit(kun: number) {
+    const y = new Date(sana);
+    y.setDate(y.getDate() + kun);
+    // Kelajakka yozib bo'lmaydi: "ertangi kirim" daftarni buzadi
+    if (y.getTime() > Date.now() + 60_000) return;
+    setSana(y);
+  }
+
   async function yubor() {
     if (!hisobId) return setXato('Hisobni tanlang.');
+    if (kochirma && !hisobId2) return setXato('Qaysi hisobga o‘tkazilishini tanlang.');
+    if (kochirma && hisobId === hisobId2) return setXato('Ikki xil hisob tanlang.');
     if (tiyin === null || tiyin <= 0) return setXato('Summani kiriting.');
+
+    if (kochirma) {
+      const a = hisoblar.find((h) => h.id === hisobId);
+      const b = hisoblar.find((h) => h.id === hisobId2);
+      if (a && b && a.valyuta !== b.valyuta) {
+        return setXato('Valyutalari har xil hisoblar orasida o‘tkazma hozircha yo‘q.');
+      }
+    }
+
     setSaqlanmoqda(true);
     try {
-      const sana = new Date();
-      if (kecha) sana.setDate(sana.getDate() - 1);
-      await saqla({ hisob_id: hisobId, summa: tiyin, turkum_id: turkumId, izoh, sana: sana.toISOString() });
+      if (tahrir) {
+        await yozuvTahrirla(tahrir.id, {
+          hisob_id: hisobId,
+          turi,
+          summa: tiyin,
+          turkum_id: turkumId,
+          klient_id: klientId,
+          izoh,
+          sana: sana.toISOString(),
+        });
+      } else if (kochirma) {
+        await kochirmaYarat({
+          kimdan: hisobId,
+          kimga: hisobId2,
+          summa: tiyin,
+          izoh,
+          sana: sana.toISOString(),
+        });
+      } else {
+        await yozuvQosh({
+          hisob_id: hisobId,
+          turi,
+          summa: tiyin,
+          turkum_id: turkumId,
+          klient_id: klientId,
+          izoh,
+          sana: sana.toISOString(),
+        });
+      }
+      saqlandi();
       yopish();
     } catch (e) {
-      setXato((e as { message?: string })?.message ?? 'Saqlanmadi');
+      setXato(xatoMatn(e));
       setSaqlanmoqda(false);
     }
   }
 
+  const sarlavha = tahrir
+    ? 'Yozuvni tahrirlash'
+    : kochirma
+      ? 'Hisoblararo o‘tkazma'
+      : rejim === 'kirim'
+        ? 'Kirim'
+        : 'Chiqim';
+
   return (
     <Modal visible animationType="slide" onRequestClose={yopish} transparent>
-      <View style={s.orqafon}>
-        <View style={s.oyna}>
-          <View style={[s.sarlavha, { backgroundColor: rang }]}>
+      <View style={{ flex: 1, backgroundColor: 'rgba(11,18,26,0.5)', justifyContent: 'flex-end' }}>
+        <View
+          style={{
+            backgroundColor: C.fon,
+            borderTopLeftRadius: 20,
+            borderTopRightRadius: 20,
+            maxHeight: '94%',
+            width: '100%',
+            maxWidth: 520,
+            alignSelf: 'center',
+          }}
+        >
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              backgroundColor: rang,
+              paddingHorizontal: O.chekka,
+              paddingVertical: 14,
+              borderTopLeftRadius: 20,
+              borderTopRightRadius: 20,
+            }}
+          >
             <TouchableOpacity onPress={yopish} hitSlop={12}>
-              <Text style={s.yopish}>✕</Text>
+              <Text style={{ color: '#fff', fontSize: 18, fontWeight: '700' }}>✕</Text>
             </TouchableOpacity>
-            <Text style={s.sarlavhaMatn}>{turi === 'kirim' ? 'Kirim' : 'Chiqim'}</Text>
+            <Text style={{ color: '#fff', fontSize: 17, fontWeight: '700' }}>{sarlavha}</Text>
             <View style={{ width: 20 }} />
           </View>
 
           <ScrollView keyboardShouldPersistTaps="handled">
             {/* Summa */}
-            <View style={s.summaQator}>
-              <Text style={[s.summa, { color: rang }]} numberOfLines={1} adjustsFontSizeToFit>
+            <View style={{ paddingHorizontal: O.chekka, paddingTop: 18, paddingBottom: 6 }}>
+              <Text
+                style={{ color: rang, fontSize: 40, fontWeight: '800', textAlign: 'right' }}
+                numberOfLines={1}
+                adjustsFontSizeToFit
+              >
                 {ifoda || '0'}
               </Text>
               {tiyin !== null && /[+−×÷]/.test(ifoda) && (
-                <Text style={s.natija}>= {formatla(tiyin, hisob?.valyuta ?? 'UZS')}</Text>
+                <Text style={{ color: C.xira, fontSize: 14, textAlign: 'right', marginTop: 4 }}>
+                  = {formatla(tiyin, hisob?.valyuta ?? 'UZS')}
+                </Text>
               )}
             </View>
 
-            {/* Hisob */}
-            <Text style={s.yorliq}>Hisob</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.chiplar}>
-              {hisoblar.filter((h) => h.faol).map((h) => (
-                <Chip key={h.id} tanlangan={h.id === hisobId} matn={h.nom} bos={() => setHisobId(h.id)} />
+            {/* Hisob(lar) */}
+            <Yorliq matn={kochirma ? 'Qaysi hisobdan' : 'Hisob'} />
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ paddingLeft: O.chekka }}>
+              {faolHisoblar.map((h) => (
+                <Chip key={h.id} matn={h.nom} tanlangan={h.id === hisobId} bos={() => setHisobId(h.id)} />
               ))}
             </ScrollView>
 
-            {/* Turkum */}
-            <Text style={s.yorliq}>Turkum</Text>
-            <View style={s.turkumlar}>
-              {kerakli.map((t) => (
-                <Chip
-                  key={t.id}
-                  tanlangan={t.id === turkumId}
-                  matn={t.nom}
-                  bos={() => setTurkumId(t.id === turkumId ? null : t.id)}
-                />
-              ))}
-              {kerakli.length === 0 && <Text style={s.bosh}>Turkum yo‘q — keyin qo‘shasiz</Text>}
-            </View>
+            {kochirma && (
+              <>
+                <Yorliq matn="Qaysi hisobga" />
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ paddingLeft: O.chekka }}>
+                  {faolHisoblar.map((h) => (
+                    <Chip
+                      key={h.id}
+                      matn={h.nom}
+                      tanlangan={h.id === hisobId2}
+                      bos={() => setHisobId2(h.id)}
+                    />
+                  ))}
+                </ScrollView>
+              </>
+            )}
 
-            {/* Izoh va sana */}
-            <Text style={s.yorliq}>Izoh</Text>
+            {/* Turkum va kontakt — o'tkazmada ma'nosiz */}
+            {!kochirma && (
+              <>
+                <Yorliq matn="Turkum" />
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: O.chekka }}>
+                  {kerakli.map((t) => (
+                    <View key={t.id} style={{ marginBottom: 8 }}>
+                      <Chip
+                        matn={t.nom}
+                        tanlangan={t.id === turkumId}
+                        bos={() => setTurkumId(t.id === turkumId ? null : t.id)}
+                      />
+                    </View>
+                  ))}
+                  {kerakli.length === 0 && (
+                    <Text style={{ color: C.xira, fontSize: 13 }}>Turkum yo‘q — «Yana» bo‘limidan qo‘shasiz</Text>
+                  )}
+                </View>
+
+                {klientlar.length > 0 && (
+                  <>
+                    <Yorliq matn="Kim bilan (ixtiyoriy)" />
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ paddingLeft: O.chekka }}>
+                      {klientlar.map((k) => (
+                        <Chip
+                          key={k.id}
+                          matn={k.ism}
+                          tanlangan={k.id === klientId}
+                          bos={() => setKlientId(k.id === klientId ? null : k.id)}
+                        />
+                      ))}
+                    </ScrollView>
+                  </>
+                )}
+              </>
+            )}
+
+            {/* Izoh */}
+            <Yorliq matn="Izoh" />
             <TextInput
-              style={s.izoh}
+              style={{
+                marginHorizontal: O.chekka,
+                backgroundColor: C.karta,
+                borderWidth: 1,
+                borderColor: C.chegara,
+                borderRadius: O.radiusKichik,
+                paddingHorizontal: 12,
+                paddingVertical: 10,
+                fontSize: 15,
+                color: C.matn,
+              }}
               value={izoh}
               onChangeText={setIzoh}
-              placeholder="Ixtiyoriy: nima uchun"
+              placeholder="Nima uchun"
               placeholderTextColor={C.xira}
             />
 
-            <View style={s.sanaQator}>
-              <Chip tanlangan={!kecha} matn="Bugun" bos={() => setKecha(false)} />
-              <Chip tanlangan={kecha} matn="Kecha" bos={() => setKecha(true)} />
+            {/* Sana */}
+            <Yorliq matn="Sana" />
+            <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: O.chekka, gap: 8 }}>
+              <TouchableOpacity onPress={() => sanaSiljit(-1)} hitSlop={10} style={{ padding: 6 }}>
+                <Text style={{ color: C.matn2, fontSize: 18, fontWeight: '700' }}>‹</Text>
+              </TouchableOpacity>
+              <View
+                style={{
+                  flex: 1,
+                  alignItems: 'center',
+                  backgroundColor: C.karta,
+                  borderWidth: 1,
+                  borderColor: C.chegara,
+                  borderRadius: O.radiusKichik,
+                  paddingVertical: 9,
+                }}
+              >
+                <Text style={{ color: C.matn, fontSize: 14, fontWeight: '600' }}>{sanaQisqa(sana)}</Text>
+              </View>
+              <TouchableOpacity onPress={() => sanaSiljit(1)} hitSlop={10} style={{ padding: 6 }}>
+                <Text style={{ color: C.matn2, fontSize: 18, fontWeight: '700' }}>›</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => setSana(new Date())} style={{ padding: 6 }}>
+                <Text style={{ color: C.matn2, fontSize: 13 }}>Bugun</Text>
+              </TouchableOpacity>
             </View>
 
-            {xato && <Text style={s.xato}>{xato}</Text>}
+            {xato && (
+              <Text style={{ color: C.chiqim, fontSize: 13, paddingHorizontal: O.chekka, marginTop: 10 }}>
+                {xato}
+              </Text>
+            )}
 
             {/* Klaviatura */}
-            <View style={s.klaviatura}>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', padding: 8, marginTop: 12 }}>
               {TUGMALAR.map((t) => (
-                <Pressable key={t} style={s.tugma} onPress={() => bos(t)}>
-                  <Text style={[s.tugmaMatn, '+−×÷'.includes(t) && { color: C.matn2 }]}>{t}</Text>
+                <Pressable
+                  key={t}
+                  onPress={() => bos(t)}
+                  style={{ width: '25%', paddingVertical: 14, alignItems: 'center' }}
+                >
+                  <Text
+                    style={{
+                      fontSize: 22,
+                      fontWeight: '600',
+                      color: '+−×÷'.includes(t) ? C.matn2 : C.matn,
+                    }}
+                  >
+                    {t}
+                  </Text>
                 </Pressable>
               ))}
-              <Pressable style={s.tugma} onPress={() => bos('⌫')} onLongPress={() => setIfoda('')}>
-                <Text style={s.tugmaMatn}>⌫</Text>
+              <Pressable
+                onPress={() => bos('⌫')}
+                onLongPress={() => setIfoda('')}
+                style={{ width: '25%', paddingVertical: 14, alignItems: 'center' }}
+              >
+                <Text style={{ fontSize: 22, fontWeight: '600', color: C.matn }}>⌫</Text>
               </Pressable>
               <Pressable
-                style={[s.saqla, { backgroundColor: rang }, saqlanmoqda && { opacity: 0.6 }]}
                 onPress={yubor}
                 disabled={saqlanmoqda}
+                style={{
+                  width: '75%',
+                  paddingVertical: 16,
+                  alignItems: 'center',
+                  borderRadius: O.radiusKichik,
+                  margin: 4,
+                  backgroundColor: rang,
+                  opacity: saqlanmoqda ? 0.6 : 1,
+                }}
               >
-                <Text style={s.saqlaMatn}>{saqlanmoqda ? '...' : 'Saqlash'}</Text>
+                <Text style={{ color: '#fff', fontSize: 17, fontWeight: '700' }}>
+                  {saqlanmoqda ? '...' : tahrir ? 'Saqlash' : 'Qo‘shish'}
+                </Text>
               </Pressable>
             </View>
           </ScrollView>
@@ -168,50 +371,23 @@ export default function YozuvOynasi({
   );
 }
 
-function Chip({ matn, tanlangan, bos }: { matn: string; tanlangan: boolean; bos: () => void }) {
+function Yorliq({ matn }: { matn: string }) {
+  const { C } = useTema();
   return (
-    <TouchableOpacity style={[s.chip, tanlangan && s.chipTanlangan]} onPress={bos}>
-      <Text style={[s.chipMatn, tanlangan && s.chipMatnTanlangan]}>{matn}</Text>
-    </TouchableOpacity>
+    <Text
+      style={{
+        color: C.matn2,
+        fontSize: 13,
+        fontWeight: '600',
+        paddingHorizontal: O.chekka,
+        marginTop: 14,
+        marginBottom: 8,
+      }}
+    >
+      {matn}
+    </Text>
   );
 }
 
-const s = StyleSheet.create({
-  orqafon: { flex: 1, backgroundColor: 'rgba(22,32,46,0.45)', justifyContent: 'flex-end' },
-  oyna: { backgroundColor: C.fon, borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: '94%', width: '100%', maxWidth: 520, alignSelf: 'center' },
-  sarlavha: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: O.chekka, paddingVertical: 14, borderTopLeftRadius: 20, borderTopRightRadius: 20,
-  },
-  sarlavhaMatn: { color: '#fff', fontSize: 17, fontWeight: '700' },
-  yopish: { color: '#fff', fontSize: 18, fontWeight: '700' },
-  summaQator: { paddingHorizontal: O.chekka, paddingTop: 18, paddingBottom: 6 },
-  summa: { fontSize: 40, fontWeight: '800', textAlign: 'right' },
-  natija: { color: C.xira, fontSize: 14, textAlign: 'right', marginTop: 4 },
-  yorliq: { color: C.matn2, fontSize: 13, fontWeight: '600', paddingHorizontal: O.chekka, marginTop: 14, marginBottom: 8 },
-  chiplar: { paddingHorizontal: O.chekka, gap: 8 },
-  turkumlar: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingHorizontal: O.chekka },
-  bosh: { color: C.xira, fontSize: 13 },
-  chip: {
-    backgroundColor: C.karta, borderWidth: 1, borderColor: C.chegara,
-    borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8, marginRight: 8, marginBottom: 4,
-  },
-  chipTanlangan: { backgroundColor: C.tun, borderColor: C.tun },
-  chipMatn: { color: C.matn2, fontSize: 14 },
-  chipMatnTanlangan: { color: '#fff', fontWeight: '600' },
-  izoh: {
-    marginHorizontal: O.chekka, backgroundColor: C.karta, borderWidth: 1, borderColor: C.chegara,
-    borderRadius: O.radiusKichik, paddingHorizontal: 12, paddingVertical: 10, fontSize: 15, color: C.matn,
-  },
-  sanaQator: { flexDirection: 'row', paddingHorizontal: O.chekka, marginTop: 12, gap: 8 },
-  xato: { color: C.chiqim, fontSize: 13, paddingHorizontal: O.chekka, marginTop: 10 },
-  klaviatura: {
-    flexDirection: 'row', flexWrap: 'wrap', padding: 8, marginTop: 12,
-  },
-  tugma: {
-    width: '25%', paddingVertical: 14, alignItems: 'center', justifyContent: 'center',
-  },
-  tugmaMatn: { fontSize: 22, fontWeight: '600', color: C.matn },
-  saqla: { width: '75%', paddingVertical: 16, alignItems: 'center', justifyContent: 'center', borderRadius: O.radiusKichik, margin: 4 },
-  saqlaMatn: { color: '#fff', fontSize: 17, fontWeight: '700' },
-});
+/** Yozuvni tiyinga o'girish kerak bo'lgan joyda ishlatiladi */
+export { tiyinga };

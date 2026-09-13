@@ -134,11 +134,139 @@ export async function yozuvBekorQil(id: string, sabab: string): Promise<void> {
   if (error) throw error;
 }
 
-export async function hisobQosh(nom: string, turi: Hisob['turi'], boshlangich: number): Promise<void> {
+/** Yozuvni tahrirlash. Summa tiyinda keladi. */
+export async function yozuvTahrirla(
+  id: string,
+  p: Partial<Pick<YangiYozuv, 'hisob_id' | 'turi' | 'summa' | 'turkum_id' | 'klient_id' | 'izoh' | 'sana'>>,
+): Promise<void> {
+  const patch: Record<string, unknown> = {};
+  if (p.hisob_id !== undefined) patch.hisob_id = p.hisob_id;
+  if (p.turi !== undefined) patch.turi = p.turi;
+  if (p.summa !== undefined) patch.summa = bazaga(p.summa);
+  if (p.turkum_id !== undefined) patch.turkum_id = p.turkum_id;
+  if (p.klient_id !== undefined) patch.klient_id = p.klient_id;
+  if (p.izoh !== undefined) patch.izoh = p.izoh?.trim() || null;
+  if (p.sana !== undefined) patch.sana = p.sana;
+  const { error } = await supabase.from('kassa_yozuvlar').update(patch).eq('id', id);
+  if (error) throw error;
+}
+
+/**
+ * Hisoblararo o'tkazma: BIR so'rovda ikki yozuv.
+ *
+ * Ikki alohida so'rov bo'lsa, ikkinchisi yiqilganda pul bir hisobdan
+ * chiqib, ikkinchisiga tushmay qolardi — daftar yolg'on gapirardi.
+ * PostgREST massivni bitta tranzaksiyada yozadi: yo ikkalasi, yo
+ * hech biri.
+ */
+export async function kochirmaYarat(p: {
+  kimdan: string;
+  kimga: string;
+  /** Tiyinda */
+  summa: number;
+  izoh?: string;
+  sana?: string;
+}): Promise<void> {
+  if (p.kimdan === p.kimga) throw new Error("Bir xil hisob tanlangan");
+  // Juftlikni bog'laydigan id — ikkalasida bir xil.
+  const juft =
+    globalThis.crypto?.randomUUID?.() ??
+    `${Date.now()}-${Math.random().toString(16).slice(2)}-${Math.random().toString(16).slice(2)}`;
+  const sana = p.sana ?? new Date().toISOString();
+  const izoh = p.izoh?.trim() || null;
+  const { error } = await supabase.from('kassa_yozuvlar').insert([
+    { hisob_id: p.kimdan, turi: 'chiqim', summa: bazaga(p.summa), kochirma_id: juft, izoh, sana },
+    { hisob_id: p.kimga, turi: 'kirim', summa: bazaga(p.summa), kochirma_id: juft, izoh, sana },
+  ]);
+  if (error) throw error;
+}
+
+// ---------- Hisoblar ----------
+export async function hisobQosh(p: {
+  nom: string;
+  turi: Hisob['turi'];
+  valyuta: Hisob['valyuta'];
+  /** Tiyinda */
+  boshlangich: number;
+}): Promise<void> {
   const { error } = await supabase.from('kassa_hisoblar').insert({
-    nom: nom.trim(),
-    turi,
-    boshlangich: bazaga(boshlangich),
+    nom: p.nom.trim(),
+    turi: p.turi,
+    valyuta: p.valyuta,
+    boshlangich: bazaga(p.boshlangich),
   });
   if (error) throw error;
+}
+
+export async function hisobTahrirla(
+  id: string,
+  p: { nom?: string; turi?: Hisob['turi']; boshlangich?: number; faol?: boolean },
+): Promise<void> {
+  const patch: Record<string, unknown> = {};
+  if (p.nom !== undefined) patch.nom = p.nom.trim();
+  if (p.turi !== undefined) patch.turi = p.turi;
+  if (p.boshlangich !== undefined) patch.boshlangich = bazaga(p.boshlangich);
+  if (p.faol !== undefined) patch.faol = p.faol;
+  const { error } = await supabase.from('kassa_hisoblar').update(patch).eq('id', id);
+  if (error) throw error;
+}
+
+// ---------- Turkumlar ----------
+export async function turkumQosh(nom: string, turi: Turkum['turi']): Promise<void> {
+  const { error } = await supabase.from('kassa_turkumlar').insert({ nom: nom.trim(), turi });
+  if (error) throw error;
+}
+
+export async function turkumTahrirla(
+  id: string,
+  p: { nom?: string; faol?: boolean },
+): Promise<void> {
+  const patch: Record<string, unknown> = {};
+  if (p.nom !== undefined) patch.nom = p.nom.trim();
+  if (p.faol !== undefined) patch.faol = p.faol;
+  const { error } = await supabase.from('kassa_turkumlar').update(patch).eq('id', id);
+  if (error) throw error;
+}
+
+// ---------- Klientlar ----------
+export async function klientQosh(p: {
+  ism: string;
+  telefon?: string;
+  turi: Klient['turi'];
+  izoh?: string;
+}): Promise<string> {
+  const { data, error } = await supabase
+    .from('kassa_klientlar')
+    .insert({
+      ism: p.ism.trim(),
+      telefon: p.telefon?.trim() || null,
+      turi: p.turi,
+      izoh: p.izoh?.trim() || null,
+    })
+    .select('id')
+    .single();
+  if (error) throw error;
+  return (data as { id: string }).id;
+}
+
+export async function klientTahrirla(
+  id: string,
+  p: { ism?: string; telefon?: string | null; turi?: Klient['turi']; izoh?: string | null; faol?: boolean },
+): Promise<void> {
+  const patch: Record<string, unknown> = {};
+  if (p.ism !== undefined) patch.ism = p.ism.trim();
+  if (p.telefon !== undefined) patch.telefon = p.telefon?.trim() || null;
+  if (p.turi !== undefined) patch.turi = p.turi;
+  if (p.izoh !== undefined) patch.izoh = p.izoh?.trim() || null;
+  if (p.faol !== undefined) patch.faol = p.faol;
+  const { error } = await supabase.from('kassa_klientlar').update(patch).eq('id', id);
+  if (error) throw error;
+}
+
+// ---------- Biznes ----------
+/** Nomni FAQAT shu funksiya o'zgartira oladi — yo'nalish va obunaga tegmaydi */
+export async function biznesNomiQoy(nom: string): Promise<string> {
+  const { data, error } = await supabase.rpc('kassa_biznes_nomi', { p_nom: nom });
+  if (error) throw error;
+  return data as string;
 }
