@@ -45,6 +45,7 @@ import KontaktlarEkrani from './src/ekran/KontaktlarEkrani';
 import KalendarEkrani from './src/ekran/KalendarEkrani';
 import YanaEkrani from './src/ekran/YanaEkrani';
 import YozuvOynasi, { type OynaRejimi } from './src/ekran/YozuvOynasi';
+import SinxBelgi from './src/ui/SinxBelgi';
 
 const TEMA_KALIT = 'kassa.tema';
 
@@ -188,6 +189,8 @@ function Qobiq() {
 
   return (
     <View style={{ flex: 1, backgroundColor: C.fon }}>
+      <SinxBelgi />
+
       {xato && (
         <View style={{ backgroundColor: C.chiqimYumshoq, padding: 10 }}>
           <Text style={{ color: C.chiqim, fontSize: 13, textAlign: 'center' }}>{xato}</Text>

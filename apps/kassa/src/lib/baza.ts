@@ -1,16 +1,26 @@
 // =============================================================
-//  BAZA BILAN ALOQA
+//  MA'LUMOT QATLAMI — MAHALLIY OMBOR BIRINCHI
 //
-//  Hamma so'rov shu yerda: ekranlar `supabase` ni to'g'ridan-to'g'ri
-//  chaqirmaydi. Sabab — 2-bosqichda shu fayl OFFLINE qatlamga
-//  almashtiriladi (mahalliy baza + navbat), ekranlar esa o'zgarmaydi.
+//  Ilova endi serverdan EMAS, qurilmadagi ombordan o'qiydi va unga
+//  yozadi. Serverga yuborish keyin, fonda bo'ladi.
 //
-//  Summalar chegarada o'giriladi: bazada `numeric(18,2)`, ilovada
-//  tiyin (butun son). `pul.ts` ga qarang — nega shundayligi yozilgan.
+//  Shuning uchun:
+//   · yozuv darhol ko'rinadi — internet kutilmaydi;
+//   · internet yo'q bo'lsa ham ilova to'liq ishlaydi;
+//   · ekran kodlari O'ZGARMADI — ular avvalgidek shu fayldagi
+//     funksiyalarni chaqiradi.
+//
+//  SHAKL: mahalliy omborda qatorlar SERVER shaklida turadi
+//  (`summa` — "1234.56" matn, `versiya`, `o_raqam` bilan). O'girish
+//  faqat shu faylda, chegarada bo'ladi. Aks holda serverdan kelgan
+//  qator bilan mahalliy yaratilgani ikki xil ko'rinib, sinxronizatsiya
+//  ularni farqli deb hisoblardi.
 // =============================================================
 
 import { bazaga, tiyinga } from '@ilova/kassa-yadro';
 import type { Hisob, Klient, Turkum, Yozuv } from '@ilova/kassa-yadro';
+import type { Amal, Jadval, Ombor } from '../ombor/turi';
+import { amalYasa, uuid } from './sinx';
 import { supabase } from './supabase';
 
 export type Men = {
@@ -21,7 +31,39 @@ export type Men = {
   obuna: string;
 };
 
-/** Kirgan odamning tashkiloti. Profil hali yo'q bo'lsa — null */
+// ---------------------------------------------------------------
+//  Ombor va sinxronizatsiya — ilova ochilganda bir marta qo'yiladi
+// ---------------------------------------------------------------
+let OMBOR: Ombor | null = null;
+let SINXNI_CHAQIR: (() => void) | null = null;
+
+export function omborniQoy(o: Ombor, sinx: () => void) {
+  OMBOR = o;
+  SINXNI_CHAQIR = sinx;
+}
+
+function ombor(): Ombor {
+  if (!OMBOR) throw new Error('Ombor hali tayyor emas');
+  return OMBOR;
+}
+
+/** Yozgandan keyin: serverga yuborishni boshlaymiz, lekin KUTMAYMIZ */
+function turtki() {
+  try {
+    SINXNI_CHAQIR?.();
+  } catch {
+    /* sinx o'zi xatoni ushlaydi */
+  }
+}
+
+async function navbatga(amal: Amal) {
+  await ombor().navbatQosh(amal);
+  turtki();
+}
+
+// ---------------------------------------------------------------
+//  Kim — bu faqat ONLAYN (kirish paytida)
+// ---------------------------------------------------------------
 export async function menKim(): Promise<Men | null> {
   const { data, error } = await supabase.rpc('kassa_men');
   if (error) throw error;
@@ -29,7 +71,6 @@ export async function menKim(): Promise<Men | null> {
   return qator ?? null;
 }
 
-/** Ro'yxatdan o'tishning ikkinchi qadami: tashkilot ochish */
 export async function biznesOch(nom: string, ism?: string): Promise<string> {
   const { data, error } = await supabase.rpc('kassa_royxatdan_ot', {
     p_biznes: nom,
@@ -39,59 +80,72 @@ export async function biznesOch(nom: string, ism?: string): Promise<string> {
   return data as string;
 }
 
+// ---------------------------------------------------------------
+//  O'qish — mahalliy ombordan
+// ---------------------------------------------------------------
 export async function hisoblarOl(): Promise<Hisob[]> {
-  const { data, error } = await supabase
-    .from('kassa_hisoblar')
-    .select('id, nom, turi, valyuta, boshlangich, rang, belgi, tartib, faol, versiya, o_raqam')
-    .order('tartib')
-    .order('nom');
-  if (error) throw error;
-  return (data ?? []).map((h: Record<string, unknown>) => ({
-    ...(h as unknown as Hisob),
-    boshlangich: tiyinga(h.boshlangich as string),
-  }));
+  const qatorlar = await ombor().royxat<Record<string, unknown>>('hisoblar');
+  return qatorlar
+    .map((h) => ({
+      ...(h as unknown as Hisob),
+      boshlangich: tiyinga(h.boshlangich as string),
+      faol: h.faol !== false,
+      tartib: Number(h.tartib ?? 0),
+    }))
+    .sort((a, b) => a.tartib - b.tartib || a.nom.localeCompare(b.nom));
 }
 
 export async function turkumlarOl(): Promise<Turkum[]> {
-  const { data, error } = await supabase
-    .from('kassa_turkumlar')
-    .select('id, nom, turi, ota_id, rang, belgi, tartib, faol, versiya, o_raqam')
-    .eq('faol', true)
-    .order('tartib');
-  if (error) throw error;
-  return (data ?? []) as unknown as Turkum[];
+  const qatorlar = await ombor().royxat<Record<string, unknown>>('turkumlar');
+  return qatorlar
+    .map((t) => ({ ...(t as unknown as Turkum), tartib: Number(t.tartib ?? 0) }))
+    .filter((t) => t.faol !== false)
+    .sort((a, b) => a.tartib - b.tartib);
 }
 
 export async function klientlarOl(): Promise<Klient[]> {
-  const { data, error } = await supabase
-    .from('kassa_klientlar')
-    .select('id, ism, telefon, turi, rasm_path, izoh, faol, versiya, o_raqam')
-    .eq('faol', true)
-    .order('ism');
-  if (error) throw error;
-  return (data ?? []) as unknown as Klient[];
+  const qatorlar = await ombor().royxat<Record<string, unknown>>('klientlar');
+  return qatorlar
+    .map((k) => k as unknown as Klient)
+    .filter((k) => k.faol !== false)
+    .sort((a, b) => a.ism.localeCompare(b.ism));
 }
 
-/**
- * Yozuvlar. PostgREST 1000 qatorda kesadi, shuning uchun chegara
- * ATAYLAB berilgan: "hammasi keldi" degan taxmin bilan yig'indi
- * hisoblanса, eski yozuvlar tushib qolib balans yolg'on chiqardi.
- * Katta tarix kerak bo'lganda davr bo'yicha so'raladi.
- */
-export async function yozuvlarOl(chegara = 500): Promise<Yozuv[]> {
-  const { data, error } = await supabase
-    .from('kassa_yozuvlar')
-    .select(
-      'id, hisob_id, turi, summa, valyuta, kurs, turkum_id, klient_id, izoh, sana, tolov_usuli, kochirma_id, bekor_at, bekor_sabab, versiya, o_raqam, created_at',
-    )
-    .order('sana', { ascending: false })
-    .limit(chegara);
-  if (error) throw error;
-  return (data ?? []).map((y: Record<string, unknown>) => ({
+export async function yozuvlarOl(): Promise<Yozuv[]> {
+  const qatorlar = await ombor().royxat<Record<string, unknown>>('yozuvlar');
+  return qatorlar.map((y) => ({
     ...(y as unknown as Yozuv),
     summa: tiyinga(y.summa as string),
     kurs: Number(y.kurs ?? 1),
   }));
+}
+
+// ---------------------------------------------------------------
+//  Yozish — avval mahalliy, keyin navbat
+// ---------------------------------------------------------------
+async function mahalliyQosh(jadval: Jadval, qator: Record<string, unknown>) {
+  await ombor().saqla(jadval, [qator]);
+  // Serverga `versiya` va `o_raqam` yuborilmaydi: ularni server
+  // triggeri qo'yadi. Yuborilsa, ular mijozdagi taxmin bo'lib
+  // qolardi va sinxronizatsiya chalkashardi.
+  const { versiya: _v, o_raqam: _o, ...yuboriladigan } = qator;
+  await navbatga(amalYasa('qosh', jadval, String(qator.id), yuboriladigan));
+}
+
+async function mahalliyTahrir(
+  jadval: Jadval,
+  id: string,
+  ozgarish: Record<string, unknown>,
+) {
+  const eski = await ombor().bitta<Record<string, unknown>>(jadval, id);
+  if (!eski) throw new Error('Yozuv topilmadi');
+  const versiya = Number(eski.versiya ?? 1);
+  // Mahalliy nusxada versiyani oshirmaymiz: haqiqiy versiyani server
+  // beradi va u sinxronizatsiyada qaytib keladi. Oshirsak, keyingi
+  // tahrir noto'g'ri versiya bilan ketib, o'zimiz bilan ziddiyat
+  // yasagan bo'lardik.
+  await ombor().saqla(jadval, [{ ...eski, ...ozgarish }]);
+  await navbatga(amalYasa('tahrir', jadval, id, ozgarish, versiya));
 }
 
 export type YangiYozuv = {
@@ -103,38 +157,32 @@ export type YangiYozuv = {
   klient_id?: string | null;
   izoh?: string | null;
   sana?: string;
+  valyuta?: string;
+  kochirma_id?: string | null;
 };
 
 export async function yozuvQosh(y: YangiYozuv): Promise<void> {
-  // org_id ustunining standart qiymati `current_org_id()` — uni
-  // ilovadan yubormaymiz. Yuborilsa, noto'g'ri qiymat RLS `with check`
-  // ga urilib, sababi tushunarsiz xato berardi.
-  const { error } = await supabase.from('kassa_yozuvlar').insert({
+  await mahalliyQosh('yozuvlar', {
+    id: uuid(),
     hisob_id: y.hisob_id,
     turi: y.turi,
     summa: bazaga(y.summa),
+    valyuta: y.valyuta ?? 'UZS',
+    kurs: 1,
     turkum_id: y.turkum_id ?? null,
     klient_id: y.klient_id ?? null,
     izoh: y.izoh?.trim() || null,
     sana: y.sana ?? new Date().toISOString(),
+    tolov_usuli: 'naqd',
+    kochirma_id: y.kochirma_id ?? null,
+    bekor_at: null,
+    bekor_sabab: null,
+    versiya: 1,
+    o_raqam: null,
+    created_at: new Date().toISOString(),
   });
-  if (error) throw error;
 }
 
-/**
- * Yozuvni BEKOR qilish. O'chirish yo'q — sabab bilan bekor qilinadi
- * va tarixda qoladi. Pul harakatida "izsiz yo'qolish" bo'lmasligi
- * kerak: bir oydan keyin "bu nima edi" degan savolga javob qolsin.
- */
-export async function yozuvBekorQil(id: string, sabab: string): Promise<void> {
-  const { error } = await supabase
-    .from('kassa_yozuvlar')
-    .update({ bekor_at: new Date().toISOString(), bekor_sabab: sabab || 'sababsiz' })
-    .eq('id', id);
-  if (error) throw error;
-}
-
-/** Yozuvni tahrirlash. Summa tiyinda keladi. */
 export async function yozuvTahrirla(
   id: string,
   p: Partial<Pick<YangiYozuv, 'hisob_id' | 'turi' | 'summa' | 'turkum_id' | 'klient_id' | 'izoh' | 'sana'>>,
@@ -147,38 +195,41 @@ export async function yozuvTahrirla(
   if (p.klient_id !== undefined) patch.klient_id = p.klient_id;
   if (p.izoh !== undefined) patch.izoh = p.izoh?.trim() || null;
   if (p.sana !== undefined) patch.sana = p.sana;
-  const { error } = await supabase.from('kassa_yozuvlar').update(patch).eq('id', id);
-  if (error) throw error;
+  await mahalliyTahrir('yozuvlar', id, patch);
 }
 
 /**
- * Hisoblararo o'tkazma: BIR so'rovda ikki yozuv.
+ * Yozuvni BEKOR qilish. O'chirish yo'q — sabab bilan bekor qilinadi
+ * va tarixda qoladi: bir oydan keyin "bu nima edi" degan savolga
+ * javob qolsin.
+ */
+export async function yozuvBekorQil(id: string, sabab: string): Promise<void> {
+  await mahalliyTahrir('yozuvlar', id, {
+    bekor_at: new Date().toISOString(),
+    bekor_sabab: sabab || 'sababsiz',
+  });
+}
+
+/**
+ * Hisoblararo o'tkazma — ikki yozuv, bitta juftlik id bilan.
  *
- * Ikki alohida so'rov bo'lsa, ikkinchisi yiqilganda pul bir hisobdan
- * chiqib, ikkinchisiga tushmay qolardi — daftar yolg'on gapirardi.
- * PostgREST massivni bitta tranzaksiyada yozadi: yo ikkalasi, yo
- * hech biri.
+ * Offline'da ikkalasi ham mahalliy omborga BIR VAQTDA tushadi, ya'ni
+ * ekranda pul bir hisobdan chiqib ikkinchisiga tushgani darhol
+ * ko'rinadi. Serverga esa ikki alohida amal bo'lib ketadi va navbat
+ * tartibi ularni ketma-ket yuboradi.
  */
 export async function kochirmaYarat(p: {
   kimdan: string;
   kimga: string;
-  /** Tiyinda */
   summa: number;
   izoh?: string;
   sana?: string;
 }): Promise<void> {
-  if (p.kimdan === p.kimga) throw new Error("Bir xil hisob tanlangan");
-  // Juftlikni bog'laydigan id — ikkalasida bir xil.
-  const juft =
-    globalThis.crypto?.randomUUID?.() ??
-    `${Date.now()}-${Math.random().toString(16).slice(2)}-${Math.random().toString(16).slice(2)}`;
+  if (p.kimdan === p.kimga) throw new Error('Bir xil hisob tanlangan');
+  const juft = uuid();
   const sana = p.sana ?? new Date().toISOString();
-  const izoh = p.izoh?.trim() || null;
-  const { error } = await supabase.from('kassa_yozuvlar').insert([
-    { hisob_id: p.kimdan, turi: 'chiqim', summa: bazaga(p.summa), kochirma_id: juft, izoh, sana },
-    { hisob_id: p.kimga, turi: 'kirim', summa: bazaga(p.summa), kochirma_id: juft, izoh, sana },
-  ]);
-  if (error) throw error;
+  await yozuvQosh({ hisob_id: p.kimdan, turi: 'chiqim', summa: p.summa, izoh: p.izoh, sana, kochirma_id: juft });
+  await yozuvQosh({ hisob_id: p.kimga, turi: 'kirim', summa: p.summa, izoh: p.izoh, sana, kochirma_id: juft });
 }
 
 // ---------- Hisoblar ----------
@@ -186,16 +237,21 @@ export async function hisobQosh(p: {
   nom: string;
   turi: Hisob['turi'];
   valyuta: Hisob['valyuta'];
-  /** Tiyinda */
   boshlangich: number;
 }): Promise<void> {
-  const { error } = await supabase.from('kassa_hisoblar').insert({
+  await mahalliyQosh('hisoblar', {
+    id: uuid(),
     nom: p.nom.trim(),
     turi: p.turi,
     valyuta: p.valyuta,
     boshlangich: bazaga(p.boshlangich),
+    rang: null,
+    belgi: null,
+    tartib: 100,
+    faol: true,
+    versiya: 1,
+    o_raqam: null,
   });
-  if (error) throw error;
 }
 
 export async function hisobTahrirla(
@@ -207,25 +263,30 @@ export async function hisobTahrirla(
   if (p.turi !== undefined) patch.turi = p.turi;
   if (p.boshlangich !== undefined) patch.boshlangich = bazaga(p.boshlangich);
   if (p.faol !== undefined) patch.faol = p.faol;
-  const { error } = await supabase.from('kassa_hisoblar').update(patch).eq('id', id);
-  if (error) throw error;
+  await mahalliyTahrir('hisoblar', id, patch);
 }
 
 // ---------- Turkumlar ----------
 export async function turkumQosh(nom: string, turi: Turkum['turi']): Promise<void> {
-  const { error } = await supabase.from('kassa_turkumlar').insert({ nom: nom.trim(), turi });
-  if (error) throw error;
+  await mahalliyQosh('turkumlar', {
+    id: uuid(),
+    nom: nom.trim(),
+    turi,
+    ota_id: null,
+    rang: null,
+    belgi: null,
+    tartib: 100,
+    faol: true,
+    versiya: 1,
+    o_raqam: null,
+  });
 }
 
-export async function turkumTahrirla(
-  id: string,
-  p: { nom?: string; faol?: boolean },
-): Promise<void> {
+export async function turkumTahrirla(id: string, p: { nom?: string; faol?: boolean }): Promise<void> {
   const patch: Record<string, unknown> = {};
   if (p.nom !== undefined) patch.nom = p.nom.trim();
   if (p.faol !== undefined) patch.faol = p.faol;
-  const { error } = await supabase.from('kassa_turkumlar').update(patch).eq('id', id);
-  if (error) throw error;
+  await mahalliyTahrir('turkumlar', id, patch);
 }
 
 // ---------- Klientlar ----------
@@ -235,18 +296,19 @@ export async function klientQosh(p: {
   turi: Klient['turi'];
   izoh?: string;
 }): Promise<string> {
-  const { data, error } = await supabase
-    .from('kassa_klientlar')
-    .insert({
-      ism: p.ism.trim(),
-      telefon: p.telefon?.trim() || null,
-      turi: p.turi,
-      izoh: p.izoh?.trim() || null,
-    })
-    .select('id')
-    .single();
-  if (error) throw error;
-  return (data as { id: string }).id;
+  const id = uuid();
+  await mahalliyQosh('klientlar', {
+    id,
+    ism: p.ism.trim(),
+    telefon: p.telefon?.trim() || null,
+    turi: p.turi,
+    rasm_path: null,
+    izoh: p.izoh?.trim() || null,
+    faol: true,
+    versiya: 1,
+    o_raqam: null,
+  });
+  return id;
 }
 
 export async function klientTahrirla(
@@ -259,11 +321,13 @@ export async function klientTahrirla(
   if (p.turi !== undefined) patch.turi = p.turi;
   if (p.izoh !== undefined) patch.izoh = p.izoh?.trim() || null;
   if (p.faol !== undefined) patch.faol = p.faol;
-  const { error } = await supabase.from('kassa_klientlar').update(patch).eq('id', id);
-  if (error) throw error;
+  await mahalliyTahrir('klientlar', id, patch);
 }
 
-// ---------- Biznes ----------
+// ---------------------------------------------------------------
+//  Onlayn talab qiladigan amallar
+// ---------------------------------------------------------------
+
 /** Nomni FAQAT shu funksiya o'zgartira oladi — yo'nalish va obunaga tegmaydi */
 export async function biznesNomiQoy(nom: string): Promise<string> {
   const { data, error } = await supabase.rpc('kassa_biznes_nomi', { p_nom: nom });
@@ -275,10 +339,8 @@ export async function biznesNomiQoy(nom: string): Promise<string> {
  * Hisobni BUTUNLAY o'chirish — Google Play talabi.
  *
  * Qaytarib bo'lmaydi: tashkilot, hisoblar, yozuvlar, kontaktlar va
- * kirish hisobi yo'q qilinadi. Shuning uchun chekka funksiya
- * `tasdiq` matnini talab qiladi va faqat yakka Credit Debit
- * tenantida ishlaydi (`tests/kassa-ochirish.mjs` chegaralarni
- * bosib ko'radi).
+ * kirish hisobi yo'q qilinadi. Chegaralarni `tests/kassa-ochirish.mjs`
+ * bosib ko'radi.
  */
 export async function hisobniOchir(): Promise<{ tashkilot: string | null; yozuvlar: number }> {
   const { data, error } = await supabase.functions.invoke('kassa-hisob-ochir', {
@@ -298,5 +360,7 @@ export async function hisobniOchir(): Promise<{ tashkilot: string | null; yozuvl
   }
   const j = data as { ok?: boolean; error?: string; ochirildi?: { tashkilot: string | null; yozuvlar: number } };
   if (!j?.ok) throw new Error(j?.error ?? 'O‘chirilmadi');
+  // Mahalliy nusxa ham qolmasin
+  await ombor().tozala().catch(() => {});
   return j.ochirildi ?? { tashkilot: null, yozuvlar: 0 };
 }

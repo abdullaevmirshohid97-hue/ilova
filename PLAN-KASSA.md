@@ -20,10 +20,13 @@
 | 2026-09-13 | Grafika: `scripts/credit-debit-logo.mjs` — ikonka, adaptiv ikonka, splash, favicon, Play 512×512, banner 1024×500, gorizontal logo (kutubxonasiz, koddan) |
 | 2026-09-13 | Sayt: `app.yukchibolla.com/kassa/` (Caddy `handle` bloki + `baseUrl`), b2b login sahifasida «APK yuklab olish» va «Brauzerda ochish» tugmalari, `deploy.sh` kassani ham yig'adi |
 | 2026-09-13 | Imzo kaliti `kodchi/credit-debit.jks` (RSA 2048, 10 000 kun), EAS loyihasi `@amirxon.ai4020/credit-debit`, `apps/kassa/PLAY-QOLLANMA.md` |
+| 2026-09-13 | **Offline qatlam**: mahalliy ombor (SQLite / IndexedDB / xotira), navbat, sinxronizatsiya dvigateli, `kassa_ozgarishlar` RPC, sinx holati belgisi. Sinovlar: `kassa-sinx` (soxta server, 27 tekshiruv) va `kassa-sinx-baza` (jonli baza, 21 tekshiruv) |
+| 2026-09-13 | Hisobni o'chirish + maxfiylik/o'chirish veb sahifalari — Play sharti yopildi |
+| 2026-09-13 | Excel va PDF eksport; hujjat dvigateli `packages/kassa-yadro/hujjat.ts` ga ko'chirildi (bot bilan umumiy) |
 
-**Ochiq qolgan (Play uchun shart):** hisobni o'chirish oqimi, maxfiylik
-siyosati sahifasi, ekran rasmlari va **email tasdiqlash** (hozir Supabase
-pochtasi soatiga ~2 ta xat yuboradi — ommaviy ro'yxatdan o'tishga yetmaydi).
+**Ochiq qolgan (Play uchun shart):** ekran rasmlari va **email tasdiqlash**
+(hozir Supabase pochtasi soatiga ~2 ta xat yuboradi — ommaviy ro'yxatdan
+o'tishga yetmaydi). Hisobni o'chirish va huquqiy sahifalar — bajarildi.
 
 ---
 
