@@ -36,10 +36,10 @@
 o'tishga yetmaydi). Hisobni o'chirish va huquqiy sahifalar — bajarildi.
 
 **Qo‘llanmagan migratsiya yo‘q** — `20260913000011_kassa_xatolar.sql`
-18.09 da Dashboard orqali qo‘llandi. Dashboard orqali qo‘llanganda versiya
-`supabase_migrations.schema_migrations` ga o‘zi tushmaydi — uni qo‘lda
-qo‘shish kerak, aks holda skript keyinroq qayta qo‘llashga urinadi
-(zararsiz, lekin chalkashtiradi).
+18.09 da Dashboard orqali qo‘llandi va `schema_migrations` ga yozildi.
+Eslatma: Dashboard orqali qo‘llanganda versiya ro‘yxatga O‘ZI tushmaydi —
+uni qo‘lda qo‘shish kerak, aks holda skript keyinroq qayta qo‘llashga
+urinadi (zararsiz, lekin chalkashtiradi).
 
 **Lekin Supabase boshqaruv tokeni (`sbp_v0_…`) hali 401 qaytaradi.**
 U `kodchi/migratsiya-qollash.ps1` va `tests/kassa-balans.mjs` ning baza
