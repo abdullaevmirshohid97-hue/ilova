@@ -38,9 +38,13 @@ export function Chip({
         backgroundColor: tanlangan ? (rang ?? C.faol) : C.karta,
         borderWidth: 1,
         borderColor: tanlangan ? (rang ?? C.faol) : C.chegara,
-        borderRadius: 20,
-        paddingHorizontal: 14,
-        paddingVertical: 7,
+        borderRadius: 22,
+        paddingHorizontal: 16,
+        // Android va iOS talabi: tegish maydoni kamida 48 dp / 44 pt.
+        // Avval 31 px edi va turkum tanlashda «tegmadi» bo'lardi —
+        // bu esa kuniga o'nlab marta takrorlanadigan amal.
+        minHeight: 44,
+        justifyContent: 'center',
         marginRight: 8,
       }}
     >
@@ -141,6 +145,8 @@ export function Tugma({
           borderColor: asosiy,
           borderRadius: O.radiusKichik,
           paddingVertical: 13,
+          minHeight: 48,
+          justifyContent: 'center',
           alignItems: 'center',
           opacity: kutmoqda ? 0.6 : 1,
         },
@@ -249,6 +255,7 @@ export function Qator({
     backgroundColor: C.karta,
     paddingHorizontal: O.chekka,
     paddingVertical: 13,
+    minHeight: 56,
     borderBottomWidth: 1,
     borderBottomColor: C.ajratgich,
     gap: 10,
@@ -324,11 +331,11 @@ export function DavrOqlari({
         paddingVertical: 8,
       }}
     >
-      <TouchableOpacity onPress={oldin} hitSlop={12} style={{ padding: 6 }}>
+      <TouchableOpacity onPress={oldin} hitSlop={12} style={{ paddingHorizontal: 16, paddingVertical: 8 }}>
         <Text style={{ color: C.matn2, fontSize: 18, fontWeight: '700' }}>‹</Text>
       </TouchableOpacity>
       <Text style={{ color: C.matn, fontSize: 14, fontWeight: '700' }}>{nom}</Text>
-      <TouchableOpacity onPress={keyin} hitSlop={12} disabled={!keyinOchiq} style={{ padding: 6 }}>
+      <TouchableOpacity onPress={keyin} hitSlop={12} disabled={!keyinOchiq} style={{ paddingHorizontal: 16, paddingVertical: 8 }}>
         <Text style={{ color: keyinOchiq ? C.matn2 : C.chegara, fontSize: 18, fontWeight: '700' }}>›</Text>
       </TouchableOpacity>
     </View>

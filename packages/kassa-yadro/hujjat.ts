@@ -487,24 +487,3 @@ export function pdf(h: PdfHujjat): Uint8Array {
   return bayt;
 }
 
-/**
- * Bayt -> base64.
- *
- * `btoa` React Native'da yo'q, `Buffer` esa brauzerda yo'q — ikkalasiga
- * ham tayanib bo'lmaydi. Fayl telefonda saqlash uchun base64 shaklida
- * kerak (expo-file-system shuni kutadi).
- */
-export function baytBase64(bayt: Uint8Array): string {
-  const A = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
-  let natija = '';
-  for (let i = 0; i < bayt.length; i += 3) {
-    const b0 = bayt[i];
-    const b1 = i + 1 < bayt.length ? bayt[i + 1] : 0;
-    const b2 = i + 2 < bayt.length ? bayt[i + 2] : 0;
-    natija += A[b0 >> 2];
-    natija += A[((b0 & 3) << 4) | (b1 >> 4)];
-    natija += i + 1 < bayt.length ? A[((b1 & 15) << 2) | (b2 >> 6)] : '=';
-    natija += i + 2 < bayt.length ? A[b2 & 63] : '=';
-  }
-  return natija;
-}

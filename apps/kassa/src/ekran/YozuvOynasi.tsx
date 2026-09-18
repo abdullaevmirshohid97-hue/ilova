@@ -23,12 +23,13 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { formatla, ifodaHisobla, tiyinga } from '@ilova/kassa-yadro';
+import { formatla, ifodaHisobla, ifodaKorinish, tiyinga } from '@ilova/kassa-yadro';
 import type { Yozuv } from '@ilova/kassa-yadro';
 import { kochirmaYarat, yozuvQosh, yozuvTahrirla } from '../lib/baza';
 import { sanaQisqa } from '../lib/davr';
 import { useHolat } from '../lib/holat';
 import { xatoMatn } from '../lib/supabase';
+import { xatoYoz } from '../lib/xatolar';
 import { O, useTema } from '../lib/tema';
 import { Chip } from '../ui/qismlar';
 
@@ -39,6 +40,7 @@ export type OynaRejimi = 'kirim' | 'chiqim' | 'kochirma';
 export default function YozuvOynasi({
   rejim,
   tahrir,
+  namuna,
   boshHisob,
   boshKlient,
   yopish,
@@ -46,31 +48,91 @@ export default function YozuvOynasi({
 }: {
   rejim: OynaRejimi;
   tahrir?: Yozuv | null;
+  /** «Takrorlash»: shu yozuvdan nusxa olinadi, lekin YANGISI yoziladi */
+  namuna?: Yozuv | null;
   boshHisob?: string | null;
   boshKlient?: string | null;
   yopish: () => void;
   saqlandi: () => void;
 }) {
   const { C } = useTema();
-  const { hisoblar, turkumlar, klientlar } = useHolat();
-
-  const faolHisoblar = hisoblar.filter((h) => h.faol);
-  const [ifoda, setIfoda] = useState(tahrir ? String(tahrir.summa / 100) : '');
-  const [hisobId, setHisobId] = useState(tahrir?.hisob_id ?? boshHisob ?? faolHisoblar[0]?.id ?? '');
-  const [hisobId2, setHisobId2] = useState(faolHisoblar[1]?.id ?? '');
-  const [turkumId, setTurkumId] = useState<string | null>(tahrir?.turkum_id ?? null);
-  const [klientId, setKlientId] = useState<string | null>(tahrir?.klient_id ?? boshKlient ?? null);
-  const [izoh, setIzoh] = useState(tahrir?.izoh ?? '');
-  const [sana, setSana] = useState<Date>(tahrir ? new Date(tahrir.sana) : new Date());
-  const [saqlanmoqda, setSaqlanmoqda] = useState(false);
-  const [xato, setXato] = useState<string | null>(null);
+  const { hisoblar, turkumlar, klientlar, yozuvlar } = useHolat();
 
   const kochirma = rejim === 'kochirma';
   const turi = rejim === 'kirim' ? 'kirim' : 'chiqim';
   const rang = kochirma ? C.matn2 : rejim === 'kirim' ? C.kirim : C.chiqim;
 
+  const faolHisoblar = hisoblar.filter((h) => h.faol);
   const kerakli = useMemo(() => turkumlar.filter((t) => t.turi === turi && t.faol), [turkumlar, turi]);
+
+  // -------------------------------------------------------------
+  //  OLDINDAN TO‘LDIRISH
+  //
+  //  Do‘kondor kun bo‘yi bir xil turkumga yozadi: tovar, benzin,
+  //  ijara. Har safar qaytadan tanlash — kuniga o‘nlab ortiqcha
+  //  tegish. Odam esa «kechqurun bir o‘tirib yozaman» deydi va
+  //  kechqurun yozmaydi — daftar aynan shu yerda tashlanadi.
+  //
+  //  Shuning uchun oxirgi SHU TURDAGI yozuvning hisobi va turkumi
+  //  oldindan qo‘yiladi. Alohida saqlash kerak emas: tarixning
+  //  o‘zi bor va u qurilmalar orasida sinxronlanadi.
+  // -------------------------------------------------------------
+  const oxirgi = useMemo(() => {
+    if (kochirma) return null;
+    let eng: Yozuv | null = null;
+    for (const y of yozuvlar) {
+      if (y.turi !== turi || y.bekor_at || y.kochirma_id) continue;
+      if (!eng || Date.parse(y.sana) > Date.parse(eng.sana)) eng = y;
+    }
+    return eng;
+  }, [yozuvlar, turi, kochirma]);
+
+  // Oxirgi tanlov o‘chirilgan bo‘lishi mumkin — u holda ishlatilmaydi
+  const oxirgiHisob = faolHisoblar.some((h) => h.id === oxirgi?.hisob_id) ? oxirgi?.hisob_id : null;
+  const oxirgiTurkum = kerakli.some((t) => t.id === oxirgi?.turkum_id) ? oxirgi?.turkum_id : null;
+
+  // Takrorlashda summa va izoh ham ko‘chadi, sana esa BUGUN bo‘ladi
+  const nusxa = tahrir ?? namuna ?? null;
+
+  const [ifoda, setIfoda] = useState(nusxa ? String(nusxa.summa / 100) : '');
+  const [hisobId, setHisobId] = useState(
+    nusxa?.hisob_id ?? boshHisob ?? oxirgiHisob ?? faolHisoblar[0]?.id ?? '',
+  );
+  const [hisobId2, setHisobId2] = useState(faolHisoblar[1]?.id ?? '');
+  const [turkumId, setTurkumId] = useState<string | null>(nusxa?.turkum_id ?? oxirgiTurkum ?? null);
+  const [klientId, setKlientId] = useState<string | null>(nusxa?.klient_id ?? boshKlient ?? null);
+  const [izoh, setIzoh] = useState(nusxa?.izoh ?? '');
+  const [sana, setSana] = useState<Date>(tahrir ? new Date(tahrir.sana) : new Date());
+  const [saqlanmoqda, setSaqlanmoqda] = useState(false);
+  const [xato, setXato] = useState<string | null>(null);
+
   const hisob = hisoblar.find((h) => h.id === hisobId);
+
+  // -------------------------------------------------------------
+  //  TEZ SUMMALAR
+  //
+  //  Har do‘konning o‘z nominali bor: biri 5 000 dan sotadi, biri
+  //  1 200 000 dan. Ro‘yxat ATAYLAB qo‘lda yozilmagan — odamning
+  //  o‘z tarixidan eng ko‘p takrorlangan uchtasi olinadi.
+  // -------------------------------------------------------------
+  const tezSummalar = useMemo(() => {
+    const son = new Map<number, number>();
+    for (const y of yozuvlar) {
+      if (y.turi !== turi || y.bekor_at || y.kochirma_id) continue;
+      son.set(y.summa, (son.get(y.summa) ?? 0) + 1);
+    }
+    const tarix = [...son.entries()]
+      .filter(([, n]) => n >= 2)
+      .sort((a, b) => b[1] - a[1] || b[0] - a[0])
+      .slice(0, 3)
+      .map(([summa]) => summa);
+    // Tarix yetmasa — O‘zbekistonda eng ko‘p uchraydigan nominallar
+    for (const zaxira of [1_000_000, 5_000_000, 10_000_000]) {
+      if (tarix.length >= 3) break;
+      if (!tarix.includes(zaxira)) tarix.push(zaxira);
+    }
+    return tarix.sort((a, b) => a - b);
+  }, [yozuvlar, turi]);
 
   // Ifodani har bosishda hisoblaymiz: odam natijani DARHOL ko'rsin,
   // "=" ni qidirmasin.
@@ -143,6 +205,9 @@ export default function YozuvOynasi({
       saqlandi();
       yopish();
     } catch (e) {
+      // Saqlanmagan yozuv — eng og‘riqli xato: odam pulni
+      // yozdim deb o‘ylab ketadi. Shuning uchun qayd qilinadi.
+      void xatoYoz('YozuvOynasi.yubor', e);
       setXato(xatoMatn(e));
       setSaqlanmoqda(false);
     }
@@ -197,13 +262,40 @@ export default function YozuvOynasi({
                 numberOfLines={1}
                 adjustsFontSizeToFit
               >
-                {ifoda || '0'}
+                {ifodaKorinish(ifoda) || '0'}
               </Text>
               {tiyin !== null && /[+−×÷]/.test(ifoda) && (
                 <Text style={{ color: C.xira, fontSize: 14, textAlign: 'right', marginTop: 4 }}>
                   = {formatla(tiyin, hisob?.valyuta ?? 'UZS')}
                 </Text>
               )}
+            </View>
+
+            {/* Tez summalar: uch tegish o‘rniga bitta */}
+            <View style={{ flexDirection: 'row', paddingHorizontal: O.chekka, paddingBottom: 4, gap: 8 }}>
+              {tezSummalar.map((t) => (
+                <TouchableOpacity
+                  key={t}
+                  onPress={() => {
+                    setXato(null);
+                    setIfoda(String(t / 100));
+                  }}
+                  style={{
+                    flex: 1,
+                    minHeight: 44,
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    backgroundColor: C.karta,
+                    borderWidth: 1,
+                    borderColor: C.chegara,
+                    borderRadius: O.radiusKichik,
+                  }}
+                >
+                  <Text style={{ color: C.matn2, fontSize: 14, fontWeight: '700' }} numberOfLines={1}>
+                    {formatla(t, hisob?.valyuta ?? 'UZS', { belgisiz: true, kasrsiz: true })}
+                  </Text>
+                </TouchableOpacity>
+              ))}
             </View>
 
             {/* Hisob(lar) */}
@@ -290,7 +382,7 @@ export default function YozuvOynasi({
             {/* Sana */}
             <Yorliq matn="Sana" />
             <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: O.chekka, gap: 8 }}>
-              <TouchableOpacity onPress={() => sanaSiljit(-1)} hitSlop={10} style={{ padding: 6 }}>
+              <TouchableOpacity onPress={() => sanaSiljit(-1)} hitSlop={10} style={{ paddingHorizontal: 12, paddingVertical: 10 }}>
                 <Text style={{ color: C.matn2, fontSize: 18, fontWeight: '700' }}>‹</Text>
               </TouchableOpacity>
               <View
@@ -306,11 +398,24 @@ export default function YozuvOynasi({
               >
                 <Text style={{ color: C.matn, fontSize: 14, fontWeight: '600' }}>{sanaQisqa(sana)}</Text>
               </View>
-              <TouchableOpacity onPress={() => sanaSiljit(1)} hitSlop={10} style={{ padding: 6 }}>
+              <TouchableOpacity onPress={() => sanaSiljit(1)} hitSlop={10} style={{ paddingHorizontal: 12, paddingVertical: 10 }}>
                 <Text style={{ color: C.matn2, fontSize: 18, fontWeight: '700' }}>›</Text>
               </TouchableOpacity>
-              <TouchableOpacity onPress={() => setSana(new Date())} style={{ padding: 6 }}>
-                <Text style={{ color: C.matn2, fontSize: 13 }}>Bugun</Text>
+              <TouchableOpacity
+                onPress={() => setSana(new Date())}
+                style={{ paddingHorizontal: 10, minHeight: 44, justifyContent: 'center' }}
+              >
+                <Text style={{ color: C.matn2, fontSize: 13, fontWeight: '600' }}>Bugun</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => {
+                  const k = new Date();
+                  k.setDate(k.getDate() - 1);
+                  setSana(k);
+                }}
+                style={{ paddingHorizontal: 10, minHeight: 44, justifyContent: 'center' }}
+              >
+                <Text style={{ color: C.matn2, fontSize: 13, fontWeight: '600' }}>Kecha</Text>
               </TouchableOpacity>
             </View>
 

@@ -102,6 +102,12 @@ tekshir('kontakt nomi bor (Ahmad)', matn.includes('Ahmad'));
 tekshir('bekor qilingan yozuv ham ko‘rinadi', matn.includes('bekor qilingan'), 'tarix yo‘qolmaydi');
 tekshir('o‘tkazma qatori bor', matn.includes('tkazma'));
 
+// Bitta valyutada hisobot AVVALGIDEK sodda: qavs ichida "(UZS)" ham,
+// ortiqcha "Valyuta" ustuni ham chiqmasligi kerak — aks holda 99%
+// foydalanuvchi keraksiz ustunni har kuni ko‘rib yuradi.
+tekshir('bitta valyutada "(UZS)" yozilmaydi', !matn.includes('Kirim (UZS)'), 'sodda qoldi');
+tekshir('bitta valyutada "Valyuta" ustuni yo‘q', !matn.includes('>Valyuta<'), '7 ustun');
+
 // Yig'indi: 2 500 000 kirim, 920 500 chiqim (bekor va o'tkazma kirmaydi)
 tekshir('kirim yig‘indisi 2 500 000', matn.includes('2500000'), '');
 tekshir('chiqim yig‘indisi 920 500', matn.includes('920500'), '');
@@ -167,6 +173,59 @@ const kopMatn = Buffer.from(kopP).toString('latin1');
 const sahifalar = (kopMatn.match(/\/Type\s*\/Page[^s]/g) ?? []).length;
 tekshir('250 qator bir necha sahifaga bo‘linadi', sahifalar > 1, `${sahifalar} sahifa`);
 tekshir('oxirgi qator ham hujjatda', kopMatn.includes('Qator 249'), '');
+
+// =============================================================
+// 4. KO‘P VALYUTA
+//
+//  Eng qimmat jim xato shu edi: hisobot 2 500 000 so'm va 100
+//  dollarni qo‘shib "2 500 100" chiqarardi. Raqam ishonarli
+//  ko‘rinadi, hech qanday ogohlantirish yo‘q — odam esa shunga
+//  qarab qaror qiladi.
+// =============================================================
+console.log('\n4. Ko‘p valyuta');
+
+const kopValyutaHisoblar = [
+  ...hisoblar,
+  { id: 'h3', nom: 'Dollar', turi: 'naqd', valyuta: 'USD', boshlangich: 0, tartib: 2, faol: true, versiya: 1 },
+];
+const kopValyutaYozuvlar = [
+  ...yozuvlar,
+  { ...yoz('d1', 'kirim', 100, { turkum_id: 't1', izoh: 'Dollarda sotuv' }), hisob_id: 'h3', valyuta: 'USD' },
+  { ...yoz('d2', 'chiqim', 40, { turkum_id: 't2', izoh: 'Dollarda xarajat' }), hisob_id: 'h3', valyuta: 'USD' },
+];
+const kopManba = { ...manba, hisoblar: kopValyutaHisoblar, yozuvlar: kopValyutaYozuvlar };
+
+const kvX = H.hisobotXlsx(kopManba);
+writeFileSync(join(ish, 'hisobot-kop-valyuta.xlsx'), kvX);
+const kvMatn = Buffer.from(kvX).toString('utf8');
+
+tekshir('UZS yig‘indisi alohida', kvMatn.includes('Kirim (UZS)'), '');
+tekshir('USD yig‘indisi alohida', kvMatn.includes('Kirim (USD)'), '');
+tekshir('"Valyuta" ustuni paydo bo‘ldi', kvMatn.includes('Valyuta'), '');
+tekshir(
+  'so‘m va dollar QO‘SHILMAYDI',
+  !kvMatn.includes('>2500100<') && !kvMatn.includes('2500100'),
+  '2 500 000 + 100 = 2 500 100 chiqmadi',
+);
+tekshir('UZS kirimi o‘zgarmadi', kvMatn.includes('2500000'), '2 500 000');
+tekshir('USD chiqimi ham alohida', kvMatn.includes('Chiqim (USD)'), '');
+tekshir('har valyutaga o‘z FARQi', kvMatn.includes('FARQ (UZS)') && kvMatn.includes('FARQ (USD)'), '');
+
+const kvP = H.hisobotPdf(kopManba);
+writeFileSync(join(ish, 'hisobot-kop-valyuta.pdf'), kvP);
+const kvPdf = Buffer.from(kvP).toString('latin1');
+tekshir('PDF‘da ham valyutalar ajratilgan', kvPdf.includes('Kirim \\(UZS\\)') || kvPdf.includes('Kirim (UZS)'), '');
+tekshir('PDF‘da valyuta ustuni bor', kvPdf.includes('Val.'), '');
+
+// Sahifadan chiqib ketmaganini ham tekshiramiz: ustun qo‘shilgach
+// jadval kengayadi va matn o‘ng chetdan oshib ketishi mumkin edi.
+const kvJoylar = [...kvPdf.matchAll(/([0-9.]+) ([0-9.]+) Td ((.*?)) Tj/g)].map((m) => Number(m[1]));
+tekshir('ko‘p valyutali PDF‘da matn bo‘laklari bor', kvJoylar.length > 20, kvJoylar.length + ' ta');
+tekshir(
+  'ustun qo‘shilgach ham o‘ng chetdan chiqmaydi',
+  kvJoylar.length > 0 && kvJoylar.every((x) => x <= 556),
+  kvJoylar.length ? 'eng o‘ngi x=' + Math.max(...kvJoylar) : 'bo‘lak topilmadi',
+);
 
 console.log('\n  fayllar: ' + ish);
 console.log('\n' + (yiqildi === 0 ? '\x1b[32mHAMMASI O‘TDI\x1b[0m' : `\x1b[31m${yiqildi} TA XATO\x1b[0m`) + '\n');

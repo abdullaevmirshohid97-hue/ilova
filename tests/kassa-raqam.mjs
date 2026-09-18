@@ -194,5 +194,28 @@ tekshir('yopilmagan qavs → null', Y.ifodaHisobla('(100+2') === null);
 tekshir('harf → null', Y.ifodaHisobla('100+abc') === null);
 tekshir('bo‘sh → null', Y.ifodaHisobla('') === null);
 
+// ---------- 9. Ming ajratgich (faqat ko‘rinish) ----------
+// Ajratgich summani O‘ZGARTIRMASLIGI shart. Agar u hisobga
+// tushib qolsa, "1 200" 1 ga aylanib ketishi mumkin edi — jim
+// xato, ekranda hammasi joyida ko‘rinadi.
+console.log('\n9. Ming ajratgich');
+
+tekshir('1200000 → "1 200 000"', Y.ifodaKorinish('1200000') === '1 200 000', Y.ifodaKorinish('1200000'));
+tekshir('100 o‘zgarmaydi', Y.ifodaKorinish('100') === '100');
+tekshir('1000 → "1 000"', Y.ifodaKorinish('1000') === '1 000');
+tekshir('amal belgisi saqlanadi', Y.ifodaKorinish('1200000+50000') === '1 200 000+50 000', Y.ifodaKorinish('1200000+50000'));
+tekshir('kasr ajratilmaydi', Y.ifodaKorinish('1200.50') === '1 200.50', Y.ifodaKorinish('1200.50'));
+tekshir('yarim yozilgan kasr', Y.ifodaKorinish('1200.') === '1 200.', Y.ifodaKorinish('1200.'));
+tekshir('bo‘sh matn', Y.ifodaKorinish('') === '');
+
+// Eng muhimi: ajratgich qo‘yilgan matn ham AYNAN o‘sha summani beradi
+for (const x of ['1200000', '1200000+50000', '2*3000', '1200.50', '(1000+500)*2']) {
+  tekshir(
+    'ajratgichdan keyin summa o‘zgarmadi: ' + x,
+    Y.ifodaHisobla(Y.ifodaKorinish(x)) === Y.ifodaHisobla(x),
+    String(Y.ifodaHisobla(Y.ifodaKorinish(x))),
+  );
+}
+
 console.log('\n' + (yiqildi === 0 ? '\x1b[32mHAMMASI O‘TDI\x1b[0m' : `\x1b[31m${yiqildi} TA XATO\x1b[0m`) + '\n');
 process.exit(yiqildi === 0 ? 0 : 1);

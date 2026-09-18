@@ -21,6 +21,8 @@ import {
   TouchableOpacity,
   View,
   useColorScheme,
+  BackHandler,
+  Platform,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { StatusBar } from 'expo-status-bar';
@@ -43,9 +45,11 @@ import BoshEkran from './src/ekran/BoshEkran';
 import YozuvlarEkrani from './src/ekran/YozuvlarEkrani';
 import KontaktlarEkrani from './src/ekran/KontaktlarEkrani';
 import KalendarEkrani from './src/ekran/KalendarEkrani';
-import YanaEkrani from './src/ekran/YanaEkrani';
+import YanaEkrani, { type YanaSahifa } from './src/ekran/YanaEkrani';
 import YozuvOynasi, { type OynaRejimi } from './src/ekran/YozuvOynasi';
 import SinxBelgi from './src/ui/SinxBelgi';
+import XatoQalqoni from './src/ui/XatoQalqoni';
+import { xatolarniTut } from './src/lib/xatolar';
 
 const TEMA_KALIT = 'kassa.tema';
 
@@ -57,6 +61,13 @@ export default function App() {
   const [men, setMen] = useState<Men | null>(null);
   const [menYuklandi, setMenYuklandi] = useState(false);
   const [xato, setXato] = useState<string | null>(null);
+
+  // Tutilmagan xatolar ilova ochilishida BIR MARTA ulanadi.
+  // Busiz telefondagi nosozlik hech qayerga yetib bormasdi: odam
+  // «ishlamayapti» deydi, biz esa nima bo'lganini bilmaymiz.
+  useEffect(() => {
+    xatolarniTut();
+  }, []);
 
   // Tema tanlovi qurilmada qoladi — har ochilganda qayta so'ralmasin
   useEffect(() => {
@@ -150,7 +161,9 @@ export default function App() {
   return (
     <TemaKontekst.Provider value={tema}>
       <StatusBar style="light" />
-      {ichki}
+      {/* Qalqon TEMADAN ICHKARIDA: yiqilgan ekran ham tungi
+          rejimda to‘g‘ri rangda chiqsin */}
+      <XatoQalqoni>{ichki}</XatoQalqoni>
     </TemaKontekst.Provider>
   );
 }
@@ -181,14 +194,54 @@ function Qobiq() {
   const [oyna, setOyna] = useState<{
     rejim: OynaRejimi;
     tahrir?: Yozuv | null;
+    namuna?: Yozuv | null;
     klient?: string | null;
   } | null>(null);
   const [tanlov, setTanlov] = useState(false);
+  const [yanaSahifa, setYanaSahifa] = useState<YanaSahifa>('asosiy');
+
+  /**
+   * Android «orqaga» tugmasi.
+   *
+   * Busiz ilova HAR SAFAR yopilardi: foydalanuvchi «Yozuvlar»
+   * bo'limida turib orqaga bossa, ilovadan chiqib ketardi va buni
+   * buzuqlik deb qabul qilardi.
+   *
+   * Tartib: tanlov oynasi -> «Yana» ichki sahifasi -> bo'lim ->
+   * bosh sahifa -> ilovadan chiqish (false qaytarsak tizim yopadi).
+   *
+   * Modallar bu yerda YO'Q: React Native ularni `onRequestClose`
+   * orqali o'zi yopadi.
+   */
+  useEffect(() => {
+    if (Platform.OS !== 'android') return;
+    const obuna = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (tanlov) {
+        setTanlov(false);
+        return true;
+      }
+      if (bolim === 'yana' && yanaSahifa !== 'asosiy') {
+        setYanaSahifa('asosiy');
+        return true;
+      }
+      if (bolim !== 'bosh') {
+        setBolim('bosh');
+        return true;
+      }
+      return false;
+    });
+    return () => obuna.remove();
+  }, [bolim, yanaSahifa, tanlov]);
 
   if (yuklanmoqda) return <Kutish />;
 
   return (
-    <View style={{ flex: 1, backgroundColor: C.fon }}>
+    // KENG EKRAN: planshet va brauzerda kontent butun enni egallab,
+    // yozuvlar ro'yxati o'qib bo'lmas darajada cho'zilib ketardi.
+    // Shuning uchun hamma narsa markazdagi 640 px ustunda turadi —
+    // telefonda hech narsa o'zgarmaydi.
+    <View style={{ flex: 1, backgroundColor: C.fon, alignItems: 'center' }}>
+      <View style={{ flex: 1, width: '100%', maxWidth: 640 }}>
       <SinxBelgi />
 
       {xato && (
@@ -201,6 +254,7 @@ function Qobiq() {
         {bolim === 'bosh' && (
           <BoshEkran
             ochQoshish={(turi) => setOyna({ rejim: turi })}
+            ochTakror={(y) => setOyna({ rejim: y.turi, namuna: y })}
             ochYozuvlar={() => setBolim('yozuvlar')}
             ochKontaktlar={() => setBolim('kontaktlar')}
           />
@@ -210,7 +264,13 @@ function Qobiq() {
           <KontaktlarEkrani qoshish={(turi, klientId) => setOyna({ rejim: turi, klient: klientId })} />
         )}
         {bolim === 'kalendar' && <KalendarEkrani tahrirla={(y) => setOyna({ rejim: y.turi, tahrir: y })} />}
-        {bolim === 'yana' && <YanaEkrani kochirma={() => setOyna({ rejim: 'kochirma' })} />}
+        {bolim === 'yana' && (
+          <YanaEkrani
+            kochirma={() => setOyna({ rejim: 'kochirma' })}
+            sahifa={yanaSahifa}
+            setSahifa={setYanaSahifa}
+          />
+        )}
       </View>
 
       {/* Suzuvchi + tugmasi. Bosh ekranda ikkita katta tugma bor,
@@ -255,7 +315,11 @@ function Qobiq() {
           return (
             <TouchableOpacity
               key={b.kalit}
-              onPress={() => setBolim(b.kalit)}
+              onPress={() => {
+                // «Yana» ni qayta bosish ichki sahifadan qaytaradi
+                if (b.kalit === 'yana' && bolim === 'yana') setYanaSahifa('asosiy');
+                setBolim(b.kalit);
+              }}
               style={{ flex: 1, alignItems: 'center', paddingVertical: 4 }}
             >
               <Text style={{ fontSize: 18, color: faolmi ? C.matn : C.xira }}>{b.belgi}</Text>
@@ -323,10 +387,13 @@ function Qobiq() {
         </Modal>
       )}
 
+      </View>
+
       {oyna && (
         <YozuvOynasi
           rejim={oyna.rejim}
           tahrir={oyna.tahrir ?? null}
+          namuna={oyna.namuna ?? null}
           boshKlient={oyna.klient ?? null}
           yopish={() => setOyna(null)}
           saqlandi={yangila}

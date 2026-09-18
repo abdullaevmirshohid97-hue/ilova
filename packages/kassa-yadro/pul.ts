@@ -81,6 +81,42 @@ export function formatla(
   return manfiy ? '−' + bilan : bilan;
 }
 
+/**
+ * Klaviaturadagi ifodani EKRAN uchun ajratadi:
+ * "1200000+50000" → "1 200 000+50 000".
+ *
+ * Ajratgich bo'lmasa odam nollarni ko'zi bilan sanaydi va bir nol
+ * ortiq yoki kam yozib yuboradi. Daftarda bundan qimmatroq xato
+ * yo'q: 120 000 o'rniga 1 200 000 yozilsa, oylik hisobot butunlay
+ * buziladi va sababi topilmaydi.
+ *
+ * Bu FAQAT ko'rsatish uchun. Hisob ifodaHisobla da xom matndan
+ * olinadi — u probelni baribir tashlab yuboradi.
+ */
+export function ifodaKorinish(matn: string): string {
+  let natija = '';
+  let i = 0;
+  while (i < matn.length) {
+    if (!/[0-9]/.test(matn[i])) {
+      natija += matn[i++];
+      continue;
+    }
+    const bosh = i;
+    while (i < matn.length && /[0-9]/.test(matn[i])) i++;
+    const butun = matn.slice(bosh, i);
+    for (let j = 0; j < butun.length; j++) {
+      if (j > 0 && (butun.length - j) % 3 === 0) natija += ' ';
+      natija += butun[j];
+    }
+    // Kasr qismi ajratilmaydi: "12.50" → "12.50", "12.5 0" emas
+    if (matn[i] === '.') {
+      natija += matn[i++];
+      while (i < matn.length && /[0-9]/.test(matn[i])) natija += matn[i++];
+    }
+  }
+  return natija;
+}
+
 /** Klaviaturadagi ifoda: "1200+300" → tiyin. Xato bo'lsa null. */
 export function ifodaHisobla(matn: string): number | null {
   const toza = matn.replace(/\s| /g, '').replace(/,/g, '.');

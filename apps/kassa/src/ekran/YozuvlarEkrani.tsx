@@ -192,6 +192,19 @@ export default function YozuvlarEkrani({ tahrirla }: { tahrirla: (y: Yozuv) => v
             />
           ))
         )}
+        {korinadigan.length > 0 && (
+          <Text
+            style={{
+              color: C.xira,
+              fontSize: 11,
+              textAlign: 'center',
+              paddingHorizontal: O.chekka,
+              paddingTop: 14,
+            }}
+          >
+            Tahrirlash uchun teging · bekor qilish uchun bosib turing
+          </Text>
+        )}
         <View style={{ height: 12 }} />
       </ScrollView>
 

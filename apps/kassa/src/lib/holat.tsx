@@ -39,6 +39,7 @@ import {
 import { supabaseServer } from './server';
 import { sinxronla, uuid, type SinxNatija } from './sinx';
 import { xatoMatn } from './supabase';
+import { xatoYoz } from './xatolar';
 import { omborOch } from '../ombor/tanla';
 import type { Ombor, SinxHolat, Ziddiyat } from '../ombor/turi';
 
@@ -127,6 +128,9 @@ export function HolatProvider({ men, children }: { men: Men; children: ReactNode
       setYozuvlar(y);
       setZiddiyatlar(await omborRef.current.ziddiyatlar());
     } catch (e) {
+      // Mahalliy ombordan o‘qib bo‘lmadi — ilova bo‘sh ko‘rinadi
+      // va odam «yozuvlarim yo‘qoldi» deb o‘ylaydi.
+      void xatoYoz('holat.yangila', e);
       setXato(xatoMatn(e));
     }
   }, []);

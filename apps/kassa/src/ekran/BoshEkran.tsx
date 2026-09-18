@@ -27,10 +27,12 @@ import { BoshHolat, Karta, Qator, Sarlavha, uslublar } from '../ui/qismlar';
 
 export default function BoshEkran({
   ochQoshish,
+  ochTakror,
   ochYozuvlar,
   ochKontaktlar,
 }: {
   ochQoshish: (turi: 'kirim' | 'chiqim') => void;
+  ochTakror: (y: Yozuv) => void;
   ochYozuvlar: () => void;
   ochKontaktlar: () => void;
 }) {
@@ -63,6 +65,26 @@ export default function BoshEkran({
     () => [...yozuvlar].sort((a, b) => Date.parse(b.sana) - Date.parse(a.sana)).slice(0, 6),
     [yozuvlar],
   );
+
+  // -------------------------------------------------------------
+  //  TAKRORLASH
+  //
+  //  Kunlik yozuvlarning kattagina qismi — kechagining aynan
+  //  o‘zi: o‘sha turkum, o‘sha hisob, ko‘pincha o‘sha summa.
+  //  Shuning uchun oxirgi yozuv pastda tayyor turadi: bosildi —
+  //  hammasi to‘ldirilgan oyna ochiladi, faqat tasdiqlash qoladi.
+  //
+  //  ATAYLAB darhol yozilmaydi: pul yozuvini bir tegish bilan
+  //  jimgina qo‘shish xavfli — cho‘ntakda bosilib ketishi mumkin.
+  // -------------------------------------------------------------
+  const takror = useMemo(() => {
+    let eng: Yozuv | null = null;
+    for (const y of yozuvlar) {
+      if (y.bekor_at || y.kochirma_id) continue;
+      if (!eng || Date.parse(y.sana) > Date.parse(eng.sana)) eng = y;
+    }
+    return eng;
+  }, [yozuvlar]);
 
   // Oxirgi 7 kun — grafik uchun
   const kunlar = useMemo(() => {
@@ -239,7 +261,42 @@ export default function BoshEkran({
         <View style={{ height: 24 }} />
       </ScrollView>
 
-      {/* Ikki katta tugma — eng ko'p ishlatiladigan ikki amal */}
+      {/* Takrorlash — kechagi yozuvni tayyor holda ochadi */}
+      {takror && (
+        <TouchableOpacity
+          onPress={() => ochTakror(takror)}
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 8,
+            backgroundColor: C.karta,
+            borderTopWidth: 1,
+            borderTopColor: C.chegara,
+            paddingHorizontal: O.chekka,
+            minHeight: 46,
+          }}
+        >
+          <Text style={{ color: C.matn2, fontSize: 15 }}>↺</Text>
+          <Text style={{ flex: 1, color: C.matn2, fontSize: 13 }} numberOfLines={1}>
+            Takrorlash:{' '}
+            {takror.izoh ||
+              turkumlar.find((t) => t.id === takror.turkum_id)?.nom ||
+              (takror.turi === 'kirim' ? 'Kirim' : 'Chiqim')}
+          </Text>
+          <Text
+            style={{
+              color: takror.turi === 'kirim' ? C.kirim : C.chiqim,
+              fontSize: 13,
+              fontWeight: '700',
+            }}
+          >
+            {takror.turi === 'kirim' ? '+' : '−'}{' '}
+            {formatla(takror.summa, takror.valyuta, { belgisiz: true, kasrsiz: true })}
+          </Text>
+        </TouchableOpacity>
+      )}
+
+      {/* Ikki katta tugma — eng ko‘p ishlatiladigan ikki amal */}
       <View style={{ flexDirection: 'row', padding: 10, gap: 10, backgroundColor: C.karta }}>
         <TouchableOpacity
           style={{ flex: 1, backgroundColor: C.kirim, paddingVertical: 14, borderRadius: O.radiusKichik, alignItems: 'center' }}
