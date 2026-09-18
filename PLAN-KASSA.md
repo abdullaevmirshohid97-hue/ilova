@@ -27,7 +27,7 @@
 | 2026-09-13 | **Audit** (`PLAN-AUDIT.md`): ortiqcha, standart kamchiliklari, qaytish mantiqi va tartiblangan tuzatish ro‘yxati |
 | 2026-09-18 | Audit 1-4: Android «orqaga» tugmasi, tegish maydonlari 48 dp, oxirgi turkum/hisob eslab qolinadi, «Takrorlash», tez summalar, ming ajratgich, «Bugun/Kecha». **Yozuv 4 tegishdan 2 ga tushdi** |
 | 2026-09-18 | Audit 8, 11, 12: planshet/web uchun markazda 640 px ustun; hisobot endi valyutalarni aralashtirmaydi (avval 2 mln so‘m + 100 dollar = «2 000 100» chiqardi); `YanaEkrani` 771 → 123 qator + 4 ta ekran |
-| 2026-09-18 | Audit 10: xato qalqoni (oq ekran o‘rniga o‘qiladigan ekran) va `kassa_xatolar` jadvali — telefondagi nosozlik endi bizga yetib keladi. **Migratsiya hali qo‘llanmagan** (boshqaruv tokeni 401) |
+| 2026-09-18 | Audit 10: xato qalqoni (oq ekran o‘rniga o‘qiladigan ekran) va `kassa_xatolar` jadvali — telefondagi nosozlik endi bizga yetib keladi. **Jonli bazaga qo‘llandi** (18.09, Dashboard orqali; yozish yo‘li quruq sinovda tekshirildi — 1 qator, keyin qaytarildi) |
 | 2026-09-18 | Audit 9: **rus tili** (`src/lib/til.ts`, 280+ matn, oy nomlari qaratqich kelishigi bilan). Sinov `kassa-til` kodni o'qib, tarjimasiz qolgan matnni topadi |
 | 2026-09-18 | Audit 6: **kun yakuni** — kechqurun kassani sanash taklifi. Farq chiqsa «Kassa sanog'i» yozuvi bo'lib tushadi (yangi jadval yo'q, daftar qo'shib yozadigan bo'lib qoladi) |
 
@@ -35,10 +35,17 @@
 (hozir Supabase pochtasi soatiga ~2 ta xat yuboradi — ommaviy ro'yxatdan
 o'tishga yetmaydi). Hisobni o'chirish va huquqiy sahifalar — bajarildi.
 
-**Qo'llanmagan migratsiya:** `20260913000011_kassa_xatolar.sql`. Supabase
-boshqaruv tokeni (`kodchi/migratsiya-qollash.ps1`) 401 qaytaryapti — uni
-yangilash kerak. Ilova bunga tayyor: funksiya topilmasa, xato qurilmada
-saqlanadi va keyingi ochilishda yuboriladi.
+**Qo‘llanmagan migratsiya yo‘q** — `20260913000011_kassa_xatolar.sql`
+18.09 da Dashboard orqali qo‘llandi. Dashboard orqali qo‘llanganda versiya
+`supabase_migrations.schema_migrations` ga o‘zi tushmaydi — uni qo‘lda
+qo‘shish kerak, aks holda skript keyinroq qayta qo‘llashga urinadi
+(zararsiz, lekin chalkashtiradi).
+
+**Lekin Supabase boshqaruv tokeni (`sbp_v0_…`) hali 401 qaytaradi.**
+U `kodchi/migratsiya-qollash.ps1` va `tests/kassa-balans.mjs` ning baza
+qismida ishlatiladi — ikkalasi ham token yangilanmaguncha ishlamaydi
+(sinovning mantiq qismidagi 12 ta tekshiruv o‘tadi). Tokenni loyihani
+ochgan akkauntdan olish kerak.
 
 ---
 
