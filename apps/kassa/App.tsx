@@ -26,6 +26,7 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { StatusBar } from 'expo-status-bar';
+import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { Session } from '@supabase/supabase-js';
 import type { Yozuv } from '@ilova/kassa-yadro';
 import { menKim, type Men } from './src/lib/baza';
@@ -183,6 +184,10 @@ export default function App() {
     );
 
   return (
+    // SafeAreaProvider eng tashqarida: Android‘da ilova tizim
+    // tugmalari OSTIGA ham chiziladi (edge-to-edge) va pastki
+    // bo‘limlar o‘sha panel tagida qolib ketadi.
+    <SafeAreaProvider>
     <TilKontekst.Provider value={tilHolati}>
     <TemaKontekst.Provider value={tema}>
       <StatusBar style="light" />
@@ -191,6 +196,7 @@ export default function App() {
       <XatoQalqoni>{ichki}</XatoQalqoni>
     </TemaKontekst.Provider>
     </TilKontekst.Provider>
+    </SafeAreaProvider>
   );
 }
 
@@ -218,6 +224,9 @@ const BOLIMLAR: { kalit: Bolim; belgi: string; matn: string }[] = [
 function Qobiq() {
   const { C } = useTema();
   const { yangila, yuklanmoqda, xato } = useHolat();
+  // Pastdagi tizim paneli balandligi: Samsung‘larda 3 ta tugma,
+  // boshqalarida ishora chizig‘i — ikkalasi ham joy egallaydi.
+  const chekka = useSafeAreaInsets();
   const [bolim, setBolim] = useState<Bolim>('bosh');
   const [oyna, setOyna] = useState<{
     rejim: OynaRejimi;
@@ -309,7 +318,7 @@ function Qobiq() {
           style={{
             position: 'absolute',
             right: 16,
-            bottom: 78,
+            bottom: 78 + chekka.bottom,
             width: 56,
             height: 56,
             borderRadius: 28,
@@ -334,7 +343,7 @@ function Qobiq() {
           backgroundColor: C.karta,
           borderTopWidth: 1,
           borderTopColor: C.chegara,
-          paddingBottom: 6,
+          paddingBottom: 6 + chekka.bottom,
           paddingTop: 6,
         }}
       >
@@ -380,7 +389,7 @@ function Qobiq() {
                 borderTopLeftRadius: 20,
                 borderTopRightRadius: 20,
                 padding: 12,
-                paddingBottom: 28,
+                paddingBottom: 28 + chekka.bottom,
                 width: '100%',
                 maxWidth: 520,
                 alignSelf: 'center',

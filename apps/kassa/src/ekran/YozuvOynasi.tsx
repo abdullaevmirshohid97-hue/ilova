@@ -30,6 +30,7 @@ import { sanaQisqa } from '../lib/davr';
 import { useHolat } from '../lib/holat';
 import { xatoMatn } from '../lib/supabase';
 import { xatoYoz } from '../lib/xatolar';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { O, useTema } from '../lib/tema';
 import { Chip } from '../ui/qismlar';
 import { tr } from '../lib/til';
@@ -58,6 +59,7 @@ export default function YozuvOynasi({
 }) {
   const { C } = useTema();
   const { hisoblar, turkumlar, klientlar, yozuvlar } = useHolat();
+  const chekka = useSafeAreaInsets();
 
   const kochirma = rejim === 'kochirma';
   const turi = rejim === 'kirim' ? 'kirim' : 'chiqim';
@@ -234,6 +236,7 @@ export default function YozuvOynasi({
             width: '100%',
             maxWidth: 520,
             alignSelf: 'center',
+            paddingBottom: chekka.bottom,
           }}
         >
           <View

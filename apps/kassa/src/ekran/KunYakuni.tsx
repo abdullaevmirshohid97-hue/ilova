@@ -24,6 +24,7 @@ import { yozuvQosh } from '../lib/baza';
 import { davrOraligi, oraliqdami } from '../lib/davr';
 import { useHolat } from '../lib/holat';
 import { xatoMatn } from '../lib/supabase';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { O, useTema } from '../lib/tema';
 import { tr, trn } from '../lib/til';
 import { xatoYoz } from '../lib/xatolar';
@@ -38,6 +39,7 @@ export default function KunYakuni({
 }) {
   const { C } = useTema();
   const { hisoblar, yozuvlar, yangila } = useHolat();
+  const chekka = useSafeAreaInsets();
 
   // Sanaladigan hisob — naqd. Kartadagi pulni qo'lda sanab
   // bo'lmaydi, shuning uchun standart holatda naqd tanlanadi.
@@ -109,6 +111,7 @@ export default function KunYakuni({
             width: '100%',
             maxWidth: 520,
             alignSelf: 'center',
+            paddingBottom: chekka.bottom,
           }}
         >
           <View
