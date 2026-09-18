@@ -25,3 +25,7 @@ credentials.json
 *.keystore
 *.apk
 *.aab
+
+# Boshqa AI vositalarining papkalari — bu repoga aloqasi yo'q
+.agents/
+.codex/
