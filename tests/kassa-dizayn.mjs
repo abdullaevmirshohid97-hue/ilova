@@ -18,7 +18,7 @@
 //  (bazaga tegmaydi)
 // =============================================================
 
-import { mkdtempSync, readFileSync, readdirSync, statSync } from 'node:fs';
+import { mkdtempSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -182,6 +182,59 @@ tekshir(
   y.length > 0 && JSON.stringify(y) === JSON.stringify(q),
   y.length === q.length ? `${y.length} ta rang` : `yorug‘ ${y.length}, tungi ${q.length}`,
 );
+
+// =============================================================
+// 4. KUN YAKUNI QACHON SO‘RALADI
+//
+//  Taklif noto'g'ri paytda chiqsa, u bezovta qiladigan qizil
+//  nuqtaga aylanadi va odam uni umuman ko'rmaydigan bo'lib
+//  qoladi. Shuning uchun qoida qat’iy: kuniga bir marta,
+//  kechqurun va faqat yozuv bo‘lgan kuni.
+// =============================================================
+console.log('\n4. Kun yakuni qoidalari');
+
+const yakunChiqish = join(ish, 'yakun.mjs');
+const stub = join(ish, 'async-storage.js');
+// AsyncStorage telefon moduli — node‘da ishlamaydi. Qoida esa
+// undan mustaqil, shuning uchun soxta modul qo‘yamiz.
+writeFileSync(
+  stub,
+  [
+    'const xotira = new Map();',
+    'export default {',
+    '  getItem: async (k) => (xotira.has(k) ? xotira.get(k) : null),',
+    '  setItem: async (k, v) => { xotira.set(k, v); },',
+    '};',
+  ].join('\n'),
+);
+await esbuild.build({
+  entryPoints: [join(APP, 'lib/yakun.ts')],
+  outfile: yakunChiqish,
+  bundle: true,
+  format: 'esm',
+  platform: 'neutral',
+  alias: { '@react-native-async-storage/async-storage': stub },
+});
+const K = await import('file://' + yakunChiqish.replace(/\\/g, '/'));
+
+const yakunKech = new Date(2026, 8, 18, 19, 0);
+const yakunErta = new Date(2026, 8, 18, 9, 0);
+
+tekshir('ertalab so‘ralmaydi', K.yakunSorash(true, yakunErta) === false);
+tekshir('kechqurun so‘raladi', K.yakunSorash(true, yakunKech) === true);
+tekshir('yozuvsiz kunda so‘ralmaydi', K.yakunSorash(false, yakunKech) === false);
+
+// Yakunlangandan keyin O‘SHA kuni qayta so‘ralmaydi
+await K.yakunniBelgila();
+tekshir('yakundan keyin bugun qayta so‘ralmaydi', K.yakunSorash(true, new Date()) === false);
+tekshir('bugun yakunlangani ko‘rinadi', K.bugunYakunlandi() === true);
+
+// Ertaga yana so‘raladi — aks holda odat bir kunda tugardi
+const ertaga = new Date();
+ertaga.setDate(ertaga.getDate() + 1);
+ertaga.setHours(19, 0, 0, 0);
+tekshir('ertaga yana so‘raladi', K.yakunSorash(true, ertaga) === true);
+tekshir('ertaga yakunlanmagan deb hisoblanadi', K.bugunYakunlandi(ertaga) === false);
 
 console.log('\n' + (yiqildi === 0 ? '\x1b[32mHAMMASI O‘TDI\x1b[0m' : `\x1b[31m${yiqildi} TA XATO\x1b[0m`) + '\n');
 process.exit(yiqildi === 0 ? 0 : 1);

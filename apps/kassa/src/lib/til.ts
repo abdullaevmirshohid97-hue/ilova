@@ -350,6 +350,24 @@ const RU: Record<string, string> = {
     'Нет интернета — записи сохраняются на устройстве',
   '{n} ta yozuv yuborilmoqda…': 'отправляется записей: {n}…',
 
+  // ---------- Kun yakuni ----------
+  'Kun yakuni': 'Итог дня',
+  'Kunni yakunlang': 'Подведите итог дня',
+  'Kunni yopish': 'Закрыть день',
+  'Farqni yozib, yopish': 'Записать разницу и закрыть',
+  'Kassani sanang — farq bo‘lsa bugun topiladi': 'Пересчитайте кассу — разницу найдём сегодня',
+  '✓ Bugungi kassa sanab bo‘lindi': '✓ Касса за сегодня пересчитана',
+  'Kassada haqiqatda qancha bor?': 'Сколько на самом деле в кассе?',
+  'Pulni sanang va shu yerga yozing': 'Пересчитайте деньги и впишите сюда',
+  'Daftar bo‘yicha': 'По книге',
+  'Sanalgan': 'Пересчитано',
+  'Kassa sanog‘i': 'Пересчёт кассы',
+  'Hammasi to‘g‘ri keldi.': 'Всё сошлось.',
+  'Kassada daftardagidan ko‘p. Ehtimol bir kirim yozilmagan — farq «Kassa sanog‘i» yozuvi bo‘lib tushadi.': 
+    'В кассе больше, чем по книге. Возможно, не записан приход — разница ляжет записью «Пересчёт кассы».',
+  'Kassada daftardagidan kam. Ehtimol bir chiqim yozilmagan — farq «Kassa sanog‘i» yozuvi bo‘lib tushadi.': 
+    'В кассе меньше, чем по книге. Возможно, не записан расход — разница ляжет записью «Пересчёт кассы».',
+
   // ---------- Sinx va xatolar ----------
   'Sinxronlanmoqda…': 'Синхронизация…',
   'Ro‘yxat bo‘sh': 'Список пуст',

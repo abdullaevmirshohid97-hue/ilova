@@ -29,6 +29,7 @@
 | 2026-09-18 | Audit 8, 11, 12: planshet/web uchun markazda 640 px ustun; hisobot endi valyutalarni aralashtirmaydi (avval 2 mln so‘m + 100 dollar = «2 000 100» chiqardi); `YanaEkrani` 771 → 123 qator + 4 ta ekran |
 | 2026-09-18 | Audit 10: xato qalqoni (oq ekran o‘rniga o‘qiladigan ekran) va `kassa_xatolar` jadvali — telefondagi nosozlik endi bizga yetib keladi. **Migratsiya hali qo‘llanmagan** (boshqaruv tokeni 401) |
 | 2026-09-18 | Audit 9: **rus tili** (`src/lib/til.ts`, 280+ matn, oy nomlari qaratqich kelishigi bilan). Sinov `kassa-til` kodni o'qib, tarjimasiz qolgan matnni topadi |
+| 2026-09-18 | Audit 6: **kun yakuni** — kechqurun kassani sanash taklifi. Farq chiqsa «Kassa sanog'i» yozuvi bo'lib tushadi (yangi jadval yo'q, daftar qo'shib yozadigan bo'lib qoladi) |
 
 **Ochiq qolgan (Play uchun shart):** ekran rasmlari va **email tasdiqlash**
 (hozir Supabase pochtasi soatiga ~2 ta xat yuboradi — ommaviy ro'yxatdan

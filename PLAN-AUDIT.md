@@ -229,7 +229,7 @@ Ta'siri katta va arzonidan boshlab:
 | 3 | Oxirgi turkum + «Takrorlash» + tez summalar | **bajarildi** | Yozuv 2 tegishga tushdi |
 | 4 | Ming ajratgich + sana tanlash | **bajarildi** | `ifodaKorinish`, «Bugun/Kecha» |
 | 5 | Qarz eslatmasi (bildirishnoma) | savol ochiq | Kanal tanlanishi kerak (7.3) |
-| 6 | Kun yopish + kassa sanog'i | keyingi bosqich | Odat qurish |
+| 6 | Kun yopish + kassa sanog'i | **bajarildi** | Kechqurun taklif, farq yozuv bo'lib tushadi |
 | 7 | Telegram bot (yozuv kiritish) | savol ochiq | Qaror kerak (7.2) |
 | 8 | Planshet/web kengligi | **bajarildi** | Markazda 640 px ustun |
 | 9 | Rus tili | **bajarildi** | `lib/til.ts`, sozlamada tanlanadi |
@@ -237,15 +237,16 @@ Ta'siri katta va arzonidan boshlab:
 | 11 | Ko'p valyuta: yashirish yoki tugatish | **tugatildi** | Hisobot har valyutani alohida sanaydi |
 | 12 | `YanaEkrani` ni bo'lish | **bajarildi** | 771 → 123 qator + 4 ta ekran |
 
-**Bajarilgani** (1-4, 8-12) ilovani «ishlaydi»dan «qulay»ga
+**Bajarilgani** (1-4, 6, 8-12) ilovani «ishlaydi»dan «qulay»ga
 o'tkazdi: yozuv 2 tegishda kiritiladi, orqaga tugmasi standart
-bo'yicha ishlaydi, hisobot valyutalarni aralashtirmaydi va
-telefondagi nosozlik endi bizga yetib keladi.
+bo'yicha ishlaydi, hisobot valyutalarni aralashtirmaydi, kechqurun
+kassa sanog‘i taklif qilinadi va telefondagi nosozlik endi bizga
+yetib keladi.
 
-**Qolgani** (5, 6, 7) — qaytish odatini quradigan qism va u
-7-bo'limdagi savollarga javob kutyapti: bildirishnoma qaysi
-kanal orqali boradi va Telegram bot qilinadimi. Ikkalasi ham
-texnik emas, qaror masalasi.
+**Qolgani** (5 va 7) — ikkalasi ham TASHQARIGA chiqadigan aloqa:
+bildirishnoma va Telegram bot. Ular texnik emas, qaror masalasi —
+7-bo'limdagi savollarga javob kerak: xabar qaysi kanal orqali
+boradi va bot qilinadimi.
 
 ---
 

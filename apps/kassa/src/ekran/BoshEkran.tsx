@@ -10,7 +10,7 @@
 //  kechikib ochilardi — bitta ustun uchun bu qimmat.
 // =============================================================
 
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { RefreshControl, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import {
   davrYigindi,
@@ -24,6 +24,8 @@ import { davrOraligi, kunBoshi, kunKaliti, oraliqdami, sanaQisqa } from '../lib/
 import { useHolat } from '../lib/holat';
 import { O, useTema } from '../lib/tema';
 import { BoshHolat, Karta, Qator, Sarlavha, uslublar } from '../ui/qismlar';
+import { bugunYakunlandi, yakunniBelgila, yakunniYukla, yakunSorash } from '../lib/yakun';
+import KunYakuni from './KunYakuni';
 import { tr } from '../lib/til';
 
 export default function BoshEkran({
@@ -109,6 +111,26 @@ export default function BoshEkran({
 
   const eng = Math.max(1, ...kunlar.map((k) => Math.max(k.kirim, k.chiqim)));
 
+  // -------------------------------------------------------------
+  //  KUN YAKUNI
+  //
+  //  Do'kondor kassani kechqurun baribir sanaydi — qog'ozda yoki
+  //  boshida. Taklif o'sha marosimga qo'shiladi: kuniga bir marta,
+  //  soat 17:00 dan keyin va faqat bugun yozuv bo‘lgan bo‘lsa.
+  // -------------------------------------------------------------
+  const [yakunOynasi, setYakunOynasi] = useState(false);
+  const [yakunYuklandi, setYakunYuklandi] = useState(false);
+
+  useEffect(() => {
+    yakunniYukla().then(() => setYakunYuklandi(true));
+  }, []);
+
+  const bugunYozuvBor = kunlar[kunlar.length - 1]
+    ? kunlar[kunlar.length - 1].kirim > 0 || kunlar[kunlar.length - 1].chiqim > 0
+    : false;
+  const yakunKerak = yakunYuklandi && yakunSorash(bugunYozuvBor);
+  const yakunlandi = yakunYuklandi && bugunYakunlandi();
+
   return (
     <View style={s.ekran}>
       <View style={s.boshliq}>
@@ -162,6 +184,43 @@ export default function BoshEkran({
             </Text>
           </Karta>
         </View>
+
+        {/* Kun yakuni taklifi */}
+        {yakunKerak && (
+          <TouchableOpacity onPress={() => setYakunOynasi(true)} style={{ paddingHorizontal: O.chekka, marginTop: 18 }}>
+            <Karta
+              uslub={{
+                borderColor: C.faol,
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 12,
+              }}
+            >
+              <Text style={{ fontSize: 20 }}>◑</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={{ color: C.matn, fontSize: 15, fontWeight: '700' }}>
+                  {tr('Kunni yakunlang')}
+                </Text>
+                <Text style={{ color: C.xira, fontSize: 12, marginTop: 3 }}>
+                  {tr('Kassani sanang — farq bo‘lsa bugun topiladi')}
+                </Text>
+              </View>
+              <Text style={{ color: C.matn2, fontSize: 18 }}>›</Text>
+            </Karta>
+          </TouchableOpacity>
+        )}
+        {yakunlandi && (
+          <Text
+            style={{
+              color: C.kirim,
+              fontSize: 12,
+              textAlign: 'center',
+              marginTop: 16,
+            }}
+          >
+            {tr('✓ Bugungi kassa sanab bo‘lindi')}
+          </Text>
+        )}
 
         {/* 7 kunlik grafik */}
         <Sarlavha matn={tr('Oxirgi 7 kun')} />
@@ -261,6 +320,17 @@ export default function BoshEkran({
 
         <View style={{ height: 24 }} />
       </ScrollView>
+
+      {yakunOynasi && (
+        <KunYakuni
+          yopish={() => setYakunOynasi(false)}
+          yakunlandi={() => {
+            void yakunniBelgila();
+            setYakunYuklandi(false);
+            setYakunYuklandi(true);
+          }}
+        />
+      )}
 
       {/* Takrorlash — kechagi yozuvni tayyor holda ochadi */}
       {takror && (
