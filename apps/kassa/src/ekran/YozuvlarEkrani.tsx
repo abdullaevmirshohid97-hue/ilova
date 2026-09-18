@@ -23,13 +23,21 @@ import { xatoMatn } from '../lib/supabase';
 import { O, useTema } from '../lib/tema';
 import { BoshHolat, Chip, DavrOqlari, Tanlagich, YigindiPaneli, uslublar } from '../ui/qismlar';
 import { YozuvQatori } from './BoshEkran';
+import { tr } from '../lib/til';
 
+// `matn` — kalit, tarjima emas: modul faylni o‘qishda bir marta
+// hisoblanadi, til esa keyinroq yuklanadi.
 const DAVRLAR: { kalit: DavrTuri; matn: string }[] = [
   { kalit: 'kun', matn: 'Kunlik' },
   { kalit: 'hafta', matn: 'Haftalik' },
   { kalit: 'oy', matn: 'Oylik' },
   { kalit: 'hammasi', matn: 'Hammasi' },
 ];
+
+/** Chizishda tarjima qilinadi */
+function davrlar() {
+  return DAVRLAR.map((d) => ({ ...d, matn: tr(d.matn) }));
+}
 
 export default function YozuvlarEkrani({ tahrirla }: { tahrirla: (y: Yozuv) => void }) {
   const { C } = useTema();
@@ -85,20 +93,19 @@ export default function YozuvlarEkrani({ tahrirla }: { tahrirla: (y: Yozuv) => v
 
   function bekor(y: Yozuv) {
     if (y.bekor_at) return;
-    Alert.alert(
-      'Yozuvni bekor qilish',
-      `${formatla(y.summa, y.valyuta)} — hisobdan chiqadi, lekin tarixda qoladi.`,
+    Alert.alert(tr('Yozuvni bekor qilish'),
+      `${formatla(y.summa, y.valyuta)} — ${tr('hisobdan chiqadi, lekin tarixda qoladi.')}`,
       [
-        { text: 'Yo‘q', style: 'cancel' },
+        { text: tr('Yo‘q'), style: 'cancel' },
         {
-          text: 'Bekor qilish',
+          text: tr('Bekor qilish'),
           style: 'destructive',
           onPress: async () => {
             try {
               await yozuvBekorQil(y.id, 'ilovadan bekor qilindi');
               await yangila();
             } catch (e) {
-              Alert.alert('Xatolik', xatoMatn(e));
+              Alert.alert(tr('Xatolik'), xatoMatn(e));
             }
           },
         },
@@ -109,7 +116,7 @@ export default function YozuvlarEkrani({ tahrirla }: { tahrirla: (y: Yozuv) => v
   return (
     <View style={s.ekran}>
       <View style={s.boshliq}>
-        <Text style={s.boshliqMatn}>Yozuvlar</Text>
+        <Text style={s.boshliqMatn}>{tr('Yozuvlar')}</Text>
         <Text style={s.boshliqIzoh}>
           {korinadigan.length} ta · {oraliq.nom}
         </Text>
@@ -120,7 +127,7 @@ export default function YozuvlarEkrani({ tahrirla }: { tahrirla: (y: Yozuv) => v
         <TextInput
           value={qidiruv}
           onChangeText={setQidiruv}
-          placeholder="Izoh, turkum, kontakt yoki summa"
+          placeholder={tr('Izoh, turkum, kontakt yoki summa')}
           placeholderTextColor={C.xira}
           style={{
             backgroundColor: C.fon,
@@ -138,7 +145,7 @@ export default function YozuvlarEkrani({ tahrirla }: { tahrirla: (y: Yozuv) => v
       <View style={{ backgroundColor: C.karta }}>
         <Tanlagich
           qiymat={davr}
-          variantlar={DAVRLAR}
+          variantlar={davrlar()}
           qoy={(k) => {
             setDavr(k);
             setSiljish(0);
@@ -159,7 +166,7 @@ export default function YozuvlarEkrani({ tahrirla }: { tahrirla: (y: Yozuv) => v
       {hisoblar.length > 1 && (
         <View style={{ backgroundColor: C.karta, borderBottomWidth: 1, borderBottomColor: C.chegara }}>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ padding: 10 }}>
-            <Chip matn="Hamma hisob" tanlangan={hisobId === null} bos={() => setHisobId(null)} />
+            <Chip matn={tr('Hamma hisob')} tanlangan={hisobId === null} bos={() => setHisobId(null)} />
             {hisoblar
               .filter((h) => h.faol)
               .map((h) => (
@@ -176,8 +183,8 @@ export default function YozuvlarEkrani({ tahrirla }: { tahrirla: (y: Yozuv) => v
         {korinadigan.length === 0 ? (
           <BoshHolat
             belgi="⌕"
-            matn={qidiruv ? 'Topilmadi' : 'Bu davrda yozuv yo‘q'}
-            izoh={qidiruv ? 'Boshqa so‘z bilan qidirib ko‘ring' : 'Davrni almashtiring yoki yangi yozuv qo‘shing'}
+            matn={qidiruv ? tr('Topilmadi') : tr('Bu davrda yozuv yo‘q')}
+            izoh={qidiruv ? tr('Boshqa so‘z bilan qidirib ko‘ring') : tr('Davrni almashtiring yoki yangi yozuv qo‘shing')}
           />
         ) : (
           korinadigan.map((y) => (
@@ -201,26 +208,24 @@ export default function YozuvlarEkrani({ tahrirla }: { tahrirla: (y: Yozuv) => v
               paddingHorizontal: O.chekka,
               paddingTop: 14,
             }}
-          >
-            Tahrirlash uchun teging · bekor qilish uchun bosib turing
-          </Text>
+          >{tr('Tahrirlash uchun teging · bekor qilish uchun bosib turing')}</Text>
         )}
         <View style={{ height: 12 }} />
       </ScrollView>
 
       <YigindiPaneli
         chap={{
-          yorliq: 'Kirim',
+          yorliq: tr('Kirim'),
           qiymat: formatla(yigindi.kirim, valyuta, { belgisiz: true, kasrsiz: true }),
           rang: C.kirim,
         }}
         orta={{
-          yorliq: 'Chiqim',
+          yorliq: tr('Chiqim'),
           qiymat: formatla(yigindi.chiqim, valyuta, { belgisiz: true, kasrsiz: true }),
           rang: C.chiqim,
         }}
         ong={{
-          yorliq: hisob ? 'Qoldiq' : 'Farq',
+          yorliq: hisob ? tr('Qoldiq') : tr('Farq'),
           qiymat: formatla(
             hisob ? hisobQoldiq(hisob, yozuvlar) : yigindi.farq,
             valyuta,

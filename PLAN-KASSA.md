@@ -23,10 +23,21 @@
 | 2026-09-13 | **Offline qatlam**: mahalliy ombor (SQLite / IndexedDB / xotira), navbat, sinxronizatsiya dvigateli, `kassa_ozgarishlar` RPC, sinx holati belgisi. Sinovlar: `kassa-sinx` (soxta server, 27 tekshiruv) va `kassa-sinx-baza` (jonli baza, 21 tekshiruv) |
 | 2026-09-13 | Hisobni o'chirish + maxfiylik/o'chirish veb sahifalari — Play sharti yopildi |
 | 2026-09-13 | Excel va PDF eksport; hujjat dvigateli `packages/kassa-yadro/hujjat.ts` ga ko'chirildi (bot bilan umumiy) |
+| 2026-09-13 | AI: MCP serveri (`kassa-mcp`, tokenlar + jurnal + kunlik chegara), mijozning o'z kaliti (BYOK: Claude / ChatGPT / Gemini), `kassa_ai_kalit` shifrlangan saqlash |
+| 2026-09-13 | **Audit** (`PLAN-AUDIT.md`): ortiqcha, standart kamchiliklari, qaytish mantiqi va tartiblangan tuzatish ro‘yxati |
+| 2026-09-18 | Audit 1-4: Android «orqaga» tugmasi, tegish maydonlari 48 dp, oxirgi turkum/hisob eslab qolinadi, «Takrorlash», tez summalar, ming ajratgich, «Bugun/Kecha». **Yozuv 4 tegishdan 2 ga tushdi** |
+| 2026-09-18 | Audit 8, 11, 12: planshet/web uchun markazda 640 px ustun; hisobot endi valyutalarni aralashtirmaydi (avval 2 mln so‘m + 100 dollar = «2 000 100» chiqardi); `YanaEkrani` 771 → 123 qator + 4 ta ekran |
+| 2026-09-18 | Audit 10: xato qalqoni (oq ekran o‘rniga o‘qiladigan ekran) va `kassa_xatolar` jadvali — telefondagi nosozlik endi bizga yetib keladi. **Migratsiya hali qo‘llanmagan** (boshqaruv tokeni 401) |
+| 2026-09-18 | Audit 9: **rus tili** (`src/lib/til.ts`, 280+ matn, oy nomlari qaratqich kelishigi bilan). Sinov `kassa-til` kodni o'qib, tarjimasiz qolgan matnni topadi |
 
 **Ochiq qolgan (Play uchun shart):** ekran rasmlari va **email tasdiqlash**
 (hozir Supabase pochtasi soatiga ~2 ta xat yuboradi — ommaviy ro'yxatdan
 o'tishga yetmaydi). Hisobni o'chirish va huquqiy sahifalar — bajarildi.
+
+**Qo'llanmagan migratsiya:** `20260913000011_kassa_xatolar.sql`. Supabase
+boshqaruv tokeni (`kodchi/migratsiya-qollash.ps1`) 401 qaytaryapti — uni
+yangilash kerak. Ilova bunga tayyor: funksiya topilmasa, xato qurilmada
+saqlanadi va keyingi ochilishda yuboriladi.
 
 ---
 

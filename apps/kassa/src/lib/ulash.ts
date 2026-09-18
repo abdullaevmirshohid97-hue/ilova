@@ -11,6 +11,7 @@ import { Platform } from 'react-native';
 import * as Sharing from 'expo-sharing';
 import { File, Paths } from 'expo-file-system';
 import { faylNomi } from '@ilova/kassa-yadro';
+import { tr } from './til';
 
 const TURLAR = {
   xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
@@ -54,7 +55,7 @@ export async function ulash(
   fayl.write(bayt);
 
   if (!(await Sharing.isAvailableAsync())) {
-    throw new Error('Bu qurilmada fayl ulashish yo‘q');
+    throw new Error(tr('Bu qurilmada fayl ulashish yo‘q'));
   }
   await Sharing.shareAsync(fayl.uri, { mimeType: TURLAR[tur], dialogTitle: toza });
 }

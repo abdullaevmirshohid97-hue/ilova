@@ -8,6 +8,10 @@
 //  Fayl QURILMADA yasaladi, serverda emas. Sabab: 2-bosqichda ilova
 //  offline ishlaydi va o'sha paytda ham hisobot kerak bo'ladi.
 //
+//  TIL: yorliqlar foydalanuvchi tanlagan tilda chiqadi. PDF‘da
+//  ruscha matn LOTINGA o‘giriladi (quyida) — o‘qsa bo‘ladi,
+//  lekin kirill emas. Excel‘da bunday cheklov yo‘q.
+//
 //  PDF'da kirill matn lotinga o'giriladi (standart Helvetica boshqa
 //  belgini bilmaydi) — `winansi` shuni qiladi. Excel'da bunday
 //  cheklov yo'q.
@@ -27,6 +31,7 @@ import {
   type Yozuv,
 } from '@ilova/kassa-yadro';
 import { sanaQisqa } from './davr';
+import { tr } from './til';
 
 export type HisobotManba = {
   biznes: string;
@@ -55,6 +60,8 @@ function valyutalar(m: HisobotManba): string[] {
   return bor.size === 0 ? ['UZS'] : [...bor].sort();
 }
 
+// Kalitlar: tarjima hujjat yasalayotganda qilinadi (modul bir
+// marta o‘qiladi, til esa keyinroq yuklanadi).
 const USTUNLAR = ['Sana', 'Turi', 'Summa', 'Valyuta', 'Turkum', 'Kontakt', 'Hisob', 'Izoh'];
 
 function qatorlar(m: HisobotManba, kopValyuta: boolean) {
@@ -68,13 +75,13 @@ function qatorlar(m: HisobotManba, kopValyuta: boolean) {
       y,
       matn: [
         sanaQisqa(y.sana),
-        y.kochirma_id ? "O'tkazma" : y.turi === 'kirim' ? 'Kirim' : 'Chiqim',
+        y.kochirma_id ? tr('O‘tkazma') : y.turi === 'kirim' ? tr('Kirim') : tr('Chiqim'),
         y.summa / 100,
         kopValyuta ? (y.valyuta ?? 'UZS') : null,
         turkum(y.turkum_id),
         klient(y.klient_id),
         hisob(y.hisob_id),
-        [y.izoh ?? '', y.bekor_at ? '(bekor qilingan)' : ''].filter(Boolean).join(' '),
+        [y.izoh ?? '', y.bekor_at ? tr('(bekor qilingan)') : ''].filter(Boolean).join(' '),
       ].filter((k) => k !== null) as (string | number)[],
     }));
 }
@@ -85,8 +92,8 @@ function turkumKesimi(m: HisobotManba, kopValyuta: boolean): [string, number][] 
   for (const y of m.yozuvlar) {
     if (y.bekor_at || y.kochirma_id) continue;
     const nom =
-      (m.turkumlar.find((t) => t.id === y.turkum_id)?.nom ?? 'Turkumsiz') +
-      (y.turi === 'kirim' ? ' (kirim)' : '') +
+      (m.turkumlar.find((t) => t.id === y.turkum_id)?.nom ?? tr('Turkumsiz')) +
+      (y.turi === 'kirim' ? ' ' + tr('(kirim)') : '') +
       (kopValyuta ? ' · ' + (y.valyuta ?? 'UZS') : '');
     xarita.set(nom, (xarita.get(nom) ?? 0) + y.summa);
   }
@@ -102,9 +109,9 @@ function xulosaSatrlari(m: HisobotManba): { yorliq: string; summa: number }[] {
   for (const v of val) {
     const y = boyicha[v] ?? { kirim: 0, chiqim: 0, farq: 0 };
     const qoshimcha = kop ? ' (' + v + ')' : '';
-    natija.push({ yorliq: 'Kirim' + qoshimcha, summa: y.kirim });
-    natija.push({ yorliq: 'Chiqim' + qoshimcha, summa: y.chiqim });
-    natija.push({ yorliq: 'FARQ' + qoshimcha, summa: y.farq });
+    natija.push({ yorliq: tr('Kirim') + qoshimcha, summa: y.kirim });
+    natija.push({ yorliq: tr('Chiqim') + qoshimcha, summa: y.chiqim });
+    natija.push({ yorliq: tr('FARQ') + qoshimcha, summa: y.farq });
   }
   return natija;
 }
@@ -113,38 +120,38 @@ export function hisobotXlsx(m: HisobotManba): Uint8Array {
   const kop = valyutalar(m).length > 1;
   const satrlar: Katak[][] = [
     [{ matn: m.biznes, qalin: true }],
-    [{ matn: 'HISOBOT — ' + m.davr, qalin: true }],
-    ['Hujjat sanasi: ' + sanaYozuv(new Date())],
+    [{ matn: tr('HISOBOT —') + ' ' + m.davr, qalin: true }],
+    [tr('Hujjat sanasi:') + ' ' + sanaYozuv(new Date())],
     [],
   ];
   for (const x of xulosaSatrlari(m)) {
     satrlar.push([{ matn: x.yorliq, qalin: true }, null, x.summa / 100]);
   }
-  satrlar.push([], [{ matn: 'TURKUMLAR', qalin: true }]);
+  satrlar.push([], [{ matn: tr('TURKUMLAR'), qalin: true }]);
   for (const [nom, summa] of turkumKesimi(m, kop)) satrlar.push([nom, null, summa / 100]);
 
-  satrlar.push([], USTUNLAR.filter((u) => kop || u !== 'Valyuta').map((u) => ({ matn: u, qalin: true })));
+  satrlar.push([], USTUNLAR.filter((u) => kop || u !== 'Valyuta').map((u) => ({ matn: tr(u), qalin: true })));
   for (const q of qatorlar(m, kop)) satrlar.push(q.matn as Katak[]);
 
   const enlar = kop ? [14, 10, 14, 9, 18, 18, 12, 30] : [14, 10, 14, 18, 18, 12, 30];
-  return xlsx('Hisobot', satrlar, enlar);
+  return xlsx(tr('Hisobot'), satrlar, enlar);
 }
 
 export function hisobotPdf(m: HisobotManba): Uint8Array {
   const kop = valyutalar(m).length > 1;
   const ustunlar = [
-    { nom: 'Sana', en: 14 },
-    { nom: 'Turi', en: 10 },
-    { nom: 'Summa', en: 14, ong: true },
-    ...(kop ? [{ nom: 'Val.', en: 7 }] : []),
-    { nom: 'Turkum', en: kop ? 16 : 18 },
-    { nom: 'Kontakt', en: 16 },
-    { nom: 'Izoh', en: kop ? 20 : 24 },
+    { nom: tr('Sana'), en: 14 },
+    { nom: tr('Turi'), en: 10 },
+    { nom: tr('Summa'), en: 14, ong: true },
+    ...(kop ? [{ nom: tr('Val.'), en: 7 }] : []),
+    { nom: tr('Turkum'), en: kop ? 16 : 18 },
+    { nom: tr('Kontakt'), en: 16 },
+    { nom: tr('Izoh'), en: kop ? 20 : 24 },
   ];
   return pdf({
     sarlavha: winansi(m.biznes),
-    qator2: winansi('HISOBOT — ' + m.davr),
-    qator3: winansi('Hujjat sanasi: ' + sanaYozuv(new Date())),
+    qator2: winansi(tr('HISOBOT —') + ' ' + m.davr),
+    qator3: winansi(tr('Hujjat sanasi:') + ' ' + sanaYozuv(new Date())),
     xulosa: [
       ...xulosaSatrlari(m).map((x) => [winansi(x.yorliq), raqam(x.summa / 100)] as [string, string]),
       ...turkumKesimi(m, kop)

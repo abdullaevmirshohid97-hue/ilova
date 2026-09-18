@@ -22,6 +22,7 @@
 
 import type { Amal, Ombor, Server, SinxHolat, Ziddiyat } from '../ombor/turi';
 import { JADVALLAR } from '../ombor/turi';
+import { tr } from './til';
 
 export type SinxNatija = {
   yuborildi: number;
@@ -99,8 +100,8 @@ export async function sinxronla(
       yozuv_id: amal.yozuv_id,
       sabab:
         javob.holat === 'ziddiyat'
-          ? 'Bu yozuv boshqa qurilmada o‘zgargan — sizning o‘zgarishingiz qo‘llanmadi'
-          : (javob.sabab ?? 'Server qabul qilmadi'),
+          ? tr('Bu yozuv boshqa qurilmada o‘zgargan — sizning o‘zgarishingiz qo‘llanmadi')
+          : (javob.sabab ?? tr('Server qabul qilmadi')),
       vaqt: new Date(hozir).toISOString(),
     };
     await ombor.ziddiyatQosh(z);

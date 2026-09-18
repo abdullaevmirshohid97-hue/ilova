@@ -17,6 +17,7 @@ import { Modal, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import { useHolat } from '../lib/holat';
 import { O, useTema } from '../lib/tema';
 import { Tugma } from './qismlar';
+import { tr, trn } from '../lib/til';
 
 export default function SinxBelgi() {
   const { C } = useTema();
@@ -31,7 +32,7 @@ export default function SinxBelgi() {
   function korinish() {
     if (!doimiy) {
       return {
-        matn: 'Bu qurilmada saqlash ishlamayapti — ilova internetsiz ochilmaydi',
+        matn: tr('Bu qurilmada saqlash ishlamayapti — ilova internetsiz ochilmaydi'),
         rang: C.ogoh,
         fon: C.ogohYumshoq,
         bosiladi: false,
@@ -39,7 +40,7 @@ export default function SinxBelgi() {
     }
     if (sinxHolat === 'ziddiyat') {
       return {
-        matn: `${ziddiyatlar.length} ta o‘zgarish qo‘llanmadi — ko‘rish`,
+        matn: trn('{n} ta o‘zgarish qo‘llanmadi — ko‘rish', ziddiyatlar.length),
         rang: C.chiqim,
         fon: C.chiqimYumshoq,
         bosiladi: true,
@@ -48,8 +49,8 @@ export default function SinxBelgi() {
     if (sinxHolat === 'oflayn') {
       return {
         matn: navbatda
-          ? `Internet yo‘q · ${navbatda} ta yozuv navbatda`
-          : 'Internet yo‘q — yozuvlar qurilmada saqlanyapti',
+          ? trn('Internet yo‘q · {n} ta yozuv navbatda', navbatda)
+          : tr('Internet yo‘q — yozuvlar qurilmada saqlanyapti'),
         rang: C.ogoh,
         fon: C.ogohYumshoq,
         bosiladi: false,
@@ -57,13 +58,13 @@ export default function SinxBelgi() {
     }
     if (navbatda > 0) {
       return {
-        matn: `${navbatda} ta yozuv yuborilmoqda…`,
+        matn: trn('{n} ta yozuv yuborilmoqda…', navbatda),
         rang: C.matn2,
         fon: C.ajratgich,
         bosiladi: false,
       };
     }
-    return { matn: 'Sinxronlanmoqda…', rang: C.matn2, fon: C.ajratgich, bosiladi: false };
+    return { matn: tr('Sinxronlanmoqda…'), rang: C.matn2, fon: C.ajratgich, bosiladi: false };
   }
 
   return (
@@ -136,16 +137,16 @@ export default function SinxBelgi() {
                       {z.jadval} · {z.yozuv_id.slice(0, 8)}
                     </Text>
                     <TouchableOpacity onPress={() => ziddiyatniYop(z.id)} style={{ marginTop: 8 }}>
-                      <Text style={{ color: C.matn2, fontSize: 13, fontWeight: '600' }}>Tushunarli</Text>
+                      <Text style={{ color: C.matn2, fontSize: 13, fontWeight: '600' }}>{tr('Tushunarli')}</Text>
                     </TouchableOpacity>
                   </View>
                 ))}
                 {ziddiyatlar.length === 0 && (
-                  <Text style={{ color: C.xira, fontSize: 13 }}>Ro‘yxat bo‘sh</Text>
+                  <Text style={{ color: C.xira, fontSize: 13 }}>{tr('Ro‘yxat bo‘sh')}</Text>
                 )}
               </ScrollView>
 
-              <Tugma matn="Yopish" bos={() => setRoyxat(false)} uslub={{ marginTop: 12 }} />
+              <Tugma matn={tr('Yopish')} bos={() => setRoyxat(false)} uslub={{ marginTop: 12 }} />
             </View>
           </View>
         </Modal>

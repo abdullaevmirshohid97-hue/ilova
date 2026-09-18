@@ -20,6 +20,7 @@ import Hisoblar from './YanaHisoblar';
 import Hisobot from './YanaHisobot';
 import Sozlama from './YanaSozlama';
 import Turkumlar from './YanaTurkumlar';
+import { tr, trn } from '../lib/til';
 
 type Sahifa = 'asosiy' | 'hisoblar' | 'turkumlar' | 'hisobot' | 'sozlama' | 'ai' | 'aimodel';
 
@@ -45,12 +46,12 @@ export default function YanaEkrani({
 
   if (sahifa !== 'asosiy') {
     const sarlavhalar: Record<Exclude<Sahifa, 'asosiy'>, string> = {
-      hisoblar: 'Hisoblar',
-      turkumlar: 'Turkumlar',
-      hisobot: 'Hisobot',
-      sozlama: 'Sozlamalar',
-      ai: 'AI ulanish',
-      aimodel: 'AI modeli',
+      hisoblar: tr('Hisoblar'),
+      turkumlar: tr('Turkumlar'),
+      hisobot: tr('Hisobot'),
+      sozlama: tr('Sozlamalar'),
+      ai: tr('AI ulanish'),
+      aimodel: tr('AI modeli'),
     };
     return (
       <View style={s.ekran}>
@@ -77,45 +78,43 @@ export default function YanaEkrani({
   return (
     <View style={s.ekran}>
       <View style={s.boshliq}>
-        <Text style={s.boshliqMatn}>Yana</Text>
+        <Text style={s.boshliqMatn}>{tr('Yana')}</Text>
         <Text style={s.boshliqIzoh}>{men.biznes}</Text>
       </View>
 
       <ScrollView>
-        <Sarlavha matn="Boshqaruv" />
+        <Sarlavha matn={tr('Boshqaruv')} />
         <Qator
-          nom="Hisoblar"
-          izoh={`${hisoblar.filter((h) => h.faol).length} ta · jami ${formatla(jamiQoldiq, hisoblar[0]?.valyuta ?? 'UZS', { kasrsiz: true })}`}
+          nom={tr('Hisoblar')}
+          izoh={`${trn('{n} ta', hisoblar.filter((h) => h.faol).length)} · ${tr('jami')} ${formatla(jamiQoldiq, hisoblar[0]?.valyuta ?? 'UZS', { kasrsiz: true })}`}
           ong="›"
           bos={() => setSahifa('hisoblar')}
         />
-        <Qator nom="Turkumlar" izoh="Kirim va chiqim turkumlari" ong="›" bos={() => setSahifa('turkumlar')} />
-        <Qator nom="Hisoblararo o‘tkazma" izoh="Bir hisobdan ikkinchisiga" ong="›" bos={kochirma} />
+        <Qator nom={tr('Turkumlar')} izoh={tr('Kirim va chiqim turkumlari')} ong="›" bos={() => setSahifa('turkumlar')} />
+        <Qator nom={tr('Hisoblararo o‘tkazma')} izoh={tr('Bir hisobdan ikkinchisiga')} ong="›" bos={kochirma} />
 
-        <Sarlavha matn="Tahlil" />
-        <Qator nom="Hisobot" izoh="Davr, turkum va hisob kesimida" ong="›" bos={() => setSahifa('hisobot')} />
+        <Sarlavha matn={tr('Tahlil')} />
+        <Qator nom={tr('Hisobot')} izoh={tr('Davr, turkum va hisob kesimida')} ong="›" bos={() => setSahifa('hisobot')} />
 
-        <Sarlavha matn="AI" />
+        <Sarlavha matn={tr('AI')} />
         <Qator
-          nom="AI modeli"
-          izoh="O‘z obunangizni ulang: Claude, ChatGPT yoki Gemini"
+          nom={tr('AI modeli')}
+          izoh={tr('O‘z obunangizni ulang: Claude, ChatGPT yoki Gemini')}
           ong="›"
           bos={() => setSahifa('aimodel')}
         />
         <Qator
-          nom="AI ulanish"
-          izoh="Sun’iy intellekt agentini daftaringizga ulash"
+          nom={tr('AI ulanish')}
+          izoh={tr('Sun’iy intellekt agentini daftaringizga ulash')}
           ong="›"
           bos={() => setSahifa('ai')}
         />
 
-        <Sarlavha matn="Sozlamalar" />
-        <Qator nom="Sozlamalar" izoh="Biznes nomi, ko‘rinish, chiqish" ong="›" bos={() => setSahifa('sozlama')} />
+        <Sarlavha matn={tr('Sozlamalar')} />
+        <Qator nom={tr('Sozlamalar')} izoh={tr('Biznes nomi, ko‘rinish, chiqish')} ong="›" bos={() => setSahifa('sozlama')} />
 
         <View style={{ padding: O.chekka, paddingTop: 24 }}>
-          <Text style={{ color: C.xira, fontSize: 12, textAlign: 'center' }}>
-            Credit Debit · Yukchibolla platformasi
-          </Text>
+          <Text style={{ color: C.xira, fontSize: 12, textAlign: 'center' }}>{tr('Credit Debit · Yukchibolla platformasi')}</Text>
         </View>
       </ScrollView>
     </View>

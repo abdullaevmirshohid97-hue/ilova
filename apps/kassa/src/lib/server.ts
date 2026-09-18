@@ -24,6 +24,7 @@
 import type { Amal, Server } from '../ombor/turi';
 import { BAZA_NOMI } from '../ombor/turi';
 import { supabase } from './supabase';
+import { tr } from './til';
 
 /** Postgres: unique_violation */
 const DUBL = '23505';
@@ -79,7 +80,7 @@ export function supabaseServer(qurilmaId: string, platforma: string): Server {
 
       // 0 qator: ziddiyatmi yoki yozuv yo'qmi
       const { data: bor } = await supabase.from(jadval).select('id').eq('id', amal.yozuv_id).maybeSingle();
-      return bor ? { holat: 'ziddiyat' } : { holat: 'rad', sabab: 'Yozuv topilmadi' };
+      return bor ? { holat: 'ziddiyat' } : { holat: 'rad', sabab: tr('Yozuv topilmadi') };
     },
 
     async kursorSaqla(kursor: number) {
@@ -105,5 +106,5 @@ function qaytarsaBolmaydi(e: unknown): boolean {
 
 function xabar(e: unknown): string {
   const x = e as { message?: string; details?: string };
-  return x?.message ?? x?.details ?? 'Server qabul qilmadi';
+  return x?.message ?? x?.details ?? tr('Server qabul qilmadi');
 }

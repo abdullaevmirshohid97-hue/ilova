@@ -24,6 +24,7 @@ import { davrOraligi, kunBoshi, kunKaliti, oraliqdami, sanaQisqa } from '../lib/
 import { useHolat } from '../lib/holat';
 import { O, useTema } from '../lib/tema';
 import { BoshHolat, Karta, Qator, Sarlavha, uslublar } from '../ui/qismlar';
+import { tr } from '../lib/til';
 
 export default function BoshEkran({
   ochQoshish,
@@ -112,7 +113,7 @@ export default function BoshEkran({
     <View style={s.ekran}>
       <View style={s.boshliq}>
         <Text style={s.boshliqIzoh}>{men.biznes}</Text>
-        <Text style={s.boshliqMatn}>Umumiy balans</Text>
+        <Text style={s.boshliqMatn}>{tr('Umumiy balans')}</Text>
         <View style={{ marginTop: 6 }}>
           {balanslar.length === 0 ? (
             <Text style={{ color: C.tunMatn, fontSize: 28, fontWeight: '800' }}>
@@ -132,22 +133,22 @@ export default function BoshEkran({
         refreshControl={<RefreshControl refreshing={yuklanmoqda} onRefresh={yangila} tintColor={C.xira} />}
       >
         {/* Shu oy */}
-        <Sarlavha matn={`Shu oy · ${oy.nom}`} />
+        <Sarlavha matn={`${tr('Shu oy')} · ${oy.nom}`} />
         <View style={{ flexDirection: 'row', paddingHorizontal: O.chekka, gap: 10 }}>
           <Karta uslub={{ flex: 1, paddingVertical: 14 }}>
-            <Text style={{ color: C.xira, fontSize: 12 }}>↑ Kirim</Text>
+            <Text style={{ color: C.xira, fontSize: 12 }}>{tr('↑ Kirim')}</Text>
             <Text style={{ color: C.kirim, fontSize: 17, fontWeight: '800', marginTop: 4 }} numberOfLines={1}>
               {formatla(oylik.kirim, asosiyValyuta, { belgisiz: true, kasrsiz: true })}
             </Text>
           </Karta>
           <Karta uslub={{ flex: 1, paddingVertical: 14 }}>
-            <Text style={{ color: C.xira, fontSize: 12 }}>↓ Chiqim</Text>
+            <Text style={{ color: C.xira, fontSize: 12 }}>{tr('↓ Chiqim')}</Text>
             <Text style={{ color: C.chiqim, fontSize: 17, fontWeight: '800', marginTop: 4 }} numberOfLines={1}>
               {formatla(oylik.chiqim, asosiyValyuta, { belgisiz: true, kasrsiz: true })}
             </Text>
           </Karta>
           <Karta uslub={{ flex: 1, paddingVertical: 14 }}>
-            <Text style={{ color: C.xira, fontSize: 12 }}>Farq</Text>
+            <Text style={{ color: C.xira, fontSize: 12 }}>{tr('Farq')}</Text>
             <Text
               style={{
                 color: oylik.farq >= 0 ? C.kirim : C.chiqim,
@@ -163,7 +164,7 @@ export default function BoshEkran({
         </View>
 
         {/* 7 kunlik grafik */}
-        <Sarlavha matn="Oxirgi 7 kun" />
+        <Sarlavha matn={tr('Oxirgi 7 kun')} />
         <Karta uslub={{ marginHorizontal: O.chekka }}>
           <View style={{ flexDirection: 'row', alignItems: 'flex-end', height: 96, gap: 6 }}>
             {kunlar.map((k) => (
@@ -196,22 +197,22 @@ export default function BoshEkran({
         {klientlar.length > 0 && (
           <>
             <Sarlavha
-              matn="Qarzlar"
+              matn={tr('Qarzlar')}
               yon={
                 <TouchableOpacity onPress={ochKontaktlar}>
-                  <Text style={{ color: C.matn2, fontSize: 12, fontWeight: '600' }}>Hammasi ›</Text>
+                  <Text style={{ color: C.matn2, fontSize: 12, fontWeight: '600' }}>{tr('Hammasi ›')}</Text>
                 </TouchableOpacity>
               }
             />
             <View style={{ flexDirection: 'row', paddingHorizontal: O.chekka, gap: 10 }}>
               <Karta uslub={{ flex: 1, paddingVertical: 14 }}>
-                <Text style={{ color: C.xira, fontSize: 12 }}>Bizga qarzdor</Text>
+                <Text style={{ color: C.xira, fontSize: 12 }}>{tr('Bizga qarzdor')}</Text>
                 <Text style={{ color: C.kirim, fontSize: 16, fontWeight: '800', marginTop: 4 }} numberOfLines={1}>
                   {formatla(qarzlar.olamiz, asosiyValyuta, { belgisiz: true, kasrsiz: true })}
                 </Text>
               </Karta>
               <Karta uslub={{ flex: 1, paddingVertical: 14 }}>
-                <Text style={{ color: C.xira, fontSize: 12 }}>Biz qarzdormiz</Text>
+                <Text style={{ color: C.xira, fontSize: 12 }}>{tr('Biz qarzdormiz')}</Text>
                 <Text style={{ color: C.chiqim, fontSize: 16, fontWeight: '800', marginTop: 4 }} numberOfLines={1}>
                   {formatla(qarzlar.beramiz, asosiyValyuta, { belgisiz: true, kasrsiz: true })}
                 </Text>
@@ -221,7 +222,7 @@ export default function BoshEkran({
         )}
 
         {/* Hisoblar */}
-        <Sarlavha matn="Hisoblar" />
+        <Sarlavha matn={tr('Hisoblar')} />
         <View style={{ paddingHorizontal: O.chekka, gap: 8 }}>
           {hisoblar
             .filter((h) => h.faol)
@@ -237,18 +238,18 @@ export default function BoshEkran({
 
         {/* Oxirgi yozuvlar */}
         <Sarlavha
-          matn="Oxirgi yozuvlar"
+          matn={tr('Oxirgi yozuvlar')}
           yon={
             <TouchableOpacity onPress={ochYozuvlar}>
-              <Text style={{ color: C.matn2, fontSize: 12, fontWeight: '600' }}>Hammasi ›</Text>
+              <Text style={{ color: C.matn2, fontSize: 12, fontWeight: '600' }}>{tr('Hammasi ›')}</Text>
             </TouchableOpacity>
           }
         />
         {oxirgilar.length === 0 ? (
           <BoshHolat
             belgi="↑↓"
-            matn="Hali yozuv yo‘q"
-            izoh="Pastdagi + tugmasi bilan birinchi yozuvni kiriting"
+            matn={tr('Hali yozuv yo‘q')}
+            izoh={tr('Pastdagi + tugmasi bilan birinchi yozuvni kiriting')}
           />
         ) : (
           <View style={{ borderTopWidth: 1, borderTopColor: C.chegara }}>
@@ -281,7 +282,7 @@ export default function BoshEkran({
             Takrorlash:{' '}
             {takror.izoh ||
               turkumlar.find((t) => t.id === takror.turkum_id)?.nom ||
-              (takror.turi === 'kirim' ? 'Kirim' : 'Chiqim')}
+              (takror.turi === 'kirim' ? tr('Kirim') : tr('Chiqim'))}
           </Text>
           <Text
             style={{
@@ -302,13 +303,13 @@ export default function BoshEkran({
           style={{ flex: 1, backgroundColor: C.kirim, paddingVertical: 14, borderRadius: O.radiusKichik, alignItems: 'center' }}
           onPress={() => ochQoshish('kirim')}
         >
-          <Text style={{ color: '#fff', fontSize: 16, fontWeight: '700' }}>↑ Kirim</Text>
+          <Text style={{ color: '#fff', fontSize: 16, fontWeight: '700' }}>{tr('↑ Kirim')}</Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={{ flex: 1, backgroundColor: C.chiqim, paddingVertical: 14, borderRadius: O.radiusKichik, alignItems: 'center' }}
           onPress={() => ochQoshish('chiqim')}
         >
-          <Text style={{ color: '#fff', fontSize: 16, fontWeight: '700' }}>↓ Chiqim</Text>
+          <Text style={{ color: '#fff', fontSize: 16, fontWeight: '700' }}>{tr('↓ Chiqim')}</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -332,13 +333,13 @@ export function YozuvQatori({
 }) {
   const { C } = useTema();
   const kirim = y.turi === 'kirim';
-  const izohlar = [sanaQisqa(y.sana), turkumNomi, klientNomi, y.kochirma_id ? 'o‘tkazma' : null, y.bekor_at ? 'BEKOR QILINGAN' : null]
+  const izohlar = [sanaQisqa(y.sana), turkumNomi, klientNomi, y.kochirma_id ? tr('o‘tkazma') : null, y.bekor_at ? tr('BEKOR QILINGAN') : null]
     .filter(Boolean)
     .join(' · ');
 
   return (
     <Qator
-      nom={y.izoh || turkumNomi || (kirim ? 'Kirim' : 'Chiqim')}
+      nom={y.izoh || turkumNomi || (kirim ? tr('Kirim') : tr('Chiqim'))}
       izoh={izohlar}
       ong={`${kirim ? '+' : '−'} ${formatla(y.summa, y.valyuta, { belgisiz: true, kasrsiz: true })}`}
       ongRang={y.kochirma_id ? C.matn2 : kirim ? C.kirim : C.chiqim}

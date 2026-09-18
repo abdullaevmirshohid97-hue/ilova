@@ -32,6 +32,7 @@ import { xatoMatn } from '../lib/supabase';
 import { xatoYoz } from '../lib/xatolar';
 import { O, useTema } from '../lib/tema';
 import { Chip } from '../ui/qismlar';
+import { tr } from '../lib/til';
 
 const TUGMALAR = ['7', '8', '9', '÷', '4', '5', '6', '×', '1', '2', '3', '−', '0', '000', '.', '+'];
 
@@ -158,16 +159,16 @@ export default function YozuvOynasi({
   }
 
   async function yubor() {
-    if (!hisobId) return setXato('Hisobni tanlang.');
-    if (kochirma && !hisobId2) return setXato('Qaysi hisobga o‘tkazilishini tanlang.');
-    if (kochirma && hisobId === hisobId2) return setXato('Ikki xil hisob tanlang.');
-    if (tiyin === null || tiyin <= 0) return setXato('Summani kiriting.');
+    if (!hisobId) return setXato(tr('Hisobni tanlang.'));
+    if (kochirma && !hisobId2) return setXato(tr('Qaysi hisobga o‘tkazilishini tanlang.'));
+    if (kochirma && hisobId === hisobId2) return setXato(tr('Ikki xil hisob tanlang.'));
+    if (tiyin === null || tiyin <= 0) return setXato(tr('Summani kiriting.'));
 
     if (kochirma) {
       const a = hisoblar.find((h) => h.id === hisobId);
       const b = hisoblar.find((h) => h.id === hisobId2);
       if (a && b && a.valyuta !== b.valyuta) {
-        return setXato('Valyutalari har xil hisoblar orasida o‘tkazma hozircha yo‘q.');
+        return setXato(tr('Valyutalari har xil hisoblar orasida o‘tkazma hozircha yo‘q.'));
       }
     }
 
@@ -214,12 +215,12 @@ export default function YozuvOynasi({
   }
 
   const sarlavha = tahrir
-    ? 'Yozuvni tahrirlash'
+    ? tr('Yozuvni tahrirlash')
     : kochirma
-      ? 'Hisoblararo o‘tkazma'
+      ? tr('Hisoblararo o‘tkazma')
       : rejim === 'kirim'
-        ? 'Kirim'
-        : 'Chiqim';
+        ? tr('Kirim')
+        : tr('Chiqim');
 
   return (
     <Modal visible animationType="slide" onRequestClose={yopish} transparent>
@@ -299,7 +300,7 @@ export default function YozuvOynasi({
             </View>
 
             {/* Hisob(lar) */}
-            <Yorliq matn={kochirma ? 'Qaysi hisobdan' : 'Hisob'} />
+            <Yorliq matn={kochirma ? tr('Qaysi hisobdan') : tr('Hisob')} />
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ paddingLeft: O.chekka }}>
               {faolHisoblar.map((h) => (
                 <Chip key={h.id} matn={h.nom} tanlangan={h.id === hisobId} bos={() => setHisobId(h.id)} />
@@ -308,7 +309,7 @@ export default function YozuvOynasi({
 
             {kochirma && (
               <>
-                <Yorliq matn="Qaysi hisobga" />
+                <Yorliq matn={tr('Qaysi hisobga')} />
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ paddingLeft: O.chekka }}>
                   {faolHisoblar.map((h) => (
                     <Chip
@@ -325,7 +326,7 @@ export default function YozuvOynasi({
             {/* Turkum va kontakt — o'tkazmada ma'nosiz */}
             {!kochirma && (
               <>
-                <Yorliq matn="Turkum" />
+                <Yorliq matn={tr('Turkum')} />
                 <View style={{ flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: O.chekka }}>
                   {kerakli.map((t) => (
                     <View key={t.id} style={{ marginBottom: 8 }}>
@@ -337,13 +338,13 @@ export default function YozuvOynasi({
                     </View>
                   ))}
                   {kerakli.length === 0 && (
-                    <Text style={{ color: C.xira, fontSize: 13 }}>Turkum yo‘q — «Yana» bo‘limidan qo‘shasiz</Text>
+                    <Text style={{ color: C.xira, fontSize: 13 }}>{tr('Turkum yo‘q — «Yana» bo‘limidan qo‘shasiz')}</Text>
                   )}
                 </View>
 
                 {klientlar.length > 0 && (
                   <>
-                    <Yorliq matn="Kim bilan (ixtiyoriy)" />
+                    <Yorliq matn={tr('Kim bilan (ixtiyoriy)')} />
                     <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ paddingLeft: O.chekka }}>
                       {klientlar.map((k) => (
                         <Chip
@@ -360,7 +361,7 @@ export default function YozuvOynasi({
             )}
 
             {/* Izoh */}
-            <Yorliq matn="Izoh" />
+            <Yorliq matn={tr('Izoh')} />
             <TextInput
               style={{
                 marginHorizontal: O.chekka,
@@ -375,12 +376,12 @@ export default function YozuvOynasi({
               }}
               value={izoh}
               onChangeText={setIzoh}
-              placeholder="Nima uchun"
+              placeholder={tr('Nima uchun')}
               placeholderTextColor={C.xira}
             />
 
             {/* Sana */}
-            <Yorliq matn="Sana" />
+            <Yorliq matn={tr('Sana')} />
             <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: O.chekka, gap: 8 }}>
               <TouchableOpacity onPress={() => sanaSiljit(-1)} hitSlop={10} style={{ paddingHorizontal: 12, paddingVertical: 10 }}>
                 <Text style={{ color: C.matn2, fontSize: 18, fontWeight: '700' }}>‹</Text>
@@ -405,7 +406,7 @@ export default function YozuvOynasi({
                 onPress={() => setSana(new Date())}
                 style={{ paddingHorizontal: 10, minHeight: 44, justifyContent: 'center' }}
               >
-                <Text style={{ color: C.matn2, fontSize: 13, fontWeight: '600' }}>Bugun</Text>
+                <Text style={{ color: C.matn2, fontSize: 13, fontWeight: '600' }}>{tr('Bugun')}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={() => {
@@ -415,7 +416,7 @@ export default function YozuvOynasi({
                 }}
                 style={{ paddingHorizontal: 10, minHeight: 44, justifyContent: 'center' }}
               >
-                <Text style={{ color: C.matn2, fontSize: 13, fontWeight: '600' }}>Kecha</Text>
+                <Text style={{ color: C.matn2, fontSize: 13, fontWeight: '600' }}>{tr('Kecha')}</Text>
               </TouchableOpacity>
             </View>
 
@@ -465,7 +466,7 @@ export default function YozuvOynasi({
                 }}
               >
                 <Text style={{ color: '#fff', fontSize: 17, fontWeight: '700' }}>
-                  {saqlanmoqda ? '...' : tahrir ? 'Saqlash' : 'Qo‘shish'}
+                  {saqlanmoqda ? '...' : tahrir ? tr('Saqlash') : tr('Qo‘shish')}
                 </Text>
               </Pressable>
             </View>

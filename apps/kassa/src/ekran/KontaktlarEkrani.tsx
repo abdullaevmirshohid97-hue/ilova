@@ -1,5 +1,5 @@
 // =============================================================
-//  KONTAKTLAR — mijoz va ta'minotchi qarzi
+//  KONTAKTLAR — mijoz va ta’minotchi qarzi
 //
 //  Mahsulotning nomi shu bo'limdan kelib chiqqan: "Credit Debit".
 //  Ulgurji savdoda daftarning eng ko'p ochiladigan sahifasi shu —
@@ -29,6 +29,7 @@ import { xatoMatn } from '../lib/supabase';
 import { O, useTema } from '../lib/tema';
 import { BoshHolat, Chip, Qator, Tugma, YigindiPaneli, uslublar } from '../ui/qismlar';
 import { YozuvQatori } from './BoshEkran';
+import { tr } from '../lib/til';
 
 type Filtr = 'hammasi' | 'qarzi' | 'oldindan';
 
@@ -81,15 +82,15 @@ export default function KontaktlarEkrani({
   return (
     <View style={s.ekran}>
       <View style={s.boshliq}>
-        <Text style={s.boshliqMatn}>Kontaktlar</Text>
-        <Text style={s.boshliqIzoh}>{korinadigan.length} ta · mijoz va ta'minotchi</Text>
+        <Text style={s.boshliqMatn}>{tr('Kontaktlar')}</Text>
+        <Text style={s.boshliqIzoh}>{korinadigan.length} · {tr('mijoz va ta’minotchi')}</Text>
       </View>
 
       <View style={{ backgroundColor: C.karta, paddingHorizontal: O.chekka, paddingTop: 10 }}>
         <TextInput
           value={qidiruv}
           onChangeText={setQidiruv}
-          placeholder="Ism yoki telefon"
+          placeholder={tr('Ism yoki telefon')}
           placeholderTextColor={C.xira}
           style={{
             backgroundColor: C.fon,
@@ -103,9 +104,9 @@ export default function KontaktlarEkrani({
           }}
         />
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingVertical: 10 }}>
-          <Chip matn="Hammasi" tanlangan={filtr === 'hammasi'} bos={() => setFiltr('hammasi')} />
-          <Chip matn="Qarzi bor" tanlangan={filtr === 'qarzi'} bos={() => setFiltr('qarzi')} rang={filtr === 'qarzi' ? C.chiqim : undefined} />
-          <Chip matn="Oldindan" tanlangan={filtr === 'oldindan'} bos={() => setFiltr('oldindan')} rang={filtr === 'oldindan' ? C.kirim : undefined} />
+          <Chip matn={tr('Hammasi')} tanlangan={filtr === 'hammasi'} bos={() => setFiltr('hammasi')} />
+          <Chip matn={tr('Qarzi bor')} tanlangan={filtr === 'qarzi'} bos={() => setFiltr('qarzi')} rang={filtr === 'qarzi' ? C.chiqim : undefined} />
+          <Chip matn={tr('Oldindan')} tanlangan={filtr === 'oldindan'} bos={() => setFiltr('oldindan')} rang={filtr === 'oldindan' ? C.kirim : undefined} />
         </ScrollView>
       </View>
 
@@ -116,8 +117,8 @@ export default function KontaktlarEkrani({
         {korinadigan.length === 0 ? (
           <BoshHolat
             belgi="☺"
-            matn={klientlar.length === 0 ? 'Kontakt yo‘q' : 'Bu filtrda hech kim yo‘q'}
-            izoh="Mijoz yoki ta'minotchi qo‘shsangiz, kim qancha qarz — shu yerda ko‘rinadi"
+            matn={klientlar.length === 0 ? tr('Kontakt yo‘q') : tr('Bu filtrda hech kim yo‘q')}
+            izoh={tr('Mijoz yoki ta’minotchi qo‘shsangiz, kim qancha qarz — shu yerda ko‘rinadi')}
           />
         ) : (
           korinadigan.map((k) => {
@@ -127,10 +128,10 @@ export default function KontaktlarEkrani({
               <Qator
                 key={k.id}
                 nom={k.ism}
-                izoh={`${k.turi === 'mijoz' ? 'Mijoz' : "Ta'minotchi"}${k.telefon ? ' · ' + k.telefon : ''}`}
+                izoh={`${k.turi === 'mijoz' ? tr('Mijoz') : tr('Ta’minotchi')}${k.telefon ? ' · ' + k.telefon : ''}`}
                 ong={q === 0 ? '—' : formatla(Math.abs(q), valyuta, { belgisiz: true, kasrsiz: true })}
                 ongRang={q > 0 ? C.chiqim : q < 0 ? C.kirim : C.xira}
-                ongIzoh={holat === 'yopiq' ? 'hisob yopiq' : holat === 'qarzi' ? 'qarzi' : 'oldindan'}
+                ongIzoh={holat === 'yopiq' ? tr('hisob yopiq') : holat === 'qarzi' ? tr('qarzi') : tr('oldindan')}
                 bos={() => setOchiq(k)}
               />
             );
@@ -140,13 +141,13 @@ export default function KontaktlarEkrani({
       </ScrollView>
 
       <View style={{ padding: 10, backgroundColor: C.karta }}>
-        <Tugma matn="+ Kontakt qo‘shish" bos={() => setYangiOyna(true)} />
+        <Tugma matn={tr('+ Kontakt qo‘shish')} bos={() => setYangiOyna(true)} />
       </View>
 
       <YigindiPaneli
-        chap={{ yorliq: 'Bizga qarzdor', qiymat: formatla(jami.olamiz, valyuta, { belgisiz: true, kasrsiz: true }), rang: C.chiqim }}
-        orta={{ yorliq: 'Biz qarzdormiz', qiymat: formatla(jami.beramiz, valyuta, { belgisiz: true, kasrsiz: true }), rang: C.kirim }}
-        ong={{ yorliq: 'Farq', qiymat: formatla(jami.farq, valyuta, { belgisiz: true, kasrsiz: true }) }}
+        chap={{ yorliq: tr('Bizga qarzdor'), qiymat: formatla(jami.olamiz, valyuta, { belgisiz: true, kasrsiz: true }), rang: C.chiqim }}
+        orta={{ yorliq: tr('Biz qarzdormiz'), qiymat: formatla(jami.beramiz, valyuta, { belgisiz: true, kasrsiz: true }), rang: C.kirim }}
+        ong={{ yorliq: tr('Farq'), qiymat: formatla(jami.farq, valyuta, { belgisiz: true, kasrsiz: true }) }}
       />
 
       {ochiq && (
@@ -201,20 +202,19 @@ function KontaktOynasi({
   const { C } = useTema();
 
   function yashir() {
-    Alert.alert(
-      'Kontaktni yashirish',
-      `${klient.ism} ro‘yxatdan olib tashlanadi. Yozuvlari va tarixi joyida qoladi.`,
+    Alert.alert(tr('Kontaktni yashirish'),
+      `${klient.ism} ${tr('ro‘yxatdan olib tashlanadi. Yozuvlari va tarixi joyida qoladi.')}`,
       [
-        { text: 'Yo‘q', style: 'cancel' },
+        { text: tr('Yo‘q'), style: 'cancel' },
         {
-          text: 'Yashirish',
+          text: tr('Yashirish'),
           style: 'destructive',
           onPress: async () => {
             try {
               await klientTahrirla(klient.id, { faol: false });
               ochirildi();
             } catch (e) {
-              Alert.alert('Xatolik', xatoMatn(e));
+              Alert.alert(tr('Xatolik'), xatoMatn(e));
             }
           },
         },
@@ -249,7 +249,7 @@ function KontaktOynasi({
               <View style={{ flex: 1 }}>
                 <Text style={{ color: C.tunMatn, fontSize: 18, fontWeight: '800' }}>{klient.ism}</Text>
                 <Text style={{ color: C.tunXira, fontSize: 12, marginTop: 2 }}>
-                  {klient.turi === 'mijoz' ? 'Mijoz' : "Ta'minotchi"}
+                  {klient.turi === 'mijoz' ? tr('Mijoz') : tr('Ta’minotchi')}
                   {klient.telefon ? ` · ${klient.telefon}` : ''}
                 </Text>
               </View>
@@ -260,7 +260,7 @@ function KontaktOynasi({
 
             <View style={{ marginTop: 14 }}>
               <Text style={{ color: C.tunXira, fontSize: 12 }}>
-                {qoldiq > 0 ? 'Bizga qarzdor' : qoldiq < 0 ? 'Oldindan to‘lagan' : 'Hisob yopiq'}
+                {qoldiq > 0 ? tr('Bizga qarzdor') : qoldiq < 0 ? tr('Oldindan to‘lagan') : tr('Hisob yopiq')}
               </Text>
               <Text
                 style={{
@@ -277,7 +277,7 @@ function KontaktOynasi({
 
           <ScrollView style={{ maxHeight: 360 }}>
             {yozuvlar.length === 0 ? (
-              <BoshHolat belgi="↑↓" matn="Yozuv yo‘q" izoh="Pastdagi tugmalar bilan birinchi amalni kiriting" />
+              <BoshHolat belgi="↑↓" matn={tr('Yozuv yo‘q')} izoh={tr('Pastdagi tugmalar bilan birinchi amalni kiriting')} />
             ) : (
               yozuvlar.map((y) => <YozuvQatori key={y.id} y={y} turkumNomi={turkumNomi(y.turkum_id)} />)
             )}
@@ -285,15 +285,15 @@ function KontaktOynasi({
 
           <View style={{ flexDirection: 'row', padding: 10, gap: 10, backgroundColor: C.karta }}>
             <Tugma
-              matn="Tovar berdim"
+              matn={tr('Tovar berdim')}
               rang={C.chiqim}
               bos={() => qoshish('chiqim')}
               uslub={{ flex: 1 }}
             />
-            <Tugma matn="Pul oldim" rang={C.kirim} bos={() => qoshish('kirim')} uslub={{ flex: 1 }} />
+            <Tugma matn={tr('Pul oldim')} rang={C.kirim} bos={() => qoshish('kirim')} uslub={{ flex: 1 }} />
           </View>
           <TouchableOpacity onPress={yashir} style={{ paddingBottom: 16, alignItems: 'center' }}>
-            <Text style={{ color: C.xira, fontSize: 13 }}>Kontaktni yashirish</Text>
+            <Text style={{ color: C.xira, fontSize: 13 }}>{tr('Kontaktni yashirish')}</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -310,7 +310,7 @@ function YangiKontakt({ yopish, saqlandi }: { yopish: () => void; saqlandi: () =
   const [xato, setXato] = useState<string | null>(null);
 
   async function saqla() {
-    if (ism.trim().length < 2) return setXato('Ismni kiriting.');
+    if (ism.trim().length < 2) return setXato(tr('Ismni kiriting.'));
     setKutmoqda(true);
     try {
       await klientQosh({ ism, telefon, turi });
@@ -349,16 +349,16 @@ function YangiKontakt({ yopish, saqlandi }: { yopish: () => void; saqlandi: () =
           }}
         >
           <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
-            <Text style={{ flex: 1, color: C.matn, fontSize: 17, fontWeight: '800' }}>Yangi kontakt</Text>
+            <Text style={{ flex: 1, color: C.matn, fontSize: 17, fontWeight: '800' }}>{tr('Yangi kontakt')}</Text>
             <TouchableOpacity onPress={yopish} hitSlop={12}>
               <Text style={{ color: C.matn2, fontSize: 18 }}>✕</Text>
             </TouchableOpacity>
           </View>
 
-          <Text style={{ color: C.matn2, fontSize: 13, marginTop: 8 }}>Ism</Text>
-          <TextInput style={maydon} value={ism} onChangeText={setIsm} placeholder="Masalan: Ahmad" placeholderTextColor={C.xira} autoFocus />
+          <Text style={{ color: C.matn2, fontSize: 13, marginTop: 8 }}>{tr('Ism')}</Text>
+          <TextInput style={maydon} value={ism} onChangeText={setIsm} placeholder={tr('Masalan: Ahmad')} placeholderTextColor={C.xira} autoFocus />
 
-          <Text style={{ color: C.matn2, fontSize: 13, marginTop: 12 }}>Telefon (ixtiyoriy)</Text>
+          <Text style={{ color: C.matn2, fontSize: 13, marginTop: 12 }}>{tr('Telefon (ixtiyoriy)')}</Text>
           <TextInput
             style={maydon}
             value={telefon}
@@ -368,15 +368,15 @@ function YangiKontakt({ yopish, saqlandi }: { yopish: () => void; saqlandi: () =
             keyboardType="phone-pad"
           />
 
-          <Text style={{ color: C.matn2, fontSize: 13, marginTop: 12, marginBottom: 4 }}>Turi</Text>
+          <Text style={{ color: C.matn2, fontSize: 13, marginTop: 12, marginBottom: 4 }}>{tr('Turi')}</Text>
           <View style={{ flexDirection: 'row' }}>
-            <Chip matn="Mijoz" tanlangan={turi === 'mijoz'} bos={() => setTuri('mijoz')} />
-            <Chip matn="Ta'minotchi" tanlangan={turi === 'taminotchi'} bos={() => setTuri('taminotchi')} />
+            <Chip matn={tr('Mijoz')} tanlangan={turi === 'mijoz'} bos={() => setTuri('mijoz')} />
+            <Chip matn={tr('Ta’minotchi')} tanlangan={turi === 'taminotchi'} bos={() => setTuri('taminotchi')} />
           </View>
 
           {xato && <Text style={{ color: C.chiqim, fontSize: 13, marginTop: 12 }}>{xato}</Text>}
 
-          <Tugma matn="Saqlash" bos={saqla} kutmoqda={kutmoqda} uslub={{ marginTop: 18 }} />
+          <Tugma matn={tr('Saqlash')} bos={saqla} kutmoqda={kutmoqda} uslub={{ marginTop: 18 }} />
         </View>
       </View>
     </Modal>

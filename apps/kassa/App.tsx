@@ -31,6 +31,7 @@ import type { Yozuv } from '@ilova/kassa-yadro';
 import { menKim, type Men } from './src/lib/baza';
 import { HolatProvider, useHolat } from './src/lib/holat';
 import { supabase, xatoMatn } from './src/lib/supabase';
+import { joriyTilniQoy, TilKontekst, tr, type Til } from './src/lib/til';
 import {
   O,
   QORONGI,
@@ -52,10 +53,12 @@ import XatoQalqoni from './src/ui/XatoQalqoni';
 import { xatolarniTut } from './src/lib/xatolar';
 
 const TEMA_KALIT = 'kassa.tema';
+const TIL_KALIT = 'kassa.til';
 
 export default function App() {
   const tizimTemasi = useColorScheme();
   const [rejim, setRejim] = useState<TemaRejimi>('tizim');
+  const [til, setTil] = useState<Til>('uz');
   const [sessiya, setSessiya] = useState<Session | null>(null);
   const [tekshirildi, setTekshirildi] = useState(false);
   const [men, setMen] = useState<Men | null>(null);
@@ -75,6 +78,27 @@ export default function App() {
       if (x === 'yorug' || x === 'qorongi' || x === 'tizim') setRejim(x);
     });
   }, []);
+
+  // Til ham qurilmada qoladi. `joriyTilniQoy` — komponentdan
+  // tashqaridagi kod uchun (sana formatlagich, hisobot).
+  useEffect(() => {
+    AsyncStorage.getItem(TIL_KALIT).then((x) => {
+      if (x === 'uz' || x === 'ru') {
+        joriyTilniQoy(x);
+        setTil(x);
+      }
+    });
+  }, []);
+
+  const tilQoy = useCallback((x: Til) => {
+    joriyTilniQoy(x);
+    setTil(x);
+    AsyncStorage.setItem(TIL_KALIT, x).catch(() => {
+      /* saqlanmasa ham ilova ishlayveradi */
+    });
+  }, []);
+
+  const tilHolati = useMemo(() => ({ til, qoy: tilQoy }), [til, tilQoy]);
 
   const temaQoy = useCallback((r: TemaRejimi) => {
     setRejim(r);
@@ -135,10 +159,10 @@ export default function App() {
             menniYukla();
           }}
         >
-          <Text style={{ color: C.tun, fontSize: 15, fontWeight: '700' }}>Qayta urinish</Text>
+          <Text style={{ color: C.tun, fontSize: 15, fontWeight: '700' }}>{tr('Qayta urinish')}</Text>
         </TouchableOpacity>
         <TouchableOpacity onPress={() => supabase.auth.signOut()}>
-          <Text style={{ color: C.tunXira, fontSize: 13, marginTop: 18 }}>Chiqish</Text>
+          <Text style={{ color: C.tunXira, fontSize: 13, marginTop: 18 }}>{tr('Chiqish')}</Text>
         </TouchableOpacity>
       </View>
     );
@@ -159,12 +183,14 @@ export default function App() {
     );
 
   return (
+    <TilKontekst.Provider value={tilHolati}>
     <TemaKontekst.Provider value={tema}>
       <StatusBar style="light" />
       {/* Qalqon TEMADAN ICHKARIDA: yiqilgan ekran ham tungi
           rejimda to‘g‘ri rangda chiqsin */}
       <XatoQalqoni>{ichki}</XatoQalqoni>
     </TemaKontekst.Provider>
+    </TilKontekst.Provider>
   );
 }
 
@@ -179,6 +205,8 @@ function Kutish() {
 
 type Bolim = 'bosh' | 'yozuvlar' | 'kontaktlar' | 'kalendar' | 'yana';
 
+// `matn` bu yerda TARJIMA EMAS, kalit: modul bir marta o‘qiladi,
+// til esa keyinroq yuklanadi. Tarjima chizishda qilinadi.
 const BOLIMLAR: { kalit: Bolim; belgi: string; matn: string }[] = [
   { kalit: 'bosh', belgi: '⌂', matn: 'Bosh' },
   { kalit: 'yozuvlar', belgi: '≡', matn: 'Yozuvlar' },
@@ -331,7 +359,7 @@ function Qobiq() {
                   fontWeight: faolmi ? '700' : '500',
                 }}
               >
-                {b.matn}
+                {tr(b.matn)}
               </Text>
             </TouchableOpacity>
           );
@@ -360,9 +388,9 @@ function Qobiq() {
             >
               {(
                 [
-                  { r: 'kirim' as const, m: '↑  Kirim', rang: C.kirim },
-                  { r: 'chiqim' as const, m: '↓  Chiqim', rang: C.chiqim },
-                  { r: 'kochirma' as const, m: '⇄  Hisoblararo o‘tkazma', rang: C.matn2 },
+                  { r: 'kirim' as const, m: tr('↑ Kirim'), rang: C.kirim },
+                  { r: 'chiqim' as const, m: tr('↓ Chiqim'), rang: C.chiqim },
+                  { r: 'kochirma' as const, m: '⇄  ' + tr('Hisoblararo o‘tkazma'), rang: C.matn2 },
                 ]
               ).map((v) => (
                 <TouchableOpacity

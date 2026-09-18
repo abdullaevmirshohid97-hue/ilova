@@ -15,6 +15,7 @@ import { useHolat } from '../lib/holat';
 import { xatoMatn } from '../lib/supabase';
 import { O, useTema } from '../lib/tema';
 import { BoshHolat, Chip, Qator, Tugma } from '../ui/qismlar';
+import { tr } from '../lib/til';
 
 export default function Hisoblar({ kochirma }: { kochirma: () => void }) {
   const { C } = useTema();
@@ -28,19 +29,19 @@ export default function Hisoblar({ kochirma }: { kochirma: () => void }) {
           <Qator
             key={h.id}
             nom={h.nom}
-            izoh={`${h.turi}${h.faol ? '' : ' · yashirilgan'}`}
+            izoh={`${tr(h.turi)}${h.faol ? '' : ' · ' + tr('yashirilgan')}`}
             ong={formatla(hisobQoldiq(h, yozuvlar), h.valyuta, { kasrsiz: true })}
             ongIzoh={h.valyuta}
             sozilgan={!h.faol}
             bos={() => setOyna(h)}
           />
         ))}
-        {hisoblar.length === 0 && <BoshHolat belgi="□" matn="Hisob yo‘q" />}
+        {hisoblar.length === 0 && <BoshHolat belgi="□" matn={tr('Hisob yo‘q')} />}
         <View style={{ height: 12 }} />
       </ScrollView>
       <View style={{ padding: 10, gap: 8, backgroundColor: C.karta }}>
-        <Tugma matn="+ Hisob qo‘shish" bos={() => setOyna('yangi')} />
-        <Tugma matn="Hisoblararo o‘tkazma" ikkilamchi bos={kochirma} />
+        <Tugma matn={tr('+ Hisob qo‘shish')} bos={() => setOyna('yangi')} />
+        <Tugma matn={tr('Hisoblararo o‘tkazma')} ikkilamchi bos={kochirma} />
       </View>
       {oyna && (
         <HisobOynasi
@@ -74,7 +75,7 @@ function HisobOynasi({
   const [xato, setXato] = useState<string | null>(null);
 
   async function saqla() {
-    if (nom.trim().length < 1) return setXato('Nomni kiriting.');
+    if (nom.trim().length < 1) return setXato(tr('Nomni kiriting.'));
     const boshTiyin = boshlangich.trim() ? (ifodaHisobla(boshlangich) ?? tiyinga(boshlangich)) : 0;
     setKutmoqda(true);
     try {
@@ -90,20 +91,20 @@ function HisobOynasi({
   function yashir() {
     if (!hisob) return;
     Alert.alert(
-      hisob.faol ? 'Hisobni yashirish' : 'Hisobni qaytarish',
+      hisob.faol ? tr('Hisobni yashirish') : tr('Hisobni qaytarish'),
       hisob.faol
-        ? 'Hisob ro‘yxatdan olib tashlanadi. Yozuvlari va qoldig‘i saqlanadi — istalgan vaqt qaytarasiz.'
-        : 'Hisob yana ro‘yxatda ko‘rinadi.',
+        ? tr('Hisob ro‘yxatdan olib tashlanadi. Yozuvlari va qoldig‘i saqlanadi — istalgan vaqt qaytarasiz.')
+        : tr('Hisob yana ro‘yxatda ko‘rinadi.'),
       [
-        { text: 'Yo‘q', style: 'cancel' },
+        { text: tr('Yo‘q'), style: 'cancel' },
         {
-          text: hisob.faol ? 'Yashirish' : 'Qaytarish',
+          text: hisob.faol ? tr('Yashirish') : tr('Qaytarish'),
           onPress: async () => {
             try {
               await hisobTahrirla(hisob.id, { faol: !hisob.faol });
               saqlandi();
             } catch (e) {
-              Alert.alert('Xatolik', xatoMatn(e));
+              Alert.alert(tr('Xatolik'), xatoMatn(e));
             }
           },
         },
@@ -140,26 +141,28 @@ function HisobOynasi({
         >
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
             <Text style={{ flex: 1, color: C.matn, fontSize: 17, fontWeight: '800' }}>
-              {hisob ? 'Hisobni tahrirlash' : 'Yangi hisob'}
+              {hisob ? tr('Hisobni tahrirlash') : tr('Yangi hisob')}
             </Text>
             <TouchableOpacity onPress={yopish} hitSlop={12}>
               <Text style={{ color: C.matn2, fontSize: 18 }}>✕</Text>
             </TouchableOpacity>
           </View>
 
-          <Text style={{ color: C.matn2, fontSize: 13, marginTop: 12 }}>Nom</Text>
-          <TextInput style={maydon} value={nom} onChangeText={setNom} placeholder="Naqd, Karta, Bank..." placeholderTextColor={C.xira} />
+          <Text style={{ color: C.matn2, fontSize: 13, marginTop: 12 }}>{tr('Nom')}</Text>
+          <TextInput style={maydon} value={nom} onChangeText={setNom} placeholder={tr('Naqd, Karta, Bank...')} placeholderTextColor={C.xira} />
 
-          <Text style={{ color: C.matn2, fontSize: 13, marginTop: 12, marginBottom: 4 }}>Turi</Text>
+          <Text style={{ color: C.matn2, fontSize: 13, marginTop: 12, marginBottom: 4 }}>{tr('Turi')}</Text>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 0 }}>
-            {(['naqd', 'karta', 'bank', 'boshqa'] as const).map((t) => (
-              <Chip key={t} matn={t} tanlangan={turi === t} bos={() => setTuri(t)} />
+            {/* Qiymat bazaga o‘zgarmas holda yoziladi, ekranda esa
+                tarjima ko‘rinadi */}
+            {(['naqd', 'karta', 'bank', 'boshqa'] as const).map((x) => (
+              <Chip key={x} matn={tr(x)} tanlangan={turi === x} bos={() => setTuri(x)} />
             ))}
           </View>
 
           {!hisob && (
             <>
-              <Text style={{ color: C.matn2, fontSize: 13, marginTop: 12, marginBottom: 4 }}>Valyuta</Text>
+              <Text style={{ color: C.matn2, fontSize: 13, marginTop: 12, marginBottom: 4 }}>{tr('Valyuta')}</Text>
               <View style={{ flexDirection: 'row' }}>
                 {(['UZS', 'USD'] as const).map((v) => (
                   <Chip key={v} matn={v} tanlangan={valyuta === v} bos={() => setValyuta(v)} />
@@ -169,7 +172,7 @@ function HisobOynasi({
           )}
 
           <Text style={{ color: C.matn2, fontSize: 13, marginTop: 12 }}>
-            Boshlang‘ich qoldiq{hisob ? '' : ' (hozir hisobda qancha bor)'}
+            {tr('Boshlang‘ich qoldiq')}{hisob ? '' : ' ' + tr('(hozir hisobda qancha bor)')}
           </Text>
           <TextInput
             style={maydon}
@@ -182,11 +185,11 @@ function HisobOynasi({
 
           {xato && <Text style={{ color: C.chiqim, fontSize: 13, marginTop: 12 }}>{xato}</Text>}
 
-          <Tugma matn="Saqlash" bos={saqla} kutmoqda={kutmoqda} uslub={{ marginTop: 18 }} />
+          <Tugma matn={tr('Saqlash')} bos={saqla} kutmoqda={kutmoqda} uslub={{ marginTop: 18 }} />
           {hisob && (
             <TouchableOpacity onPress={yashir} style={{ alignItems: 'center', marginTop: 14 }}>
               <Text style={{ color: C.xira, fontSize: 13 }}>
-                {hisob.faol ? 'Hisobni yashirish' : 'Hisobni qaytarish'}
+                {hisob.faol ? tr('Hisobni yashirish') : tr('Hisobni qaytarish')}
               </Text>
             </TouchableOpacity>
           )}

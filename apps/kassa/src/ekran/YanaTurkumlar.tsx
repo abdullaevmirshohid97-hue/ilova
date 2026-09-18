@@ -14,6 +14,7 @@ import { useHolat } from '../lib/holat';
 import { xatoMatn } from '../lib/supabase';
 import { O, useTema } from '../lib/tema';
 import { BoshHolat, Qator, Tanlagich, Tugma } from '../ui/qismlar';
+import { tr, trn } from '../lib/til';
 
 export default function Turkumlar() {
   const { C } = useTema();
@@ -32,23 +33,23 @@ export default function Turkumlar() {
       setYangiNom('');
       await yangila();
     } catch (e) {
-      Alert.alert('Xatolik', xatoMatn(e));
+      Alert.alert(tr('Xatolik'), xatoMatn(e));
     } finally {
       setKutmoqda(false);
     }
   }
 
   function yashir(t: Turkum) {
-    Alert.alert('Turkumni yashirish', `«${t.nom}» yangi yozuvlarda ko‘rinmaydi. Eski yozuvlar o‘zgarmaydi.`, [
-      { text: 'Yo‘q', style: 'cancel' },
+    Alert.alert(tr('Turkumni yashirish'), `«${t.nom}» ${tr('yangi yozuvlarda ko‘rinmaydi. Eski yozuvlar o‘zgarmaydi.')}`, [
+      { text: tr('Yo‘q'), style: 'cancel' },
       {
-        text: 'Yashirish',
+        text: tr('Yashirish'),
         onPress: async () => {
           try {
             await turkumTahrirla(t.id, { faol: false });
             await yangila();
           } catch (e) {
-            Alert.alert('Xatolik', xatoMatn(e));
+            Alert.alert(tr('Xatolik'), xatoMatn(e));
           }
         },
       },
@@ -61,8 +62,8 @@ export default function Turkumlar() {
         <Tanlagich
           qiymat={turi}
           variantlar={[
-            { kalit: 'chiqim' as const, matn: 'Chiqim' },
-            { kalit: 'kirim' as const, matn: 'Kirim' },
+            { kalit: 'chiqim' as const, matn: tr('Chiqim') },
+            { kalit: 'kirim' as const, matn: tr('Kirim') },
           ]}
           qoy={setTuri}
         />
@@ -75,14 +76,14 @@ export default function Turkumlar() {
             <Qator
               key={t.id}
               nom={t.nom}
-              izoh={`${soni} ta yozuv`}
-              ong={t.faol ? '' : 'yashirilgan'}
+              izoh={trn('{n} ta yozuv', soni)}
+              ong={t.faol ? '' : tr('yashirilgan')}
               sozilgan={!t.faol}
               uzoqBos={() => t.faol && yashir(t)}
             />
           );
         })}
-        {royxat.length === 0 && <BoshHolat belgi="□" matn="Turkum yo‘q" izoh="Pastdan qo‘shing" />}
+        {royxat.length === 0 && <BoshHolat belgi="□" matn={tr('Turkum yo‘q')} izoh={tr('Pastdan qo‘shing')} />}
         <View style={{ height: 12 }} />
       </ScrollView>
 
@@ -101,10 +102,10 @@ export default function Turkumlar() {
           }}
           value={yangiNom}
           onChangeText={setYangiNom}
-          placeholder={turi === 'chiqim' ? 'Yangi chiqim turkumi' : 'Yangi kirim turkumi'}
+          placeholder={turi === 'chiqim' ? tr('Yangi chiqim turkumi') : tr('Yangi kirim turkumi')}
           placeholderTextColor={C.xira}
         />
-        <Tugma matn="Qo‘shish" bos={qosh} kutmoqda={kutmoqda} uslub={{ paddingHorizontal: 18 }} />
+        <Tugma matn={tr('Qo‘shish')} bos={qosh} kutmoqda={kutmoqda} uslub={{ paddingHorizontal: 18 }} />
       </View>
       <Text style={{ color: C.xira, fontSize: 11, textAlign: 'center', paddingBottom: 10, backgroundColor: C.karta }}>
         Turkumni yashirish uchun uzoq bosing

@@ -14,6 +14,7 @@
 import { Platform } from 'react-native';
 import type { Ombor } from './turi';
 import { xotiraOmbori } from './xotira';
+import { tr } from '../lib/til';
 
 export type OmborNatija = {
   ombor: Ombor;
@@ -25,7 +26,7 @@ export type OmborNatija = {
 export async function omborOch(): Promise<OmborNatija> {
   try {
     if (Platform.OS === 'web') {
-      if (typeof indexedDB === 'undefined') throw new Error('IndexedDB yo‘q');
+      if (typeof indexedDB === 'undefined') throw new Error(tr('IndexedDB yo‘q'));
       const { indexeddbOmbori } = await import('./indexeddb');
       const o = indexeddbOmbori();
       await o.ochil();

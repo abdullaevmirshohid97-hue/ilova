@@ -16,6 +16,7 @@ import { useHolat } from '../lib/holat';
 import { xatoMatn } from '../lib/supabase';
 import { O, useTema } from '../lib/tema';
 import { BoshHolat, DavrOqlari, Karta, Sarlavha, Tanlagich, Tugma, YigindiPaneli } from '../ui/qismlar';
+import { tr } from '../lib/til';
 
 export default function Hisobot() {
   const { C } = useTema();
@@ -34,7 +35,7 @@ export default function Hisobot() {
     for (const y of davrniki) {
       if (y.bekor_at || y.kochirma_id) continue;
       const kalit = y.turkum_id ?? `yoq-${y.turi}`;
-      const nom = turkumlar.find((t) => t.id === y.turkum_id)?.nom ?? 'Turkumsiz';
+      const nom = turkumlar.find((t) => t.id === y.turkum_id)?.nom ?? tr('Turkumsiz');
       const bor = m.get(kalit) ?? { nom, turi: y.turi, summa: 0 };
       bor.summa += y.summa;
       m.set(kalit, bor);
@@ -48,7 +49,7 @@ export default function Hisobot() {
 
   async function chiqar(tur: 'xlsx' | 'pdf') {
     if (davrniki.length === 0) {
-      Alert.alert('Bo‘sh hisobot', 'Bu davrda yozuv yo‘q — avval davrni almashtiring.');
+      Alert.alert(tr('Bo‘sh hisobot'), tr('Bu davrda yozuv yo‘q — avval davrni almashtiring.'));
       return;
     }
     setChiqarmoqda(tur);
@@ -64,7 +65,7 @@ export default function Hisobot() {
       const bayt = tur === 'xlsx' ? hisobotXlsx(manba) : hisobotPdf(manba);
       await ulash(`${men.biznes}-${oraliq.nom}`, bayt, tur);
     } catch (e) {
-      Alert.alert('Chiqarib bo‘lmadi', xatoMatn(e));
+      Alert.alert(tr('Chiqarib bo‘lmadi'), xatoMatn(e));
     } finally {
       setChiqarmoqda(null);
     }
@@ -76,10 +77,10 @@ export default function Hisobot() {
         <Tanlagich
           qiymat={davr}
           variantlar={[
-            { kalit: 'kun' as const, matn: 'Kunlik' },
-            { kalit: 'hafta' as const, matn: 'Haftalik' },
-            { kalit: 'oy' as const, matn: 'Oylik' },
-            { kalit: 'hammasi' as const, matn: 'Hammasi' },
+            { kalit: 'kun' as const, matn: tr('Kunlik') },
+            { kalit: 'hafta' as const, matn: tr('Haftalik') },
+            { kalit: 'oy' as const, matn: tr('Oylik') },
+            { kalit: 'hammasi' as const, matn: tr('Hammasi') },
           ]}
           qoy={(k) => {
             setDavr(k);
@@ -98,26 +99,26 @@ export default function Hisobot() {
 
       <ScrollView style={{ flex: 1 }}>
         {turkumKesimi.length === 0 ? (
-          <BoshHolat belgi="▤" matn="Bu davrda yozuv yo‘q" />
+          <BoshHolat belgi="▤" matn={tr('Bu davrda yozuv yo‘q')} />
         ) : (
           <>
-            <Sarlavha matn="Chiqim turkumlari" />
+            <Sarlavha matn={tr('Chiqim turkumlari')} />
             {chiqimlar.length === 0 && (
-              <Text style={{ color: C.xira, fontSize: 13, paddingHorizontal: O.chekka }}>Chiqim yo‘q</Text>
+              <Text style={{ color: C.xira, fontSize: 13, paddingHorizontal: O.chekka }}>{tr('Chiqim yo‘q')}</Text>
             )}
             {chiqimlar.map((t) => (
               <UstunQator key={t.nom + t.turi} nom={t.nom} summa={t.summa} eng={engKatta} rang={C.chiqim} valyuta={valyuta} />
             ))}
 
-            <Sarlavha matn="Kirim turkumlari" />
+            <Sarlavha matn={tr('Kirim turkumlari')} />
             {kirimlar.length === 0 && (
-              <Text style={{ color: C.xira, fontSize: 13, paddingHorizontal: O.chekka }}>Kirim yo‘q</Text>
+              <Text style={{ color: C.xira, fontSize: 13, paddingHorizontal: O.chekka }}>{tr('Kirim yo‘q')}</Text>
             )}
             {kirimlar.map((t) => (
               <UstunQator key={t.nom + t.turi} nom={t.nom} summa={t.summa} eng={engKatta} rang={C.kirim} valyuta={valyuta} />
             ))}
 
-            <Sarlavha matn="Hisoblar" />
+            <Sarlavha matn={tr('Hisoblar')} />
             <View style={{ paddingHorizontal: O.chekka, gap: 8 }}>
               {hisoblar
                 .filter((h) => h.faol)
@@ -151,14 +152,14 @@ export default function Hisobot() {
           yoki hamkorga yuborish. Fayl qurilmada yasaladi. */}
       <View style={{ flexDirection: 'row', gap: 8, padding: 10, backgroundColor: C.karta }}>
         <Tugma
-          matn="Excel"
+          matn={tr('Excel')}
           ikkilamchi
           kutmoqda={chiqarmoqda === 'xlsx'}
           bos={() => chiqar('xlsx')}
           uslub={{ flex: 1 }}
         />
         <Tugma
-          matn="PDF"
+          matn={tr('PDF')}
           ikkilamchi
           kutmoqda={chiqarmoqda === 'pdf'}
           bos={() => chiqar('pdf')}
@@ -167,10 +168,10 @@ export default function Hisobot() {
       </View>
 
       <YigindiPaneli
-        chap={{ yorliq: 'Kirim', qiymat: formatla(yigindi.kirim, valyuta, { belgisiz: true, kasrsiz: true }), rang: C.kirim }}
-        orta={{ yorliq: 'Chiqim', qiymat: formatla(yigindi.chiqim, valyuta, { belgisiz: true, kasrsiz: true }), rang: C.chiqim }}
+        chap={{ yorliq: tr('Kirim'), qiymat: formatla(yigindi.kirim, valyuta, { belgisiz: true, kasrsiz: true }), rang: C.kirim }}
+        orta={{ yorliq: tr('Chiqim'), qiymat: formatla(yigindi.chiqim, valyuta, { belgisiz: true, kasrsiz: true }), rang: C.chiqim }}
         ong={{
-          yorliq: 'Farq',
+          yorliq: tr('Farq'),
           qiymat: formatla(yigindi.farq, valyuta, { belgisiz: true, kasrsiz: true }),
           rang: yigindi.farq >= 0 ? C.kirim : C.chiqim,
         }}

@@ -222,23 +222,30 @@ odam ilovadan qochadi. Faqat ijobiy tomoni qolsin.
 
 Ta'siri katta va arzonidan boshlab:
 
-| # | Ish | Muddat | Nima beradi |
+| # | Ish | Holat | Nima berdi |
 |---|---|---|---|
-| 1 | Android orqaga tugmasi | 0.5 kun | Standart; «buzuq» hissi yo'qoladi |
-| 2 | Tegish maydonlari 48 dp | 2 soat | Har kungi g'ashlik ketadi |
-| 3 | Oxirgi turkum + «Takrorlash» + tez summalar | 1 kun | **Yozuv 2 tegishga tushadi** |
-| 4 | Ming ajratgich + sana tanlash | 0.5 kun | Xato kiritish kamayadi |
-| 5 | Qarz eslatmasi (bildirishnoma) | 1 kun | **Eng kuchli qaytish sababi** |
-| 6 | Kun yopish + kassa sanog'i | 2 kun | Kunlik odat |
-| 7 | Telegram bot (yozuv kiritish) | 3 kun | Kunlik aloqa, raqobat ustunligi |
-| 8 | Planshet/web kengligi | 3 soat | Web versiya o'qiladigan bo'ladi |
-| 9 | Rus tili | 1 kun | Auditoriya kengayadi |
-| 10 | Xatolik kuzatuvi | 3 soat | Muammoni foydalanuvchidan oldin ko'ramiz |
-| 11 | Ko'p valyuta: yashirish yoki tugatish | 1 yoki 4 kun | Ishonch |
-| 12 | `YanaEkrani` ni bo'lish | 3 soat | Kod salomatligi |
+| 1 | Android orqaga tugmasi | **bajarildi** | `BackHandler`: tanlov → ichki sahifa → bo'lim → chiqish |
+| 2 | Tegish maydonlari 48 dp | **bajarildi** | Chip 44, qator 56, tugma 48 dp |
+| 3 | Oxirgi turkum + «Takrorlash» + tez summalar | **bajarildi** | Yozuv 2 tegishga tushdi |
+| 4 | Ming ajratgich + sana tanlash | **bajarildi** | `ifodaKorinish`, «Bugun/Kecha» |
+| 5 | Qarz eslatmasi (bildirishnoma) | savol ochiq | Kanal tanlanishi kerak (7.3) |
+| 6 | Kun yopish + kassa sanog'i | keyingi bosqich | Odat qurish |
+| 7 | Telegram bot (yozuv kiritish) | savol ochiq | Qaror kerak (7.2) |
+| 8 | Planshet/web kengligi | **bajarildi** | Markazda 640 px ustun |
+| 9 | Rus tili | **bajarildi** | `lib/til.ts`, sozlamada tanlanadi |
+| 10 | Xatolik kuzatuvi | **bajarildi** | `kassa_xatolar` + xato qalqoni |
+| 11 | Ko'p valyuta: yashirish yoki tugatish | **tugatildi** | Hisobot har valyutani alohida sanaydi |
+| 12 | `YanaEkrani` ni bo'lish | **bajarildi** | 771 → 123 qator + 4 ta ekran |
 
-**Birinchi hafta (1-6)** ilovani «ishlaydi»dan «qulay»ga o'tkazadi
-va qaytish sabablarini beradi. Qolgani — ikkinchi hafta.
+**Bajarilgani** (1-4, 8-12) ilovani «ishlaydi»dan «qulay»ga
+o'tkazdi: yozuv 2 tegishda kiritiladi, orqaga tugmasi standart
+bo'yicha ishlaydi, hisobot valyutalarni aralashtirmaydi va
+telefondagi nosozlik endi bizga yetib keladi.
+
+**Qolgani** (5, 6, 7) — qaytish odatini quradigan qism va u
+7-bo'limdagi savollarga javob kutyapti: bildirishnoma qaysi
+kanal orqali boradi va Telegram bot qilinadimi. Ikkalasi ham
+texnik emas, qaror masalasi.
 
 ---
 

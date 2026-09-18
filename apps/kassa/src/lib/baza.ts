@@ -22,6 +22,7 @@ import type { Hisob, Klient, Turkum, Yozuv } from '@ilova/kassa-yadro';
 import type { Amal, Jadval, Ombor } from '../ombor/turi';
 import { amalYasa, uuid } from './sinx';
 import { supabase } from './supabase';
+import { tr } from './til';
 
 export type Men = {
   org_id: string;
@@ -43,7 +44,7 @@ export function omborniQoy(o: Ombor, sinx: () => void) {
 }
 
 function ombor(): Ombor {
-  if (!OMBOR) throw new Error('Ombor hali tayyor emas');
+  if (!OMBOR) throw new Error(tr('Ombor hali tayyor emas'));
   return OMBOR;
 }
 
@@ -138,7 +139,7 @@ async function mahalliyTahrir(
   ozgarish: Record<string, unknown>,
 ) {
   const eski = await ombor().bitta<Record<string, unknown>>(jadval, id);
-  if (!eski) throw new Error('Yozuv topilmadi');
+  if (!eski) throw new Error(tr('Yozuv topilmadi'));
   const versiya = Number(eski.versiya ?? 1);
   // Mahalliy nusxada versiyani oshirmaymiz: haqiqiy versiyani server
   // beradi va u sinxronizatsiyada qaytib keladi. Oshirsak, keyingi
@@ -225,7 +226,7 @@ export async function kochirmaYarat(p: {
   izoh?: string;
   sana?: string;
 }): Promise<void> {
-  if (p.kimdan === p.kimga) throw new Error('Bir xil hisob tanlangan');
+  if (p.kimdan === p.kimga) throw new Error(tr('Bir xil hisob tanlangan'));
   const juft = uuid();
   const sana = p.sana ?? new Date().toISOString();
   await yozuvQosh({ hisob_id: p.kimdan, turi: 'chiqim', summa: p.summa, izoh: p.izoh, sana, kochirma_id: juft });
@@ -465,7 +466,7 @@ export async function aiSina(): Promise<string> {
     throw new Error(sabab);
   }
   const j = data as { ok?: boolean; javob?: string; error?: string };
-  if (!j?.ok) throw new Error(j?.error ?? 'Javob kelmadi');
+  if (!j?.ok) throw new Error(j?.error ?? tr('Javob kelmadi'));
   return j.javob ?? '';
 }
 

@@ -25,6 +25,7 @@ import {
 import { xatoMatn } from '../lib/supabase';
 import { O, useTema } from '../lib/tema';
 import { BoshHolat, Chip, Karta, Sarlavha, Tugma } from '../ui/qismlar';
+import { tr } from '../lib/til';
 
 const PROVAYDERLAR: {
   kalit: AiProvayder;
@@ -101,13 +102,13 @@ export default function AiModel() {
   async function saqla() {
     setXato(null);
     setXabar(null);
-    if (kalit.trim().length < 20) return setXato('Kalitni to‘liq ko‘chirib qo‘ying.');
+    if (kalit.trim().length < 20) return setXato(tr('Kalitni to‘liq ko‘chirib qo‘ying.'));
     setKutmoqda('saqlash');
     try {
       await aiKalitSaqla(provayder, model.trim(), kalit.trim());
       setKalit('');
       await yukla();
-      setXabar('Saqlandi. Endi «Ulanishni sinash» bilan tekshiring.');
+      setXabar(tr('Saqlandi. Endi «Ulanishni sinash» bilan tekshiring.'));
     } catch (e) {
       setXato(xatoMatn(e));
     } finally {
@@ -121,7 +122,7 @@ export default function AiModel() {
     setKutmoqda('sinov');
     try {
       const javob = await aiSina();
-      setXabar(`Ulanish ishlayapti. Model javobi: «${javob.trim().slice(0, 40)}»`);
+      setXabar(`${tr('Ulanish ishlayapti. Model javobi:')} «${javob.trim().slice(0, 40)}»`);
       await yukla();
     } catch (e) {
       setXato(xatoMatn(e));
@@ -132,10 +133,10 @@ export default function AiModel() {
   }
 
   function ochir() {
-    Alert.alert('Kalitni o‘chirish', 'AI ulanishi o‘chadi. Ilova o‘zi ishlayveradi.', [
-      { text: 'Yo‘q', style: 'cancel' },
+    Alert.alert(tr('Kalitni o‘chirish'), tr('AI ulanishi o‘chadi. Ilova o‘zi ishlayveradi.'), [
+      { text: tr('Yo‘q'), style: 'cancel' },
       {
-        text: 'O‘chirish',
+        text: tr('O‘chirish'),
         style: 'destructive',
         onPress: async () => {
           try {
@@ -143,7 +144,7 @@ export default function AiModel() {
             setBor(null);
             await yukla();
           } catch (e) {
-            Alert.alert('Xatolik', xatoMatn(e));
+            Alert.alert(tr('Xatolik'), xatoMatn(e));
           }
         },
       },
@@ -161,7 +162,7 @@ export default function AiModel() {
     color: C.matn,
   };
 
-  if (yuklanmoqda) return <BoshHolat belgi="…" matn="Yuklanmoqda" />;
+  if (yuklanmoqda) return <BoshHolat belgi="…" matn={tr('Yuklanmoqda')} />;
 
   return (
     <ScrollView style={{ flex: 1 }}>
@@ -193,18 +194,18 @@ export default function AiModel() {
             >
               {bor.faol
                 ? bor.oxirgi_sinov
-                  ? '✓ Ulanish tekshirilgan va ishlayapti'
-                  : 'Saqlangan — hali sinalmagan'
-                : `✕ ${bor.oxirgi_xato ?? 'Kalit ishlamayapti'}`}
+                  ? tr('✓ Ulanish tekshirilgan va ishlayapti')
+                  : tr('Saqlangan — hali sinalmagan')
+                : `✕ ${bor.oxirgi_xato ?? tr('Kalit ishlamayapti')}`}
             </Text>
             <View style={{ flexDirection: 'row', gap: 8, marginTop: 12 }}>
               <Tugma
-                matn="Ulanishni sinash"
+                matn={tr('Ulanishni sinash')}
                 bos={sina}
                 kutmoqda={kutmoqda === 'sinov'}
                 uslub={{ flex: 1 }}
               />
-              <Tugma matn="O‘chirish" ikkilamchi rang={C.chiqim} bos={ochir} uslub={{ flex: 1 }} />
+              <Tugma matn={tr('O‘chirish')} ikkilamchi rang={C.chiqim} bos={ochir} uslub={{ flex: 1 }} />
             </View>
           </Karta>
         </View>
@@ -213,7 +214,7 @@ export default function AiModel() {
       {sarf && sarf.oy_soralgan > 0 && (
         <View style={{ marginHorizontal: O.chekka, marginTop: 10 }}>
           <Karta>
-            <Text style={{ color: C.xira, fontSize: 12 }}>Shu oy</Text>
+            <Text style={{ color: C.xira, fontSize: 12 }}>{tr('Shu oy')}</Text>
             <Text style={{ color: C.matn, fontSize: 15, fontWeight: '700', marginTop: 3 }}>
               {sarf.oy_soralgan} ta so‘rov
               {sarf.oy_narx_usd > 0 ? ` · ~$${sarf.oy_narx_usd.toFixed(2)}` : ''}
@@ -228,10 +229,10 @@ export default function AiModel() {
         </View>
       )}
 
-      <Sarlavha matn={bor ? 'Boshqa kalit qo‘yish' : 'Kalit ulash'} />
+      <Sarlavha matn={bor ? tr('Boshqa kalit qo‘yish') : tr('Kalit ulash')} />
 
       <View style={{ paddingHorizontal: O.chekka }}>
-        <Text style={{ color: C.matn2, fontSize: 13, marginBottom: 8 }}>Provayder</Text>
+        <Text style={{ color: C.matn2, fontSize: 13, marginBottom: 8 }}>{tr('Provayder')}</Text>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
           {PROVAYDERLAR.map((p) => (
             <Chip
@@ -243,7 +244,7 @@ export default function AiModel() {
           ))}
         </View>
 
-        <Text style={{ color: C.matn2, fontSize: 13, marginTop: 14, marginBottom: 6 }}>Model</Text>
+        <Text style={{ color: C.matn2, fontSize: 13, marginTop: 14, marginBottom: 6 }}>{tr('Model')}</Text>
         <TextInput
           style={maydon}
           value={model}
@@ -274,7 +275,7 @@ export default function AiModel() {
         {xabar && <Text style={{ color: C.kirim, fontSize: 13, marginTop: 12, lineHeight: 19 }}>{xabar}</Text>}
 
         <Tugma
-          matn="Saqlash"
+          matn={tr('Saqlash')}
           bos={saqla}
           kutmoqda={kutmoqda === 'saqlash'}
           uslub={{ marginTop: 16 }}

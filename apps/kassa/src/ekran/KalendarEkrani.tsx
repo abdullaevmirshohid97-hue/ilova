@@ -13,11 +13,12 @@ import { useMemo, useState } from 'react';
 import { ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import { davrYigindi, formatla, kunlarBoyicha, solishtir } from '@ilova/kassa-yadro';
 import type { Yozuv } from '@ilova/kassa-yadro';
-import { HAFTA_KUNLARI, OYLAR, kunKaliti, oyTori, sanaQisqa } from '../lib/davr';
+import { haftaKunlari, oylar, kunKaliti, oyTori, sanaQisqa } from '../lib/davr';
 import { useHolat } from '../lib/holat';
 import { O, useTema } from '../lib/tema';
 import { BoshHolat, DavrOqlari, YigindiPaneli, uslublar } from '../ui/qismlar';
 import { YozuvQatori } from './BoshEkran';
+import { tr } from '../lib/til';
 
 /** 1 234 567 tiyin → "12 345" emas, "1,2 mln" — hujayraga sig'sin */
 function qisqa(tiyin: number): string {
@@ -72,12 +73,12 @@ export default function KalendarEkrani({ tahrirla }: { tahrirla: (y: Yozuv) => v
   return (
     <View style={s.ekran}>
       <View style={s.boshliq}>
-        <Text style={s.boshliqMatn}>Kalendar</Text>
-        <Text style={s.boshliqIzoh}>Kunlar bo‘yicha kirim va chiqim</Text>
+        <Text style={s.boshliqMatn}>{tr('Kalendar')}</Text>
+        <Text style={s.boshliqIzoh}>{tr('Kunlar bo‘yicha kirim va chiqim')}</Text>
       </View>
 
       <DavrOqlari
-        nom={`${OYLAR[oy]} ${yil}`}
+        nom={`${oylar()[oy]} ${yil}`}
         oldin={() => siljit(-1)}
         keyin={() => siljit(1)}
         keyinOchiq={!joriyOy}
@@ -86,7 +87,7 @@ export default function KalendarEkrani({ tahrirla }: { tahrirla: (y: Yozuv) => v
       <ScrollView style={{ flex: 1 }}>
         {/* Hafta kunlari */}
         <View style={{ flexDirection: 'row', backgroundColor: C.karta, paddingTop: 8 }}>
-          {HAFTA_KUNLARI.map((k) => (
+          {haftaKunlari().map((k) => (
             <Text key={k} style={{ flex: 1, textAlign: 'center', color: C.xira, fontSize: 11, fontWeight: '600' }}>
               {k}
             </Text>
@@ -161,7 +162,7 @@ export default function KalendarEkrani({ tahrirla }: { tahrirla: (y: Yozuv) => v
               </Text>
             </View>
             {kunYozuvlari.length === 0 ? (
-              <BoshHolat belgi="·" matn="Bu kuni yozuv yo‘q" />
+              <BoshHolat belgi="·" matn={tr('Bu kuni yozuv yo‘q')} />
             ) : (
               kunYozuvlari.map((y) => (
                 <YozuvQatori
@@ -180,9 +181,9 @@ export default function KalendarEkrani({ tahrirla }: { tahrirla: (y: Yozuv) => v
       </ScrollView>
 
       <YigindiPaneli
-        chap={{ yorliq: 'Oylik kirim', qiymat: formatla(oylik.kirim, valyuta, { belgisiz: true, kasrsiz: true }), rang: C.kirim }}
-        orta={{ yorliq: 'Oylik chiqim', qiymat: formatla(oylik.chiqim, valyuta, { belgisiz: true, kasrsiz: true }), rang: C.chiqim }}
-        ong={{ yorliq: 'Farq', qiymat: formatla(oylik.farq, valyuta, { belgisiz: true, kasrsiz: true }) }}
+        chap={{ yorliq: tr('Oylik kirim'), qiymat: formatla(oylik.kirim, valyuta, { belgisiz: true, kasrsiz: true }), rang: C.kirim }}
+        orta={{ yorliq: tr('Oylik chiqim'), qiymat: formatla(oylik.chiqim, valyuta, { belgisiz: true, kasrsiz: true }), rang: C.chiqim }}
+        ong={{ yorliq: tr('Farq'), qiymat: formatla(oylik.farq, valyuta, { belgisiz: true, kasrsiz: true }) }}
       />
     </View>
   );

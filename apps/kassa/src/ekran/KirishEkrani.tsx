@@ -26,6 +26,7 @@ import {
 } from 'react-native';
 import { supabase, xatoMatn } from '../lib/supabase';
 import { C, O } from '../lib/tema';
+import { tr } from '../lib/til';
 
 export default function KirishEkrani() {
   const [royxat, setRoyxat] = useState(false);
@@ -40,8 +41,8 @@ export default function KirishEkrani() {
     setXato(null);
     setXabar(null);
     const e = email.trim().toLowerCase();
-    if (!e.includes('@')) return setXato('Email manzilini to‘liq kiriting.');
-    if (parol.length < 6) return setXato('Parol kamida 6 ta belgi bo‘lsin.');
+    if (!e.includes('@')) return setXato(tr('Email manzilini to‘liq kiriting.'));
+    if (parol.length < 6) return setXato(tr('Parol kamida 6 ta belgi bo‘lsin.'));
 
     setYuklanmoqda(true);
     try {
@@ -57,8 +58,7 @@ export default function KirishEkrani() {
         if (error) throw error;
         if (!data.session) {
           setXabar(
-            'Ro‘yxatdan o‘tdingiz. Pochtangizga tasdiqlash xati yuborildi — ' +
-              'havolani bosing va shu yerga qaytib kiring.',
+            tr('Ro‘yxatdan o‘tdingiz. Pochtangizga tasdiqlash xati yuborildi — havolani bosing va shu yerga qaytib kiring.'),
           );
           setRoyxat(false);
         }
@@ -80,41 +80,41 @@ export default function KirishEkrani() {
           <Text style={s.belgiYuqori}>↑</Text>
           <Text style={s.belgiPast}>↓</Text>
         </View>
-        <Text style={s.nom}>CREDIT DEBIT</Text>
-        <Text style={s.izoh}>Hisob-kitob daftari</Text>
+        <Text style={s.nom}>{tr('CREDIT DEBIT')}</Text>
+        <Text style={s.izoh}>{tr('Hisob-kitob daftari')}</Text>
 
         <View style={s.karta}>
-          <Text style={s.yorliq}>Email</Text>
+          <Text style={s.yorliq}>{tr('Email')}</Text>
           <TextInput
             style={s.maydon}
             value={email}
             onChangeText={setEmail}
             autoCapitalize="none"
             keyboardType="email-address"
-            placeholder="ism@pochta.com"
+            placeholder={tr('ism@pochta.com')}
             placeholderTextColor={C.xira}
           />
 
           {royxat && (
             <>
-              <Text style={s.yorliq}>Ism-familiya</Text>
+              <Text style={s.yorliq}>{tr('Ism-familiya')}</Text>
               <TextInput
                 style={s.maydon}
                 value={ism}
                 onChangeText={setIsm}
-                placeholder="Ixtiyoriy"
+                placeholder={tr('Ixtiyoriy')}
                 placeholderTextColor={C.xira}
               />
             </>
           )}
 
-          <Text style={s.yorliq}>Parol</Text>
+          <Text style={s.yorliq}>{tr('Parol')}</Text>
           <TextInput
             style={s.maydon}
             value={parol}
             onChangeText={setParol}
             secureTextEntry
-            placeholder="kamida 6 ta belgi"
+            placeholder={tr('kamida 6 ta belgi')}
             placeholderTextColor={C.xira}
           />
 
@@ -125,7 +125,7 @@ export default function KirishEkrani() {
             {yuklanmoqda ? (
               <ActivityIndicator color="#fff" />
             ) : (
-              <Text style={s.tugmaMatn}>{royxat ? 'Ro‘yxatdan o‘tish' : 'Kirish'}</Text>
+              <Text style={s.tugmaMatn}>{royxat ? tr('Ro‘yxatdan o‘tish') : tr('Kirish')}</Text>
             )}
           </TouchableOpacity>
 
@@ -137,12 +137,12 @@ export default function KirishEkrani() {
             }}
           >
             <Text style={s.almash}>
-              {royxat ? 'Hisobingiz bormi? Kirish' : 'Hisob yo‘qmi? Ro‘yxatdan o‘tish'}
+              {royxat ? tr('Hisobingiz bormi? Kirish') : tr('Hisob yo‘qmi? Ro‘yxatdan o‘tish')}
             </Text>
           </TouchableOpacity>
         </View>
 
-        <Text style={s.past}>Yukchibolla platformasi · yukchibolla.com</Text>
+        <Text style={s.past}>{tr('Yukchibolla platformasi · yukchibolla.com')}</Text>
       </ScrollView>
     </KeyboardAvoidingView>
   );

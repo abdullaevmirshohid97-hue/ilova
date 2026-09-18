@@ -22,6 +22,7 @@ import { Component, type ReactNode } from 'react';
 import { ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import { O, useTema } from '../lib/tema';
 import { xatoYoz } from '../lib/xatolar';
+import { tr } from '../lib/til';
 
 type Holat = { xato: Error | null };
 
@@ -61,9 +62,7 @@ function XatoEkrani({ xato, qayta }: { xato: Error; qayta: () => void }) {
             textAlign: 'center',
             marginTop: 14,
           }}
-        >
-          Ilovada nosozlik
-        </Text>
+        >{tr('Ilovada nosozlik')}</Text>
         <Text
           style={{
             color: C.matn2,
@@ -88,9 +87,7 @@ function XatoEkrani({ xato, qayta }: { xato: Error; qayta: () => void }) {
             marginTop: 26,
           }}
         >
-          <Text style={{ color: C.faolMatn, fontSize: 16, fontWeight: '700' }}>
-            Qayta urinish
-          </Text>
+          <Text style={{ color: C.faolMatn, fontSize: 16, fontWeight: '700' }}>{tr('Qayta urinish')}</Text>
         </TouchableOpacity>
 
         {/* Xato matni: yordam so'raganda odam shuni nusxalab yuboradi */}
@@ -104,9 +101,7 @@ function XatoEkrani({ xato, qayta }: { xato: Error; qayta: () => void }) {
             marginTop: 26,
           }}
         >
-          <Text style={{ color: C.xira, fontSize: 11, marginBottom: 6 }}>
-            TEXNIK MA’LUMOT
-          </Text>
+          <Text style={{ color: C.xira, fontSize: 11, marginBottom: 6 }}>{tr('TEXNIK MA’LUMOT')}</Text>
           <Text selectable style={{ color: C.matn2, fontSize: 12, lineHeight: 18 }}>
             {xato.message || xato.name}
           </Text>

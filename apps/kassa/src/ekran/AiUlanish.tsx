@@ -21,6 +21,7 @@ import { tokenlarOl, tokenYarat, tokenYop, type Token } from '../lib/baza';
 import { xatoMatn } from '../lib/supabase';
 import { O, useTema } from '../lib/tema';
 import { BoshHolat, Karta, Qator, Sarlavha, Tugma } from '../ui/qismlar';
+import { tr, trn } from '../lib/til';
 
 const MANZIL = 'https://gnuddryjsmcrjchrbvyz.supabase.co/functions/v1/kassa-mcp';
 
@@ -59,7 +60,7 @@ export default function AiUlanish() {
     setXato(null);
     setKutmoqda(true);
     try {
-      const j = await tokenYarat(nom.trim() || 'AI ulanish', yozishi);
+      const j = await tokenYarat(nom.trim() || tr('AI ulanish'), yozishi);
       setYangi(j.token);
       setNom('');
       setYozishi(false);
@@ -72,17 +73,17 @@ export default function AiUlanish() {
   }
 
   function yop(t: Token) {
-    Alert.alert('Ulanishni yopish', `«${t.nom}» endi ishlamaydi. Davom etamizmi?`, [
-      { text: 'Yo‘q', style: 'cancel' },
+    Alert.alert(tr('Ulanishni yopish'), `«${t.nom}» ${tr('endi ishlamaydi. Davom etamizmi?')}`, [
+      { text: tr('Yo‘q'), style: 'cancel' },
       {
-        text: 'Yopish',
+        text: tr('Yopish'),
         style: 'destructive',
         onPress: async () => {
           try {
             await tokenYop(t.id);
             await yukla();
           } catch (e) {
-            Alert.alert('Xatolik', xatoMatn(e));
+            Alert.alert(tr('Xatolik'), xatoMatn(e));
           }
         },
       },
@@ -135,23 +136,23 @@ export default function AiUlanish() {
             </Text>
             <View style={{ flexDirection: 'row', gap: 8, marginTop: 10 }}>
               <Tugma
-                matn={kochirildi === 'token' ? '✓ Ko‘chirildi' : 'Kalitni ko‘chirish'}
+                matn={kochirildi === 'token' ? tr('✓ Ko‘chirildi') : tr('Kalitni ko‘chirish')}
                 bos={() => kochir(yangi, 'token')}
                 uslub={{ flex: 1 }}
               />
-              <Tugma matn="Yopish" ikkilamchi bos={() => setYangi(null)} uslub={{ flex: 1 }} />
+              <Tugma matn={tr('Yopish')} ikkilamchi bos={() => setYangi(null)} uslub={{ flex: 1 }} />
             </View>
           </Karta>
         </View>
       )}
 
-      <Sarlavha matn="Server manzili" />
+      <Sarlavha matn={tr('Server manzili')} />
       <View style={{ paddingHorizontal: O.chekka }}>
         <Text selectable style={{ ...maydon, fontSize: 12 }}>
           {MANZIL}
         </Text>
         <Tugma
-          matn={kochirildi === 'manzil' ? '✓ Ko‘chirildi' : 'Manzilni ko‘chirish'}
+          matn={kochirildi === 'manzil' ? tr('✓ Ko‘chirildi') : tr('Manzilni ko‘chirish')}
           ikkilamchi
           bos={() => kochir(MANZIL, 'manzil')}
           uslub={{ marginTop: 8 }}
@@ -162,13 +163,13 @@ export default function AiUlanish() {
         </Text>
       </View>
 
-      <Sarlavha matn="Yangi ulanish" />
+      <Sarlavha matn={tr('Yangi ulanish')} />
       <View style={{ paddingHorizontal: O.chekka }}>
         <TextInput
           style={maydon}
           value={nom}
           onChangeText={setNom}
-          placeholder="Nomi (masalan: Telefondagi yordamchi)"
+          placeholder={tr('Nomi (masalan: Telefondagi yordamchi)')}
           placeholderTextColor={C.xira}
         />
         <TouchableOpacity
@@ -190,7 +191,7 @@ export default function AiUlanish() {
             {yozishi && <Text style={{ color: '#fff', fontSize: 14, fontWeight: '800' }}>✓</Text>}
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={{ color: C.matn, fontSize: 14 }}>Yozuv qo‘sha olsin</Text>
+            <Text style={{ color: C.matn, fontSize: 14 }}>{tr('Yozuv qo‘sha olsin')}</Text>
             <Text style={{ color: C.xira, fontSize: 11, marginTop: 2, lineHeight: 16 }}>
               Belgilanmasa, agent faqat o‘qiydi. Yozish yoqilsa ham, u har
               yozuvdan oldin sizdan tasdiq so‘raydi.
@@ -200,23 +201,25 @@ export default function AiUlanish() {
 
         {xato && <Text style={{ color: C.chiqim, fontSize: 13, marginTop: 10 }}>{xato}</Text>}
 
-        <Tugma matn="Ulanish yaratish" bos={yarat} kutmoqda={kutmoqda} uslub={{ marginTop: 14 }} />
+        <Tugma matn={tr('Ulanish yaratish')} bos={yarat} kutmoqda={kutmoqda} uslub={{ marginTop: 14 }} />
       </View>
 
-      <Sarlavha matn="Mavjud ulanishlar" />
-      {yuklanmoqda && <BoshHolat belgi="…" matn="Yuklanmoqda" />}
+      <Sarlavha matn={tr('Mavjud ulanishlar')} />
+      {yuklanmoqda && <BoshHolat belgi="…" matn={tr('Yuklanmoqda')} />}
       {!yuklanmoqda && tokenlar.length === 0 && (
-        <BoshHolat belgi="⚯" matn="Ulanish yo‘q" izoh="Yuqoridan yangi ulanish yarating" />
+        <BoshHolat belgi="⚯" matn={tr('Ulanish yo‘q')} izoh={tr('Yuqoridan yangi ulanish yarating')} />
       )}
       {tokenlar.map((t) => (
         <Qator
           key={t.id}
           nom={t.nom}
           izoh={
-            `${t.prefiks}…  ·  ${t.yozishi ? 'o‘qish + yozish' : 'faqat o‘qish'}` +
-            (t.oxirgi_ishlatilgan ? `  ·  ${t.soralgan_soni} so‘rov` : '  ·  ishlatilmagan')
+            `${t.prefiks}…  ·  ${t.yozishi ? tr('o‘qish + yozish') : tr('faqat o‘qish')}` +
+            (t.oxirgi_ishlatilgan
+              ? '  ·  ' + trn('{n} so‘rov', t.soralgan_soni)
+              : '  ·  ' + tr('ishlatilmagan'))
           }
-          ong={t.faol ? 'yopish' : 'yopilgan'}
+          ong={t.faol ? tr('yopish') : tr('yopilgan')}
           ongRang={t.faol ? C.chiqim : C.xira}
           sozilgan={!t.faol}
           bos={() => t.faol && yop(t)}

@@ -22,6 +22,7 @@ import {
 import { biznesOch } from '../lib/baza';
 import { supabase, xatoMatn } from '../lib/supabase';
 import { C, O } from '../lib/tema';
+import { tr } from '../lib/til';
 
 export default function BiznesEkrani({ tayyor }: { tayyor: () => void }) {
   const [nom, setNom] = useState('');
@@ -30,7 +31,7 @@ export default function BiznesEkrani({ tayyor }: { tayyor: () => void }) {
 
   async function och() {
     setXato(null);
-    if (nom.trim().length < 2) return setXato('Biznes nomi kamida 2 ta belgi bo‘lsin.');
+    if (nom.trim().length < 2) return setXato(tr('Biznes nomi kamida 2 ta belgi bo‘lsin.'));
     setYuklanmoqda(true);
     try {
       await biznesOch(nom.trim());
@@ -45,7 +46,7 @@ export default function BiznesEkrani({ tayyor }: { tayyor: () => void }) {
   return (
     <KeyboardAvoidingView style={s.tashqi} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <ScrollView contentContainerStyle={s.ichki} keyboardShouldPersistTaps="handled">
-        <Text style={s.sarlavha}>Biznesingiz nomi</Text>
+        <Text style={s.sarlavha}>{tr('Biznesingiz nomi')}</Text>
         <Text style={s.izoh}>
           Bu nom hisobotlarda va hujjatlarda ko‘rinadi. Keyin o‘zgartirsa bo‘ladi.
         </Text>
@@ -55,14 +56,14 @@ export default function BiznesEkrani({ tayyor }: { tayyor: () => void }) {
             style={s.maydon}
             value={nom}
             onChangeText={setNom}
-            placeholder="Masalan: Anvar do‘koni"
+            placeholder={tr('Masalan: Anvar do‘koni')}
             placeholderTextColor={C.xira}
             autoFocus
           />
           {xato && <Text style={s.xato}>{xato}</Text>}
 
           <TouchableOpacity style={s.tugma} onPress={och} disabled={yuklanmoqda}>
-            {yuklanmoqda ? <ActivityIndicator color="#fff" /> : <Text style={s.tugmaMatn}>Boshlash</Text>}
+            {yuklanmoqda ? <ActivityIndicator color="#fff" /> : <Text style={s.tugmaMatn}>{tr('Boshlash')}</Text>}
           </TouchableOpacity>
 
           <Text style={s.qadam}>
@@ -71,7 +72,7 @@ export default function BiznesEkrani({ tayyor }: { tayyor: () => void }) {
         </View>
 
         <TouchableOpacity onPress={() => supabase.auth.signOut()}>
-          <Text style={s.chiqish}>Boshqa hisob bilan kirish</Text>
+          <Text style={s.chiqish}>{tr('Boshqa hisob bilan kirish')}</Text>
         </TouchableOpacity>
       </ScrollView>
     </KeyboardAvoidingView>

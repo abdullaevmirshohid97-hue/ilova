@@ -10,14 +10,27 @@
 //  eski versiyalarida o'zbek tilini bilmaydi.
 // =============================================================
 
+// Oy va hafta nomlari TILGA bog‘liq: ruscha tanlansa «sentabr»
+// emas, «сентябрь» chiqadi. Shuning uchun ular o‘zgarmas
+// ro‘yxat emas, funksiya orqali olinadi.
+import { HAFTA_NOMLARI, joriyTil, OY_NOMLARI, OY_SANADA, tr } from './til';
+
 export type DavrTuri = 'kun' | 'hafta' | 'oy' | 'hammasi';
 
-export const OYLAR = [
-  'yanvar', 'fevral', 'mart', 'aprel', 'may', 'iyun',
-  'iyul', 'avgust', 'sentabr', 'oktabr', 'noyabr', 'dekabr',
-];
+/** Joriy tildagi oy nomlari: «сентябрь» */
+export function oylar(): string[] {
+  return OY_NOMLARI[joriyTil()];
+}
 
-export const HAFTA_KUNLARI = ['Du', 'Se', 'Ch', 'Pa', 'Ju', 'Sh', 'Ya'];
+/** Sana ichida ishlatiladigan shakl: «15 сентября» */
+function oySanada(): string[] {
+  return OY_SANADA[joriyTil()];
+}
+
+/** Dushanbadan boshlanadigan hafta kunlari */
+export function haftaKunlari(): string[] {
+  return HAFTA_NOMLARI[joriyTil()];
+}
 
 const ikki = (n: number) => String(n).padStart(2, '0');
 
@@ -51,7 +64,7 @@ export function davrOraligi(turi: DavrTuri, siljish: number): Oraliq {
     return {
       bosh: new Date(2000, 0, 1),
       oxir: new Date(2999, 11, 31, 23, 59, 59),
-      nom: 'Hammasi',
+      nom: tr('Hammasi'),
     };
   }
 
@@ -59,7 +72,7 @@ export function davrOraligi(turi: DavrTuri, siljish: number): Oraliq {
     const k = new Date(bugun);
     k.setDate(k.getDate() + siljish);
     const nom =
-      siljish === 0 ? 'Bugun' : siljish === -1 ? 'Kecha' : `${ikki(k.getDate())}.${ikki(k.getMonth() + 1)}.${k.getFullYear()}`;
+      siljish === 0 ? tr('Bugun') : siljish === -1 ? tr('Kecha') : `${ikki(k.getDate())}.${ikki(k.getMonth() + 1)}.${k.getFullYear()}`;
     return { bosh: kunBoshi(k), oxir: kunOxiri(k), nom };
   }
 
@@ -70,8 +83,8 @@ export function davrOraligi(turi: DavrTuri, siljish: number): Oraliq {
     o.setDate(o.getDate() + 6);
     const nom =
       siljish === 0
-        ? 'Shu hafta'
-        : `${ikki(b.getDate())} ${OYLAR[b.getMonth()].slice(0, 3)} – ${ikki(o.getDate())} ${OYLAR[o.getMonth()].slice(0, 3)}`;
+        ? tr('Shu hafta')
+        : `${ikki(b.getDate())} ${oySanada()[b.getMonth()].slice(0, 3)} – ${ikki(o.getDate())} ${oySanada()[o.getMonth()].slice(0, 3)}`;
     return { bosh: kunBoshi(b), oxir: kunOxiri(o), nom };
   }
 
@@ -82,7 +95,7 @@ export function davrOraligi(turi: DavrTuri, siljish: number): Oraliq {
   return {
     bosh: kunBoshi(b),
     oxir: kunOxiri(o),
-    nom: joriyYil ? OYLAR[b.getMonth()] : `${OYLAR[b.getMonth()]} ${b.getFullYear()}`,
+    nom: joriyYil ? oylar()[b.getMonth()] : `${oylar()[b.getMonth()]} ${b.getFullYear()}`,
   };
 }
 
@@ -101,7 +114,7 @@ export function oraliqdami(sana: string, o: Oraliq): boolean {
 export function sanaVaqt(d: string | Date): string {
   const x = typeof d === 'string' ? new Date(d) : d;
   if (Number.isNaN(x.getTime())) return '—';
-  return `${x.getDate()} ${OYLAR[x.getMonth()]}, ${ikki(x.getHours())}:${ikki(x.getMinutes())}`;
+  return `${x.getDate()} ${oySanada()[x.getMonth()]}, ${ikki(x.getHours())}:${ikki(x.getMinutes())}`;
 }
 
 /** "13 sentabr" — bugun bo'lsa "Bugun", kecha bo'lsa "Kecha" */
@@ -111,13 +124,13 @@ export function sanaQisqa(d: string | Date): string {
   const bugun = kunBoshi(new Date());
   const kun = kunBoshi(x);
   const farq = Math.round((bugun.getTime() - kun.getTime()) / 86400000);
-  if (farq === 0) return 'Bugun';
-  if (farq === 1) return 'Kecha';
-  if (farq === -1) return 'Ertaga';
+  if (farq === 0) return tr('Bugun');
+  if (farq === 1) return tr('Kecha');
+  if (farq === -1) return tr('Ertaga');
   const joriyYil = x.getFullYear() === bugun.getFullYear();
   return joriyYil
-    ? `${x.getDate()} ${OYLAR[x.getMonth()]}`
-    : `${x.getDate()} ${OYLAR[x.getMonth()]} ${x.getFullYear()}`;
+    ? `${x.getDate()} ${oySanada()[x.getMonth()]}`
+    : `${x.getDate()} ${oySanada()[x.getMonth()]} ${x.getFullYear()}`;
 }
 
 /** Oy kalendari uchun: 6 qatorli to'r (bo'sh kunlar null) */
