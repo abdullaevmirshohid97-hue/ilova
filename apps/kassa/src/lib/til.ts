@@ -241,7 +241,8 @@ const RU: Record<string, string> = {
   'Til': 'Язык',
   'Yorug‘': 'Светлое',
   'Tungi': 'Тёмное',
-  'Tizim': 'Как в системе',
+  // «Как в системе» uch chipli qatorga sig'masdi — qisqartirildi
+  'Tizim': 'Системная',
   'O‘zbekcha': 'Узбекский',
   'Ruscha': 'Русский',
   'Xavfli zona': 'Опасная зона',
