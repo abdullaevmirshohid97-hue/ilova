@@ -3,7 +3,7 @@
     "name": "Credit Debit",
     "slug": "credit-debit",
     "scheme": "creditdebit",
-    "version": "1.6.0",
+    "version": "1.7.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -23,7 +23,7 @@
         "backgroundColor": "#16202E"
       },
       "package": "uz.yukchibolla.creditdebit",
-      "versionCode": 7,
+      "versionCode": 8,
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
       "permissions": []

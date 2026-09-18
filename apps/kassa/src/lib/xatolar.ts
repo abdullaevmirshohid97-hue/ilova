@@ -21,12 +21,19 @@
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from './supabase';
+import ilovaSozlama from '../../app.json';
 
 const KALIT = 'kassa.xatolar';
 const CHEGARA = 20;
 
-/** app.json dagi versiya — tuzatilgan xato qaytib kelganini shundan bilamiz */
-export const ILOVA_VERSIYA = '1.6.0';
+/**
+ * Ilova versiyasi — tuzatilgan xato qaytib kelganini shundan bilamiz.
+ *
+ * app.json dan O'QILADI, qo'lda yozilmaydi: aks holda versiya
+ * ko'tarilganda bu yer eskirib qolar va xatolar noto'g'ri versiyaga
+ * yozilardi.
+ */
+export const ILOVA_VERSIYA: string = ilovaSozlama.expo.version;
 
 export type MahalliyXato = {
   joy: string;
