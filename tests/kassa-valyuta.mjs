@@ -94,6 +94,19 @@ begin
   end;
   v_n := v_n || jsonb_build_object('nom', 'bitimda TRY qabul qilinadi', 'ok', v_ok);
 
+  -- TO‘LOV jadvali ALOHIDA tekshiriladi. U bitimdan boshqa jadval va
+  -- cheklovi ham boshqa. Kengaytirish o‘tmay qolsa, hamkor TRY da
+  -- bitim yozardi-yu, unga to‘lov kirita olmasdi — qarz abadiy ochiq
+  -- qolardi.
+  begin
+    insert into public.kassa_bitim_tolovlar (org_id, klient_id, yonalish, summa, valyuta)
+    values (v_org, v_hamkor, 'oldim', 50, 'TJS');
+    v_ok := true;
+  exception when others then
+    v_ok := false;
+  end;
+  v_n := v_n || jsonb_build_object('nom', 'to''lovda TJS qabul qilinadi', 'ok', v_ok);
+
   -- ---------- 2. Valyuta jadvali ----------
   --
   -- Trigger tashkilot yaratilganda asosiy valyutani qo‘yadi.
@@ -163,6 +176,15 @@ begin
   v_n := v_n || jsonb_build_object('nom', 'nol kurs rad etiladi', 'ok', v_ok);
 
   -- ---------- 4. Sinxronizatsiya ----------
+  --
+  -- «N ta» raqamiga qarab xulosa chiqarmang. Bu blok SQL Editor’da
+  -- postgres roli ostida ishlaydi, u esa jadval EGASI — RLS unga
+  -- qo‘llanmaydi. Shuning uchun bu yerda butun bazadagi qatorlar
+  -- sanaladi, faqat shu tashkilotniki emas.
+  --
+  -- Ajratishning O‘ZI tests/tenant-ajratish.mjs da tekshiriladi: u
+  -- REST orqali haqiqiy foydalanuvchi JWT’si bilan boradi, ya’ni
+  -- authenticated roli ostida RLS rostdan ishlaydi.
   select public.kassa_ozgarishlar(0, 2000) into v_ozg;
   v_n := v_n || jsonb_build_object(
     'nom', 'kassa_ozgarishlar «valyutalar» beradi',

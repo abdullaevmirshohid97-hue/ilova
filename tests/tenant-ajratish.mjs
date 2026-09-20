@@ -338,11 +338,42 @@ if (ozga[0]?.id) {
     values ('${ozgaOrg}', '${kHisobId}', '${kTurkumId}', '${kKlientId}', 'chiqim', 1000, '${belgi}')
   `);
 
+  // Oldi-berdi va valyuta jadvallari keyin qo‘shilgan va uzoq vaqt shu
+  // sinovdan tashqarida qolgan: siyosati migratsiyada bor edi, lekin uni
+  // haqiqiy `authenticated` roli ostida hech kim tekshirmagan. Qarz
+  // summasi va kurs — eng nozik ma’lumot, shuning uchun ular ham shu
+  // yerda.
+  const kBitim = await sql(`
+    insert into kassa_bitimlar (org_id, klient_id, yonalish, nima, summa, valyuta)
+    values ('${ozgaOrg}', '${kKlientId}', 'berdim', '${belgi}', 777000, 'UZS')
+    returning id
+  `);
+  const kBitimId = kBitim[0].id;
+  await sql(`
+    insert into kassa_bitim_tolovlar (org_id, klient_id, bitim_id, yonalish, summa, valyuta)
+    values ('${ozgaOrg}', '${kKlientId}', '${kBitimId}', 'oldim', 55000, 'UZS')
+  `);
+  // `ozgaOrg` — MAVJUD tashkilot, sinov yaratgani emas. Shuning uchun
+  // bu yerga qo‘yilgan qator aynan `id` bo‘yicha o‘chiriladi: `org_id`
+  // bo‘yicha o‘chirish o‘sha tashkilotning haqiqiy kurslarini ham olib
+  // ketardi. TJS tanlandi — ro‘yxatdagi eng kam ishlatiladigani, ya’ni
+  // bor qator bilan to‘qnashmaydi.
+  const kVal0 = await sql(`
+    insert into kassa_valyutalar (org_id, valyuta, kurs)
+    values ('${ozgaOrg}', 'TJS', 1080.5)
+    on conflict (org_id, valyuta) do nothing
+    returning id
+  `);
+  const kValId = kVal0[0]?.id ?? null;
+
   for (const [jadval, pk] of [
     ['kassa_hisoblar', 'id'],
     ['kassa_turkumlar', 'id'],
     ['kassa_klientlar', 'id'],
     ['kassa_yozuvlar', 'id'],
+    ['kassa_bitimlar', 'id'],
+    ['kassa_bitim_tolovlar', 'id'],
+    ['kassa_valyutalar', 'id'],
   ]) {
     const r = await fetch(`${URL}/rest/v1/${jadval}?select=${pk}&limit=100`, {
       headers: { apikey: K.anon_key, Authorization: 'Bearer ' + token },
@@ -393,6 +424,37 @@ if (ozga[0]?.id) {
   });
   tekshir('begona hisobga yozuv yozib bo‘lmaydi', kYoz.status >= 400, 'HTTP ' + kYoz.status);
 
+  // Begona tashkilotga kurs yozish: kurs qalbakilashtirilsa, o‘sha
+  // tashkilotning bosh sahifadagi jami balansi butunlay boshqa raqam
+  // bo‘lib ko‘rinardi.
+  const kVal = await fetch(`${URL}/rest/v1/kassa_valyutalar`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', apikey: K.anon_key, Authorization: 'Bearer ' + token },
+    body: JSON.stringify({ org_id: ozgaOrg, valyuta: 'EUR', kurs: 1 }),
+  });
+  tekshir('begona tashkilotga kurs yozib bo‘lmaydi', kVal.status >= 400, 'HTTP ' + kVal.status);
+
+  // `kassa_ozgarishlar` — ilova HAMMA ma’lumotni shu bitta funksiya
+  // orqali oladi. U SECURITY DEFINER emas, ya’ni RLS unga ham
+  // qo‘llanishi kerak. Sizsa, bitta chaqiruv butun boshqa
+  // tashkilotning daftarini berib qo‘yardi.
+  const kSinx = await fetch(`${URL}/rest/v1/rpc/kassa_ozgarishlar`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', apikey: K.anon_key, Authorization: 'Bearer ' + token },
+    body: JSON.stringify({ p_kursor: 0, p_chegara: 2000 }),
+  });
+  const kSinxJavob = await kSinx.json().catch(() => null);
+  const begonaIz = JSON.stringify(kSinxJavob ?? {});
+  const izlar = [kHisobId, kKlientId, kBitimId].filter((x) => begonaIz.includes(x));
+  tekshir(
+    'kassa_ozgarishlar begona tashkilot ma’lumotini bermaydi',
+    izlar.length === 0,
+    izlar.length === 0 ? 'iz yo‘q' : `${izlar.length} ta id CHIQDI`,
+  );
+
+  await sql(`delete from kassa_bitim_tolovlar where bitim_id = '${kBitimId}'`);
+  await sql(`delete from kassa_bitimlar where id = '${kBitimId}'`);
+  if (kValId) await sql(`delete from kassa_valyutalar where id = '${kValId}'`);
   await sql(`delete from kassa_yozuvlar where hisob_id = '${kHisobId}'`);
   await sql(`delete from kassa_klientlar where id = '${kKlientId}'`);
   await sql(`delete from kassa_turkumlar where id = '${kTurkumId}'`);
