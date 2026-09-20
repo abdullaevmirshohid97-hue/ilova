@@ -261,7 +261,12 @@ function kontrast(a, b) {
     return qism.match(new RegExp(nom + ":\\s*'(#[0-9A-Fa-f]{6})'"))?.[1] ?? null;
   };
 
-  for (const [blok, nomi] of [['YORUG', 'yorug\u2018'], ['QORONGI', 'tungi']]) {
+  for (const [blok, nomi] of [
+    ['YORUG', 'yorug‘'],
+    ['QORONGI', 'tungi'],
+    ['SHIFO', 'shifo'],
+    ['SHIFO_TUN', 'shifo tungi'],
+  ]) {
     const karta = olish(blok, 'karta');
     for (const rang of ['kirim', 'chiqim', 'matn']) {
       const q = olish(blok, rang);
@@ -287,5 +292,50 @@ function kontrast(a, b) {
   }
 }
 
+// -------------------------------------------------------------
+//  SHIFO: KARTA FONDAN AJRALSIN
+//
+//  Bu temaning butun sababi shu. Oq variantda `fon` ham,
+//  `karta` ham sof oq edi va ekran tekis ko‘rinardi — «dizayni
+//  juda oddiy» degan e’tiroz aynan shundan chiqqan. Shifo
+//  temasida fon rangli, karta oq: karta fon USTIDA turadi.
+//
+//  Agar kelajakda kimdir fonni yana oqqa qaytarsa, tema o‘z
+//  ma’nosini yo‘qotadi va buni hech narsa aytmasdi.
+// -------------------------------------------------------------
+console.log('\nSHIFO CHUQURLIGI');
+
+{
+  const temaMatn2 = readFileSync(join(ROOT, 'apps/kassa/src/lib/tema.ts'), 'utf8');
+  const ol = (blok, nom) => {
+    const b = temaMatn2.indexOf('export const ' + blok);
+    const qism = temaMatn2.slice(b, temaMatn2.indexOf('};', b));
+    return qism.match(new RegExp(nom + ":\\s*'(#[0-9A-Fa-f]{6})'"))?.[1] ?? null;
+  };
+
+  for (const blok of ['SHIFO', 'SHIFO_TUN']) {
+    const fon = ol(blok, 'fon');
+    const karta = ol(blok, 'karta');
+    const n = fon && karta ? kontrast(fon, karta) : 1;
+    tekshir(
+      blok + ': karta fondan ajraladi',
+      fon !== karta && n >= 1.04,
+      fon + ' / ' + karta + ' = ' + n.toFixed(3) + ':1',
+    );
+  }
+
+  // Urg‘u rangi oq matn bilan o‘qilsin: tugma yozuvi shu juftlikda
+  // chiqadi va u yerda kontrast yetmasa tugma o‘qilmay qoladi.
+  for (const blok of ['SHIFO', 'SHIFO_TUN']) {
+    const faol = ol(blok, 'faol');
+    const faolMatn = ol(blok, 'faolMatn');
+    const n = faol && faolMatn ? kontrast(faol, faolMatn) : 0;
+    tekshir(
+      blok + ': faol tugma matni o\u2018qiladi (4.5:1)',
+      n >= 4.5,
+      faol + ' / ' + faolMatn + ' = ' + n.toFixed(2) + ':1',
+    );
+  }
+}
 console.log('\n' + (yiqildi === 0 ? '\x1b[32mHAMMASI O‘TDI\x1b[0m' : `\x1b[31m${yiqildi} TA XATO\x1b[0m`) + '\n');
 process.exit(yiqildi === 0 ? 0 : 1);

@@ -38,6 +38,8 @@ import { joriyTilniQoy, TilKontekst, tr, type Til } from './src/lib/til';
 import {
   O,
   QORONGI,
+  SHIFO,
+  SHIFO_TUN,
   TemaKontekst,
   YORUG,
   useTema,
@@ -92,7 +94,7 @@ export default function App() {
   // Tema tanlovi qurilmada qoladi — har ochilganda qayta so'ralmasin
   useEffect(() => {
     AsyncStorage.getItem(TEMA_KALIT).then((x) => {
-      if (x === 'yorug' || x === 'qorongi' || x === 'tizim') setRejim(x);
+      if (x === 'yorug' || x === 'qorongi' || x === 'tizim' || x === 'shifo') setRejim(x);
     });
   }, []);
 
@@ -124,10 +126,20 @@ export default function App() {
     });
   }, []);
 
-  const qorongi = rejim === 'qorongi' || (rejim === 'tizim' && tizimTemasi === 'dark');
+  // «shifo» ham tungi rejimga BO‘YSUNADI: odam kechqurun
+  // ilovani ochganda mavzu o‘zgargani uchun ko‘zi qamashmasin.
+  const qorongi =
+    rejim === 'qorongi' ||
+    ((rejim === 'tizim' || rejim === 'shifo') && tizimTemasi === 'dark');
+  const shifo = rejim === 'shifo';
   const tema = useMemo(
-    () => ({ C: qorongi ? QORONGI : YORUG, rejim, qorongi, qoy: temaQoy }),
-    [qorongi, rejim, temaQoy],
+    () => ({
+      C: shifo ? (qorongi ? SHIFO_TUN : SHIFO) : qorongi ? QORONGI : YORUG,
+      rejim,
+      qorongi,
+      qoy: temaQoy,
+    }),
+    [shifo, qorongi, rejim, temaQoy],
   );
 
   useEffect(() => {

@@ -20,7 +20,7 @@
 import type { ReactNode } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
-import { TemaKontekst, YORUG, QORONGI, O } from '../../apps/kassa/src/lib/tema';
+import { TemaKontekst, YORUG, QORONGI, SHIFO, SHIFO_TUN, O } from '../../apps/kassa/src/lib/tema';
 import type { Ranglar, TemaRejimi, TemaHolati } from '../../apps/kassa/src/lib/tema';
 
 // ---------- Oddiy qismlar ----------
@@ -67,7 +67,7 @@ export { MuddatMaydoni } from '../../apps/kassa/src/ui/MuddatMaydoni';
 export { default as XatoQalqoni } from '../../apps/kassa/src/ui/XatoQalqoni';
 
 // ---------- Tokenlar ----------
-export { YORUG, QORONGI, O, TemaKontekst };
+export { YORUG, QORONGI, SHIFO, SHIFO_TUN, O, TemaKontekst };
 export type { Ranglar, TemaRejimi, TemaHolati };
 
 /**

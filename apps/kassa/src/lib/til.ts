@@ -408,6 +408,7 @@ const RU: Record<string, string> = {
   'Til': 'Язык',
   'Yorug‘': 'Светлое',
   'Tungi': 'Тёмное',
+  'Shifo': 'Клиника',
   // «Как в системе» uch chipli qatorga sig'masdi — qisqartirildi
   'Tizim': 'Системная',
   'O‘zbekcha': 'Узбекский',
