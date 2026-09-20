@@ -142,6 +142,34 @@ const yarimHalqa = (cx, cy, r, q, yuqorimi) => (x, y) => {
   return Math.max(a, yuqorimi ? y - cy : cy - y);
 };
 
+/** To‘liq halqa (quvur): valyuta belgilari uchun */
+const halqa = (cx, cy, r, q) => (x, y) => Math.abs(Math.hypot(x - cx, y - cy) - r) - q / 2;
+
+/** To'rtburchak — kesish uchun (burchaklari o'tkir) */
+const tortburchak = (cx, cy, w, h) => (x, y) => {
+  const dx = Math.abs(x - cx) - w / 2;
+  const dy = Math.abs(y - cy) - h / 2;
+  return Math.hypot(Math.max(dx, 0), Math.max(dy, 0)) + Math.min(Math.max(dx, dy), 0);
+};
+
+/** Ko'pburchak — ruchka uchi uchun */
+const kopburchak = (nuqtalar) => (x, y) => {
+  let d = Infinity;
+  let ichkarida = false;
+  for (let i = 0, j = nuqtalar.length - 1; i < nuqtalar.length; j = i++) {
+    const [xi, yi] = nuqtalar[i];
+    const [xj, yj] = nuqtalar[j];
+    const ex = xj - xi;
+    const ey = yj - yi;
+    const wx = x - xi;
+    const wy = y - yi;
+    const t = Math.max(0, Math.min(1, (wx * ex + wy * ey) / (ex * ex + ey * ey)));
+    d = Math.min(d, Math.hypot(wx - ex * t, wy - ey * t));
+    if (yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) ichkarida = !ichkarida;
+  }
+  return ichkarida ? -d : d;
+};
+
 const birlashma = (...s) => (x, y) => {
   let d = Infinity;
   for (const f of s) d = Math.min(d, f(x, y));
@@ -224,6 +252,59 @@ function dollarShakl(cx, cy, h, q) {
 }
 
 // =============================================================
+//  Yevro va yuan
+//
+//  «C» to'liq halqadan o'ng tomondagi to'rtburchakni kesib
+//  olish bilan yasaladi — burchakli yoy chizishdan sodda va
+//  natijasi aniq.
+// =============================================================
+function yevroShakl(cx, cy, h, q) {
+  const r = h * 0.4;
+  const c = ayir(halqa(cx + q * 0.3, cy, r, q), tortburchak(cx + r + q, cy, r * 1.8, r * 0.95));
+  return birlashma(
+    c,
+    chiziq(cx - r * 1.25, cy - h * 0.13, cx + r * 0.62, cy - h * 0.13, q * 0.82),
+    chiziq(cx - r * 1.25, cy + h * 0.13, cx + r * 0.62, cy + h * 0.13, q * 0.82),
+  );
+}
+
+function yuanShakl(cx, cy, h, q) {
+  const w = h * 0.78;
+  return birlashma(
+    chiziq(cx - w / 2, cy - h / 2, cx, cy - h * 0.04, q),
+    chiziq(cx + w / 2, cy - h / 2, cx, cy - h * 0.04, q),
+    chiziq(cx, cy - h * 0.04, cx, cy + h / 2, q),
+    chiziq(cx - w * 0.42, cy + h * 0.08, cx + w * 0.42, cy + h * 0.08, q * 0.85),
+    chiziq(cx - w * 0.42, cy + h * 0.28, cx + w * 0.42, cy + h * 0.28, q * 0.85),
+  );
+}
+
+// =============================================================
+//  Ruchka — tanasi, bandi va uchi
+//
+//  Uchi UCHBURCHAK: qalam bilan adashmasin uchun tanasi uzun va
+//  ingichka, uchi esa qisqa.
+// =============================================================
+function ruchkaShakl(x1, y1, x2, y2, en) {
+  const dx = x2 - x1;
+  const dy = y2 - y1;
+  const L = Math.hypot(dx, dy);
+  const ux = dx / L;
+  const uy = dy / L;
+  const nx = -uy;
+  const ny = ux;
+  // Tana uchning boshigacha
+  const uchBosh = [x1 + ux * (L - en * 1.5), y1 + uy * (L - en * 1.5)];
+  const tana = chiziq(x1, y1, uchBosh[0], uchBosh[1], en);
+  const uch = kopburchak([
+    [uchBosh[0] + nx * (en / 2), uchBosh[1] + ny * (en / 2)],
+    [uchBosh[0] - nx * (en / 2), uchBosh[1] - ny * (en / 2)],
+    [x2, y2],
+  ]);
+  return { tana, uch, band: chiziq(x1 + ux * en * 0.55, y1 + uy * en * 0.55, x1 + ux * en * 1.5, y1 + uy * en * 1.5, en) };
+}
+
+// =============================================================
 //  Ranglar — har variantda UCHTADAN oshmaydi
 // =============================================================
 const P = {
@@ -258,58 +339,71 @@ function tikuvShakl(cx, cy, w, h) {
 // =============================================================
 //  To'rt variant
 // =============================================================
+/**
+ * Umumiy kompozitsiya: chapda daftarcha, o‘ngida ruchka,
+ * muqovada valyuta belgilari.
+ */
 function variant(n, olcham) {
   const k = kanvas(olcham, olcham);
   const b = olcham / 512;
   const cx = olcham / 2;
   const cy = olcham / 2;
 
-  if (n === 1) {
-    // I. To'q fon · oq daftar · zumrad tanga.
-    //    Ikki shakl, uch rang, hech qanday bezak yo'q.
-    toldir(k, P.siyoh);
-    const kitob = daftarShakl(cx - 18 * b, cy - 10 * b, 232 * b, 288 * b);
-    chiz(k, kitob, P.oq);
-    chiz(k, tikuvShakl(cx - 18 * b, cy - 10 * b, 232 * b, 288 * b), P.yashil);
-    // Tanga daftar ustiga chiqadi — chuqurlik soyasiz shunday beriladi
-    chiz(k, doira(cx + 112 * b, cy + 116 * b, 92 * b), P.siyoh);
-    chiz(k, doira(cx + 112 * b, cy + 116 * b, 78 * b), P.yashil);
-    chiz(k, dollarShakl(cx + 112 * b, cy + 116 * b, 86 * b, 17 * b), P.siyoh);
+  // Ranglar variantga qarab
+  const fonRang = n === 4 ? P.qaymoq : P.siyoh;
+  const muqova = n === 4 ? P.siyoh : P.oq;
+  const belgiRang = n === 4 ? P.oq : P.siyoh;
+  const aksent = n === 2 ? P.kok : n === 3 ? P.sariq : P.yashil;
+
+  toldir(k, fonRang);
+
+  // ---- Daftarcha: chapga surilgan, ruchkaga joy qoladi ----
+  const dx = cx - 46 * b;
+  const dw = 236 * b;
+  const dh = 312 * b;
+  chiz(k, daftarShakl(dx, cy, dw, dh), muqova);
+  chiz(k, tikuvShakl(dx, cy, dw, dh), aksent);
+
+  // ---- Ruchka: daftarchaning o‘ng yonida, biroz qiya ----
+  const r = ruchkaShakl(cx + 150 * b, cy - 150 * b, cx + 108 * b, cy + 158 * b, 34 * b);
+  // Ruchka tanasi muqova rangida — to'q fonda oq, oq fonda to'q.
+  // Uchi va bandi aksent rangida: siyoh rangda bo'lsa to'q fonga
+  // singib ketib, ruchka kesilgandek ko'rinardi.
+  chiz(k, r.tana, muqova);
+  chiz(k, r.band, aksent);
+  // Uchi SIYOH — oq bo'lsa qalamga o'xshab qoladi
+  chiz(k, r.uch, aksent);
+
+  // ---- Valyuta belgilari muqovada ----
+  // Muqovaning bo‘sh qismi: tikuvdan o‘ngda
+  // Muqovaning bo‘sh qismi tikuvdan o‘ngda: markazi dx + dw*0.13
+  const mx = dx + 30 * b;
+
+  if (n === 1 || n === 4) {
+    // Uchtasi bir qatorda. O‘lcham muqova enidan kelib chiqadi:
+    // avvalgi urinishda belgilar bir-birining ustiga minib ketgan edi.
+    const h = 46 * b;
+    const q = 10 * b;
+    chiz(k, dollarShakl(mx - 58 * b, cy, h, q), belgiRang);
+    chiz(k, yevroShakl(mx, cy, h, q), belgiRang);
+    chiz(k, yuanShakl(mx + 58 * b, cy, h, q), belgiRang);
   } else if (n === 2) {
-    // II. Zumrad fon · oq daftar · to'q «$» muqovada.
-    //     Rang teskari: yorqin fon yorqinroq ko'rinadi.
-    toldir(k, P.yashil);
-    const kitob = daftarShakl(cx, cy, 258 * b, 320 * b);
-    chiz(k, kitob, P.oq);
-    chiz(k, tikuvShakl(cx, cy, 258 * b, 320 * b), P.siyoh);
-    chiz(k, dollarShakl(cx + 26 * b, cy, 176 * b, 34 * b), P.siyoh);
-  } else if (n === 3) {
-    // III. To'q fon · oq daftar · «IDAA» muqovada · sariq tasma.
-    //      Uchala talab ham bajarilgan: daftar, nom, pul.
-    toldir(k, P.siyoh);
-    const kitob = daftarShakl(cx, cy, 262 * b, 324 * b);
-    chiz(k, kitob, P.oq);
-    chiz(k, tikuvShakl(cx, cy, 262 * b, 324 * b), P.sariq);
-    const h = 54 * b;
-    const w = KENGLIK('IDAA', h, h * 0.22);
-    chiz(k, yozuvShakl('IDAA', cx + 30 * b - w / 2, cy - 78 * b, h, h * 0.22), P.siyoh);
-    // «$» ham to'q rangda: sariq oq muqovada deyarli ko'rinmaydi
-    chiz(k, dollarShakl(cx + 30 * b, cy + 62 * b, 104 * b, 22 * b), P.siyoh);
+    // Katta «$», ostida yevro va yuan — kichraytirilganda ham
+    // kamida bitta belgi o‘qiladi
+    chiz(k, dollarShakl(mx, cy - 52 * b, 120 * b, 24 * b), belgiRang);
+    chiz(k, yevroShakl(mx - 44 * b, cy + 72 * b, 58 * b, 12 * b), belgiRang);
+    chiz(k, yuanShakl(mx + 44 * b, cy + 72 * b, 58 * b, 12 * b), belgiRang);
   } else {
-    // IV. Oq fon · to'q daftar · zumrad tanga.
-    //     Yorug' ikonka: qora ekranda ham, oq ekranda ham ajralib turadi.
-    toldir(k, P.qaymoq);
-    const kitob = daftarShakl(cx - 18 * b, cy - 10 * b, 232 * b, 288 * b);
-    chiz(k, kitob, P.siyoh);
-    chiz(k, tikuvShakl(cx - 18 * b, cy - 10 * b, 232 * b, 288 * b), P.kok);
-    chiz(k, doira(cx + 112 * b, cy + 116 * b, 92 * b), P.qaymoq);
-    chiz(k, doira(cx + 112 * b, cy + 116 * b, 78 * b), P.yashil);
-    chiz(k, dollarShakl(cx + 112 * b, cy + 116 * b, 86 * b, 17 * b), P.oq);
+    // Ustma-ust uchta — daftar satrlariga o‘xshaydi
+    const h = 64 * b;
+    const q = 13 * b;
+    chiz(k, dollarShakl(mx, cy - 88 * b, h, q), belgiRang);
+    chiz(k, yevroShakl(mx, cy, h, q), belgiRang);
+    chiz(k, yuanShakl(mx, cy + 88 * b, h, q), belgiRang);
   }
 
   return k;
 }
-
 // =============================================================
 //  Taqqoslash varag'i: katta · 96 px · doira niqobi
 // =============================================================
