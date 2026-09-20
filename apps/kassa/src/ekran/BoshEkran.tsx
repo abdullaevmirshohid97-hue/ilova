@@ -24,7 +24,7 @@
 
 import { useMemo, useState } from 'react';
 import { Alert, RefreshControl, ScrollView, Text, TouchableOpacity, View } from 'react-native';
-import { formatla, hamkorQoldiq, muddatiOtgan, type HamkorQator } from '@ilova/kassa-yadro';
+import { bitimQoldiq, formatla, hamkorQoldiq, muddatiOtgan, type HamkorQator } from '@ilova/kassa-yadro';
 import type { Klient } from '@ilova/kassa-yadro';
 import { boshHarflar } from '../lib/rasm';
 import { useHolat } from '../lib/holat';
@@ -294,10 +294,17 @@ export default function BoshEkran({
             setXabar(
               xabarMatni({
                 ism: [tanlangan.ism, tanlangan.familya].filter(Boolean).join(' '),
+                telefon: tanlangan.telefon,
                 biznes: men.biznes,
                 valyuta: tanlangan.valyuta ?? 'UZS',
                 qatorlar,
                 qoldiq,
+                // Muddati otgan va hali tolanmagan summa:
+                // xabarning eng muhim qatori, aynan shu uchun
+                // yoziladi.
+                kechikkan: muddatiOtgan(bitimlar, tolovlar)
+                  .filter((b) => b.klient_id === tanlangan.id)
+                  .reduce((yig, b) => yig + bitimQoldiq(b, tolovlar), 0),
               }),
             )
           }

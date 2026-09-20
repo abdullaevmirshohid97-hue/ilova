@@ -83,6 +83,8 @@ export type Yozuv = {
   kurs: number;
   turkum_id?: string | null;
   klient_id?: string | null;
+  /** Kelishilgan muddat (kun) — hamkorli yozuvda */
+  muddat?: string | null;
   izoh?: string | null;
   /** Foydalanuvchi qo'ygan sana (ISO) */
   sana: string;
@@ -146,6 +148,13 @@ export type Bitim = {
   created_at?: string;
 };
 
+/**
+ * To'lov — bitimga tushadigan pul.
+ *
+ * `muddat` bitimnikidan BOSHQA narsa: bitim muddati butun
+ * qarzniki, to'lov muddati esa o'sha kelishuvniki — «500
+ * mingni oldim, qolganini 5-oktabrga».
+ */
 export type Tolov = {
   id: string;
   klient_id: string;
@@ -157,6 +166,8 @@ export type Tolov = {
   kurs: number;
   usuli: TolovUsuliB;
   yozuv_id?: string | null;
+  /** Kelishilgan muddat (kun). Bitim muddatidan alohida. */
+  muddat?: string | null;
   izoh?: string | null;
   sana: string;
   holat: 'kutilmoqda' | 'tasdiqlangan' | 'rad' | 'bekor';

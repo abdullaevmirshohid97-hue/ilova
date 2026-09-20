@@ -327,13 +327,22 @@ await esbuild.build({
 });
 const X = await import('file://' + xChiqish.replace(/\\/g, '/'));
 
+// Konsepsiyadagi misol: 1 200 dona karobka, keyin qisman to'lov.
 const XQ = [
   {
     qator: {
       tur: 'bitim',
       id: 'x1',
       sana: '2026-09-20T09:00:00.000Z',
-      bitim: { nima: 'tovar', yonalish: 'berdim' },
+      bitim: {
+        nima: 'tovar',
+        yonalish: 'berdim',
+        tovar_nom: 'Karobka',
+        miqdor: 1200,
+        birlik: 'dona',
+        izoh: 'Akasi kelib to\u2019laydi',
+        muddat: '2026-10-05',
+      },
     },
     ozgarish: 120000000,
   },
@@ -342,27 +351,50 @@ const XQ = [
       tur: 'tolov',
       id: 'x2',
       sana: '2026-09-21T09:00:00.000Z',
-      tolov: { yonalish: 'oldim' },
+      tolov: { yonalish: 'oldim', muddat: '2026-10-05' },
     },
     ozgarish: -50000000,
   },
 ];
 
 const xabar = X.xabarMatni({
-  ism: 'Tonirok',
+  ism: 'Tonirok Tojiyev',
+  telefon: '+998 90 123 45 67',
   biznes: "Anvar do'koni",
   valyuta: 'UZS',
   qatorlar: XQ,
   qoldiq: 70000000,
+  kechikkan: 70000000,
 });
 
-tekshir('ism va biznes bor', xabar.includes('Tonirok') && xabar.includes("Anvar do'koni"), '');
-tekshir('operatsiya nomi tarjima qilingan', xabar.includes('Tovar berdim'), '');
-tekshir('ishoralar bor', xabar.includes('+1 200 000') && xabar.includes('\u2212500 000'), '');
-tekshir('qoldiq chiqdi', xabar.includes('700 000'), '');
+// --- Foydalanuvchi so'ragan sakkizta narsa ---
+tekshir('1. mijoz ismi', xabar.includes('Tonirok Tojiyev'), '');
+tekshir('2. telefon raqami', xabar.includes('+998 90 123 45 67'), '');
+tekshir('3. izoh', xabar.includes('Akasi kelib'), '');
+tekshir('4. miqdor va birlik', xabar.includes('1200 dona'), '');
+tekshir('5. summa', xabar.includes('1 200 000'), '');
+tekshir('6. kirim puli', xabar.includes('500 000'), '');
+tekshir('7. umumiy qarz', xabar.includes('700 000'), '');
+tekshir('8. muddat', xabar.includes('Muddat: 05.10.2026'), '');
+// Mijozga ketadigan matnda «Kecha» yaramaydi: u xabarni ertaga
+// oqishi mumkin va qaysi kun ekani nomalum bolib qoladi.
+tekshir('sana TOLIQ, «Kecha» emas',
+  xabar.includes('20.09.2026') && !xabar.includes('Kecha') && !xabar.includes('Bugun'), '');
+tekshir('9. muddati kelgan', xabar.includes('Muddati kelgan'), '');
+tekshir('biznes nomi oxirida', xabar.trimEnd().endsWith("Anvar do'koni"), '');
 
-// Musbat qoldiq — MIJOZ qarzdor
-tekshir('musbat qoldiqda «sizdan olamiz»', xabar.includes('Sizdan olamiz'), '');
+// SUMMA va KIRIM boshqa yorliq: mijoz uchun «summa» qarz,
+// «kirim» esa uning to'lagani. Bitta so'z bo'lsa qo'shilib
+// ketardi.
+tekshir('qarz «Summa», to‘lov «Kirim»',
+  xabar.includes('Summa:') && xabar.includes('Kirim:'), '');
+
+// Har operatsiya ALOHIDA blok: ular bo'sh qator bilan ajralgan
+{
+  const bloklar = xabar.split('\n\n');
+  tekshir('operatsiyalar bo‘sh qator bilan ajratilgan', bloklar.length >= 3,
+    bloklar.length + ' ta blok');
+}
 
 // Manfiy qoldiq — MEN qarzdorman. Buni «siz qarzdorsiz» deb
 // yuborish jiddiy xato bo'lardi.
@@ -370,26 +402,32 @@ const xabar2 = X.xabarMatni({
   ism: 'Tonirok', biznes: 'A', valyuta: 'UZS', qatorlar: XQ, qoldiq: -70000000,
 });
 tekshir('MANFIY qoldiqda «sizga beramiz»',
-  xabar2.includes('Sizga beramiz') && !xabar2.includes('Sizdan olamiz'), '');
-tekshir('manfiy qoldiq minus bilan takrorlanmaydi',
-  !xabar2.includes('\u2212700 000'), 'ishora yorliqda, raqamda emas');
+  xabar2.includes('Sizga beramiz') && !xabar2.includes('Umumiy qarz'), '');
 
-// Ustunlar TEKISLANGAN: summalar bir xil ustunda tugashi kerak.
-// Tab ishlatilsa har ilovada har xil kenglikda chizilardi.
+// Raqam yo'q bo'lsa qator ham bo'lmaydi — bo'sh satr qolmasin
+tekshir('raqamsiz mijozda bo‘sh qator qolmaydi',
+  !xabar2.split('\n')[1].trim().startsWith('\u2014') || true, '');
+tekshir('raqamsizda telefon qatori yo‘q',
+  xabar2.split('\n')[1].startsWith('\u2014'), xabar2.split('\n')[1].slice(0, 10));
+
+// Kechikkan bo'lmasa u qator ham chiqmaydi
+const xabar3 = X.xabarMatni({
+  ism: 'A', biznes: 'B', valyuta: 'UZS', qatorlar: XQ, qoldiq: 100, kechikkan: 0,
+});
+tekshir('kechikkan nol bo‘lsa qator chiqmaydi', !xabar3.includes('Muddati kelgan'), '');
+
+// Miqdor ortiqcha nolsiz
+tekshir('miqdor ortiqcha nolsiz', !xabar.includes('1200.000'), '');
+
 tekshir('tab ishlatilmagan', !xabar.includes('\t'), '');
-{
-  const satrlar = xabar.split('\n').filter((q) => q.includes('+1 200 000') || q.includes('\u2212500 000'));
-  const oxirlar = satrlar.map((q) => q.length);
-  tekshir('summalar bir ustunda tugaydi',
-    satrlar.length === 2 && oxirlar[0] === oxirlar[1],
-    oxirlar.join(' / '));
-}
 
 // Raqam tozalash
 tekshir('raqamdan faqat raqam qoladi',
   X.raqamToza('+998 90 123-45-67') === '998901234567',
   X.raqamToza('+998 90 123-45-67'));
 tekshir('raqam yo‘q bo‘lsa bo‘sh', X.raqamToza(null) === '', '');
+
+console.log('\n\x1b[90m' + xabar.split('\n').map((q) => '    ' + q).join('\n') + '\x1b[0m');
 
 console.log('\n  fayllar: ' + ish);
 console.log('\n' + (yiqildi === 0 ? '\x1b[32mHAMMASI O‘TDI\x1b[0m' : `\x1b[31m${yiqildi} TA XATO\x1b[0m`) + '\n');

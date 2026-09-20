@@ -24,6 +24,7 @@ import { O, useTema } from '../lib/tema';
 import { tr } from '../lib/til';
 import { xatoYoz } from '../lib/xatolar';
 import { Chip, Karta, Tugma } from '../ui/qismlar';
+import { MuddatMaydoni } from '../ui/MuddatMaydoni';
 
 const USULLAR: { k: 'naqd' | 'karta' | 'bank' | 'tovar'; m: string }[] = [
   { k: 'naqd', m: 'Naqd' },
@@ -56,6 +57,7 @@ export default function TolovOynasi({
   const [hisobId, setHisobId] = useState(faolHisoblar[0]?.id ?? '');
   const [usuli, setUsuli] = useState<'naqd' | 'karta' | 'bank' | 'tovar'>('naqd');
   const [izoh, setIzoh] = useState('');
+  const [muddat, setMuddat] = useState<string | null>(null);
   const [saqlanmoqda, setSaqlanmoqda] = useState(false);
   const [xato, setXato] = useState<string | null>(null);
 
@@ -109,6 +111,7 @@ export default function TolovOynasi({
         usuli,
         valyuta,
         izoh,
+        muddat,
       });
       saqlandi();
       yopish();
@@ -293,6 +296,17 @@ export default function TolovOynasi({
                 onChangeText={setIzoh}
                 placeholder={tr('Nima uchun')}
                 placeholderTextColor={C.xira}
+              />
+            </View>
+
+            {/* Muddat KIRIMDA HAM, CHIQIMDA HAM: do‘kondor
+                kelishuvni ikkala tomonda yozadi — «500 mingni
+                oldim, qolganini 5-oktabrga kelishdik». */}
+            <View style={{ paddingHorizontal: O.chekka, marginTop: 14 }}>
+              <MuddatMaydoni
+                qiymat={muddat}
+                setQiymat={setMuddat}
+                izoh={tr('Qolganini qachonga kelishdingiz')}
               />
             </View>
 

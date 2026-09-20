@@ -177,3 +177,17 @@ export function sanaHaftaToliq(d: string | Date): string {
   const kun = HAFTA_TOLIQ[joriyTil()][haftaKuni(x)];
   return `${kun}, ${x.getDate()} ${oySanada()[x.getMonth()]} ${x.getFullYear()}, ${ikki(x.getHours())}:${ikki(x.getMinutes())}`;
 }
+
+/**
+ * "20.09.2026" — MIJOZGA ketadigan matn uchun.
+ *
+ * `sanaQisqa` «Bugun», «Kecha» deb yozadi va ilova ichida bu
+ * qulay. Lekin xabarda yaramaydi: mijoz uni ertaga yoki bir
+ * haftadan keyin o'qishi mumkin va «kecha» qaysi kun ekani
+ * noma'lum bo'lib qoladi. Bahsda esa aynan sana kerak.
+ */
+export function sanaRaqam(d: string | Date): string {
+  const x = typeof d === 'string' ? new Date(d) : d;
+  if (Number.isNaN(x.getTime())) return '—';
+  return `${ikki(x.getDate())}.${ikki(x.getMonth() + 1)}.${x.getFullYear()}`;
+}

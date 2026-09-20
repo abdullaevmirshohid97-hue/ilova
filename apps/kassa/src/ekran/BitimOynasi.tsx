@@ -27,6 +27,7 @@ import { O, useTema } from '../lib/tema';
 import { tr } from '../lib/til';
 import { xatoYoz } from '../lib/xatolar';
 import { Chip, Karta, Tugma } from '../ui/qismlar';
+import { MuddatMaydoni } from '../ui/MuddatMaydoni';
 
 const BIRLIKLAR = ['dona', 'kg', 'metr', 'quti', 'litr'];
 
@@ -60,6 +61,7 @@ export default function BitimOynasi({
   const [jamiQolda, setJamiQolda] = useState(false);
   const [hisobId, setHisobId] = useState(faolHisoblar[0]?.id ?? '');
   const [izoh, setIzoh] = useState('');
+  const [muddat, setMuddat] = useState<string | null>(null);
   const [saqlanmoqda, setSaqlanmoqda] = useState(false);
   const [xato, setXato] = useState<string | null>(null);
 
@@ -144,6 +146,7 @@ export default function BitimOynasi({
         narx: tovarmi && narx ? tiyinga(narx) : null,
         valyuta,
         izoh,
+        muddat,
         hisob_id: tovarmi ? null : hisobId,
       });
       saqlandi();
@@ -363,6 +366,17 @@ export default function BitimOynasi({
                 onChangeText={setIzoh}
                 placeholder={tr('Nima uchun')}
                 placeholderTextColor={C.xira}
+              />
+            </View>
+
+            {/* Muddat — tovar va qarzda. Pul harakatida ham
+                kerak bolishi mumkin, lekin bu yerda bitim
+                ozining muddatiga ega. */}
+            <View style={{ paddingHorizontal: O.chekka, marginTop: 14 }}>
+              <MuddatMaydoni
+                qiymat={muddat}
+                setQiymat={setMuddat}
+                izoh={tr('Qachonga kelishdingiz')}
               />
             </View>
 

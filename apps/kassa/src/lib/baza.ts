@@ -665,6 +665,7 @@ export type YangiTolov = {
   bitim_id?: string | null;
   usuli?: 'naqd' | 'karta' | 'bank' | 'tovar';
   valyuta?: string;
+  muddat?: string | null;
   izoh?: string | null;
   sana?: string;
 };
@@ -712,6 +713,7 @@ export async function tolovQosh(t: YangiTolov): Promise<string> {
     valyuta: t.valyuta ?? 'UZS',
     kurs: 1,
     usuli: t.usuli ?? 'naqd',
+    muddat: t.muddat ?? null,
     yozuv_id: yozuvId,
     izoh: t.izoh?.trim() || null,
     sana,
