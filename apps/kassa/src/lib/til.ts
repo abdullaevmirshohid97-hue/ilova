@@ -463,6 +463,8 @@ const RU: Record<string, string> = {
   'jami': 'всего',
   '{n} ta': '{n} шт.',
   'Ro‘yxatdan o‘tish': 'Регистрация',
+  'Pochtangizga tasdiqlash xati keladi — havolani bosing.': 'На почту придёт письмо для подтверждения — нажмите ссылку.',
+  'Parolni unutdingizmi? Pochtangizdan tiklash havolasini so‘rang.': 'Забыли пароль? Запросите ссылку для восстановления на почту.',
   'Hisobingiz bormi? Kirish': 'Уже есть аккаунт? Войти',
   'Hisob yo‘qmi? Ro‘yxatdan o‘tish': 'Нет аккаунта? Зарегистрироваться',
   'Ro‘yxatdan o‘tdingiz. Pochtangizga tasdiqlash xati yuborildi — havolani bosing va shu yerga qaytib kiring.': 
