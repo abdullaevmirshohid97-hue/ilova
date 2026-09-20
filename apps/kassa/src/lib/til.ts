@@ -70,7 +70,7 @@ const RU: Record<string, string> = {
   'Yana': 'Ещё',
 
   // ---------- Kirish ----------
-  'CREDIT DEBIT': 'CREDIT DEBIT',
+  'CLARY': 'CLARY',
   'Hisob-kitob daftari': 'Книга учёта',
   'Email': 'Эл. почта',
   'Parol': 'Пароль',
@@ -192,7 +192,7 @@ const RU: Record<string, string> = {
   'Sun’iy intellekt agentini daftaringizga ulash':
     'Подключение ИИ-агента к вашей книге',
   'Biznes nomi, ko‘rinish, chiqish': 'Название бизнеса, оформление, выход',
-  'Credit Debit · Yukchibolla platformasi': 'Credit Debit · Платформа Yukchibolla',
+  'Clary · Yukchibolla platformasi': 'Clary · Платформа Yukchibolla',
   'Turkumlar': 'Категории',
   'TURKUMLAR': 'КАТЕГОРИИ',
 

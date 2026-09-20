@@ -1,4 +1,4 @@
-# Oldi-berdi: Credit Debit'ni qayta qurish rejasi
+# Oldi-berdi: Clary'ni qayta qurish rejasi
 
 > Sana: 2026-09-20. Asos: foydalanuvchining 20.09 dagi konsepsiyasi.
 > Hozirgi holat: `PLAN-KASSA.md`, audit: `PLAN-AUDIT.md`.
@@ -281,7 +281,7 @@ Loyihada qarz boti allaqachon bor va uning darslari yozilgan
 - **tasdiqni faqat KUTILMOQDA holatidagi bitim qabul qiladi.**
   Yopilganini qayta tasdiqlab bo'lmaydi.
 
-### 7.4. Eng muhim qaror: tasdiq SHART EMAS
+### 7.4. Eng muhim qaror: tasdiq SHART EMAS  ✅ TASDIQLANDI (20.09)
 
 **Tasdiqlanmagan bitim ham qoldiqqa kiradi.**
 
@@ -356,12 +356,13 @@ Telegram tasdig'i yo'q.
 - Hisobotga «tasdiqlangan / tasdiqlanmagan qarz» ustuni
 - Lug'atga yangi matnlar (`kassa-til` sinovi ularni talab qiladi)
 
-### 5-bosqich — Hujjat va eslatma (2 kun)
+### 5-bosqich — Hujjat (1 kun)
 
 - Bitim bo'yicha PDF (hozirgi `hujjat.ts` dvigateli qayta ishlatiladi)
-- Muddati o'tgan qarz eslatmasi — auditdagi 5-band shu yerda yopiladi
+- Muddati o'tgan qarz ro'yxatda QIZIL bo'lib turadi (bildirishnoma yo'q —
+  qaror 20.09: kerak emas)
 
-**Jami: ~12 ish kuni.**
+**Jami: ~11 ish kuni.**
 
 ---
 
@@ -388,8 +389,8 @@ Telegram tasdig'i yo'q.
 
 ## 11. Ochiq savollar — sizdan
 
-1. **Nom.** «IDAA Money Management» qaror qilingan bo'lsa, bu reja
-   uning ostida boradi. Ikonka varianti ham tanlanishi kerak.
+1. ~~**Nom**~~ — hal bo'ldi (20.09): **Clary**, shiori «Credit · Debit ·
+   Money Flow». Ikonka ham qo'yildi.
 
 2. **Bot.** Tasdiqlash uchun **yangi bot** ochamizmi yoki mavjud
    `telegram-qarz` botiga kassa shoxini qo'shamizmi? Mening fikrim:
@@ -405,17 +406,21 @@ Telegram tasdig'i yo'q.
    Birinchi bosqichda **qo'lda** deb o'ylayman — katalog keyin, agar
    bir xil tovar takrorlanayotgani ko'rinsa.
 
-5. **Eslatma** qaysi kanal orqali: Telegram yoki push? Bot qilingandan
-   keyin Telegram arzonroq va ishonchliroq bo'ladi.
+5. ~~**Eslatma kanali**~~ — hal bo'ldi (20.09): **bildirishnoma
+   qilinmaydi**. Muddati o'tgan qarz ro'yxatning o'zida ajralib turadi
+   (qizil sana), tashqariga hech qanday xabar ketmaydi.
 
 ---
 
 ## 12. Birinchi qadam
 
-Tasdiqlashingiz kerak bo'lgan ikki narsa bor, qolgani ularga bog'liq:
+**7.4 tasdiqlandi** (20.09): tasdiqlanmagan bitim ham qoldiqqa kiradi.
+Daftar boshqa odamning tugma bosishiga bog'liq bo'lmaydi.
 
-- **4-bo'limdagi qaror:** bitim alohida jadval bo'ladi, daftar
-  o'zgarmaydi;
-- **7.4-dagi qaror:** tasdiqlanmagan bitim ham qoldiqqa kiradi.
+Qolgan bitta qaror — **4-bo'limdagi**: bitim `kassa_bitimlar` degan
+ALOHIDA jadval bo'ladi, daftar (`kassa_yozuvlar`) esa qo'shib
+yoziladigan bo'lib qoladi. Sababi o'sha bo'limda: bitimning hayoti bor
+(yaratildi → tasdiqlandi → qisman to'landi → yopildi), daftar
+yozuvining esa yo'q — u bo'lib o'tgan fakt.
 
-Shu ikkisiga «ha» desangiz, 1-bosqichdan boshlayman.
+Shunga «ha» desangiz, 1-bosqichdan boshlayman.

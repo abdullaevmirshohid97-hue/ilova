@@ -114,7 +114,7 @@ export default function YanaEkrani({
         <Qator nom={tr('Sozlamalar')} izoh={tr('Biznes nomi, ko‘rinish, chiqish')} ong="›" bos={() => setSahifa('sozlama')} />
 
         <View style={{ padding: O.chekka, paddingTop: 24 }}>
-          <Text style={{ color: C.xira, fontSize: 12, textAlign: 'center' }}>{tr('Credit Debit · Yukchibolla platformasi')}</Text>
+          <Text style={{ color: C.xira, fontSize: 12, textAlign: 'center' }}>{tr('Clary · Yukchibolla platformasi')}</Text>
         </View>
       </ScrollView>
     </View>

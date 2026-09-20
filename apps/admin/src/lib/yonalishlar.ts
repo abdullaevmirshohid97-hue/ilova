@@ -113,10 +113,10 @@ export const TENANT_YONALISHLAR: TenantYonalish[] = [
   {
     key: 'kassa',
     belgi: '💰',
-    // Mahsulot nomi — "Credit Debit". Bazadagi kalit `kassa` bo'lib
+    // Mahsulot nomi — "Clary". Bazadagi kalit `kassa` bo'lib
     // qoladi (jadvallar ham `kassa_*`): ko'rinadigan nom marketingga
     // qarab o'zgaradi, kalit esa migratsiya talab qiladi.
-    nom: 'CREDIT DEBIT',
+    nom: 'CLARY',
     izoh: 'hisob-kitob daftari: kirim-chiqim, hisoblar, qarz — alohida ilovada',
     // Bu yo'nalishning ekranlari panelda emas, ALOHIDA ilovada
     // (Play Market va app.yukchibolla.com/kassa). Shuning uchun

@@ -228,7 +228,7 @@ Ta'siri katta va arzonidan boshlab:
 | 2 | Tegish maydonlari 48 dp | **bajarildi** | Chip 44, qator 56, tugma 48 dp |
 | 3 | Oxirgi turkum + «Takrorlash» + tez summalar | **bajarildi** | Yozuv 2 tegishga tushdi |
 | 4 | Ming ajratgich + sana tanlash | **bajarildi** | `ifodaKorinish`, «Bugun/Kecha» |
-| 5 | Qarz eslatmasi (bildirishnoma) | savol ochiq | Kanal tanlanishi kerak (7.3) |
+| 5 | Qarz eslatmasi (bildirishnoma) | **kerak emas** | Qaror 20.09: bildirishnoma qilinmaydi |
 | 6 | Kun yopish + kassa sanog'i | **bajarildi** | Kechqurun taklif, farq yozuv bo'lib tushadi |
 | 7 | Telegram bot (yozuv kiritish) | savol ochiq | Qaror kerak (7.2) |
 | 8 | Planshet/web kengligi | **bajarildi** | Markazda 640 px ustun |
@@ -243,10 +243,11 @@ bo'yicha ishlaydi, hisobot valyutalarni aralashtirmaydi, kechqurun
 kassa sanog‘i taklif qilinadi va telefondagi nosozlik endi bizga
 yetib keladi.
 
-**Qolgani** (5 va 7) — ikkalasi ham TASHQARIGA chiqadigan aloqa:
-bildirishnoma va Telegram bot. Ular texnik emas, qaror masalasi —
-7-bo'limdagi savollarga javob kerak: xabar qaysi kanal orqali
-boradi va bot qilinadimi.
+**Bildirishnoma (5)** — 20.09 dagi qaror bo'yicha QILINMAYDI.
+Muddati o'tgan qarz ro'yxatning o'zida ajralib turadi.
+
+**Qolgani (7)** — Telegram bot orqali yozuv kiritish. Texnik emas,
+qaror masalasi: bot qilinadimi.
 
 ---
 

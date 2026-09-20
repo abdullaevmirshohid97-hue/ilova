@@ -22,7 +22,7 @@
 //     o'sha rasmning o'zidan yasalgan xira yoyilma ustiga qo'yiladi
 //     — tekis rang qo'yilsa chegara chizig'i bilinib turardi.
 //
-//  Ishga tushirish:  node scripts/idaa-ikonka-yasa.mjs <manba.jpg>
+//  Ishga tushirish:  node scripts/clary-ikonka-yasa.mjs <manba.png>
 // =============================================================
 
 import sharp from 'sharp';
@@ -37,7 +37,7 @@ mkdirSync(PLAY, { recursive: true });
 
 const MANBA = process.argv[2];
 if (!MANBA) {
-  console.error('Manba rasm ko‘rsatilmadi.\n  node scripts/idaa-ikonka-yasa.mjs <rasm.jpg>');
+  console.error('Manba rasm ko‘rsatilmadi.\n  node scripts/clary-ikonka-yasa.mjs <rasm.png>');
   process.exit(1);
 }
 

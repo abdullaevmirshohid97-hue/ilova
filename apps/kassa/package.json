@@ -1,7 +1,7 @@
 {
   "name": "@ilova/kassa",
   "version": "1.0.0",
-  "description": "Credit Debit — hisob-kitob daftari (Android + web)",
+  "description": "Clary — Credit · Debit · Money Flow (Android + web)",
   "main": "index.ts",
   "scripts": {
     "start": "expo start",
@@ -11,7 +11,7 @@
     "build:web": "expo export --platform web --clear",
     "build:apk": "eas build --platform android --profile preview",
     "build:aab": "eas build --platform android --profile production",
-    "logo": "node ../../scripts/idaa-ikonka-yasa.mjs assets/manba-ikonka.jpg",
+    "logo": "node ../../scripts/clary-ikonka-yasa.mjs assets/manba-ikonka.png",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

@@ -80,7 +80,7 @@ export default function KirishEkrani() {
           <Text style={s.belgiYuqori}>↑</Text>
           <Text style={s.belgiPast}>↓</Text>
         </View>
-        <Text style={s.nom}>{tr('CREDIT DEBIT')}</Text>
+        <Text style={s.nom}>{tr('CLARY')}</Text>
         <Text style={s.izoh}>{tr('Hisob-kitob daftari')}</Text>
 
         <View style={s.karta}>

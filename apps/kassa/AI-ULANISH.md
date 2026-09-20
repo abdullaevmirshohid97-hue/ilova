@@ -1,4 +1,4 @@
-# Credit Debit — AI agentni ulash (MCP)
+# Clary — AI agentni ulash (MCP)
 
 Daftaringizga sun'iy intellekt agentini ulaysiz va u pul, qarz va
 hisobot savollariga javob beradi:

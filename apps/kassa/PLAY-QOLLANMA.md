@@ -1,4 +1,4 @@
-# Credit Debit — Google Play va APK qo'llanmasi
+# Clary — Google Play va APK qo'llanmasi
 
 Bu ilova (`apps/kassa`) — platformaning **kassa** yo'nalishi: hisob-kitob
 daftari. B2B mijoz ilovasidan (`apps/mobile`) alohida turadi: alohida
@@ -6,7 +6,7 @@ paket nomi, alohida ikonka, alohida hisob (odam o'zi ro'yxatdan o'tadi).
 
 | | |
 |---|---|
-| Ilova nomi | Credit Debit |
+| Ilova nomi | Clary |
 | Paket (Android) | `uz.yukchibolla.creditdebit` |
 | EAS loyihasi | `@amirxon.ai4020/credit-debit` |
 | Web manzili | `app.yukchibolla.com/kassa/` |
@@ -103,8 +103,8 @@ etadi:
 
 ## 4. Do'kon sahifasi uchun grafika — tayyor
 
-Hammasi manba rasmdan yasaladi: `node scripts/idaa-ikonka-yasa.mjs apps/kassa/assets/manba-ikonka.jpg`
-(yoki `pnpm --filter @ilova/kassa logo`). Manba `assets/manba-ikonka.jpg`.
+Hammasi manba rasmdan yasaladi: `node scripts/clary-ikonka-yasa.mjs apps/kassa/assets/manba-ikonka.png`
+(yoki `pnpm --filter @ilova/kassa logo`). Manba `assets/manba-ikonka.png`.
 
 | Fayl | O'lcham | Qayerda kerak |
 |---|---|---|
