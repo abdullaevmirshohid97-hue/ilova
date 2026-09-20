@@ -236,6 +236,20 @@ Hozirgi bosh ekranda uchtasi bor (kirim, chiqim, farq) va qarz alohida
 pastda. To'rttasi tepaga chiqadi, «farq» olib tashlanadi — u kamroq
 ishlatiladi va o'rin egallaydi.
 
+**QAYTA QARALDI (20.09):** to‘rt raqam ham ko‘p ekan. Foydalanuvchi
+qarori bilan bosh ekrandan **«Umumiy balans»**, **«Shu oy»** (kirim/
+chiqim) va **«Oxirgi 7 kun»** grafigi butunlay olib tashlandi.
+
+Sabab: ular eski savolga — «qancha pulim bor?» — javob berardi,
+ilova esa endi boshqa savol bilan ochiladi: «kim menga qarzdor?».
+Ekranning eng qimmatli qismi — tepasi — shu savolga berildi.
+
+Qolgani: sarlavha (biznes nomi) → **Qarzlar** (ikki raqam) → kun
+yakuni taklifi → Hisoblar → oxirgi yozuvlar → «+ Operatsiya».
+
+Ma’lumot yo‘qolgani yo‘q: hisob qoldig‘i «Hisoblar» bo‘limida,
+oylik kirim-chiqim «Yana → Hisobot» da turibdi.
+
 ---
 
 ## 7. Telegram tasdiqlash — eng qiyin qism

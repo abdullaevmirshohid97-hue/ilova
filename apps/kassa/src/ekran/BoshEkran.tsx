@@ -1,26 +1,22 @@
 // =============================================================
 //  BOSH EKRAN — bir qarashda manzara
 //
-//  Odam ilovani kuniga o'nlab marta ochadi va odatda BITTA savol
-//  bilan ochadi: "hozir qancha pulim bor?". Shuning uchun eng tepada
-//  balans, keyin shu oyning kirim-chiqimi, keyin oxirgi yozuvlar.
+//  Odam ilovani kuniga o'nlab marta ochadi va endi BOSHQA savol
+//  bilan ochadi: "kim menga qarzdor?". Shuning uchun eng tepada
+//  qarz turadi, keyin hisoblar va oxirgi yozuvlar.
 //
-//  Grafik ataylab sodda: ettita ustun, kutubxonasiz. Kutubxona
-//  qo'shilsa bundle 200 KB o'sardi va sekin internetda ilova
-//  kechikib ochilardi — bitta ustun uchun bu qimmat.
+//  20.09 da uchta blok OLIB TASHLANDI: «Umumiy balans», «Shu oy»
+//  va «Oxirgi 7 kun» grafigi. Ular eski savolga — «qancha pulim
+//  bor?» — javob berardi va ekranning eng qimmatli qismini
+//  egallardi. Ma’lumot yo‘qolgani yo‘q: hisob qoldig‘i pastdagi
+//  «Hisoblar» da, oylik kirim-chiqim esa «Yana → Hisobot» da.
 // =============================================================
 
 import { useEffect, useMemo, useState } from 'react';
 import { RefreshControl, ScrollView, Text, TouchableOpacity, View } from 'react-native';
-import {
-  davrYigindi,
-  formatla,
-  hisobQoldiq,
-  qarzYigindi,
-  umumiyBalans,
-} from '@ilova/kassa-yadro';
+import { formatla, hisobQoldiq, qarzYigindi } from '@ilova/kassa-yadro';
 import type { Yozuv } from '@ilova/kassa-yadro';
-import { davrOraligi, kunBoshi, kunKaliti, oraliqdami, sanaQisqa } from '../lib/davr';
+import { kunBoshi, kunKaliti, sanaQisqa } from '../lib/davr';
 import { useHolat } from '../lib/holat';
 import { O, useTema } from '../lib/tema';
 import { BoshHolat, Karta, Qator, Sarlavha, uslublar } from '../ui/qismlar';
@@ -44,14 +40,7 @@ export default function BoshEkran({
   const { men, hisoblar, turkumlar, yozuvlar, bitimlar, tolovlar, yangila, yuklanmoqda } =
     useHolat();
 
-  const balanslar = useMemo(() => umumiyBalans(hisoblar, yozuvlar), [hisoblar, yozuvlar]);
   const asosiyValyuta = hisoblar[0]?.valyuta ?? 'UZS';
-
-  const oy = useMemo(() => davrOraligi('oy', 0), []);
-  const oylik = useMemo(
-    () => davrYigindi(yozuvlar.filter((y) => oraliqdami(y.sana, oy))),
-    [yozuvlar, oy],
-  );
 
   // Qarz: kimdan olamiz, kimga qarzdormiz.
   //
@@ -87,27 +76,17 @@ export default function BoshEkran({
     return eng;
   }, [yozuvlar]);
 
-  // Oxirgi 7 kun — grafik uchun
-  const kunlar = useMemo(() => {
-    const natija: { kun: string; kirim: number; chiqim: number; sana: Date }[] = [];
-    const bugun = kunBoshi(new Date());
-    for (let i = 6; i >= 0; i--) {
-      const d = new Date(bugun);
-      d.setDate(d.getDate() - i);
-      natija.push({ kun: kunKaliti(d), kirim: 0, chiqim: 0, sana: d });
-    }
-    const xarita = new Map(natija.map((x) => [x.kun, x]));
-    for (const y of yozuvlar) {
-      if (y.bekor_at || y.kochirma_id) continue;
-      const x = xarita.get(kunKaliti(y.sana));
-      if (!x) continue;
-      if (y.turi === 'kirim') x.kirim += y.summa;
-      else x.chiqim += y.summa;
-    }
-    return natija;
+  // Bugun yozuv bo‘lganmi — kun yakuni taklifi shunga tayanadi.
+  //
+  // Avval bu 7 kunlik massivdan olinardi (grafik uchun yasalgan
+  // edi). Grafik ketdi, savol qoldi — shuning uchun endi to‘g‘ridan
+  // to‘g‘ri so‘raladi.
+  const bugunYozuvBor = useMemo(() => {
+    const bugun = kunKaliti(kunBoshi(new Date()));
+    return yozuvlar.some(
+      (y) => !y.bekor_at && !y.kochirma_id && kunKaliti(y.sana) === bugun,
+    );
   }, [yozuvlar]);
-
-  const eng = Math.max(1, ...kunlar.map((k) => Math.max(k.kirim, k.chiqim)));
 
   // -------------------------------------------------------------
   //  KUN YAKUNI
@@ -123,55 +102,32 @@ export default function BoshEkran({
     yakunniYukla().then(() => setYakunYuklandi(true));
   }, []);
 
-  const bugunYozuvBor = kunlar[kunlar.length - 1]
-    ? kunlar[kunlar.length - 1].kirim > 0 || kunlar[kunlar.length - 1].chiqim > 0
-    : false;
   const yakunKerak = yakunYuklandi && yakunSorash(bugunYozuvBor);
   const yakunlandi = yakunYuklandi && bugunYakunlandi();
 
   return (
     <View style={s.ekran}>
+      {/* Sarlavhada endi RAQAM yo‘q: umumiy balans olib tashlandi.
+          Hisob qoldig‘i pastdagi «Hisoblar» bo‘limida turibdi. */}
       <View style={s.boshliq}>
-        <Text style={s.boshliqIzoh}>{men.biznes}</Text>
-        <Text style={s.boshliqMatn}>{tr('Umumiy balans')}</Text>
-        <View style={{ marginTop: 6 }}>
-          {balanslar.length === 0 ? (
-            <Text style={{ color: C.tunMatn, fontSize: 28, fontWeight: '800' }}>
-              {formatla(0, asosiyValyuta)}
-            </Text>
-          ) : (
-            balanslar.map((b) => (
-              <Text key={b.valyuta} style={{ color: C.tunMatn, fontSize: 28, fontWeight: '800' }}>
-                {formatla(b.qoldiq, b.valyuta)}
-              </Text>
-            ))
-          )}
-        </View>
+        <Text style={s.boshliqMatn}>{men.biznes}</Text>
+        <Text style={s.boshliqIzoh}>{tr('Oldi-berdi daftari')}</Text>
       </View>
 
       <ScrollView
         refreshControl={<RefreshControl refreshing={yuklanmoqda} onRefresh={yangila} tintColor={C.xira} />}
       >
-        {/* Shu oy */}
-        <Sarlavha matn={`${tr('Shu oy')} · ${oy.nom}`} />
+        {/* Qarz — endi eng tepada va hamma vaqt ko‘rinadi, hatto
+            nol bo‘lsa ham: «hech kim qarzdor emas» ham javob. */}
+        <Sarlavha
+          matn={tr('Qarzlar')}
+          yon={
+            <TouchableOpacity onPress={ochKontaktlar}>
+              <Text style={{ color: C.matn2, fontSize: 12, fontWeight: '600' }}>{tr('Hammasi ›')}</Text>
+            </TouchableOpacity>
+          }
+        />
         <View style={{ flexDirection: 'row', paddingHorizontal: O.chekka, gap: 10 }}>
-          <Karta uslub={{ flex: 1, paddingVertical: 14 }}>
-            <Text style={{ color: C.xira, fontSize: 12 }}>{tr('↑ Kirim')}</Text>
-            <Text style={{ color: C.kirim, fontSize: 17, fontWeight: '800', marginTop: 4 }} numberOfLines={1}>
-              {formatla(oylik.kirim, asosiyValyuta, { belgisiz: true, kasrsiz: true })}
-            </Text>
-          </Karta>
-          <Karta uslub={{ flex: 1, paddingVertical: 14 }}>
-            <Text style={{ color: C.xira, fontSize: 12 }}>{tr('↓ Chiqim')}</Text>
-            <Text style={{ color: C.chiqim, fontSize: 17, fontWeight: '800', marginTop: 4 }} numberOfLines={1}>
-              {formatla(oylik.chiqim, asosiyValyuta, { belgisiz: true, kasrsiz: true })}
-            </Text>
-          </Karta>
-        </View>
-
-        {/* Qarz — hamma vaqt ko‘rinadi, hatto nol bo‘lsa ham:
-            «hech kim qarzdor emas» ham javob. */}
-        <View style={{ flexDirection: 'row', paddingHorizontal: O.chekka, gap: 10, marginTop: 10 }}>
           <TouchableOpacity style={{ flex: 1 }} onPress={ochKontaktlar}>
             <Karta uslub={{ paddingVertical: 14 }}>
               <Text style={{ color: C.xira, fontSize: 12 }}>{tr('Bizga qarzdor')}</Text>
@@ -226,37 +182,6 @@ export default function BoshEkran({
             {tr('✓ Bugungi kassa sanab bo‘lindi')}
           </Text>
         )}
-
-        {/* 7 kunlik grafik */}
-        <Sarlavha matn={tr('Oxirgi 7 kun')} />
-        <Karta uslub={{ marginHorizontal: O.chekka }}>
-          <View style={{ flexDirection: 'row', alignItems: 'flex-end', height: 96, gap: 6 }}>
-            {kunlar.map((k) => (
-              <View key={k.kun} style={{ flex: 1, alignItems: 'center' }}>
-                <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 2, height: 72 }}>
-                  <View
-                    style={{
-                      width: 7,
-                      height: Math.max(2, (k.kirim / eng) * 72),
-                      backgroundColor: C.kirim,
-                      borderRadius: 3,
-                    }}
-                  />
-                  <View
-                    style={{
-                      width: 7,
-                      height: Math.max(2, (k.chiqim / eng) * 72),
-                      backgroundColor: C.chiqim,
-                      borderRadius: 3,
-                    }}
-                  />
-                </View>
-                <Text style={{ color: C.xira, fontSize: 10, marginTop: 6 }}>{k.sana.getDate()}</Text>
-              </View>
-            ))}
-          </View>
-        </Karta>
-
 
         {/* Hisoblar */}
         <Sarlavha matn={tr('Hisoblar')} />

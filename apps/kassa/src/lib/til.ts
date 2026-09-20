@@ -66,6 +66,7 @@ const RU: Record<string, string> = {
   'Bosh': 'Главная',
   'Yozuvlar': 'Записи',
   'Kalendar': 'Календарь',
+  'Oldi-berdi daftari': 'Книга сделок',
   'Hujjat (PDF)': 'Документ (PDF)',
   'Tasdiqlash havolasi': 'Ссылка для подтверждения',
   'Bitim': 'Сделка',
