@@ -34,18 +34,22 @@ cd "$REPO_DIR"
 # ---------------------------------------------------------------------------
 # KODNI OLISH
 #
-# Odatda `git pull`. Lekin bu serverda git GitHub'dan 401 oladi, holbuki
-# CURL AYNAN SHU MANZILDAN 200 oladi va sertifikat ham haqiqiy (Sectigo,
-# proksi yo'q). Ya'ni tarmoq soz, gap git tomonida - sozlama esa toza:
-# `.git/config`, `/etc/gitconfig`, `~/.gitconfig`, `~/.netrc`, muhit
-# o'zgaruvchilari - hammasi bo'sh.
+# Bu DEPLOY SERVERI, ish stoli emas: bu yerda hech kim qo'lda tahrir
+# qilmaydi. Shuning uchun `pull` (birlashtirish) emas, `fetch` +
+# `reset --hard`. Haqiqat manbasi - origin.
 #
-# Sabab hali aniqlanmagan, lekin deploy shu sababli to'xtab turishi
-# kerak emas. Repozitoriy OCHIQ, ya'ni kodni tarball bilan olish
-# mumkin - hech qanday kalit yoki parol kerak emas.
+# Nega o'zgartirildi. Avval `pull --ff-only` edi va u TUZOQ bo'lib
+# chiqdi: tarball bir marta ishlagach fayllar yangi, `.git` esa eski
+# HEAD da qolardi. Shundan keyin git har safar "Your local changes
+# would be overwritten by merge" deb yiqilardi - bu TARMOQ emas, ish
+# nusxasi xatosi. Xato esa `2>/dev/null` ga ketib, ekranda "401" deb
+# ko'rinardi va tarball qayta ishlardi. Halqa yopiq edi.
 #
-# Tartib: avval git, u ishlamasa tarball. Tarball ishlatilganda ekranda
-# ogohlantirish chiqadi - sabab yopilmasin, unutilib ketmasin.
+# `reset --hard` bilan bu o'z-o'zidan tuzaladi: tarball qoldirgan
+# farq keyingi deploy'da yo'qoladi.
+#
+# Tartib: avval git, u ishlamasa tarball. Tarball ishlatilganda git
+# NIMA DEGANI ekranda chiqadi - sabab yashirilmasin.
 # ---------------------------------------------------------------------------
 export GIT_TERMINAL_PROMPT=0
 export GIT_ASKPASS=/bin/true
@@ -54,8 +58,19 @@ GITHUB_OWNER=abdullaevmirshohid97-hue
 GITHUB_REPO=ilova
 GITHUB_BRANCH=main
 
+GIT_XATO=""
+
 git_bilan() {
-  git -C "$REPO_DIR" pull --ff-only 2>/dev/null
+  local xato
+  if ! xato=$(git -C "$REPO_DIR" fetch origin "$GITHUB_BRANCH" 2>&1); then
+    GIT_XATO="$xato"
+    return 1
+  fi
+  if ! xato=$(git -C "$REPO_DIR" reset --hard "origin/$GITHUB_BRANCH" 2>&1); then
+    GIT_XATO="$xato"
+    return 1
+  fi
+  return 0
 }
 
 tarball_bilan() {
@@ -118,13 +133,13 @@ tarball_bilan() {
 
 echo "Kod olinmoqda..."
 if git_bilan; then
-  echo "   git pull: OK"
+  echo "   git: OK  ($(git -C "$REPO_DIR" rev-parse --short HEAD))"
 else
   echo ""
   echo "   ⚠  git ishlamadi — tarball bilan olinmoqda."
-  echo "      Sabab hali topilmagan: curl 200 oladi, git 401."
-  echo "      Tekshirish uchun:"
-  echo "        GIT_CURL_VERBOSE=1 git -C $REPO_DIR fetch origin 2>&1 | grep '< HTTP'"
+  echo "      Git nima deganini yashirmaymiz:"
+  printf '        %s
+' "$GIT_XATO"
   echo ""
   if ! tarball_bilan; then
     echo "!! Kodni olib bo'lmadi. Deploy to'xtatildi."
