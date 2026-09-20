@@ -167,8 +167,19 @@ const ishora = (y: 'oldim' | 'berdim') => (y === 'berdim' ? 1 : -1);
  * Hamkor qoldig‘i.
  *
  * Musbat — u menga qarzdor, manfiy — men unga.
+ *
+ * `yozuvlar` — ESKI oqimda yozilgan, bitimsiz daftar yozuvlari.
+ * Ular ham qarz: bitim tushunchasi paydo bo‘lgunicha hamma qarz
+ * shunday yozilardi. Bitimga BOG‘LANGANI olinmaydi — u bitim va
+ * to‘lov orqali allaqachon sanalgan, ikki marta sanalsa qarz
+ * ikki barobar ko‘rinardi.
  */
-export function hamkorQoldiq(klientId: string, bitimlar: Bitim[], tolovlar: Tolov[]): number {
+export function hamkorQoldiq(
+  klientId: string,
+  bitimlar: Bitim[],
+  tolovlar: Tolov[],
+  yozuvlar: Yozuv[] = [],
+): number {
   let q = 0;
   for (const b of bitimlar) {
     if (b.klient_id !== klientId || !hisobga(b.holat)) continue;
@@ -177,6 +188,23 @@ export function hamkorQoldiq(klientId: string, bitimlar: Bitim[], tolovlar: Tolo
   for (const t of tolovlar) {
     if (t.klient_id !== klientId || !hisobga(t.holat)) continue;
     q += ishora(t.yonalish) * t.summa;
+  }
+  q += eskiQarz(klientId, yozuvlar);
+  return q;
+}
+
+/**
+ * Bitimsiz daftar yozuvlaridan chiqadigan qarz.
+ *
+ * Ishora `klientQoldiq` dagi bilan bir xil: chiqim = tovar/pul
+ * berildi = u menga qarzdor (+).
+ */
+function eskiQarz(klientId: string, yozuvlar: Yozuv[]): number {
+  let q = 0;
+  for (const y of yozuvlar) {
+    if (y.klient_id !== klientId || y.bitim_id) continue;
+    if (!hisobga_kiradi(y) || y.kochirma_id) continue;
+    q += y.turi === 'chiqim' ? y.summa : -y.summa;
   }
   return q;
 }
@@ -200,6 +228,7 @@ export function bitimQoldiq(bitim: Bitim, tolovlar: Tolov[]): number {
 export function qarzYigindi(
   bitimlar: Bitim[],
   tolovlar: Tolov[],
+  yozuvlar: Yozuv[] = [],
 ): { olamiz: number; beramiz: number } {
   const boyicha = new Map<string, number>();
   for (const b of bitimlar) {
@@ -210,6 +239,16 @@ export function qarzYigindi(
     if (!hisobga(t.holat)) continue;
     boyicha.set(t.klient_id, (boyicha.get(t.klient_id) ?? 0) + ishora(t.yonalish) * t.summa);
   }
+  // Eski, bitimsiz yozuvlar ham shu xaritaga tushadi — aks holda
+  // bosh ekrandagi jami hamkorlar kartochkalari yig‘indisiga teng
+  // chiqmasdi.
+  for (const y of yozuvlar) {
+    if (!y.klient_id || y.bitim_id) continue;
+    if (!hisobga_kiradi(y) || y.kochirma_id) continue;
+    const d = y.turi === 'chiqim' ? y.summa : -y.summa;
+    boyicha.set(y.klient_id, (boyicha.get(y.klient_id) ?? 0) + d);
+  }
+
   let olamiz = 0;
   let beramiz = 0;
   for (const q of boyicha.values()) {

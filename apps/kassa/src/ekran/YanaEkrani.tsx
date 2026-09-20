@@ -16,13 +16,15 @@ import { O, useTema } from '../lib/tema';
 import { Qator, Sarlavha, uslublar } from '../ui/qismlar';
 import AiModel from './AiModel';
 import AiUlanish from './AiUlanish';
+import KalendarEkrani from './KalendarEkrani';
 import Hisoblar from './YanaHisoblar';
 import Hisobot from './YanaHisobot';
 import Sozlama from './YanaSozlama';
 import Turkumlar from './YanaTurkumlar';
 import { tr, trn } from '../lib/til';
+import type { Yozuv } from '@ilova/kassa-yadro';
 
-type Sahifa = 'asosiy' | 'hisoblar' | 'turkumlar' | 'hisobot' | 'sozlama' | 'ai' | 'aimodel';
+type Sahifa = 'asosiy' | 'hisoblar' | 'turkumlar' | 'hisobot' | 'sozlama' | 'ai' | 'aimodel' | 'kalendar';
 
 export type { Sahifa as YanaSahifa };
 
@@ -33,10 +35,12 @@ export type { Sahifa as YanaSahifa };
  */
 export default function YanaEkrani({
   kochirma,
+  tahrirla,
   sahifa,
   setSahifa,
 }: {
   kochirma: () => void;
+  tahrirla: (y: Yozuv) => void;
   sahifa: Sahifa;
   setSahifa: (s: Sahifa) => void;
 }) {
@@ -52,6 +56,7 @@ export default function YanaEkrani({
       sozlama: tr('Sozlamalar'),
       ai: tr('AI ulanish'),
       aimodel: tr('AI modeli'),
+      kalendar: tr('Kalendar'),
     };
     return (
       <View style={s.ekran}>
@@ -67,6 +72,7 @@ export default function YanaEkrani({
         {sahifa === 'sozlama' && <Sozlama />}
         {sahifa === 'ai' && <AiUlanish />}
         {sahifa === 'aimodel' && <AiModel />}
+        {sahifa === 'kalendar' && <KalendarEkrani tahrirla={tahrirla} ichki />}
       </View>
     );
   }
@@ -95,6 +101,12 @@ export default function YanaEkrani({
 
         <Sarlavha matn={tr('Tahlil')} />
         <Qator nom={tr('Hisobot')} izoh={tr('Davr, turkum va hisob kesimida')} ong="›" bos={() => setSahifa('hisobot')} />
+        <Qator
+          nom={tr('Kalendar')}
+          izoh={tr('Kunlar bo‘yicha kirim va chiqim')}
+          ong="›"
+          bos={() => setSahifa('kalendar')}
+        />
 
         <Sarlavha matn={tr('AI')} />
         <Qator

@@ -16,7 +16,7 @@ import {
   davrYigindi,
   formatla,
   hisobQoldiq,
-  klientQoldiq,
+  qarzYigindi,
   umumiyBalans,
 } from '@ilova/kassa-yadro';
 import type { Yozuv } from '@ilova/kassa-yadro';
@@ -41,7 +41,8 @@ export default function BoshEkran({
 }) {
   const { C } = useTema();
   const s = uslublar(C);
-  const { men, hisoblar, turkumlar, klientlar, yozuvlar, yangila, yuklanmoqda } = useHolat();
+  const { men, hisoblar, turkumlar, yozuvlar, bitimlar, tolovlar, yangila, yuklanmoqda } =
+    useHolat();
 
   const balanslar = useMemo(() => umumiyBalans(hisoblar, yozuvlar), [hisoblar, yozuvlar]);
   const asosiyValyuta = hisoblar[0]?.valyuta ?? 'UZS';
@@ -52,17 +53,14 @@ export default function BoshEkran({
     [yozuvlar, oy],
   );
 
-  // Qarz: kimdan olamiz, kimga qarzdormiz
-  const qarzlar = useMemo(() => {
-    let olamiz = 0;
-    let beramiz = 0;
-    for (const k of klientlar) {
-      const q = klientQoldiq(k.id, yozuvlar);
-      if (q > 0) olamiz += q;
-      else beramiz += -q;
-    }
-    return { olamiz, beramiz };
-  }, [klientlar, yozuvlar]);
+  // Qarz: kimdan olamiz, kimga qarzdormiz.
+  //
+  // Hamkor kartochkasi bilan AYNAN bir xil funksiya — bosh
+  // ekrandagi jami kartochkalar yig‘indisiga teng chiqishi shart.
+  const qarzlar = useMemo(
+    () => qarzYigindi(bitimlar, tolovlar, yozuvlar),
+    [bitimlar, tolovlar, yozuvlar],
+  );
 
   const oxirgilar = useMemo(
     () => [...yozuvlar].sort((a, b) => Date.parse(b.sana) - Date.parse(a.sana)).slice(0, 6),
@@ -169,20 +167,27 @@ export default function BoshEkran({
               {formatla(oylik.chiqim, asosiyValyuta, { belgisiz: true, kasrsiz: true })}
             </Text>
           </Karta>
-          <Karta uslub={{ flex: 1, paddingVertical: 14 }}>
-            <Text style={{ color: C.xira, fontSize: 12 }}>{tr('Farq')}</Text>
-            <Text
-              style={{
-                color: oylik.farq >= 0 ? C.kirim : C.chiqim,
-                fontSize: 17,
-                fontWeight: '800',
-                marginTop: 4,
-              }}
-              numberOfLines={1}
-            >
-              {formatla(oylik.farq, asosiyValyuta, { belgisiz: true, kasrsiz: true })}
-            </Text>
-          </Karta>
+        </View>
+
+        {/* Qarz — hamma vaqt ko‘rinadi, hatto nol bo‘lsa ham:
+            «hech kim qarzdor emas» ham javob. */}
+        <View style={{ flexDirection: 'row', paddingHorizontal: O.chekka, gap: 10, marginTop: 10 }}>
+          <TouchableOpacity style={{ flex: 1 }} onPress={ochKontaktlar}>
+            <Karta uslub={{ paddingVertical: 14 }}>
+              <Text style={{ color: C.xira, fontSize: 12 }}>{tr('Bizga qarzdor')}</Text>
+              <Text style={{ color: C.kirim, fontSize: 17, fontWeight: '800', marginTop: 4 }} numberOfLines={1}>
+                {formatla(qarzlar.olamiz, asosiyValyuta, { belgisiz: true, kasrsiz: true })}
+              </Text>
+            </Karta>
+          </TouchableOpacity>
+          <TouchableOpacity style={{ flex: 1 }} onPress={ochKontaktlar}>
+            <Karta uslub={{ paddingVertical: 14 }}>
+              <Text style={{ color: C.xira, fontSize: 12 }}>{tr('Biz qarzdormiz')}</Text>
+              <Text style={{ color: C.chiqim, fontSize: 17, fontWeight: '800', marginTop: 4 }} numberOfLines={1}>
+                {formatla(qarzlar.beramiz, asosiyValyuta, { belgisiz: true, kasrsiz: true })}
+              </Text>
+            </Karta>
+          </TouchableOpacity>
         </View>
 
         {/* Kun yakuni taklifi */}
@@ -252,33 +257,6 @@ export default function BoshEkran({
           </View>
         </Karta>
 
-        {/* Qarz */}
-        {klientlar.length > 0 && (
-          <>
-            <Sarlavha
-              matn={tr('Qarzlar')}
-              yon={
-                <TouchableOpacity onPress={ochKontaktlar}>
-                  <Text style={{ color: C.matn2, fontSize: 12, fontWeight: '600' }}>{tr('Hammasi ›')}</Text>
-                </TouchableOpacity>
-              }
-            />
-            <View style={{ flexDirection: 'row', paddingHorizontal: O.chekka, gap: 10 }}>
-              <Karta uslub={{ flex: 1, paddingVertical: 14 }}>
-                <Text style={{ color: C.xira, fontSize: 12 }}>{tr('Bizga qarzdor')}</Text>
-                <Text style={{ color: C.kirim, fontSize: 16, fontWeight: '800', marginTop: 4 }} numberOfLines={1}>
-                  {formatla(qarzlar.olamiz, asosiyValyuta, { belgisiz: true, kasrsiz: true })}
-                </Text>
-              </Karta>
-              <Karta uslub={{ flex: 1, paddingVertical: 14 }}>
-                <Text style={{ color: C.xira, fontSize: 12 }}>{tr('Biz qarzdormiz')}</Text>
-                <Text style={{ color: C.chiqim, fontSize: 16, fontWeight: '800', marginTop: 4 }} numberOfLines={1}>
-                  {formatla(qarzlar.beramiz, asosiyValyuta, { belgisiz: true, kasrsiz: true })}
-                </Text>
-              </Karta>
-            </View>
-          </>
-        )}
 
         {/* Hisoblar */}
         <Sarlavha matn={tr('Hisoblar')} />

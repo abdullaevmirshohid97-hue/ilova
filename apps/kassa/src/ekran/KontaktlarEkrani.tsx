@@ -60,7 +60,7 @@ export default function KontaktlarEkrani({
   // qarz esa bitim va to‘lovdan chiqadi.
   const qoldiqlar = useMemo(() => {
     const m = new Map<string, number>();
-    for (const k of klientlar) m.set(k.id, hamkorQoldiq(k.id, bitimlar, tolovlar));
+    for (const k of klientlar) m.set(k.id, hamkorQoldiq(k.id, bitimlar, tolovlar, yozuvlar));
     return m;
   }, [klientlar, bitimlar, tolovlar]);
 

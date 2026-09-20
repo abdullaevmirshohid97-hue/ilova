@@ -46,7 +46,6 @@ import BiznesEkrani from './src/ekran/BiznesEkrani';
 import BoshEkran from './src/ekran/BoshEkran';
 import YozuvlarEkrani from './src/ekran/YozuvlarEkrani';
 import KontaktlarEkrani from './src/ekran/KontaktlarEkrani';
-import KalendarEkrani from './src/ekran/KalendarEkrani';
 import YanaEkrani, { type YanaSahifa } from './src/ekran/YanaEkrani';
 import YozuvOynasi, { type OynaRejimi } from './src/ekran/YozuvOynasi';
 import BitimOynasi from './src/ekran/BitimOynasi';
@@ -211,7 +210,7 @@ function Kutish() {
   );
 }
 
-type Bolim = 'bosh' | 'yozuvlar' | 'kontaktlar' | 'kalendar' | 'yana';
+type Bolim = 'bosh' | 'yozuvlar' | 'kontaktlar' | 'yana';
 
 // `matn` bu yerda TARJIMA EMAS, kalit: modul bir marta o‘qiladi,
 // til esa keyinroq yuklanadi. Tarjima chizishda qilinadi.
@@ -219,7 +218,6 @@ const BOLIMLAR: { kalit: Bolim; belgi: string; matn: string }[] = [
   { kalit: 'bosh', belgi: '⌂', matn: 'Bosh' },
   { kalit: 'yozuvlar', belgi: '≡', matn: 'Operatsiyalar' },
   { kalit: 'kontaktlar', belgi: '☺', matn: 'Hamkorlar' },
-  { kalit: 'kalendar', belgi: '▦', matn: 'Kalendar' },
   { kalit: 'yana', belgi: '⋯', matn: 'Yana' },
 ];
 
@@ -329,10 +327,10 @@ function Qobiq() {
             ochTolov={(klientId) => setTolovOyna({ yonalish: 'oldim', klient: klientId })}
           />
         )}
-        {bolim === 'kalendar' && <KalendarEkrani tahrirla={(y) => setOyna({ rejim: y.turi, tahrir: y })} />}
         {bolim === 'yana' && (
           <YanaEkrani
             kochirma={() => setOyna({ rejim: 'kochirma' })}
+            tahrirla={(y) => setOyna({ rejim: y.turi, tahrir: y })}
             sahifa={yanaSahifa}
             setSahifa={setYanaSahifa}
           />

@@ -383,6 +383,63 @@ tekshir('muddati o‘tgan bitim topiladi', otgan.length === 1 && otgan[0].id ===
 tekshir('to‘langan bitim muddat ro‘yxatiga tushmaydi',
   Y.muddatiOtgan([kechikkan], [T({ id: 't4', k: 'tonirok', b: 'b3', y: 'oldim', s: 1000 })], new Date(2026, 8, 20)).length === 0);
 
+// -------------------------------------------------------------
+//  ESKI, BITIMSIZ DAFTAR YOZUVLARI
+//
+//  Bitim tushunchasi paydo bo'lgunicha hamma qarz shunday
+//  yozilardi. Ular qoldiqdan tushib qolsa, ilova yangilangach
+//  odamning qarzi ko'zdan yo'qolardi.
+//
+//  Bitimga BOG'LANGANI esa olinmasligi shart: to'lov ham bitimda,
+//  ham daftarda turadi — ikkalasini sanasak qarz ikki barobar
+//  chiqardi.
+// -------------------------------------------------------------
+const eskiY = (x) => ({
+  id: x.id, hisob_id: 'h1', turi: x.turi, summa: x.s, valyuta: 'UZS',
+  kurs: 1, klient_id: x.k, bitim_id: x.b ?? null,
+  sana: '2026-09-05T09:00:00.000Z', tolov_usuli: 'naqd', versiya: 1,
+  bekor_at: x.bekor ?? null, kochirma_id: x.koch ?? null,
+});
+
+// Tonirokka eski oqimda 800 lik tovar berilgan (chiqim = u qarzdor)
+const eskilar = [
+  eskiY({ id: 'e1', k: 'tonirok', turi: 'chiqim', s: 800 }),
+  eskiY({ id: 'e2', k: 'tonirok', turi: 'kirim', s: 300 }),
+];
+
+tekshir('bitimsiz eski yozuv qarzga qo‘shiladi: -12000 + 500 = -11500',
+  Y.hamkorQoldiq('tonirok', [b1], [], eskilar) === -11500,
+  String(Y.hamkorQoldiq('tonirok', [b1], [], eskilar)));
+
+tekshir('yozuvlar berilmasa eski xulq saqlanadi',
+  Y.hamkorQoldiq('tonirok', [b1], []) === -12000);
+
+// t1 — b1 ga to'langan $120. Daftarda ham izi bor, lekin bitim_id
+// bilan: uni qayta sanamaslik kerak.
+tekshir('bitimga bog‘langan yozuv IKKI MARTA sanalmaydi',
+  Y.hamkorQoldiq('tonirok', [b1], [t1], [eskiY({ id: 'e3', k: 'tonirok', turi: 'chiqim', s: 12000, b: 'b1' })]) === 0,
+  String(Y.hamkorQoldiq('tonirok', [b1], [t1], [eskiY({ id: 'e3', k: 'tonirok', turi: 'chiqim', s: 12000, b: 'b1' })])));
+
+tekshir('bekor qilingan eski yozuv sanalmaydi',
+  Y.hamkorQoldiq('tonirok', [b1], [], [eskiY({ id: 'e4', k: 'tonirok', turi: 'chiqim', s: 9999, bekor: '2026-09-06T09:00:00.000Z' })]) === -12000);
+
+tekshir('hisoblararo o‘tkazma qarz emas',
+  Y.hamkorQoldiq('tonirok', [b1], [], [eskiY({ id: 'e5', k: 'tonirok', turi: 'chiqim', s: 9999, koch: 'k1' })]) === -12000);
+
+// Bosh ekrandagi ikki raqam hamkorlar kartochkalari yig'indisiga
+// TENG bo'lishi shart — aks holda bosh ekranda bir son, hamkorlar
+// ekranida boshqasi turardi.
+const jamiY = Y.qarzYigindi([b1, b2], [], eskilar);
+const jamiTonirok = Y.hamkorQoldiq('tonirok', [b1, b2], [], eskilar);
+const jamiAli = Y.hamkorQoldiq('ali', [b1, b2], [], eskilar);
+tekshir('bosh ekran jami = hamkorlar yig‘indisi',
+  jamiY.olamiz - jamiY.beramiz === jamiTonirok + jamiAli,
+  jamiY.olamiz + ' - ' + jamiY.beramiz + ' = ' + (jamiTonirok + jamiAli));
+
+tekshir('eski yozuv jamida ham ko‘rinadi (beramiz 12000 → 11500)',
+  jamiY.olamiz === 5000 && jamiY.beramiz === 11500,
+  'olamiz ' + jamiY.olamiz + ', beramiz ' + jamiY.beramiz);
+
 console.log('\n7. Baza funksiyalari va cheklovlar');
 
 const javob = await sqlXom(BLOK);

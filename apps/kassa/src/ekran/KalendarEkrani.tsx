@@ -34,7 +34,18 @@ function qisqa(tiyin: number): string {
   return String(som);
 }
 
-export default function KalendarEkrani({ tahrirla }: { tahrirla: (y: Yozuv) => void }) {
+/**
+ * `ichki` — «Yana» ichida ochilganda. U yerda sarlavhani qobiq
+ * chizadi (orqaga tugmasi bilan), shuning uchun o‘zimizniki
+ * takrorlanmasligi kerak.
+ */
+export default function KalendarEkrani({
+  tahrirla,
+  ichki,
+}: {
+  tahrirla: (y: Yozuv) => void;
+  ichki?: boolean;
+}) {
   const { C } = useTema();
   const s = uslublar(C);
   const { yozuvlar, turkumlar, klientlar, hisoblar } = useHolat();
@@ -72,10 +83,12 @@ export default function KalendarEkrani({ tahrirla }: { tahrirla: (y: Yozuv) => v
 
   return (
     <View style={s.ekran}>
-      <View style={s.boshliq}>
-        <Text style={s.boshliqMatn}>{tr('Kalendar')}</Text>
-        <Text style={s.boshliqIzoh}>{tr('Kunlar bo‘yicha kirim va chiqim')}</Text>
-      </View>
+      {!ichki && (
+        <View style={s.boshliq}>
+          <Text style={s.boshliqMatn}>{tr('Kalendar')}</Text>
+          <Text style={s.boshliqIzoh}>{tr('Kunlar bo‘yicha kirim va chiqim')}</Text>
+        </View>
+      )}
 
       <DavrOqlari
         nom={`${oylar()[oy]} ${yil}`}
