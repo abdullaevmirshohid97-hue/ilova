@@ -344,7 +344,7 @@ Chiqqan blokni Dashboard → SQL Editor'ga qo'ying. U 20 dan ortiq
 tekshiruv bajaradi va oxirida hammasini **qaytarib oladi** — bazada
 iz qolmaydi.
 
-### 2-bosqich — Bitim ilovada (3 kun)
+### 2-bosqich — Bitim ilovada (3 kun) ✅ BAJARILDI
 
 - «+ Operatsiya» va olti tugma
 - Bitim oynasi (tovar, miqdor, narx, jami)
@@ -354,6 +354,19 @@ iz qolmaydi.
 
 **Shu bosqichdan keyin ilova konsepsiya bo'yicha ishlaydi**, faqat
 Telegram tasdig'i yo'q.
+
+Bajarilgani (20.09, versiya 2.0.0):
+
+- «Nima qildingiz?» — olti tugma, hamkorsiz kirim-chiqim pastda
+- Bitim oynasi: miqdor × narx = jami, qo‘lda ham yozsa bo‘ladi
+- To‘lov oynasi: joriy qoldiq va to‘lovdan keyingisi ko‘rinadi
+- Hamkor kartochkasi: qoldiq + bitim/to‘lov tarixi
+- Bosh ekran: «Menga qarzdor» va «Men qarzdorman»
+- Operatsiyalar ro‘yxati: bitim va yozuv birgalikda
+- Offline: bitim ham navbatdan o‘tadi (`kassa_ozgarishlar` ikki yangi massiv)
+
+**Sinovdan o‘tmagan qismi:** baza. Migratsiya hali qo‘llanmagani
+uchun sinxronizatsiya jonli serverga bir marta ham ulanmagan.
 
 ### 3-bosqich — Telegram tasdiqlash (3 kun)
 
