@@ -40,7 +40,7 @@ import { tr } from '../lib/til';
 import { BoshHolat } from '../ui/qismlar';
 import { MijozRasmi } from '../ui/MijozRasmi';
 import MijozKartochka from './MijozKartochka';
-import { bitimHujjati, tasdiqYubor } from './KontaktlarEkrani';
+import { bitimHujjati, tasdiqYubor } from '../lib/bitim-amallar';
 import XabarOynasi from './XabarOynasi';
 import { xabarMatni } from '../lib/xabar';
 import type { XabarTil } from '../lib/xabar-til';

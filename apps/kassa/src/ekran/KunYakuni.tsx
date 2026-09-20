@@ -164,6 +164,8 @@ export default function KunYakuni({
             </View>
 
             {/* Qaysi hisob sanaladi */}
+            {/* tanlovsiz-mayli: bitta naqd hisob bo‘lsa tanlaydigan
+          narsa yo‘q — u o‘zi tanlangan bo‘lib turadi. */}
             {naqdlar.length > 1 && (
               <View style={{ paddingHorizontal: O.chekka, paddingBottom: 6 }}>
                 <Text style={{ color: C.matn2, fontSize: 13, marginBottom: 8 }}>{tr('Hisob')}</Text>

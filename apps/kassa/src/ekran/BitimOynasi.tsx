@@ -81,7 +81,23 @@ export default function BitimOynasi({
 
   // KURS shu yerda olinadi va yozuvga NUSXALANADI. Ertaga kurs
   // o‘zgarsa, bu yozuv o‘zgarmaydi — kelishuv o‘sha kunniki.
-  const kurs = valyutalar.find((v) => v.valyuta === valyuta)?.kurs ?? 1;
+  // Ro‘yxat bo‘sh bo‘lsa (migratsiya hali qo‘llanmagan yoki
+  // yangi biznes) hisoblardagi valyutalardan yig‘amiz: ilova
+  // valyutasiz ham ishlashi kerak.
+  const valyutaRoyxat = useMemo(() => {
+    if (valyutalar.length > 0) return valyutalar;
+    const bor = [...new Set(hisoblar.map((h) => h.valyuta))];
+    return bor.map((v) => ({
+      id: v,
+      valyuta: v,
+      kurs: 1,
+      asosiy: v === bor[0],
+      faol: true,
+      versiya: 1,
+    }));
+  }, [valyutalar, hisoblar]);
+
+  const kurs = valyutaRoyxat.find((v) => v.valyuta === valyuta)?.kurs ?? 1;
 
   // Miqdor x narx. Qo'lda yozilgan bo'lsa tegilmaydi.
   const hisoblangan = useMemo(() => {
@@ -374,13 +390,16 @@ export default function BitimOynasi({
             )}
 
             {/* ---------- Izoh ---------- */}
-            {/* Valyuta — faqat BITTADAN ORTIQ bo‘lsa ko‘rinadi:
-                bitta valyutada ishlaydigan odamga ortiqcha qator. */}
-            {valyutalar.length > 1 && (
+            {/* Valyuta BITTA bo‘lsa ham ko‘rinadi: u shu yozuv qaysi
+                valyutada ekanini aytadi va boshqasi ham bo‘lishi
+                mumkinligini ko‘rsatadi. Avval «birdan ortiq
+                bo‘lsa» sharti bor edi va tanlagich hech qachon
+                chiqmasdi — odam valyuta borligini bilmasdi. */}
+            {valyutaRoyxat.length > 0 && (
               <>
                 <Yorliq matn={tr('Valyuta')} />
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ paddingLeft: O.chekka }}>
-                  {valyutalar.map((v) => (
+                  {valyutaRoyxat.map((v) => (
                     <Chip
                       key={v.valyuta}
                       matn={v.valyuta}

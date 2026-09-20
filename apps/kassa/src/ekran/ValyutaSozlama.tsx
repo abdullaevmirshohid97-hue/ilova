@@ -28,7 +28,7 @@ import { Karta, Sarlavha, Tugma } from '../ui/qismlar';
 
 export default function ValyutaSozlama() {
   const { C } = useTema();
-  const { valyutalar, yangila } = useHolat();
+  const { valyutalar, hisoblar, yangila } = useHolat();
 
   const asosiy = valyutalar.find((v) => v.asosiy)?.valyuta ?? 'UZS';
   const qoshimcha = valyutalar.filter((v) => !v.asosiy);
@@ -37,6 +37,23 @@ export default function ValyutaSozlama() {
   // yozayotganda «118» ham kurs bo'lib tushib qolardi.
   const [kurslar, setKurslar] = useState<Record<string, string>>({});
   const [band, setBand] = useState(false);
+
+  // ASOSIY VALYUTA BO‘LMASA — o‘zi yaratiladi.
+  //
+  // Migratsiya mavjud tashkilotlarga qator qo‘shadi, lekin
+  // yangi biznesda u yo‘q. Usiz ekran ochiladi-yu, hech narsa
+  // tanlab bo‘lmasdi: har tugma «o‘zgartirish» deb so‘rardi va
+  // ro‘yxat baribir bo‘sh qolardi.
+  useEffect(() => {
+    if (valyutalar.some((v) => v.asosiy)) return;
+    const bosh = hisoblar[0]?.valyuta ?? 'UZS';
+    asosiyValyutaQoy(bosh)
+      .then(() => yangila())
+      .catch(() => {
+        /* internetsiz bo‘lsa keyingi ochilishda qayta urinadi */
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [valyutalar.length]);
 
   useEffect(() => {
     setKurslar((eski) => {

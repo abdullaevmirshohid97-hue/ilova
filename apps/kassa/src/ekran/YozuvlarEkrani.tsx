@@ -23,7 +23,7 @@ import { xatoMatn } from '../lib/supabase';
 import { O, useTema } from '../lib/tema';
 import { BoshHolat, Chip, DavrOqlari, Tanlagich, YigindiPaneli, uslublar } from '../ui/qismlar';
 import { YozuvQatori } from '../ui/YozuvQatori';
-import { BitimQatori } from './KontaktlarEkrani';
+import { BitimQatori } from '../ui/BitimQatori';
 import { tr } from '../lib/til';
 
 // `matn` — kalit, tarjima emas: modul faylni o‘qishda bir marta
@@ -217,6 +217,8 @@ export default function YozuvlarEkrani({
       )}
 
       {/* Hisob filtri */}
+      {/* tanlovsiz-mayli: bitta hisob bo‘lsa filtr ortiqcha —
+            hamma yozuv o‘shanikidir. */}
       {hisoblar.length > 1 && (
         <View style={{ backgroundColor: C.karta, borderBottomWidth: 1, borderBottomColor: C.chegara }}>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ padding: 10 }}>
