@@ -423,7 +423,7 @@ function YangiKontakt({ yopish, saqlandi }: { yopish: () => void; saqlandi: () =
 }
 
 /** Bitim qatori: tovar/qarz, qoldig‘i va holati */
-function BitimQatori({ b, tolovlar }: { b: Bitim; tolovlar: Tolov[] }) {
+export function BitimQatori({ b, tolovlar }: { b: Bitim; tolovlar: Tolov[] }) {
   const { C } = useTema();
   const qoldi = bitimQoldiq(b, tolovlar);
   const berdim = b.yonalish === 'berdim';
@@ -450,7 +450,7 @@ function BitimQatori({ b, tolovlar }: { b: Bitim; tolovlar: Tolov[] }) {
 }
 
 /** To‘lov qatori */
-function TolovQatori({ t }: { t: Tolov }) {
+export function TolovQatori({ t }: { t: Tolov }) {
   const { C } = useTema();
   const berdim = t.yonalish === 'berdim';
   return (

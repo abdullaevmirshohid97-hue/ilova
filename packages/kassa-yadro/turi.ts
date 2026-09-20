@@ -75,6 +75,8 @@ export type Yozuv = {
   tolov_usuli: TolovUsuli;
   /** Hisoblararo o'tkazma juftligi */
   kochirma_id?: string | null;
+  /** Qaysi bitimdan chiqqani — oldi-berdi qatlami */
+  bitim_id?: string | null;
   bekor_at?: string | null;
   bekor_sabab?: string | null;
   versiya: number;

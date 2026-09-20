@@ -23,6 +23,7 @@ import { xatoMatn } from '../lib/supabase';
 import { O, useTema } from '../lib/tema';
 import { BoshHolat, Chip, DavrOqlari, Tanlagich, YigindiPaneli, uslublar } from '../ui/qismlar';
 import { YozuvQatori } from './BoshEkran';
+import { BitimQatori } from './KontaktlarEkrani';
 import { tr } from '../lib/til';
 
 // `matn` — kalit, tarjima emas: modul faylni o‘qishda bir marta
@@ -42,7 +43,8 @@ function davrlar() {
 export default function YozuvlarEkrani({ tahrirla }: { tahrirla: (y: Yozuv) => void }) {
   const { C } = useTema();
   const s = uslublar(C);
-  const { hisoblar, turkumlar, klientlar, yozuvlar, yangila, yuklanmoqda } = useHolat();
+  const { hisoblar, turkumlar, klientlar, yozuvlar, bitimlar, tolovlar, yangila, yuklanmoqda } =
+    useHolat();
 
   const [davr, setDavr] = useState<DavrTuri>('oy');
   const [siljish, setSiljish] = useState(0);
@@ -72,6 +74,49 @@ export default function YozuvlarEkrani({ tahrirla }: { tahrirla: (y: Yozuv) => v
   }, [yozuvlar, oraliq, hisobId, qidiruv, turkumlar, klientlar]);
 
   const yigindi = useMemo(() => davrYigindi(korinadigan), [korinadigan]);
+
+  // -------------------------------------------------------------
+  //  BITIMLAR ham shu ro‘yxatda
+  //
+  //  Qoida: BITIM — har doim, YOZUV — faqat bitimga bog‘lanmagani.
+  //  Sabab: qarz bitimi va unga tegishli to‘lov daftarga ham yozuv
+  //  tushiradi. Ikkalasini ko‘rsatsak, bitta amal ro‘yxatda ikki
+  //  marta chiqardi va odam «men buni ikki marta yozdimmi?» deb
+  //  o‘ylardi.
+  //
+  //  Hisob tanlangan bo‘lsa bitim ko‘rsatilmaydi: u kassa ko‘rinishi,
+  //  bitim esa hisobga bog‘lanmagan.
+  // -------------------------------------------------------------
+  const bitimRoyxat = useMemo(() => {
+    if (hisobId) return [];
+    const q = qidiruv.trim().toLowerCase();
+    return bitimlar
+      .filter((b) => oraliqdami(b.sana, oraliq))
+      .filter((b) => {
+        if (!q) return true;
+        const klient = klientlar.find((k) => k.id === b.klient_id)?.ism ?? '';
+        return (
+          (b.tovar_nom ?? '').toLowerCase().includes(q) ||
+          (b.izoh ?? '').toLowerCase().includes(q) ||
+          klient.toLowerCase().includes(q) ||
+          String(Math.round(b.summa / 100)).includes(q)
+        );
+      });
+  }, [bitimlar, oraliq, hisobId, qidiruv, klientlar]);
+
+  /** Bitim va yozuv bitta ro‘yxatda, sana bo‘yicha teskari tartibda */
+  const aralash = useMemo(() => {
+    const b = bitimRoyxat.map((x) => ({
+      tur: 'bitim' as const,
+      id: x.id,
+      sana: x.sana,
+      bitim: x,
+    }));
+    const y = korinadigan
+      .filter((x) => !x.bitim_id)
+      .map((x) => ({ tur: 'yozuv' as const, id: x.id, sana: x.sana, yozuv: x }));
+    return [...b, ...y].sort((x, z) => Date.parse(z.sana) - Date.parse(x.sana));
+  }, [bitimRoyxat, korinadigan]);
   const hisob = hisoblar.find((h) => h.id === hisobId) ?? null;
   const valyuta = hisob?.valyuta ?? hisoblar[0]?.valyuta ?? 'UZS';
 
@@ -180,26 +225,30 @@ export default function YozuvlarEkrani({ tahrirla }: { tahrirla: (y: Yozuv) => v
         style={{ flex: 1 }}
         refreshControl={<RefreshControl refreshing={yuklanmoqda} onRefresh={yangila} tintColor={C.xira} />}
       >
-        {korinadigan.length === 0 ? (
+        {aralash.length === 0 ? (
           <BoshHolat
             belgi="⌕"
             matn={qidiruv ? tr('Topilmadi') : tr('Bu davrda yozuv yo‘q')}
             izoh={qidiruv ? tr('Boshqa so‘z bilan qidirib ko‘ring') : tr('Davrni almashtiring yoki yangi yozuv qo‘shing')}
           />
         ) : (
-          korinadigan.map((y) => (
-            <YozuvQatori
-              key={y.id}
-              y={y}
-              turkumNomi={turkumlar.find((t) => t.id === y.turkum_id)?.nom}
-              klientNomi={klientlar.find((k) => k.id === y.klient_id)?.ism}
-              qoldiq={hisob ? (qoldiqlar.get(y.id) ?? null) : null}
-              bos={() => (y.bekor_at ? undefined : tahrirla(y))}
-              uzoqBos={() => bekor(y)}
-            />
-          ))
+          aralash.map((x) =>
+            x.tur === 'bitim' ? (
+              <BitimQatori key={x.id} b={x.bitim} tolovlar={tolovlar} />
+            ) : (
+              <YozuvQatori
+                key={x.id}
+                y={x.yozuv}
+                turkumNomi={turkumlar.find((t) => t.id === x.yozuv.turkum_id)?.nom}
+                klientNomi={klientlar.find((k) => k.id === x.yozuv.klient_id)?.ism}
+                qoldiq={hisob ? (qoldiqlar.get(x.yozuv.id) ?? null) : null}
+                bos={() => (x.yozuv.bekor_at ? undefined : tahrirla(x.yozuv))}
+                uzoqBos={() => bekor(x.yozuv)}
+              />
+            ),
+          )
         )}
-        {korinadigan.length > 0 && (
+        {aralash.length > 0 && (
           <Text
             style={{
               color: C.xira,
