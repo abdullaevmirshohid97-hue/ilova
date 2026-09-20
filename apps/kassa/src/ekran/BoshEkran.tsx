@@ -23,7 +23,7 @@
 // =============================================================
 
 import { useMemo, useState } from 'react';
-import { Alert, RefreshControl, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { RefreshControl, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import {
   asosiygaOgir,
   bitimQoldiq,
@@ -44,6 +44,7 @@ import { bitimHujjati, tasdiqYubor } from '../lib/bitim-amallar';
 import XabarOynasi from './XabarOynasi';
 import { xabarMatni } from '../lib/xabar';
 import type { XabarTil } from '../lib/xabar-til';
+import { Ogoh } from '../lib/ogoh';
 
 type Filtr = 'hammasi' | 'qarzlarim' | 'haqlarim' | 'muddat';
 
@@ -148,7 +149,7 @@ export default function BoshEkran({
       });
     }
     tugmalar.push({ text: tr('Bekor'), style: 'cancel' });
-    Alert.alert(b.tovar_nom || tr('Bitim'), formatla(b.summa, b.valyuta), tugmalar);
+    Ogoh.alert(b.tovar_nom || tr('Bitim'), formatla(b.summa, b.valyuta), tugmalar);
   }
 
   const jami = useMemo(() => {

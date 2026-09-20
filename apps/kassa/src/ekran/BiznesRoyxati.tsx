@@ -18,15 +18,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import {
-  ActivityIndicator,
-  Alert,
-  Modal,
-  ScrollView,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+  ActivityIndicator, Modal, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   bizneslarOl,
@@ -41,6 +33,7 @@ import { O, useTema } from '../lib/tema';
 import { tr, trn } from '../lib/til';
 import { Chiqindi, Dokon, Lupa, Orqaga, Ruchka } from '../ui/ikonka';
 import { BoshHolat, Tugma } from '../ui/qismlar';
+import { Ogoh } from '../lib/ogoh';
 
 export default function BiznesRoyxati({
   yopish,
@@ -86,7 +79,7 @@ export default function BiznesRoyxati({
       almashdi();
     } catch (e) {
       setBand(false);
-      Alert.alert(tr('Biznes almashmadi'), xatoMatn(e));
+      Ogoh.alert(tr('Biznes almashmadi'), xatoMatn(e));
     }
   }
 
@@ -100,7 +93,7 @@ export default function BiznesRoyxati({
       almashdi();
     } catch (e) {
       setBand(false);
-      Alert.alert(tr('Biznes qo‘shilmadi'), xatoMatn(e));
+      Ogoh.alert(tr('Biznes qo‘shilmadi'), xatoMatn(e));
     }
   }
 
@@ -118,7 +111,7 @@ export default function BiznesRoyxati({
     try {
       const quruq = await biznesOchir(b.org_id);
       setBand(false);
-      Alert.alert(
+      Ogoh.alert(
         tr('Biznesni o‘chirasizmi?'),
         b.nom +
           '\n\n' +
@@ -147,7 +140,7 @@ export default function BiznesRoyxati({
                 }
               } catch (e) {
                 setBand(false);
-                Alert.alert(tr('O‘chmadi'), xatoMatn(e));
+                Ogoh.alert(tr('O‘chmadi'), xatoMatn(e));
               }
             },
           },
@@ -155,7 +148,7 @@ export default function BiznesRoyxati({
       );
     } catch (e) {
       setBand(false);
-      Alert.alert(tr('O‘chmadi'), xatoMatn(e));
+      Ogoh.alert(tr('O‘chmadi'), xatoMatn(e));
     }
   }
 
@@ -169,7 +162,7 @@ export default function BiznesRoyxati({
       setRoyxat((r) => (r ?? []).map((b) => (b.org_id === nomOyna.id ? { ...b, nom: yangi } : b)));
       setNomOyna(null);
     } catch (e) {
-      Alert.alert(tr('Nom o‘zgarmadi'), xatoMatn(e));
+      Ogoh.alert(tr('Nom o‘zgarmadi'), xatoMatn(e));
     } finally {
       setBand(false);
     }

@@ -6,7 +6,7 @@
 // =============================================================
 
 import { useMemo, useState } from 'react';
-import { Alert, ScrollView, Text, View } from 'react-native';
+import { ScrollView, Text, View } from 'react-native';
 import { davrYigindi, formatla, hisobQoldiq, qarzTasdiqBoyicha } from '@ilova/kassa-yadro';
 import type { Hisob, QarzJami } from '@ilova/kassa-yadro';
 import { davrOraligi, oraliqdami, type DavrTuri } from '../lib/davr';
@@ -17,6 +17,7 @@ import { xatoMatn } from '../lib/supabase';
 import { O, useTema } from '../lib/tema';
 import { BoshHolat, DavrOqlari, Karta, Sarlavha, Tanlagich, Tugma, YigindiPaneli } from '../ui/qismlar';
 import { tr } from '../lib/til';
+import { Ogoh } from '../lib/ogoh';
 
 export default function Hisobot() {
   const { C } = useTema();
@@ -55,7 +56,7 @@ export default function Hisobot() {
 
   async function chiqar(tur: 'xlsx' | 'pdf') {
     if (davrniki.length === 0) {
-      Alert.alert(tr('Bo‘sh hisobot'), tr('Bu davrda yozuv yo‘q — avval davrni almashtiring.'));
+      Ogoh.alert(tr('Bo‘sh hisobot'), tr('Bu davrda yozuv yo‘q — avval davrni almashtiring.'));
       return;
     }
     setChiqarmoqda(tur);
@@ -71,7 +72,7 @@ export default function Hisobot() {
       const bayt = tur === 'xlsx' ? hisobotXlsx(manba) : hisobotPdf(manba);
       await ulash(`${men.biznes}-${oraliq.nom}`, bayt, tur);
     } catch (e) {
-      Alert.alert(tr('Chiqarib bo‘lmadi'), xatoMatn(e));
+      Ogoh.alert(tr('Chiqarib bo‘lmadi'), xatoMatn(e));
     } finally {
       setChiqarmoqda(null);
     }

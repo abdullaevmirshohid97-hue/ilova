@@ -20,18 +20,7 @@
 
 import { useEffect, useState } from 'react';
 import {
-  ActivityIndicator,
-  Alert,
-  Image,
-  Modal,
-  Platform,
-  ScrollView,
-  Switch,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+  ActivityIndicator, Image, Modal, Platform, ScrollView, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
@@ -47,6 +36,7 @@ import { tr } from '../lib/til';
 import { uuid } from '../lib/sinx';
 import { Kitob, Orqaga } from '../ui/ikonka';
 import { Tugma } from '../ui/qismlar';
+import { Ogoh } from '../lib/ogoh';
 
 export default function MijozOynasi({
   tahrir,
@@ -97,7 +87,7 @@ export default function MijozOynasi({
   async function rasmTanla() {
     const ruxsat = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!ruxsat.granted) {
-      Alert.alert(tr('Ruxsat yo‘q'), tr('Galereyaga kirish uchun ruxsat bering'));
+      Ogoh.alert(tr('Ruxsat yo‘q'), tr('Galereyaga kirish uchun ruxsat bering'));
       return;
     }
     const natija = await ImagePicker.launchImageLibraryAsync({
@@ -145,10 +135,10 @@ export default function MijozOynasi({
       if (nomer && !telefon.trim()) setTelefon(nomer);
 
       if (!yangiIsm && !yangiFamilya && !nomer) {
-        Alert.alert(tr('Kontakt bo‘sh'), tr('Bu kontaktda ism ham, raqam ham yo‘q'));
+        Ogoh.alert(tr('Kontakt bo‘sh'), tr('Bu kontaktda ism ham, raqam ham yo‘q'));
       }
     } catch (e) {
-      Alert.alert(tr('Kontakt ochilmadi'), xatoMatn(e));
+      Ogoh.alert(tr('Kontakt ochilmadi'), xatoMatn(e));
     }
   }
 
@@ -157,7 +147,7 @@ export default function MijozOynasi({
     try {
       const ruxsat = await Location.requestForegroundPermissionsAsync();
       if (!ruxsat.granted) {
-        Alert.alert(tr('Ruxsat yo‘q'), tr('Joylashuv uchun ruxsat bering'));
+        Ogoh.alert(tr('Ruxsat yo‘q'), tr('Joylashuv uchun ruxsat bering'));
         return;
       }
       const joy = await Location.getCurrentPositionAsync({
@@ -166,7 +156,7 @@ export default function MijozOynasi({
       setLat(joy.coords.latitude);
       setLng(joy.coords.longitude);
     } catch (e) {
-      Alert.alert(tr('Joylashuv olinmadi'), xatoMatn(e));
+      Ogoh.alert(tr('Joylashuv olinmadi'), xatoMatn(e));
     } finally {
       setJoylashuvBand(false);
     }
@@ -185,7 +175,7 @@ export default function MijozOynasi({
       } catch (e) {
         // Rasm yuklanmasa ham mijoz saqlanadi: aks holda
         // internetsiz joyda mijoz umuman qo'shilmasdi.
-        Alert.alert(tr('Rasm yuklanmadi'), xatoMatn(e) + '\n\n' + tr('Mijoz rasmsiz saqlanadi'));
+        Ogoh.alert(tr('Rasm yuklanmadi'), xatoMatn(e) + '\n\n' + tr('Mijoz rasmsiz saqlanadi'));
         yol = rasmYol;
       }
     }
@@ -215,7 +205,7 @@ export default function MijozOynasi({
       yopish();
     } catch (e) {
       setBand(false);
-      Alert.alert(tr('Saqlanmadi'), xatoMatn(e));
+      Ogoh.alert(tr('Saqlanmadi'), xatoMatn(e));
     }
   }
 

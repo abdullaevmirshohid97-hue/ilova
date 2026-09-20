@@ -13,7 +13,7 @@
 // =============================================================
 
 import { useMemo, useState } from 'react';
-import { Alert, RefreshControl, ScrollView, Text, TextInput, View } from 'react-native';
+import { RefreshControl, ScrollView, Text, TextInput, View } from 'react-native';
 import { davrYigindi, formatla, hisobQoldiq, solishtir } from '@ilova/kassa-yadro';
 import type { Yozuv } from '@ilova/kassa-yadro';
 import { yozuvBekorQil } from '../lib/baza';
@@ -25,6 +25,7 @@ import { BoshHolat, Chip, DavrOqlari, Tanlagich, YigindiPaneli, uslublar } from 
 import { YozuvQatori } from '../ui/YozuvQatori';
 import { BitimQatori } from '../ui/BitimQatori';
 import { tr } from '../lib/til';
+import { Ogoh } from '../lib/ogoh';
 
 // `matn` — kalit, tarjima emas: modul faylni o‘qishda bir marta
 // hisoblanadi, til esa keyinroq yuklanadi.
@@ -145,7 +146,7 @@ export default function YozuvlarEkrani({
 
   function bekor(y: Yozuv) {
     if (y.bekor_at) return;
-    Alert.alert(tr('Yozuvni bekor qilish'),
+    Ogoh.alert(tr('Yozuvni bekor qilish'),
       `${formatla(y.summa, y.valyuta)} — ${tr('hisobdan chiqadi, lekin tarixda qoladi.')}`,
       [
         { text: tr('Yo‘q'), style: 'cancel' },
@@ -157,7 +158,7 @@ export default function YozuvlarEkrani({
               await yozuvBekorQil(y.id, 'ilovadan bekor qilindi');
               await yangila();
             } catch (e) {
-              Alert.alert(tr('Xatolik'), xatoMatn(e));
+              Ogoh.alert(tr('Xatolik'), xatoMatn(e));
             }
           },
         },

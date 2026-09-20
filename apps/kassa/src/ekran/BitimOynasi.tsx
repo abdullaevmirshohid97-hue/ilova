@@ -16,7 +16,7 @@
 // =============================================================
 
 import { useEffect, useMemo, useState } from 'react';
-import { Alert, Modal, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Modal, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { cheklovTekshir, formatla, hamkorQoldiq, ifodaKorinish, tiyinga } from '@ilova/kassa-yadro';
 import type { BitimNima, BitimYonalish } from '@ilova/kassa-yadro';
@@ -28,6 +28,7 @@ import { tr } from '../lib/til';
 import { xatoYoz } from '../lib/xatolar';
 import { Chip, Karta, Tugma } from '../ui/qismlar';
 import { MuddatMaydoni } from '../ui/MuddatMaydoni';
+import { Ogoh } from '../lib/ogoh';
 
 const BIRLIKLAR = ['dona', 'kg', 'metr', 'quti', 'litr'];
 
@@ -136,7 +137,7 @@ export default function BitimOynasi({
 
     const pul = (x: number) => formatla(x, valyuta, { belgisiz: true, kasrsiz: true });
     return new Promise((javob) => {
-      Alert.alert(
+      Ogoh.alert(
         tr('Cheklovdan oshdi'),
         k.ism +
           '\n\n' +

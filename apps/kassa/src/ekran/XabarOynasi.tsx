@@ -15,7 +15,7 @@
 // =============================================================
 
 import { useState } from 'react';
-import { Alert, Linking, Modal, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Linking, Modal, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Clipboard from 'expo-clipboard';
 import type { Klient } from '@ilova/kassa-yadro';
@@ -24,6 +24,7 @@ import { XABAR_TILLAR, type XabarTil } from '../lib/xabar-til';
 import { O, useTema } from '../lib/tema';
 import { tr } from '../lib/til';
 import { Orqaga } from '../ui/ikonka';
+import { Ogoh } from '../lib/ogoh';
 
 export default function XabarOynasi({
   klient,
@@ -58,12 +59,12 @@ export default function XabarOynasi({
         // `canOpenURL` false qaytarishi = ilova o'rnatilmagan.
         // Baribir ochishga urinish foydasiz va xato ekranda
         // tushunarsiz chiqardi.
-        Alert.alert(tr('Ilova topilmadi'), nomi + ' ' + tr('bu telefonda yo‘q'));
+        Ogoh.alert(tr('Ilova topilmadi'), nomi + ' ' + tr('bu telefonda yo‘q'));
         return;
       }
       await Linking.openURL(url);
     } catch (e) {
-      Alert.alert(tr('Ochilmadi'), String((e as Error)?.message ?? e));
+      Ogoh.alert(tr('Ochilmadi'), String((e as Error)?.message ?? e));
     }
   }
 
@@ -193,7 +194,7 @@ export default function XabarOynasi({
           <TouchableOpacity
             onPress={async () => {
               await Clipboard.setStringAsync(tahrir);
-              Alert.alert(tr('Nusxa olindi'), tr('Xabar matni buferga ko‘chirildi'));
+              Ogoh.alert(tr('Nusxa olindi'), tr('Xabar matni buferga ko‘chirildi'));
             }}
             style={{
               borderWidth: 1,

@@ -20,7 +20,7 @@
 // =============================================================
 
 import { useMemo, useState } from 'react';
-import { Alert, Linking, Modal, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { Linking, Modal, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   bitimQoldiq,
@@ -41,6 +41,7 @@ import { Menyu, Orqaga, UchNuqta } from '../ui/ikonka';
 import { MijozRasmi } from '../ui/MijozRasmi';
 import { AmallarMenyusi } from '../ui/YuqoriOynalar';
 import { BoshHolat } from '../ui/qismlar';
+import { Ogoh } from '../lib/ogoh';
 
 type Saralash = 'yangi' | 'eski' | 'qabul' | 'tolangan';
 
@@ -139,7 +140,7 @@ export default function MijozKartochka({
   function qongiroq() {
     const raqam = (klient.telefon ?? '').trim();
     if (!raqam) {
-      Alert.alert(tr('Raqam yo‘q'), tr('Bu mijozga telefon raqami kiritilmagan'));
+      Ogoh.alert(tr('Raqam yo‘q'), tr('Bu mijozga telefon raqami kiritilmagan'));
       return;
     }
     Linking.openURL('tel:' + raqam.replace(/\s/g, ''));

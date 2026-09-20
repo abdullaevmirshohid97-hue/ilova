@@ -7,7 +7,7 @@
 // =============================================================
 
 import { useState } from 'react';
-import { Alert, ScrollView, Text, TextInput, View } from 'react-native';
+import { ScrollView, Text, TextInput, View } from 'react-native';
 import type { Turkum } from '@ilova/kassa-yadro';
 import { turkumQosh, turkumTahrirla } from '../lib/baza';
 import { useHolat } from '../lib/holat';
@@ -15,6 +15,7 @@ import { xatoMatn } from '../lib/supabase';
 import { O, useTema } from '../lib/tema';
 import { BoshHolat, Qator, Tanlagich, Tugma } from '../ui/qismlar';
 import { tr, trn } from '../lib/til';
+import { Ogoh } from '../lib/ogoh';
 
 export default function Turkumlar() {
   const { C } = useTema();
@@ -33,14 +34,14 @@ export default function Turkumlar() {
       setYangiNom('');
       await yangila();
     } catch (e) {
-      Alert.alert(tr('Xatolik'), xatoMatn(e));
+      Ogoh.alert(tr('Xatolik'), xatoMatn(e));
     } finally {
       setKutmoqda(false);
     }
   }
 
   function yashir(t: Turkum) {
-    Alert.alert(tr('Turkumni yashirish'), `«${t.nom}» ${tr('yangi yozuvlarda ko‘rinmaydi. Eski yozuvlar o‘zgarmaydi.')}`, [
+    Ogoh.alert(tr('Turkumni yashirish'), `«${t.nom}» ${tr('yangi yozuvlarda ko‘rinmaydi. Eski yozuvlar o‘zgarmaydi.')}`, [
       { text: tr('Yo‘q'), style: 'cancel' },
       {
         text: tr('Yashirish'),
@@ -49,7 +50,7 @@ export default function Turkumlar() {
             await turkumTahrirla(t.id, { faol: false });
             await yangila();
           } catch (e) {
-            Alert.alert(tr('Xatolik'), xatoMatn(e));
+            Ogoh.alert(tr('Xatolik'), xatoMatn(e));
           }
         },
       },

@@ -3,13 +3,14 @@
 // =============================================================
 
 import { useState } from 'react';
-import { Alert, ScrollView, Text, TextInput, View } from 'react-native';
+import { ScrollView, Text, TextInput, View } from 'react-native';
 import { biznesNomiQoy, hisobniOchir } from '../lib/baza';
 import { useHolat } from '../lib/holat';
 import { supabase, xatoMatn } from '../lib/supabase';
 import { O, useTema, type TemaRejimi } from '../lib/tema';
 import { Chip, Qator, Sarlavha, Tugma } from '../ui/qismlar';
 import { tr, trn, useTil, type Til } from '../lib/til';
+import { Ogoh } from '../lib/ogoh';
 
 export default function Sozlama() {
   const { C, rejim, qoy } = useTema();
@@ -41,7 +42,7 @@ export default function Sozlama() {
    * bilan yoziladi va tugma matni ham boshqacha.
    */
   function ochirishniBoshla() {
-    Alert.alert(tr('Hisobni o‘chirish'),
+    Ogoh.alert(tr('Hisobni o‘chirish'),
       `«${men.biznes}» ${tr('va undagi hamma narsa o‘chadi:')}\n\n` +
         tr('· hisoblar va ularning qoldig‘i') + '\n' +
         tr('· hamma kirim va chiqim yozuvlari') + '\n' +
@@ -56,7 +57,7 @@ export default function Sozlama() {
   }
 
   function ochirishniTasdiqla() {
-    Alert.alert(
+    Ogoh.alert(
       tr('Oxirgi tasdiq'),
       tr('Ma’lumot butunlay yo‘q qilinadi. Davom etasizmi?'),
       [
@@ -72,12 +73,12 @@ export default function Sozlama() {
               // lekin qurilmadagi token qolib, ilova "xato" ekranida
               // osilib turardi.
               await supabase.auth.signOut();
-              Alert.alert(
+              Ogoh.alert(
                 tr('O‘chirildi'),
                 `${natija.tashkilot ?? tr('Hisob')} — ${trn('{n} ta yozuv o‘chirildi.', natija.yozuvlar)}`,
               );
             } catch (e) {
-              Alert.alert(tr('O‘chirilmadi'), xatoMatn(e));
+              Ogoh.alert(tr('O‘chirilmadi'), xatoMatn(e));
             } finally {
               setKutmoqda(false);
             }
@@ -149,7 +150,7 @@ export default function Sozlama() {
         nom={tr('Chiqish')}
         izoh={tr('Boshqa hisob bilan kirish')}
         bos={() =>
-          Alert.alert(tr('Chiqish'), tr('Hisobdan chiqasizmi?'), [
+          Ogoh.alert(tr('Chiqish'), tr('Hisobdan chiqasizmi?'), [
             { text: tr('Yo‘q'), style: 'cancel' },
             { text: tr('Chiqish'), style: 'destructive', onPress: () => supabase.auth.signOut() },
           ])

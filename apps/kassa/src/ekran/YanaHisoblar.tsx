@@ -7,7 +7,7 @@
 // =============================================================
 
 import { useState } from 'react';
-import { Alert, Modal, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Modal, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { formatla, hisobQoldiq, ifodaHisobla, tiyinga } from '@ilova/kassa-yadro';
 import type { Hisob } from '@ilova/kassa-yadro';
 import { hisobQosh, hisobTahrirla } from '../lib/baza';
@@ -16,6 +16,7 @@ import { xatoMatn } from '../lib/supabase';
 import { O, useTema } from '../lib/tema';
 import { BoshHolat, Chip, Qator, Tugma } from '../ui/qismlar';
 import { tr } from '../lib/til';
+import { Ogoh } from '../lib/ogoh';
 
 export default function Hisoblar({ kochirma }: { kochirma: () => void }) {
   const { C } = useTema();
@@ -90,7 +91,7 @@ function HisobOynasi({
 
   function yashir() {
     if (!hisob) return;
-    Alert.alert(
+    Ogoh.alert(
       hisob.faol ? tr('Hisobni yashirish') : tr('Hisobni qaytarish'),
       hisob.faol
         ? tr('Hisob ro‘yxatdan olib tashlanadi. Yozuvlari va qoldig‘i saqlanadi — istalgan vaqt qaytarasiz.')
@@ -104,7 +105,7 @@ function HisobOynasi({
               await hisobTahrirla(hisob.id, { faol: !hisob.faol });
               saqlandi();
             } catch (e) {
-              Alert.alert(tr('Xatolik'), xatoMatn(e));
+              Ogoh.alert(tr('Xatolik'), xatoMatn(e));
             }
           },
         },

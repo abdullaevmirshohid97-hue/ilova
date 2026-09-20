@@ -16,7 +16,7 @@
 // =============================================================
 
 import { useEffect, useState } from 'react';
-import { Alert, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { formatla, VALYUTALAR, type Valyuta, type ValyutaKurs } from '@ilova/kassa-yadro';
 import { asosiyValyutaQoy, valyutaOchir, valyutaSaqla } from '../lib/baza';
 import { useHolat } from '../lib/holat';
@@ -25,6 +25,7 @@ import { O, useTema } from '../lib/tema';
 import { tr } from '../lib/til';
 import { Chiqindi } from '../ui/ikonka';
 import { Karta, Sarlavha, Tugma } from '../ui/qismlar';
+import { Ogoh } from '../lib/ogoh';
 
 export default function ValyutaSozlama() {
   const { C } = useTema();
@@ -68,7 +69,7 @@ export default function ValyutaSozlama() {
 
   async function asosiyniQoy(v: Valyuta) {
     if (v === asosiy || band) return;
-    Alert.alert(
+    Ogoh.alert(
       tr('Asosiy valyuta'),
       tr('Asosiy valyuta o‘zgaradi. Eski yozuvlar o‘z valyutasida qoladi.'),
       [
@@ -81,7 +82,7 @@ export default function ValyutaSozlama() {
               await asosiyValyutaQoy(v);
               await yangila();
             } catch (e) {
-              Alert.alert(tr('Saqlanmadi'), xatoMatn(e));
+              Ogoh.alert(tr('Saqlanmadi'), xatoMatn(e));
             } finally {
               setBand(false);
             }
@@ -97,7 +98,7 @@ export default function ValyutaSozlama() {
       await valyutaSaqla({ valyuta: v, kurs: 1 });
       await yangila();
     } catch (e) {
-      Alert.alert(tr('Saqlanmadi'), xatoMatn(e));
+      Ogoh.alert(tr('Saqlanmadi'), xatoMatn(e));
     } finally {
       setBand(false);
     }
@@ -106,7 +107,7 @@ export default function ValyutaSozlama() {
   async function kursniSaqla(v: ValyutaKurs) {
     const son = Number((kurslar[v.id] ?? '').replace(',', '.').replace(/\s/g, ''));
     if (!Number.isFinite(son) || son <= 0) {
-      Alert.alert(tr('Kurs noto‘g‘ri'), tr('Kurs noldan katta son bo‘lishi kerak'));
+      Ogoh.alert(tr('Kurs noto‘g‘ri'), tr('Kurs noldan katta son bo‘lishi kerak'));
       return;
     }
     setBand(true);
@@ -114,7 +115,7 @@ export default function ValyutaSozlama() {
       await valyutaSaqla({ valyuta: v.valyuta, kurs: son });
       await yangila();
     } catch (e) {
-      Alert.alert(tr('Saqlanmadi'), xatoMatn(e));
+      Ogoh.alert(tr('Saqlanmadi'), xatoMatn(e));
     } finally {
       setBand(false);
     }

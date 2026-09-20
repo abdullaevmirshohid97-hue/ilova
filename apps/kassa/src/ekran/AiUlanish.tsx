@@ -15,13 +15,14 @@
 // =============================================================
 
 import { useEffect, useState } from 'react';
-import { Alert, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import { tokenlarOl, tokenYarat, tokenYop, type Token } from '../lib/baza';
 import { xatoMatn } from '../lib/supabase';
 import { O, useTema } from '../lib/tema';
 import { BoshHolat, Karta, Qator, Sarlavha, Tugma } from '../ui/qismlar';
 import { tr, trn } from '../lib/til';
+import { Ogoh } from '../lib/ogoh';
 
 const MANZIL = 'https://gnuddryjsmcrjchrbvyz.supabase.co/functions/v1/kassa-mcp';
 
@@ -73,7 +74,7 @@ export default function AiUlanish() {
   }
 
   function yop(t: Token) {
-    Alert.alert(tr('Ulanishni yopish'), `«${t.nom}» ${tr('endi ishlamaydi. Davom etamizmi?')}`, [
+    Ogoh.alert(tr('Ulanishni yopish'), `«${t.nom}» ${tr('endi ishlamaydi. Davom etamizmi?')}`, [
       { text: tr('Yo‘q'), style: 'cancel' },
       {
         text: tr('Yopish'),
@@ -83,7 +84,7 @@ export default function AiUlanish() {
             await tokenYop(t.id);
             await yukla();
           } catch (e) {
-            Alert.alert(tr('Xatolik'), xatoMatn(e));
+            Ogoh.alert(tr('Xatolik'), xatoMatn(e));
           }
         },
       },

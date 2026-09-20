@@ -154,6 +154,69 @@ tekshir(
 );
 
 // =============================================================
+// 4. BRAUZERDA JIM QOLADIGAN CHAQIRUVLAR
+//
+//  `react-native-web` da Alert bo'sh funksiya:
+//
+//      class Alert { static alert() {} }
+//
+//  Ya'ni brauzerda hech narsa qilmaydi. Ikki oqibati bor:
+//
+//   · Tasdiq so'raydigan joyda amal BAJARILMAYDI — ish `onPress`
+//     ichida turadi va u chaqirilmaydi. Valyuta tanlash aynan
+//     shu sababli ishlamagan: tugma bosiladi, hech narsa yo'q.
+//   · Xato ko'rsatadigan joyda xato JIM YO'QOLADI.
+//
+//  Shuning uchun ilovada `src/lib/ogoh.ts` bor: telefonda
+//  haqiqiy Alert, brauzerda `confirm`/`alert`. To'g'ridan
+//  to'g'ri Alert ishlatilsa, sinov yiqiladi.
+// =============================================================
+console.log('\n4. Brauzerda jim qoladigan chaqiruvlar');
+
+const ISTISNO = 'src/lib/ogoh.ts';
+const alertli = [];
+for (const [f, matn] of matnlar) {
+  if (qisqa(f) === ISTISNO) continue;
+  const sat = matn.split('\n');
+  for (let i = 0; i < sat.length; i++) {
+    if (!sat[i].includes("from 'react-native'")) continue;
+    // Import bir necha qatorga cho'zilgan bo'lishi mumkin
+    const bosh = sat.slice(Math.max(0, i - 8), i + 1).join(' ');
+    const m = bosh.match(/import\s*\{([^}]*)\}\s*from 'react-native'/);
+    if (m && /\bAlert\b/.test(m[1])) alertli.push(qisqa(f).split('/').pop());
+  }
+}
+
+tekshir(
+  'Alert to‘g‘ridan to‘g‘ri ishlatilmaydi',
+  alertli.length === 0,
+  alertli.length ? alertli.join(', ') : 'hammasi ogoh.ts orqali',
+);
+
+const chaqiruv = [];
+for (const [f, matn] of matnlar) {
+  if (qisqa(f) === ISTISNO) continue;
+  if (/\bAlert\.alert\(/.test(matn)) chaqiruv.push(qisqa(f).split('/').pop());
+}
+tekshir(
+  'Alert.alert chaqiruvi qolmagan',
+  chaqiruv.length === 0,
+  chaqiruv.length ? chaqiruv.join(', ') : 'toza',
+);
+
+// ogoh.ts o'zi brauzer yo'lini QAMRAB OLSIN — bo'lmasa sinov
+// «hammasi ogoh orqali» deb o'tardi-yu, brauzerda baribir jim
+// qolardi.
+{
+  const o = oqi(join(KASSA, ISTISNO));
+  tekshir(
+    'ogoh.ts brauzerda confirm/alert ishlatadi',
+    /Platform\.OS === 'web'/.test(o) && /confirm/.test(o) && /alert\?\./.test(o),
+    'web shoxi bor',
+  );
+}
+
+// =============================================================
 // 5. SHART BILAN YASHIRINGAN joylar
 //
 //  Eng yomon tur: kod bor, yo'l ham bor, lekin shart hech qachon
@@ -161,7 +224,7 @@ tekshir(
 //  ro'yxat esa bo'sh bo'lsa, odam uni hech qachon ko'rmaydi va
 //  to'ldirishning yo'lini ham topa olmaydi.
 // =============================================================
-console.log('\n4. Shart bilan yashiringan joylar');
+console.log('\n5. Shart bilan yashiringan joylar');
 
 // Istisno: yonida `tanlovsiz-mayli` izohi turgan joy.
 // Sabab kod yonida yozilgan bo‘lsa, sinov unga ishonadi —

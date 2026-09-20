@@ -10,13 +10,14 @@
 //  fayl bosh ekran qayta yozilganda o‘lik qolgandi.
 // =============================================================
 
-import { Alert, Share } from 'react-native';
+import { Share } from 'react-native';
 import type { Bitim, Klient, Tolov } from '@ilova/kassa-yadro';
 import { bitimPdf } from './hisobot';
 import { xatoMatn } from './supabase';
 import { taklifMatni, tasdiqHavolasi } from './tasdiq';
 import { tr } from './til';
 import { ulash } from './ulash';
+import { Ogoh } from './ogoh';
 
 export async function bitimHujjati(b: Bitim, tolovlar: Tolov[], hamkor: Klient | null, biznes: string) {
   try {
@@ -24,7 +25,7 @@ export async function bitimHujjati(b: Bitim, tolovlar: Tolov[], hamkor: Klient |
     const nom = `${hamkor?.ism ?? tr('Hamkor')}-${b.sana.slice(0, 10)}`;
     await ulash(nom, bayt, 'pdf');
   } catch (e) {
-    Alert.alert(tr('Hujjat chiqmadi'), String((e as Error)?.message ?? e));
+    Ogoh.alert(tr('Hujjat chiqmadi'), String((e as Error)?.message ?? e));
   }
 }
 
@@ -34,7 +35,7 @@ export async function tasdiqYubor(b: Bitim, hamkor: Klient | null, biznes: strin
     await Share.share({ message: taklifMatni(havola, biznes) });
   } catch (e) {
     const m = xatoMatn(e);
-    Alert.alert(
+    Ogoh.alert(
       tr('Havola yaratilmadi'),
       m.includes('TASDIQ_KERAKMAS')
         ? tr('Bu bitim tasdiq kutmayapti')

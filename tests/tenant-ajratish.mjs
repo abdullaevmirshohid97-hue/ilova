@@ -344,8 +344,8 @@ if (ozga[0]?.id) {
   // summasi va kurs — eng nozik ma’lumot, shuning uchun ular ham shu
   // yerda.
   const kBitim = await sql(`
-    insert into kassa_bitimlar (org_id, klient_id, yonalish, nima, summa, valyuta)
-    values ('${ozgaOrg}', '${kKlientId}', 'berdim', '${belgi}', 777000, 'UZS')
+    insert into kassa_bitimlar (org_id, klient_id, yonalish, nima, summa, valyuta, izoh)
+    values ('${ozgaOrg}', '${kKlientId}', 'berdim', 'qarz', 777000, 'UZS', '${belgi}')
     returning id
   `);
   const kBitimId = kBitim[0].id;

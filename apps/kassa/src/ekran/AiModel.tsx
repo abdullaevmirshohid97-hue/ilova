@@ -12,7 +12,7 @@
 // =============================================================
 
 import { useEffect, useState } from 'react';
-import { Alert, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import {
   aiHolat,
   aiKalitOchir,
@@ -26,6 +26,7 @@ import { xatoMatn } from '../lib/supabase';
 import { O, useTema } from '../lib/tema';
 import { BoshHolat, Chip, Karta, Sarlavha, Tugma } from '../ui/qismlar';
 import { tr } from '../lib/til';
+import { Ogoh } from '../lib/ogoh';
 
 const PROVAYDERLAR: {
   kalit: AiProvayder;
@@ -133,7 +134,7 @@ export default function AiModel() {
   }
 
   function ochir() {
-    Alert.alert(tr('Kalitni o‘chirish'), tr('AI ulanishi o‘chadi. Ilova o‘zi ishlayveradi.'), [
+    Ogoh.alert(tr('Kalitni o‘chirish'), tr('AI ulanishi o‘chadi. Ilova o‘zi ishlayveradi.'), [
       { text: tr('Yo‘q'), style: 'cancel' },
       {
         text: tr('O‘chirish'),
@@ -144,7 +145,7 @@ export default function AiModel() {
             setBor(null);
             await yukla();
           } catch (e) {
-            Alert.alert(tr('Xatolik'), xatoMatn(e));
+            Ogoh.alert(tr('Xatolik'), xatoMatn(e));
           }
         },
       },
