@@ -4,7 +4,11 @@
 //  Palitra ataylab TINCH. Play Market'dagi hisob-kitob ilovalari
 //  baland ko'k, chinni-qizil va o't-yashildan foydalanadi — ular
 //  ekranda "qichqiradi" va kun bo'yi qaralganda ko'z charchaydi.
-//  Yashil va terakota logotipdagi ranglarning aynan o'zi.
+//
+//  KIRIM KO‘K, CHIQIM QIZIL (21.09 qarori). Avval yashil va
+//  terakota edi. Rang o‘zgardi, lekin qoida o‘zgarmadi: ular
+//  to'yingan emas, bosiq olingan — oq fonda ham, tungi rejimda
+//  ham ko‘zni qamashtirmaydi.
 //
 //  Kirim/chiqim farqi FAQAT rangda emas: har doim ishora ham bor
 //  (+ / −). Rang ajratmaydigan odam ham o'qiy olishi kerak.
@@ -63,10 +67,16 @@ export const YORUG: Ranglar = {
   tunMatn: '#000000',
   tunXira: '#8A8A8A',
 
-  kirim: '#3E8E68',
-  kirimYumshoq: '#E9F3EE',
-  chiqim: '#B9615A',
-  chiqimYumshoq: '#F8EDEC',
+  // Ko‘k — pul KELDI. Sof «brend ko‘ki» emas, bir oz
+  // kulrangga tortilgan: yorqinrog‘i oq fonda porlab, uzoq
+  // qaralganda charchatardi.
+  kirim: '#1F6FB2',
+  kirimYumshoq: '#E8F1F9',
+  // Qizil — pul KETDI. Ogohlantirish qizilidan bir pog‘ona
+  // bosiqroq: ro‘yxatda o‘nlab qator qizil bo‘lishi mumkin va
+  // ularning hammasi «xavf» bo‘lib ko‘rinmasligi kerak.
+  chiqim: '#C23B32',
+  chiqimYumshoq: '#FBECEA',
 
   ogoh: '#B7791F',
   ogohYumshoq: '#FBF3E3',
@@ -93,11 +103,12 @@ export const QORONGI: Ranglar = {
   tunXira: '#7C8CA1',
 
   // Qorong'ida to'yingan rang porlab ketadi — ochroq va kamroq
-  // to'yingan variant olinadi.
-  kirim: '#5CAC85',
-  kirimYumshoq: '#172A22',
-  chiqim: '#D08078',
-  chiqimYumshoq: '#2B1E1D',
+  // to'yingan variant olinadi. Ko'k ayniqsa nozik: to'q ko'k
+  // qora fonda deyarli o'qilmaydi.
+  kirim: '#6BA9E0',
+  kirimYumshoq: '#132330',
+  chiqim: '#E07B72',
+  chiqimYumshoq: '#2C1A18',
 
   ogoh: '#D9A441',
   ogohYumshoq: '#2A2316',

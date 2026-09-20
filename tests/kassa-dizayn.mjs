@@ -236,5 +236,56 @@ ertaga.setHours(19, 0, 0, 0);
 tekshir('ertaga yana so‘raladi', K.yakunSorash(true, ertaga) === true);
 tekshir('ertaga yakunlanmagan deb hisoblanadi', K.bugunYakunlandi(ertaga) === false);
 
+console.log('\n\x1b[1mKONTRAST\x1b[0m');
+
+// WCAG 2.1 nisbiy yorqinlik va kontrast nisbati.
+// Oddiy matn uchun talab 4.5:1. Summalar qalin, ya'ni rasmiy
+// talab 3:1 ham yetardi — lekin daftar quyoshda, ko'chada
+// o'qiladi, shuning uchun qat'iyroq chegara olindi.
+function yorqinlik(hex) {
+  const b = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255);
+  const [r, g, bl] = b.map((c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4));
+  return 0.2126 * r + 0.7152 * g + 0.0722 * bl;
+}
+function kontrast(a, b) {
+  const la = yorqinlik(a);
+  const lb = yorqinlik(b);
+  return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05);
+}
+
+{
+  const temaMatn = readFileSync(join(ROOT, 'apps/kassa/src/lib/tema.ts'), 'utf8');
+  const olish = (blok, nom) => {
+    const b = temaMatn.indexOf('export const ' + blok);
+    const qism = temaMatn.slice(b, temaMatn.indexOf('};', b));
+    return qism.match(new RegExp(nom + ":\\s*'(#[0-9A-Fa-f]{6})'"))?.[1] ?? null;
+  };
+
+  for (const [blok, nomi] of [['YORUG', 'yorug\u2018'], ['QORONGI', 'tungi']]) {
+    const karta = olish(blok, 'karta');
+    for (const rang of ['kirim', 'chiqim', 'matn']) {
+      const q = olish(blok, rang);
+      const n = q && karta ? kontrast(q, karta) : 0;
+      tekshir(
+        nomi + ': ' + rang + ' kartada o\u2018qiladi (4.5:1)',
+        n >= 4.5,
+        (q ?? '?') + ' / ' + (karta ?? '?') + ' = ' + n.toFixed(2) + ':1',
+      );
+    }
+
+    // Kirim va chiqim BIR-BIRIDAN ham ajralishi kerak: ular
+    // yonma-yon turadi. Rang ajratmaydigan odam uchun ishora
+    // (+ / \u2212) bor, lekin ko'rgan odam uchun rang ham
+    // farqlanishi kerak.
+    const k = olish(blok, 'kirim');
+    const c = olish(blok, 'chiqim');
+    tekshir(
+      nomi + ': kirim va chiqim bir-biridan farq qiladi',
+      k !== c && Math.abs(yorqinlik(k) - yorqinlik(c)) < 0.9,
+      k + ' / ' + c,
+    );
+  }
+}
+
 console.log('\n' + (yiqildi === 0 ? '\x1b[32mHAMMASI O‘TDI\x1b[0m' : `\x1b[31m${yiqildi} TA XATO\x1b[0m`) + '\n');
 process.exit(yiqildi === 0 ? 0 : 1);
