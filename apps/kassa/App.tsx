@@ -55,6 +55,7 @@ import AiUlanish from './src/ekran/AiUlanish';
 import AiModel from './src/ekran/AiModel';
 import KalendarEkrani from './src/ekran/KalendarEkrani';
 import KunYakuni from './src/ekran/KunYakuni';
+import BiznesRoyxati from './src/ekran/BiznesRoyxati';
 import YozuvOynasi, { type OynaRejimi } from './src/ekran/YozuvOynasi';
 import BitimOynasi from './src/ekran/BitimOynasi';
 import TolovOynasi from './src/ekran/TolovOynasi';
@@ -190,8 +191,17 @@ export default function App() {
     );
   else
     ichki = (
-      <HolatProvider men={men}>
-        <Qobiq />
+      // `key` MUHIM: biznes almashganda butun daraxt qaytadan
+      // quriladi. Usiz ekranda avvalgi biznesning ro‘yxatlari
+      // turib qolardi — ombor tozalangan bo‘lsa ham, React
+      // eski holatni saqlab qolardi.
+      <HolatProvider key={men.org_id} men={men}>
+        <Qobiq
+          qaytaYukla={() => {
+            setMen(null);
+            setMenYuklandi(false);
+          }}
+        />
       </HolatProvider>
     );
 
@@ -202,7 +212,10 @@ export default function App() {
     <SafeAreaProvider>
     <TilKontekst.Provider value={tilHolati}>
     <TemaKontekst.Provider value={tema}>
-      <StatusBar style="light" />
+      {/* Oq temada tizim paneli belgilari QORA bo‘lishi kerak:
+          avval doim "light" edi va oq sarlavhada soat ham,
+          batareya ham ko‘rinmay qolardi. */}
+      <StatusBar style={qorongi ? 'light' : 'dark'} />
       {/* Qalqon TEMADAN ICHKARIDA: yiqilgan ekran ham tungi
           rejimda to‘g‘ri rangda chiqsin */}
       <XatoQalqoni>{ichki}</XatoQalqoni>
@@ -246,7 +259,7 @@ const SARLAVHA: Record<Exclude<Bolim, 'yakun'>, string> = {
 // bo‘lib, odam qaysi biri chiqishini bilmasdi.
 const ICHKI = (b: Bolim) => b !== 'bosh';
 
-function Qobiq() {
+function Qobiq({ qaytaYukla }: { qaytaYukla: () => void }) {
   const { C } = useTema();
   const { men, yangila, yuklanmoqda, xato, bitimlar, tolovlar, klientlar } = useHolat();
   // Pastdagi tizim paneli balandligi: Samsung‘larda 3 ta tugma,
@@ -274,6 +287,7 @@ function Qobiq() {
     bitim?: string | null;
   } | null>(null);
   const [yonPanel, setYonPanel] = useState(false);
+  const [biznesOyna, setBiznesOyna] = useState(false);
   const [bildirishnoma, setBildirishnoma] = useState(false);
   const [amallar, setAmallar] = useState(false);
   const [yakunOynasi, setYakunOynasi] = useState(false);
@@ -315,6 +329,10 @@ function Qobiq() {
         setTolovOyna(null);
         return true;
       }
+      if (biznesOyna) {
+        setBiznesOyna(false);
+        return true;
+      }
       if (yonPanel) {
         setYonPanel(false);
         return true;
@@ -326,7 +344,7 @@ function Qobiq() {
       return false;
     });
     return () => obuna.remove();
-  }, [bolim, yonPanel, tanlov, bitimOyna, tolovOyna]);
+  }, [bolim, yonPanel, biznesOyna, tanlov, bitimOyna, tolovOyna]);
 
   if (yuklanmoqda) return <Kutish />;
 
@@ -343,6 +361,7 @@ function Qobiq() {
       <YuqoriQator
         sarlavha={bolim === 'bosh' ? men.biznes : tr(SARLAVHA[bolim as Exclude<Bolim, 'yakun'>])}
         izoh={bolim === 'bosh' ? tr('Oldi-berdi daftari') : undefined}
+        sarlavhaBos={bolim === 'bosh' ? () => setBiznesOyna(true) : undefined}
         menyu={() => setYonPanel(true)}
         orqaga={ICHKI(bolim) ? () => setBolim('bosh') : undefined}
         qidiruv={() => setBolim('yozuvlar')}
@@ -567,6 +586,12 @@ function Qobiq() {
           saqlandi={yangila}
         />
       )}
+      {biznesOyna && (
+        <Modal animationType="slide" onRequestClose={() => setBiznesOyna(false)}>
+          <BiznesRoyxati yopish={() => setBiznesOyna(false)} almashdi={qaytaYukla} />
+        </Modal>
+      )}
+
       <YonPanel
         ochiq={yonPanel}
         joriy={bolim}

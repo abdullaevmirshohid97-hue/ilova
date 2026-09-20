@@ -699,3 +699,58 @@ export async function bitimTasdiqla(id: string): Promise<void> {
     tasdiq_at: new Date().toISOString(),
   });
 }
+
+// ---------------------------------------------------------------
+//  KO'P BIZNES
+//
+//  Do'kondorda ko'pincha ikki-uch nuqta bo'ladi va ularning
+//  daftari ALOHIDA yuritilishi kerak: bir kassaga qo'shib
+//  yuborilsa, qaysi do'kon foyda qilayotgani ko'rinmay qoladi.
+//
+//  DIQQAT: biznes almashgandan keyin mahalliy ombor TOZALANISHI
+//  shart. Baza tomonda sizish yo'q (RLS `current_org_id()` ga
+//  tayanadi), lekin qurilmadagi nusxa avvalgi biznesniki bo'lib
+//  qoladi va odam buni sizish deb ko'radi.
+// ---------------------------------------------------------------
+export type Biznes = {
+  org_id: string;
+  nom: string;
+  rol: string;
+  joriymi: boolean;
+  obuna: string | null;
+};
+
+export async function bizneslarOl(): Promise<Biznes[]> {
+  const { data, error } = await supabase.rpc('kassa_bizneslarim');
+  if (error) throw error;
+  return (data ?? []) as Biznes[];
+}
+
+/** Yangi biznes ochadi va DARHOL unga o'tadi */
+export async function biznesQosh(nom: string, ism?: string): Promise<string> {
+  const { data, error } = await supabase.rpc('kassa_biznes_qosh', {
+    p_nom: nom,
+    p_ism: ism ?? null,
+  });
+  if (error) throw error;
+  await ombor().tozala();
+  return data as string;
+}
+
+export async function biznesTanla(orgId: string): Promise<string> {
+  const { data, error } = await supabase.rpc('kassa_biznes_tanla', { p_org_id: orgId });
+  if (error) throw error;
+  // Tozalash SERVER javobidan KEYIN: RPC yiqilsa mahalliy nusxa
+  // o'chib, odam internetsiz bo'sh ilova bilan qolardi.
+  await ombor().tozala();
+  return data as string;
+}
+
+export async function biznesNomi(orgId: string, nom: string): Promise<string> {
+  const { data, error } = await supabase.rpc('kassa_biznes_nomi', {
+    p_org_id: orgId,
+    p_nom: nom,
+  });
+  if (error) throw error;
+  return data as string;
+}

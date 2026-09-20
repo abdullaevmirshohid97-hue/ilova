@@ -154,3 +154,69 @@ export function Orqaga({ rang, olcham = 20 }: Imkon) {
     </View>
   );
 }
+
+/** Do'kon — biznes ro'yxati sarlavhasida */
+export function Dokon({ rang, olcham = 20 }: Imkon) {
+  const qalin = Math.max(2, Math.round(olcham / 10));
+  const soyabonBoy = Math.round(olcham * 0.22);
+  const tanaEn = Math.round(olcham * 0.82);
+  const tanaBoy = Math.round(olcham * 0.54);
+  const eshikEn = Math.round(olcham * 0.26);
+  return (
+    <View style={{ width: olcham, height: olcham, alignItems: 'center' }}>
+      {/* Soyabon — do'konni uydan ajratadigan asosiy belgi */}
+      <View
+        style={{
+          width: olcham,
+          height: soyabonBoy,
+          backgroundColor: rang,
+          borderRadius: qalin,
+        }}
+      />
+      <View
+        style={{
+          width: tanaEn,
+          height: tanaBoy,
+          marginTop: qalin,
+          borderWidth: qalin,
+          borderColor: rang,
+          borderBottomLeftRadius: qalin,
+          borderBottomRightRadius: qalin,
+          justifyContent: 'flex-end',
+          alignItems: 'center',
+        }}
+      >
+        {/* Eshik */}
+        <View style={{ width: eshikEn, height: Math.round(tanaBoy * 0.55), backgroundColor: rang }} />
+      </View>
+    </View>
+  );
+}
+
+/** Ruchka — tahrirlash */
+export function Ruchka({ rang, olcham = 20 }: Imkon) {
+  const uz = Math.round(olcham * 0.72);
+  const en = Math.round(olcham * 0.24);
+  return (
+    <View style={{ width: olcham, height: olcham, alignItems: 'center', justifyContent: 'center' }}>
+      <View style={{ transform: [{ rotate: '45deg' }], alignItems: 'center' }}>
+        {/* Tanasi */}
+        <View style={{ width: en, height: uz, backgroundColor: rang, borderRadius: 2 }} />
+        {/* Uchi — uchburchak. RN'da burchak `borderWidth` bilan
+            yasaladi: shaffof yon chegaralar uchini o'tkir qiladi. */}
+        <View
+          style={{
+            width: 0,
+            height: 0,
+            borderLeftWidth: en / 2,
+            borderRightWidth: en / 2,
+            borderTopWidth: en * 0.8,
+            borderLeftColor: 'transparent',
+            borderRightColor: 'transparent',
+            borderTopColor: rang,
+          }}
+        />
+      </View>
+    </View>
+  );
+}

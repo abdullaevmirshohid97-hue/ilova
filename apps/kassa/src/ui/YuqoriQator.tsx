@@ -21,6 +21,7 @@ import { Lupa, Menyu, Orqaga, Qongiroq, UchNuqta } from './ikonka';
 export function YuqoriQator({
   sarlavha,
   izoh,
+  sarlavhaBos,
   menyu,
   orqaga,
   qidiruv,
@@ -31,6 +32,8 @@ export function YuqoriQator({
 }: {
   sarlavha: string;
   izoh?: string;
+  /** Sarlavha bosilganda — bosh sahifada biznes ro'yxatini ochadi */
+  sarlavhaBos?: () => void;
   /** ☰ bosilganda. `orqaga` berilgan bo'lsa ishlatilmaydi. */
   menyu?: () => void;
   /** ‹ bosilganda — ichki sahifalarda */
@@ -72,16 +75,26 @@ export function YuqoriQator({
         {orqaga ? <Orqaga rang={C.tunMatn} /> : <Menyu rang={C.tunMatn} />}
       </TouchableOpacity>
 
-      <View style={{ flex: 1, marginLeft: 4 }}>
-        <Text style={{ color: C.tunMatn, fontSize: 17, fontWeight: '700' }} numberOfLines={1}>
-          {sarlavha}
-        </Text>
-        {izoh ? (
-          <Text style={{ color: C.tunXira, fontSize: 12, marginTop: 1 }} numberOfLines={1}>
-            {izoh}
+      {/* Sarlavha bosiladigan bo‘lsa, bosish mumkinligi
+          KO‘RINISHI kerak — shuning uchun yonida › turadi.
+          Usiz odam bu yerni bosish xayoliga ham kelmasdi. */}
+      <TouchableOpacity
+        disabled={!sarlavhaBos}
+        onPress={sarlavhaBos}
+        style={{ flex: 1, marginLeft: 4, flexDirection: 'row', alignItems: 'center', gap: 6 }}
+      >
+        <View style={{ flexShrink: 1 }}>
+          <Text style={{ color: C.tunMatn, fontSize: 17, fontWeight: '700' }} numberOfLines={1}>
+            {sarlavha}
           </Text>
-        ) : null}
-      </View>
+          {izoh ? (
+            <Text style={{ color: C.tunXira, fontSize: 12, marginTop: 1 }} numberOfLines={1}>
+              {izoh}
+            </Text>
+          ) : null}
+        </View>
+        {sarlavhaBos && <Text style={{ color: C.tunXira, fontSize: 16 }}>›</Text>}
+      </TouchableOpacity>
 
       {ong}
       {qidiruv && (
