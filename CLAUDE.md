@@ -22,6 +22,28 @@ commit xabarlari, xato xabarlari — **o'zbekcha**. Kod nomlari ham o'zbekcha
 
 Bu loyihaning bazasi: **`gnuddryjsmcrjchrbvyz`**.
 
+### Ikki Supabase hisobi — chalkashtirmang
+
+Loyihalar IKKI xil hisobda turadi va nomlari bir-biriga o‘xshash:
+
+| Hisob | Tashkilot | Loyiha |
+|---|---|---|
+| `shox4494@gmail.com` | **`b2b b2c`** | **`gnuddryjsmcrjchrbvyz` — SHU LOYIHA** |
+| `shox4494@gmail.com` | shox4494-eng's Org | `hgyugftmkausfkekandq` (B2B), `oxzenyupcolsamojccfg` (taqiqlangan) |
+| `abdullaevmirshohid97@gmail.com` | Orgclinic | `aoubdvlkcatbeifuysau` (**Clary prod — taqiqlangan**), `fwblwuxkmtagohucpqyz` |
+
+`kodchi/kalitlar.json` dagi `sbp_` token — **birinchi** hisobniki.
+MCP uchun brauzerda ham aynan o‘sha hisobga kirish kerak, aks holda
+«Organization unavailable» chiqadi.
+
+> **DIQQAT.** `claude.ai Supabase` ulagichi (agent asboblari
+> `mcp__claude_ai_Supabase__*`) IKKINCHI hisobga ulangan — ya'ni u
+> Clary'ning JONLI prod bazasini ko‘radi. Uning ichida yozadigan
+> asboblar bor: `apply_migration`, `execute_sql`,
+> `deploy_edge_function`. Shu loyiha uchun ULARNI ISHLATMANG.
+> Bu yerdagi baza ishlari `kodchi/` skriptlari yoki `.mcp.json`
+> dagi `supabase` serveri (u `read_only=true`) orqali boradi.
+
 ## Ish oqimi
 
 ```bash
