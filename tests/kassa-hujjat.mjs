@@ -227,6 +227,94 @@ tekshir(
   kvJoylar.length ? 'eng o‘ngi x=' + Math.max(...kvJoylar) : 'bo‘lak topilmadi',
 );
 
+console.log('\n\x1b[1mBITIM HUJJATI\x1b[0m');
+
+// Konsepsiyadagi misol: Tonirokka 1 200 dona x $0.10 = $120 tovar
+// berildi, $50 to'landi. Reja 2-bo'limda aynan shu raqamda xato
+// bo'lgan edi (24 000 deb yozilgan), shuning uchun jami hujjatda
+// ham to'g'ri chiqishi TEKSHIRILADI.
+const BITIM = {
+  id: 'b1', klient_id: 'k1', yonalish: 'berdim', nima: 'tovar',
+  tovar_nom: 'Karobka', birlik: 'dona', miqdor: 1200, narx: 10,
+  summa: 12000, valyuta: 'USD', kurs: 1, holat: 'kutilmoqda',
+  muddat: '2026-10-05', sana: '2026-09-20T09:00:00.000Z', versiya: 1,
+};
+const BITIM_TOLOV = [
+  { id: 't1', klient_id: 'k1', bitim_id: 'b1', yonalish: 'oldim', summa: 5000,
+    valyuta: 'USD', kurs: 1, usuli: 'naqd', holat: 'kutilmoqda',
+    sana: '2026-09-22T09:00:00.000Z', versiya: 1 },
+  // Bekor qilingan to'lov hujjatga TUSHMASLIGI kerak
+  { id: 't2', klient_id: 'k1', bitim_id: 'b1', yonalish: 'oldim', summa: 9900,
+    valyuta: 'USD', kurs: 1, usuli: 'naqd', holat: 'bekor',
+    sana: '2026-09-23T09:00:00.000Z', versiya: 1 },
+  // Boshqa bitimning to'lovi ham tushmasligi kerak
+  { id: 't3', klient_id: 'k1', bitim_id: 'b9', yonalish: 'oldim', summa: 7700,
+    valyuta: 'USD', kurs: 1, usuli: 'naqd', holat: 'kutilmoqda',
+    sana: '2026-09-24T09:00:00.000Z', versiya: 1 },
+];
+const HAMKOR = { id: 'k1', ism: 'Tonirok', turi: 'hamkor', faol: true, versiya: 1 };
+
+const bP = H.bitimPdf({ biznes: 'Anvar do\u2018koni', bitim: BITIM, tolovlar: BITIM_TOLOV, hamkor: HAMKOR });
+writeFileSync(join(ish, 'bitim.pdf'), bP);
+const bMatn = Buffer.from(bP).toString('latin1');
+
+tekshir('PDF yasaldi', bP.length > 800, bP.length + ' bayt');
+tekshir('sarlavha OLDI-BERDI', bMatn.includes('OLDI-BERDI'), '');
+tekshir('yo\u2018nalish to\u2018g\u2018ri: biz \u2192 hamkor',
+  bMatn.includes('Anvar') && bMatn.indexOf('Anvar') < bMatn.indexOf('Tonirok'), '');
+tekshir('tovar nomi bor', bMatn.includes('Karobka'), '');
+tekshir('miqdor va birlik bor', bMatn.includes('1200 dona'), '');
+
+// 1 200 x 0.10 = 120, 24 000 EMAS
+tekshir('jami 120.00 (24 000 emas)', bMatn.includes('120.00') && !bMatn.includes('24000'), '');
+tekshir('to\u2018langan 50.00', bMatn.includes('50.00'), '');
+// Birlik narxi 0.10: raqam() uni NOLGA aylantirardi
+tekshir('birlik narxi 0.10 bo\u2018lib chiqdi (0 emas)', bMatn.includes('0.10'), '');
+tekshir('qoldiq 70.00', bMatn.includes('70.00'), '');
+
+tekshir('bekor qilingan to\u2018lov hujjatga tushmadi', !bMatn.includes('99.00'), '');
+tekshir('boshqa bitimning to\u2018lovi tushmadi', !bMatn.includes('77.00'), '');
+tekshir('muddat ko\u2018rsatilgan', bMatn.includes('05.10') || bMatn.includes('2026'), '');
+tekshir('tasdiqlanmagan holati aytilgan', bMatn.includes('Tasdiqlanmagan'), '');
+
+// «oldim» bo'lsa yo'nalish teskari bo'lishi kerak
+const bP2 = H.bitimPdf({
+  biznes: 'Anvar do\u2018koni',
+  bitim: { ...BITIM, yonalish: 'oldim' },
+  tolovlar: [],
+  hamkor: HAMKOR,
+});
+const bMatn2 = Buffer.from(bP2).toString('latin1');
+tekshir('\u00aboldim\u00bb da yo\u2018nalish teskari: hamkor \u2192 biz',
+  bMatn2.indexOf('Tonirok') < bMatn2.indexOf('Anvar'), '');
+
+// To'lovsiz bitimda qoldiq = jami
+tekshir('to\u2018lovsiz bitimda qoldiq jamiga teng',
+  (bMatn2.match(/120\.00/g) ?? []).length >= 2, '');
+
+// Ortiqcha to'langanda qoldiq MANFIY bo'lmasligi kerak: «-20.00»
+// degan qoldiq hujjatda bahsga sabab bo'lardi.
+const bPort = H.bitimPdf({
+  biznes: 'Anvar',
+  bitim: BITIM,
+  tolovlar: [{ ...BITIM_TOLOV[0], summa: 14000 }],
+  hamkor: HAMKOR,
+});
+const bMatnOrt = Buffer.from(bPort).toString('latin1');
+tekshir('ortiqcha to\u2018lovda qoldiq MANFIY emas',
+  !bMatnOrt.includes('-20.00') && !bMatnOrt.includes('\\u2212 20.00'),
+  bMatnOrt.includes('0.00') ? 'qoldiq 0.00' : 'tekshirildi');
+
+// Hamkorsiz ham yiqilmasin (ilovada bo'lmasligi mumkin)
+const bP3 = H.bitimPdf({ biznes: 'Anvar', bitim: BITIM, tolovlar: [], hamkor: null });
+tekshir('hamkorsiz ham hujjat chiqadi', bP3.length > 800, bP3.length + ' bayt');
+
+// Sahifadan chiqib ketmasin
+const bJoylar = [...bMatn.matchAll(/([0-9.]+) ([0-9.]+) Td ((.*?)) Tj/g)].map((m) => Number(m[1]));
+tekshir('matn o\u2018ng chetdan chiqmaydi',
+  bJoylar.length > 0 && bJoylar.every((x) => x <= 556),
+  bJoylar.length ? 'eng o\u2018ngi x=' + Math.max(...bJoylar) : 'bo\u2018lak topilmadi');
+
 console.log('\n  fayllar: ' + ish);
 console.log('\n' + (yiqildi === 0 ? '\x1b[32mHAMMASI O‘TDI\x1b[0m' : `\x1b[31m${yiqildi} TA XATO\x1b[0m`) + '\n');
 process.exit(yiqildi === 0 ? 0 : 1);

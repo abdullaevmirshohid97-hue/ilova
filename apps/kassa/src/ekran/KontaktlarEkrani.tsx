@@ -31,6 +31,8 @@ import { O, useTema } from '../lib/tema';
 import { BoshHolat, Chip, Qator, Tugma, YigindiPaneli, uslublar } from '../ui/qismlar';
 import { YozuvQatori } from './BoshEkran';
 import { tr, trn } from '../lib/til';
+import { bitimPdf } from '../lib/hisobot';
+import { ulash } from '../lib/ulash';
 
 type Filtr = 'hammasi' | 'qarzi' | 'oldindan';
 
@@ -216,6 +218,7 @@ function KontaktOynasi({
   ochirildi: () => void;
 }) {
   const { C } = useTema();
+  const { men } = useHolat();
   const valyuta = klient.valyuta ?? 'UZS';
 
   // Bitim va to‘lov bitta ro‘yxatda, sana bo‘yicha teskari
@@ -314,7 +317,12 @@ function KontaktOynasi({
             ) : (
               tarix.map((x) =>
                 x.tur === 'bitim' ? (
-                  <BitimQatori key={x.id} b={x.bitim} tolovlar={tolovlar} />
+                  <BitimQatori
+                    key={x.id}
+                    b={x.bitim}
+                    tolovlar={tolovlar}
+                    hujjat={() => bitimHujjati(x.bitim, tolovlar, klient, men.biznes)}
+                  />
                 ) : (
                   <TolovQatori key={x.id} t={x.tolov} />
                 ),
@@ -423,7 +431,31 @@ function YangiKontakt({ yopish, saqlandi }: { yopish: () => void; saqlandi: () =
 }
 
 /** Bitim qatori: tovar/qarz, qoldig‘i va holati */
-export function BitimQatori({ b, tolovlar }: { b: Bitim; tolovlar: Tolov[] }) {
+/**
+ * Bitim hujjatini chiqaradi va tizim «ulashish» oynasini ochadi.
+ *
+ * Xato yutilmaydi: fayl yozilmasa odam buni BILISHI kerak, aks
+ * holda «bosdim, hech narsa bo‘lmadi» degan holat chiqardi.
+ */
+async function bitimHujjati(b: Bitim, tolovlar: Tolov[], hamkor: Klient | null, biznes: string) {
+  try {
+    const bayt = bitimPdf({ biznes, bitim: b, tolovlar, hamkor });
+    const nom = `${hamkor?.ism ?? tr('Hamkor')}-${b.sana.slice(0, 10)}`;
+    await ulash(nom, bayt, 'pdf');
+  } catch (e) {
+    Alert.alert(tr('Hujjat chiqmadi'), String((e as Error)?.message ?? e));
+  }
+}
+
+export function BitimQatori({
+  b,
+  tolovlar,
+  hujjat,
+}: {
+  b: Bitim;
+  tolovlar: Tolov[];
+  hujjat?: () => void;
+}) {
   const { C } = useTema();
   const qoldi = bitimQoldiq(b, tolovlar);
   const berdim = b.yonalish === 'berdim';
@@ -450,6 +482,7 @@ export function BitimQatori({ b, tolovlar }: { b: Bitim; tolovlar: Tolov[] }) {
         kechikdi > 0 ? trn('{n} kun kechikdi', kechikdi) : b.holat === 'kutilmoqda' ? tr('kutilmoqda') : undefined
       }
       ongIzohRang={kechikdi > 0 ? C.chiqim : undefined}
+      uzoqBos={hujjat}
       sozilgan={b.holat === 'bekor'}
     />
   );

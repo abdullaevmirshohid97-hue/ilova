@@ -18,14 +18,17 @@
 // =============================================================
 
 import {
+  formatla,
   pdf,
   raqam,
   sanaYozuv,
   winansi,
   xlsx,
+  type Bitim,
   type Hisob,
   type Katak,
   type Klient,
+  type Tolov,
   type Turkum,
   valyutaBoyicha,
   type Yozuv,
@@ -171,5 +174,113 @@ export function hisobotPdf(m: HisobotManba): Uint8Array {
         winansi(oxirgiIzoh),
       ];
     }),
+  });
+}
+
+// ===============================================================
+//  BITIM HUJJATI — bitta oldi-berdining dalili
+//
+//  Hisobot DAVRNI ko'rsatadi, bu esa BITTA bitimni: tovar, miqdor,
+//  narx, to'langani va qolgani. Nizoda qo'lga tutqaziladigan
+//  qog'oz shu.
+//
+//  Ataylab «Faktura» yoki «Schyot» deyilmadi: bu buxgalteriya
+//  hujjati EMAS, STIR va imzo majburiy emas. Nomi bilan va'da
+//  bermaslik kerak — aks holda odam uni soliqqa olib borardi.
+// ===============================================================
+
+export type BitimManba = {
+  biznes: string;
+  bitim: Bitim;
+  tolovlar: Tolov[];
+  hamkor: Klient | null;
+};
+
+/** Hujjatning ustki qismidagi «kim kimga» satri */
+function tomonlar(m: BitimManba): string {
+  const hamkor = m.hamkor?.kompaniya || m.hamkor?.ism || tr('Hamkor');
+  return m.bitim.yonalish === 'berdim'
+    ? `${m.biznes} → ${hamkor}`
+    : `${hamkor} → ${m.biznes}`;
+}
+
+/**
+ * Bitim hujjatida pul KASRI BILAN yoziladi.
+ *
+ * `raqam()` butunga yaxlitlaydi — hisobotda so'm uchun bu to'g'ri,
+ * lekin bu yerda birlik narxi $0.10 bo‘lishi mumkin va u «0» bo‘lib
+ * chiqardi. Konsepsiyadagi xato ham aynan shu qatorda tug‘ilgan edi.
+ */
+const pul = (tiyin: number, valyuta: Bitim['valyuta']) =>
+  formatla(tiyin, valyuta, { belgisiz: true });
+
+/** Bitim va to'lovlar jadvali: har qator — bitta harakat */
+function bitimQatorlari(m: BitimManba): string[][] {
+  const v = m.bitim.valyuta;
+  const qatorlar: string[][] = [
+    [
+      sanaQisqa(m.bitim.sana),
+      m.bitim.yonalish === 'berdim' ? tr('Berildi') : tr('Olindi'),
+      m.bitim.tovar_nom || (m.bitim.nima === 'qarz' ? tr('Qarz') : tr('Tovar')),
+      m.bitim.miqdor ? `${m.bitim.miqdor} ${m.bitim.birlik ?? tr('dona')}` : '',
+      m.bitim.narx ? pul(m.bitim.narx, v) : '',
+      pul(m.bitim.summa, v),
+    ],
+  ];
+  for (const t of m.tolovlar) {
+    if (t.bitim_id !== m.bitim.id || t.holat === 'bekor') continue;
+    qatorlar.push([
+      sanaQisqa(t.sana),
+      tr('To‘lov'),
+      tr(t.usuli ?? 'naqd'),
+      '',
+      '',
+      '-' + pul(t.summa, v),
+    ]);
+  }
+  return qatorlar;
+}
+
+/** Pastdagi xulosa: jami, to'langan, qolgan */
+function bitimXulosa(m: BitimManba): [string, string][] {
+  const tolangan = m.tolovlar
+    .filter((t) => t.bitim_id === m.bitim.id && t.holat !== 'bekor')
+    .reduce((s, t) => s + t.summa, 0);
+  const qoldi = Math.max(0, m.bitim.summa - tolangan);
+  const v = m.bitim.valyuta;
+  const x: [string, string][] = [
+    [tr('Jami'), pul(m.bitim.summa, v) + ' ' + v],
+    [tr('To‘langan'), pul(tolangan, v) + ' ' + v],
+    [tr('Qoldi'), pul(qoldi, v) + ' ' + v],
+  ];
+  if (m.bitim.muddat) x.push([tr('Muddat'), sanaQisqa(m.bitim.muddat)]);
+  x.push([
+    tr('Holat'),
+    m.bitim.holat === 'tasdiqlangan'
+      ? tr('Tasdiqlangan')
+      : m.bitim.holat === 'yopilgan'
+        ? tr('Yopilgan')
+        : m.bitim.holat === 'bekor'
+          ? tr('Bekor qilingan')
+          : tr('Tasdiqlanmagan'),
+  ]);
+  return x;
+}
+
+export function bitimPdf(m: BitimManba): Uint8Array {
+  return pdf({
+    sarlavha: winansi(tr('OLDI-BERDI')),
+    qator2: winansi(tomonlar(m)),
+    qator3: winansi(tr('Hujjat sanasi:') + ' ' + sanaYozuv(new Date())),
+    xulosa: bitimXulosa(m).map(([a, b]) => [winansi(a), winansi(b)] as [string, string]),
+    ustunlar: [
+      { nom: tr('Sana'), en: 14 },
+      { nom: tr('Harakat'), en: 14 },
+      { nom: tr('Nomi'), en: 24 },
+      { nom: tr('Miqdor'), en: 14, ong: true },
+      { nom: tr('Narx'), en: 14, ong: true },
+      { nom: tr('Summa'), en: 16, ong: true },
+    ],
+    qatorlar: bitimQatorlari(m).map((q) => q.map(winansi)),
   });
 }
