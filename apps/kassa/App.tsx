@@ -58,6 +58,7 @@ import KunYakuni from './src/ekran/KunYakuni';
 import BiznesRoyxati from './src/ekran/BiznesRoyxati';
 import MijozOynasi from './src/ekran/MijozOynasi';
 import BitimlarEkrani from './src/ekran/BitimlarEkrani';
+import ValyutaSozlama from './src/ekran/ValyutaSozlama';
 import YozuvOynasi, { type OynaRejimi } from './src/ekran/YozuvOynasi';
 import BitimOynasi from './src/ekran/BitimOynasi';
 import TolovOynasi from './src/ekran/TolovOynasi';
@@ -252,6 +253,7 @@ const SARLAVHA: Record<Exclude<Bolim, 'yakun'>, string> = {
   kalendar: 'Kalendar',
   aimodel: 'AI modeli',
   ai: 'AI ulanish',
+  valyuta: 'Valyuta va kurs',
   sozlama: 'Sozlamalar',
 };
 
@@ -464,6 +466,7 @@ function Qobiq({ qaytaYukla }: { qaytaYukla: () => void }) {
         )}
         {bolim === 'aimodel' && <AiModel />}
         {bolim === 'ai' && <AiUlanish />}
+        {bolim === 'valyuta' && <ValyutaSozlama />}
         {bolim === 'sozlama' && <Sozlama />}
       </View>
 

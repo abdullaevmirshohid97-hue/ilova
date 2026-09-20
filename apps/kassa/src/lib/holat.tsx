@@ -27,13 +27,14 @@ import {
 } from 'react';
 import { AppState, Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import type { Bitim, Hisob, Klient, Tolov, Turkum, Yozuv } from '@ilova/kassa-yadro';
+import type { Bitim, Hisob, Klient, Tolov, Turkum, ValyutaKurs, Yozuv } from '@ilova/kassa-yadro';
 import {
   bitimlarOl,
   hisoblarOl,
   klientlarOl,
   omborniQoy,
   tolovlarOl,
+  valyutalarOl,
   turkumlarOl,
   yozuvlarOl,
   type Men,
@@ -56,6 +57,7 @@ type Holat = {
   yozuvlar: Yozuv[];
   bitimlar: Bitim[];
   tolovlar: Tolov[];
+  valyutalar: ValyutaKurs[];
   yuklanmoqda: boolean;
   xato: string | null;
 
@@ -105,6 +107,7 @@ export function HolatProvider({ men, children }: { men: Men; children: ReactNode
   const [yozuvlar, setYozuvlar] = useState<Yozuv[]>([]);
   const [bitimlar, setBitimlar] = useState<Bitim[]>([]);
   const [tolovlar, setTolovlar] = useState<Tolov[]>([]);
+  const [valyutalar, setValyutalar] = useState<ValyutaKurs[]>([]);
   const [yuklanmoqda, setYuklanmoqda] = useState(true);
   const [xato, setXato] = useState<string | null>(null);
 
@@ -129,6 +132,7 @@ export function HolatProvider({ men, children }: { men: Men; children: ReactNode
         yozuvlarOl(),
         bitimlarOl(),
         tolovlarOl(),
+        valyutalarOl(),
       ]);
       setHisoblar(h);
       setTurkumlar(t);
@@ -222,6 +226,7 @@ export function HolatProvider({ men, children }: { men: Men; children: ReactNode
       yozuvlar,
       bitimlar,
       tolovlar,
+      valyutalar,
       yuklanmoqda,
       xato,
       sinxHolat: natija?.holat ?? (sinxlanmoqda ? 'navbatda' : 'sinxron'),
@@ -235,7 +240,7 @@ export function HolatProvider({ men, children }: { men: Men; children: ReactNode
       nomniQoy: setBiznes,
     }),
     [
-      men, biznes, hisoblar, turkumlar, klientlar, yozuvlar, bitimlar, tolovlar, yuklanmoqda, xato,
+      men, biznes, hisoblar, turkumlar, klientlar, yozuvlar, bitimlar, tolovlar, valyutalar, yuklanmoqda, xato,
       natija, sinxlanmoqda, ziddiyatlar, doimiy, yangila, sinxlash, ziddiyatniYop,
     ],
   );

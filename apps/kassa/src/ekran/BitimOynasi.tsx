@@ -15,7 +15,7 @@
 //  raqami ustiga o'zimizniki yozilardi.
 // =============================================================
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Alert, Modal, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { cheklovTekshir, formatla, hamkorQoldiq, ifodaKorinish, tiyinga } from '@ilova/kassa-yadro';
@@ -45,7 +45,7 @@ export default function BitimOynasi({
   saqlandi: () => void;
 }) {
   const { C } = useTema();
-  const { hisoblar, klientlar, bitimlar, tolovlar, yozuvlar } = useHolat();
+  const { hisoblar, klientlar, bitimlar, tolovlar, yozuvlar, valyutalar } = useHolat();
   const chekka = useSafeAreaInsets();
 
   const faolHisoblar = hisoblar.filter((h) => h.faol);
@@ -66,7 +66,22 @@ export default function BitimOynasi({
   const [xato, setXato] = useState<string | null>(null);
 
   const klient = klientlar.find((k) => k.id === klientId);
-  const valyuta = klient?.valyuta ?? hisoblar[0]?.valyuta ?? 'UZS';
+  // Valyuta: hamkorniki standart, lekin ALMASHTIRSA bo‘ladi —
+  // bir hamkor bilan ham so‘mda, ham dollarda ishlash odatiy.
+  const boshValyuta = klient?.valyuta ?? hisoblar[0]?.valyuta ?? 'UZS';
+  const [valyuta, setValyuta] = useState(boshValyuta);
+  const [qoldaTanlandi, setQoldaTanlandi] = useState(false);
+
+  // Hamkor almashsa valyuta unga moslanadi — lekin odam qo‘lda
+  // tanlagan bo‘lsa tegilmaydi: tanlovini bekor qilish
+  // kutilmagan bo‘lardi.
+  useEffect(() => {
+    if (!qoldaTanlandi) setValyuta(boshValyuta);
+  }, [boshValyuta, qoldaTanlandi]);
+
+  // KURS shu yerda olinadi va yozuvga NUSXALANADI. Ertaga kurs
+  // o‘zgarsa, bu yozuv o‘zgarmaydi — kelishuv o‘sha kunniki.
+  const kurs = valyutalar.find((v) => v.valyuta === valyuta)?.kurs ?? 1;
 
   // Miqdor x narx. Qo'lda yozilgan bo'lsa tegilmaydi.
   const hisoblangan = useMemo(() => {
@@ -145,6 +160,7 @@ export default function BitimOynasi({
         miqdor: tovarmi && miqdor ? Number(miqdor.replace(',', '.')) : null,
         narx: tovarmi && narx ? tiyinga(narx) : null,
         valyuta,
+        kurs,
         izoh,
         muddat,
         hisob_id: tovarmi ? null : hisobId,
@@ -358,6 +374,26 @@ export default function BitimOynasi({
             )}
 
             {/* ---------- Izoh ---------- */}
+            {/* Valyuta — faqat BITTADAN ORTIQ bo‘lsa ko‘rinadi:
+                bitta valyutada ishlaydigan odamga ortiqcha qator. */}
+            {valyutalar.length > 1 && (
+              <>
+                <Yorliq matn={tr('Valyuta')} />
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ paddingLeft: O.chekka }}>
+                  {valyutalar.map((v) => (
+                    <Chip
+                      key={v.valyuta}
+                      matn={v.valyuta}
+                      tanlangan={v.valyuta === valyuta}
+                      bos={() => {
+                        setValyuta(v.valyuta);
+                        setQoldaTanlandi(true);
+                      }}
+                    />
+                  ))}
+                </ScrollView>
+              </>
+            )}
             <Yorliq matn={tr('Izoh')} />
             <View style={{ paddingHorizontal: O.chekka }}>
               <TextInput

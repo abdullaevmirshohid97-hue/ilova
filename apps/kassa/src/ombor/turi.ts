@@ -20,7 +20,8 @@ export type Jadval =
   | 'klientlar'
   | 'yozuvlar'
   | 'bitimlar'
-  | 'tolovlar';
+  | 'tolovlar'
+  | 'valyutalar';
 
 export const JADVALLAR: Jadval[] = [
   'hisoblar',
@@ -29,6 +30,7 @@ export const JADVALLAR: Jadval[] = [
   'yozuvlar',
   'bitimlar',
   'tolovlar',
+  'valyutalar',
 ];
 
 /** Bazadagi jadval nomi — mahalliy nom qisqa, serverniki prefiksli */
@@ -39,6 +41,7 @@ export const BAZA_NOMI: Record<Jadval, string> = {
   yozuvlar: 'kassa_yozuvlar',
   bitimlar: 'kassa_bitimlar',
   tolovlar: 'kassa_bitim_tolovlar',
+  valyutalar: 'kassa_valyutalar',
 };
 
 export type AmalTuri = 'qosh' | 'tahrir';

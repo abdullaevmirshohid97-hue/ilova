@@ -32,7 +32,23 @@ export function bazaga(tiyin: number): string {
   return manfiy ? '-' + s : s;
 }
 
-export type Valyuta = 'UZS' | 'USD' | 'EUR' | 'RUB';
+/**
+ * Qo‘llab-quvvatlanadigan valyutalar.
+ *
+ * Ro‘yxat qo‘shni davlatlar bo‘yicha kengaytirildi: do‘kondor
+ * ko‘pincha Qozog‘iston yoki Qirg‘iziston bilan ishlaydi va
+ * hisobni o‘sha valyutada yuritadi.
+ *
+ * Bazadagi `check` cheklovi ham shu ro‘yxat bilan bir xil
+ * bo‘lishi shart — aks holda ilova yozmoqchi bo‘lgan valyutani
+ * server rad etardi va sabab ekranda «cheklov buzildi» bo‘lib
+ * chiqardi.
+ */
+export type Valyuta = 'UZS' | 'USD' | 'EUR' | 'RUB' | 'KZT' | 'KGS' | 'TRY' | 'AZN' | 'TJS';
+
+export const VALYUTALAR: Valyuta[] = [
+  'UZS', 'USD', 'EUR', 'RUB', 'KZT', 'KGS', 'TRY', 'AZN', 'TJS',
+];
 
 // Belgi qayerda turishi va kasr qanday ajratilishi valyutaga bog'liq.
 // Tartib `apps/mobile/src/lib/valyuta.ts` dagidek: "$1 650.00" va
@@ -42,6 +58,13 @@ const BELGI: Record<Valyuta, { belgi: string; oldinda: boolean; nuqta: boolean }
   RUB: { belgi: '₽', oldinda: false, nuqta: false },
   USD: { belgi: '$', oldinda: true, nuqta: true },
   EUR: { belgi: '€', oldinda: true, nuqta: true },
+  // Qo‘shni davlatlar. Tenge, som va somoniyda ham tiyin
+  // amalda ishlatilmaydi — so‘m bilan bir xil qoida.
+  KZT: { belgi: '₸', oldinda: false, nuqta: false },
+  KGS: { belgi: 'сом', oldinda: false, nuqta: false },
+  TRY: { belgi: '₺', oldinda: true, nuqta: true },
+  AZN: { belgi: '₼', oldinda: true, nuqta: true },
+  TJS: { belgi: 'SM', oldinda: false, nuqta: false },
 };
 
 /**

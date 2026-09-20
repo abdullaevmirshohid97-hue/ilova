@@ -24,7 +24,14 @@
 
 import { useMemo, useState } from 'react';
 import { Alert, RefreshControl, ScrollView, Text, TouchableOpacity, View } from 'react-native';
-import { bitimQoldiq, formatla, hamkorQoldiq, muddatiOtgan, type HamkorQator } from '@ilova/kassa-yadro';
+import {
+  asosiygaOgir,
+  bitimQoldiq,
+  formatla,
+  hamkorQoldiq,
+  muddatiOtgan,
+  type HamkorQator,
+} from '@ilova/kassa-yadro';
 import type { Klient } from '@ilova/kassa-yadro';
 import { boshHarflar } from '../lib/rasm';
 import { useHolat } from '../lib/holat';
@@ -62,7 +69,8 @@ export default function BoshEkran({
   ochTolov: (klientId: string) => void;
 }) {
   const { C } = useTema();
-  const { men, klientlar, yozuvlar, bitimlar, tolovlar, yangila, yuklanmoqda } = useHolat();
+  const { men, klientlar, yozuvlar, bitimlar, tolovlar, valyutalar, yangila, yuklanmoqda } =
+    useHolat();
   const [filtr, setFiltr] = useState<Filtr>('hammasi');
   const [tanlangan, setTanlangan] = useState<Klient | null>(null);
   // Xabar oynasi kartochkaning USTIDAN ochiladi: odam xabarni
@@ -71,7 +79,16 @@ export default function BoshEkran({
   // almashsa, matn shu funksiya bilan qaytadan yasaladi.
   const [xabar, setXabar] = useState<((til: XabarTil) => string) | null>(null);
 
-  const valyuta = klientlar[0]?.valyuta ?? 'UZS';
+  // Pastdagi jami ASOSIY valyutada: har hamkorning qoldig‘i
+  // o‘z valyutasida, lekin ularni qo‘shish uchun bitta o‘lchov
+  // kerak. O‘girmasak so‘m va dollar qo‘shilib, jim xato
+  // chiqardi — balans.ts dagi 3-qoida.
+  const asosiy = valyutalar.find((v) => v.asosiy)?.valyuta ?? 'UZS';
+  const kursXarita = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const v of valyutalar) m.set(v.valyuta, v.kurs);
+    return m;
+  }, [valyutalar]);
 
   /** Har mijozning qoldig'i — bir marta hisoblanadi */
   const qoldiqlar = useMemo(() => {
@@ -137,12 +154,16 @@ export default function BoshEkran({
   const jami = useMemo(() => {
     let haqlar = 0;
     let qarzlar = 0;
-    for (const q of qoldiqlar.values()) {
-      if (q > 0) haqlar += q;
-      else qarzlar += -q;
+    for (const k of klientlar) {
+      const q = qoldiqlar.get(k.id) ?? 0;
+      if (q === 0) continue;
+      const kv = k.valyuta ?? 'UZS';
+      const asosiyda = kv === asosiy ? q : asosiygaOgir(q, kursXarita.get(kv) ?? 1);
+      if (asosiyda > 0) haqlar += asosiyda;
+      else qarzlar += -asosiyda;
     }
     return { haqlar, qarzlar, balans: haqlar - qarzlar };
-  }, [qoldiqlar]);
+  }, [klientlar, qoldiqlar, asosiy, kursXarita]);
 
   return (
     <View style={{ flex: 1, backgroundColor: C.fon }}>
@@ -270,13 +291,13 @@ export default function BoshEkran({
           paddingVertical: 10,
         }}
       >
-        <JamiUstun nom={tr('Jami haqlar')} summa={jami.haqlar} rang={C.kirim} valyuta={valyuta} />
-        <JamiUstun nom={tr('Jami qarzlar')} summa={jami.qarzlar} rang={C.chiqim} valyuta={valyuta} />
+        <JamiUstun nom={tr('Jami haqlar')} summa={jami.haqlar} rang={C.kirim} valyuta={asosiy} />
+        <JamiUstun nom={tr('Jami qarzlar')} summa={jami.qarzlar} rang={C.chiqim} valyuta={asosiy} />
         <JamiUstun
           nom={tr('Balans')}
           summa={jami.balans}
           rang={jami.balans >= 0 ? C.kirim : C.chiqim}
-          valyuta={valyuta}
+          valyuta={asosiy}
           ishorali
         />
       </View>

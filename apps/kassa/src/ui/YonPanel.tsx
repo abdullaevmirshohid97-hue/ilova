@@ -29,6 +29,7 @@ export type PanelBolim =
   | 'yakun'
   | 'aimodel'
   | 'ai'
+  | 'valyuta'
   | 'sozlama';
 
 type Qator = { kalit: PanelBolim; belgi: string; matn: string };
@@ -51,6 +52,7 @@ const GURUHLAR: Qator[][] = [
   [
     { kalit: 'aimodel', belgi: '✦', matn: 'AI modeli' },
     { kalit: 'ai', belgi: '✧', matn: 'AI ulanish' },
+    { kalit: 'valyuta', belgi: '¤', matn: 'Valyuta va kurs' },
     { kalit: 'sozlama', belgi: '⚙', matn: 'Sozlamalar' },
   ],
 ];

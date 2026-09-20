@@ -19,7 +19,7 @@
 
 import { bazaga, tiyinga } from '@ilova/kassa-yadro';
 import { bitimQoldiq } from '@ilova/kassa-yadro';
-import type { Bitim, Hisob, Klient, Tolov, Turkum, Yozuv } from '@ilova/kassa-yadro';
+import type { Bitim, Hisob, Klient, Tolov, Turkum, ValyutaKurs, Yozuv } from '@ilova/kassa-yadro';
 import type { Amal, Jadval, Ombor } from '../ombor/turi';
 import { amalYasa, uuid } from './sinx';
 import { supabase } from './supabase';
@@ -159,6 +159,8 @@ async function mahalliyTahrir(
 }
 
 export type YangiYozuv = {
+  /** Yozuv paytidagi kurs — MUZLATILADI */
+  kurs?: number;
   hisob_id: string;
   turi: 'kirim' | 'chiqim';
   /** Tiyinda */
@@ -182,7 +184,7 @@ export async function yozuvQosh(y: YangiYozuv): Promise<string> {
     turi: y.turi,
     summa: bazaga(y.summa),
     valyuta: y.valyuta ?? 'UZS',
-    kurs: 1,
+    kurs: y.kurs ?? 1,
     turkum_id: y.turkum_id ?? null,
     klient_id: y.klient_id ?? null,
     izoh: y.izoh?.trim() || null,
@@ -585,6 +587,8 @@ export async function tolovlarOl(): Promise<Tolov[]> {
 }
 
 export type YangiBitim = {
+  /** Yozuv paytidagi kurs — MUZLATILADI */
+  kurs?: number;
   klient_id: string;
   yonalish: 'oldim' | 'berdim';
   nima: 'tovar' | 'qarz';
@@ -626,7 +630,7 @@ export async function bitimQosh(b: YangiBitim): Promise<string> {
     narx: b.narx === null || b.narx === undefined ? null : bazaga(b.narx),
     summa: bazaga(b.summa),
     valyuta: b.valyuta ?? 'UZS',
-    kurs: 1,
+    kurs: b.kurs ?? 1,
     muddat: b.muddat ?? null,
     izoh: b.izoh?.trim() || null,
     sana,
@@ -657,6 +661,8 @@ export async function bitimQosh(b: YangiBitim): Promise<string> {
 }
 
 export type YangiTolov = {
+  /** Yozuv paytidagi kurs — MUZLATILADI */
+  kurs?: number;
   klient_id: string;
   yonalish: 'oldim' | 'berdim';
   /** Tiyinda */
@@ -700,6 +706,7 @@ export async function tolovQosh(t: YangiTolov): Promise<string> {
     izoh: t.izoh?.trim() || tr('To‘lov'),
     sana,
     valyuta: t.valyuta,
+    kurs: t.kurs ?? 1,
     bitim_id: t.bitim_id ?? null,
     tolov_usuli: t.usuli === 'bank' ? 'otkazma' : t.usuli === 'tovar' ? 'naqd' : t.usuli,
   });
@@ -711,7 +718,7 @@ export async function tolovQosh(t: YangiTolov): Promise<string> {
     yonalish: t.yonalish,
     summa: bazaga(t.summa),
     valyuta: t.valyuta ?? 'UZS',
-    kurs: 1,
+    kurs: t.kurs ?? 1,
     usuli: t.usuli ?? 'naqd',
     muddat: t.muddat ?? null,
     yozuv_id: yozuvId,
@@ -833,4 +840,72 @@ export async function biznesOchir(orgId: string, qollash = false): Promise<Ochir
   if (error) throw error;
   if (qollash) await ombor().tozala();
   return data as OchirishNatija;
+}
+
+// ---------------------------------------------------------------
+//  VALYUTA VA KURS
+//
+//  Asosiy valyuta bitta, qolganlariga kurs kiritiladi.
+//  Kurs YOZUV PAYTIDA nusxalanadi (`kurs` ustuni), shuning
+//  uchun bu yerdagi qiymat faqat YANGI yozuvlarga ta’sir
+//  qiladi — eskilari o‘zgarmaydi.
+// ---------------------------------------------------------------
+export async function valyutalarOl(): Promise<ValyutaKurs[]> {
+  const qatorlar = await ombor().royxat<Record<string, unknown>>('valyutalar');
+  return qatorlar
+    .map((v) => ({
+      ...(v as unknown as ValyutaKurs),
+      kurs: Number(v.kurs ?? 1),
+      asosiy: v.asosiy === true,
+      faol: v.faol !== false,
+    }))
+    .filter((v) => v.faol)
+    .sort((a, b) => (b.asosiy ? 1 : 0) - (a.asosiy ? 1 : 0) || a.valyuta.localeCompare(b.valyuta));
+}
+
+/** Qo‘shadi yoki kursini yangilaydi */
+export async function valyutaSaqla(p: {
+  valyuta: ValyutaKurs['valyuta'];
+  kurs: number;
+  asosiy?: boolean;
+}): Promise<void> {
+  const bor = (await valyutalarOl()).find((v) => v.valyuta === p.valyuta);
+  if (bor) {
+    await mahalliyTahrir('valyutalar', bor.id, {
+      kurs: String(p.kurs),
+      asosiy: p.asosiy ?? bor.asosiy,
+    });
+    return;
+  }
+  await mahalliyQosh('valyutalar', {
+    id: uuid(),
+    valyuta: p.valyuta,
+    kurs: String(p.kurs),
+    asosiy: p.asosiy ?? false,
+    faol: true,
+    versiya: 1,
+    o_raqam: null,
+  });
+}
+
+/**
+ * Asosiy valyutani almashtiradi.
+ *
+ * Eskisidan belgi OLINADI, yangisiga qo‘yiladi — ikkalasi
+ * ham bir yozuvda bo‘lishi kerak, aks holda bazadagi unikal
+ * indeks ikkita asosiyni rad etardi.
+ */
+export async function asosiyValyutaQoy(valyuta: ValyutaKurs['valyuta']): Promise<void> {
+  const royxat = await valyutalarOl();
+  for (const v of royxat) {
+    if (v.asosiy && v.valyuta !== valyuta) {
+      await mahalliyTahrir('valyutalar', v.id, { asosiy: false });
+    }
+  }
+  // Asosiy valyutaning kursi har doim 1: u o‘ziga o‘giriladi.
+  await valyutaSaqla({ valyuta, kurs: 1, asosiy: true });
+}
+
+export async function valyutaOchir(id: string): Promise<void> {
+  await mahalliyTahrir('valyutalar', id, { faol: false });
 }

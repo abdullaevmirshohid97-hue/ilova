@@ -11,7 +11,7 @@
 //  ko'rsa, noto'g'ri summa kamdan-kam o'tadi.
 // =============================================================
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Modal, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { bitimQoldiq, formatla, hamkorQoldiq, ifodaKorinish, tiyinga } from '@ilova/kassa-yadro';
@@ -46,7 +46,7 @@ export default function TolovOynasi({
   saqlandi: () => void;
 }) {
   const { C } = useTema();
-  const { hisoblar, klientlar, bitimlar, tolovlar } = useHolat();
+  const { hisoblar, klientlar, bitimlar, tolovlar, valyutalar } = useHolat();
   const chekka = useSafeAreaInsets();
 
   const faolHisoblar = hisoblar.filter((h) => h.faol);
@@ -62,7 +62,22 @@ export default function TolovOynasi({
   const [xato, setXato] = useState<string | null>(null);
 
   const klient = klientlar.find((k) => k.id === klientId);
-  const valyuta = klient?.valyuta ?? hisoblar[0]?.valyuta ?? 'UZS';
+  // Valyuta: hamkorniki standart, lekin ALMASHTIRSA bo‘ladi —
+  // bir hamkor bilan ham so‘mda, ham dollarda ishlash odatiy.
+  const boshValyuta = klient?.valyuta ?? hisoblar[0]?.valyuta ?? 'UZS';
+  const [valyuta, setValyuta] = useState(boshValyuta);
+  const [qoldaTanlandi, setQoldaTanlandi] = useState(false);
+
+  // Hamkor almashsa valyuta unga moslanadi — lekin odam qo‘lda
+  // tanlagan bo‘lsa tegilmaydi: tanlovini bekor qilish
+  // kutilmagan bo‘lardi.
+  useEffect(() => {
+    if (!qoldaTanlandi) setValyuta(boshValyuta);
+  }, [boshValyuta, qoldaTanlandi]);
+
+  // KURS shu yerda olinadi va yozuvga NUSXALANADI. Ertaga kurs
+  // o‘zgarsa, bu yozuv o‘zgarmaydi — kelishuv o‘sha kunniki.
+  const kurs = valyutalar.find((v) => v.valyuta === valyuta)?.kurs ?? 1;
   const tiyin = tiyinga(summa);
 
   const joriy = useMemo(
@@ -110,6 +125,7 @@ export default function TolovOynasi({
         bitim_id: bitimId,
         usuli,
         valyuta,
+        kurs,
         izoh,
         muddat,
       });
@@ -281,6 +297,26 @@ export default function TolovOynasi({
               ))}
             </ScrollView>
 
+            {/* Valyuta — faqat BITTADAN ORTIQ bo‘lsa ko‘rinadi:
+                bitta valyutada ishlaydigan odamga ortiqcha qator. */}
+            {valyutalar.length > 1 && (
+              <>
+                <Yorliq matn={tr('Valyuta')} />
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ paddingLeft: O.chekka }}>
+                  {valyutalar.map((v) => (
+                    <Chip
+                      key={v.valyuta}
+                      matn={v.valyuta}
+                      tanlangan={v.valyuta === valyuta}
+                      bos={() => {
+                        setValyuta(v.valyuta);
+                        setQoldaTanlandi(true);
+                      }}
+                    />
+                  ))}
+                </ScrollView>
+              </>
+            )}
             <Yorliq matn={tr('Usuli')} />
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ paddingLeft: O.chekka }}>
               {USULLAR.map((u) => (

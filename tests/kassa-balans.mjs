@@ -580,6 +580,73 @@ tekshir('eski yozuv: kirim',
   Y.operatsiyaNomi({ tur: 'yozuv', yozuv: { turi: 'kirim' } }) === 'Kirim');
 
 // -------------------------------------------------------------
+//  VALYUTA O'GIRISH
+//
+//  Fayl boshidagi 3-qoida («VALYUTALAR QO'SHILMAYDI») bekor
+//  qilinmadi, ANIQLASHTIRILDI: o'girish faqat yozuvda muzlatilgan
+//  kurs bilan bo'ladi, taxmin bilan emas.
+// -------------------------------------------------------------
+console.log('\n6g. Valyuta o\u2018girish');
+
+// $1.00 = 100 tiyin-USD. Kurs 11 850 bo'lsa → 11 850 so'm =
+// 1 185 000 tiyin-UZS.
+tekshir('1 dollar 11850 so\u2018m bo\u2018ladi',
+  Y.asosiygaOgir(100, 11850) === 1185000,
+  String(Y.asosiygaOgir(100, 11850)));
+
+tekshir('kurs 1 bo\u2018lsa summa o\u2018zgarmaydi', Y.asosiygaOgir(250000, 1) === 250000);
+tekshir('kurs yo\u2018q bo\u2018lsa summa o\u2018zgarmaydi', Y.asosiygaOgir(250000, null) === 250000);
+tekshir('kurs nol bo\u2018lsa summa o\u2018zgarmaydi', Y.asosiygaOgir(250000, 0) === 250000);
+tekshir('manfiy kurs ham o\u2018zgartirmaydi', Y.asosiygaOgir(250000, -5) === 250000);
+
+// Manfiy summa (qarz) ham to'g'ri o'giriladi
+tekshir('manfiy summa o\u2018giriladi', Y.asosiygaOgir(-100, 11850) === -1185000);
+
+// Kasr kurs yaxlitlanadi, tiyin butun qoladi
+tekshir('kasr kurs yaxlitlanadi',
+  Number.isInteger(Y.asosiygaOgir(100, 11850.7)),
+  String(Y.asosiygaOgir(100, 11850.7)));
+
+// --- Hisoblarning asosiy valyutadagi jami ---
+const vH = [
+  { id: 'v1', nom: 'Naqd', turi: 'naqd', valyuta: 'UZS', boshlangich: 1000000, tartib: 0, faol: true, versiya: 1 },
+  { id: 'v2', nom: 'Dollar', turi: 'naqd', valyuta: 'USD', boshlangich: 10000, tartib: 1, faol: true, versiya: 1 },
+  { id: 'v3', nom: 'Yopiq', turi: 'naqd', valyuta: 'USD', boshlangich: 99999, tartib: 2, faol: false, versiya: 1 },
+];
+const vKurs = [{ valyuta: 'USD', kurs: 11850 }];
+
+// 1 000 000 tiyin-UZS + 10 000 tiyin-USD * 11850 = 1 000 000 + 118 500 000
+tekshir('jami asosiy valyutada',
+  Y.jamiAsosiyda(vH, [], vKurs, 'UZS') === 1000000 + 118500000,
+  String(Y.jamiAsosiyda(vH, [], vKurs, 'UZS')));
+
+tekshir('YOPIQ hisob jamida yo\u2018q',
+  Y.jamiAsosiyda(vH, [], vKurs, 'UZS') !== 1000000 + 118500000 + 99999 * 11850);
+
+// Kurs berilmagan valyuta 1 deb olinadi — raqam yo'qolmaydi,
+// lekin xato ham bo'lmaydi.
+tekshir('kurssiz valyuta 1 deb olinadi',
+  Y.jamiAsosiyda(vH, [], [], 'UZS') === 1000000 + 10000,
+  String(Y.jamiAsosiyda(vH, [], [], 'UZS')));
+
+// ASOSIY valyutadagi hisob HECH QACHON o'girilmaydi, hatto
+// kurs jadvalida UZS bo'lsa ham: aks holda so'm so'mga
+// ko'paytirilardi.
+tekshir('asosiy valyuta o\u2018girilmaydi',
+  Y.jamiAsosiyda(vH, [], [{ valyuta: 'UZS', kurs: 999 }, ...vKurs], 'UZS') ===
+    1000000 + 118500000,
+  String(Y.jamiAsosiyda(vH, [], [{ valyuta: 'UZS', kurs: 999 }, ...vKurs], 'UZS')));
+
+// Valyutalar ro'yxati bazadagi cheklov bilan bir xil bo'lishi
+// kerak — aks holda ilova yozmoqchi bo'lgan valyutani server
+// rad etardi.
+tekshir('to\u2018qqizta valyuta bor', Y.VALYUTALAR.length === 9, Y.VALYUTALAR.join(','));
+for (const v of Y.VALYUTALAR) {
+  const m = Y.formatla(123456, v);
+  tekshir(v + ': belgisi bor', m.length > 4 && !m.includes('undefined'), m);
+}
+
+// -------------------------------------------------------------
 //  BALANS CHEKLOVI
 //
 //  Cheklov — hamkorga berilishi mumkin bo'lgan eng katta QARZ.

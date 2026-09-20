@@ -443,3 +443,76 @@ export function operatsiyaNomi(q: {
   }
   return q.yozuv?.turi === 'kirim' ? 'Kirim' : 'Chiqim';
 }
+
+// =============================================================
+//  VALYUTA O'GIRISH
+//
+//  Bu faylning boshida yozilgan 3-qoida: «VALYUTALAR
+//  QO'SHILMAYDI». U BEKOR QILINMADI, aniqlashtirildi.
+//
+//  Qoida nima uchun bor edi: 2 mln so'm va 100 dollarni qo'shib
+//  «2 000 100» chiqarish JIM xato — raqam ishonarli ko'rinadi va
+//  odam unga qarab qaror qabul qiladi.
+//
+//  Endi esa har yozuvda `kurs` bor va u YOZUV PAYTIDA muzlatiladi.
+//  Demak o'girish taxmin emas, o'sha kundagi haqiqiy kelishuv.
+//  Shuning uchun:
+//
+//    · HAMKOR kartochkasi va bitimlar — O'Z valyutasida qoladi;
+//    · BOSH SAHIFADAGI JAMI — asosiy valyutaga o'girib beriladi
+//      va «so'mda» deb belgilanadi.
+//
+//  Kurs KEYINCHALIK o'zgarsa, eski yozuvlar o'zgarmaydi: ularda
+//  o'sha kunning kursi turibdi. Bu ataylab — kecha 11 850 ga
+//  kelishilgan bitim bugun 12 000 bo'lib qolsa, daftar yolg'on
+//  bo'lardi.
+// =============================================================
+
+/** Bir valyutaning asosiy valyutadagi kursi */
+export type Kurs = {
+  valyuta: Valyuta;
+  /** 1 birlik necha ASOSIY valyuta birligiga teng (masalan 11850) */
+  kurs: number;
+};
+
+/**
+ * Yozuv summasini ASOSIY valyutaga o'giradi.
+ *
+ * `kurs` — yozuvning o'zida saqlangan, muzlatilgan qiymat.
+ * Yo'q yoki noto'g'ri bo'lsa 1 deb olinadi: bu eng xavfsiz
+ * taxmin, chunki asosiy valyutadagi yozuvlarda kurs aynan 1.
+ */
+export function asosiygaOgir(tiyin: number, kurs?: number | null): number {
+  const k = Number(kurs);
+  if (!Number.isFinite(k) || k <= 0) return tiyin;
+  return Math.round(tiyin * k);
+}
+
+/**
+ * Hisoblarning ASOSIY valyutadagi jami qoldig'i.
+ *
+ * `umumiyBalans` har valyutani alohida beradi va u joyida
+ * qoladi — bu esa bitta raqam kerak bo'lganda ishlatiladi.
+ *
+ * DIQQAT: hisobning o'z `kurs`i yo'q, shuning uchun kurs
+ * jadvalidan olinadi. Ya'ni bu raqam BUGUNGI kurs bo'yicha va
+ * kurs o'zgarsa u ham o'zgaradi — yozuvlardan farqli. Hisob
+ * qoldig'i «hozir qancha» degan savol, tarix emas.
+ */
+export function jamiAsosiyda(
+  hisoblar: Hisob[],
+  yozuvlar: Yozuv[],
+  kurslar: Kurs[],
+  asosiy: Valyuta,
+): number {
+  const xarita = new Map<string, number>();
+  for (const k of kurslar) xarita.set(k.valyuta, k.kurs);
+
+  let jami = 0;
+  for (const h of hisoblar) {
+    if (!h.faol) continue;
+    const q = hisobQoldiq(h, yozuvlar);
+    jami += h.valyuta === asosiy ? q : asosiygaOgir(q, xarita.get(h.valyuta) ?? 1);
+  }
+  return jami;
+}

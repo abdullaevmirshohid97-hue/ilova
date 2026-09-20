@@ -182,3 +182,21 @@ export type Tolov = {
 
 /** Sinxronizatsiya holati — ekranda belgisi ko'rinadi */
 export type SinxHolat = 'sinxron' | 'navbatda' | 'oflayn' | 'ziddiyat';
+
+/**
+ * Tashkilotning valyutalari va kurslari.
+ *
+ * BUGUNGI kurs. Yozuvdagi `kurs` esa o'sha kundagi, muzlatilgan
+ * qiymat — ikkisi ataylab alohida: kurs ertaga o‘zgarsa,
+ * kechagi bitim o‘zgarmasligi kerak.
+ */
+export type ValyutaKurs = {
+  id: string;
+  valyuta: Valyuta;
+  /** 1 birlik necha ASOSIY valyuta birligiga teng */
+  kurs: number;
+  asosiy: boolean;
+  faol: boolean;
+  versiya: number;
+  o_raqam?: number | null;
+};
