@@ -11,7 +11,8 @@
       "credentialsSource": "local",
       "env": {
         "EXPO_PUBLIC_SUPABASE_URL": "https://gnuddryjsmcrjchrbvyz.supabase.co",
-        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "sb_publishable_BjX_3t2LGX9y8FsKbCqFdw_7AOnXTN3"
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "sb_publishable_BjX_3t2LGX9y8FsKbCqFdw_7AOnXTN3",
+        "EXPO_PUBLIC_KASSA_BOT": ""
       }
     },
     "production": {
@@ -21,7 +22,8 @@
       "credentialsSource": "local",
       "env": {
         "EXPO_PUBLIC_SUPABASE_URL": "https://gnuddryjsmcrjchrbvyz.supabase.co",
-        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "sb_publishable_BjX_3t2LGX9y8FsKbCqFdw_7AOnXTN3"
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "sb_publishable_BjX_3t2LGX9y8FsKbCqFdw_7AOnXTN3",
+        "EXPO_PUBLIC_KASSA_BOT": ""
       }
     }
   },

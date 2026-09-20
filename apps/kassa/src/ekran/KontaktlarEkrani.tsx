@@ -16,6 +16,7 @@ import {
   Modal,
   RefreshControl,
   ScrollView,
+  Share,
   Text,
   TextInput,
   TouchableOpacity,
@@ -32,6 +33,7 @@ import { BoshHolat, Chip, Qator, Tugma, YigindiPaneli, uslublar } from '../ui/qi
 import { YozuvQatori } from './BoshEkran';
 import { tr, trn } from '../lib/til';
 import { bitimPdf } from '../lib/hisobot';
+import { taklifMatni, tasdiqHavolasi } from '../lib/tasdiq';
 import { ulash } from '../lib/ulash';
 
 type Filtr = 'hammasi' | 'qarzi' | 'oldindan';
@@ -219,6 +221,27 @@ function KontaktOynasi({
 }) {
   const { C } = useTema();
   const { men } = useHolat();
+
+  /**
+   * Bitim ustidagi amallar.
+   *
+   * Uzoq bosish — ilovada allaqachon «qo‘shimcha amal» ishorasi
+   * (yozuvni bekor qilish ham shunday). Yangi tugma qo‘shsak
+   * qator tig‘izlashardi.
+   */
+  function amallar(b: Bitim) {
+    const tugmalar: { text: string; onPress?: () => void; style?: 'cancel' }[] = [
+      { text: tr('Hujjat (PDF)'), onPress: () => bitimHujjati(b, tolovlar, klient, men.biznes) },
+    ];
+    if (b.holat === 'kutilmoqda') {
+      tugmalar.push({
+        text: tr('Tasdiqlash havolasi'),
+        onPress: () => tasdiqYubor(b, klient, men.biznes),
+      });
+    }
+    tugmalar.push({ text: tr('Bekor qilish'), style: 'cancel' });
+    Alert.alert(b.tovar_nom || tr('Bitim'), formatla(b.summa, b.valyuta), tugmalar);
+  }
   const valyuta = klient.valyuta ?? 'UZS';
 
   // Bitim va to‘lov bitta ro‘yxatda, sana bo‘yicha teskari
@@ -321,7 +344,7 @@ function KontaktOynasi({
                     key={x.id}
                     b={x.bitim}
                     tolovlar={tolovlar}
-                    hujjat={() => bitimHujjati(x.bitim, tolovlar, klient, men.biznes)}
+                    hujjat={() => amallar(x.bitim)}
                   />
                 ) : (
                   <TolovQatori key={x.id} t={x.tolov} />
@@ -445,6 +468,32 @@ async function bitimHujjati(b: Bitim, tolovlar: Tolov[], hamkor: Klient | null, 
   } catch (e) {
     Alert.alert(tr('Hujjat chiqmadi'), String((e as Error)?.message ?? e));
   }
+}
+
+/**
+ * Tasdiqlash havolasini yaratadi va ulashish oynasini ochadi.
+ *
+ * Havolani biz YUBORMAYMIZ — odam o‘zi tanlaydi: Telegram,
+ * SMS, WhatsApp. Hamkorning Telegrami borligini oldindan
+ * bilmaymiz, va bilsak ham uning nomidan xabar yozish
+ * ishonchni buzardi.
+ */
+async function tasdiqYubor(b: Bitim, hamkor: Klient | null, biznes: string) {
+  try {
+    const { havola } = await tasdiqHavolasi(b.id);
+    await Share.share({ message: taklifMatni(havola, biznes) });
+  } catch (e) {
+    const m = xatoMatn(e);
+    Alert.alert(
+      tr('Havola yaratilmadi'),
+      m.includes('TASDIQ_KERAKMAS')
+        ? tr('Bu bitim tasdiq kutmayapti')
+        : m.includes('Network') || m.includes('network')
+          ? tr('Internet kerak: havola serverda yaratiladi')
+          : m,
+    );
+  }
+  void hamkor;
 }
 
 export function BitimQatori({

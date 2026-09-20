@@ -368,26 +368,54 @@ Bajarilgani (20.09, versiya 2.0.0):
 **Sinovdan o‘tmagan qismi:** baza. Migratsiya hali qo‘llanmagani
 uchun sinxronizatsiya jonli serverga bir marta ham ulanmagan.
 
-### 3-bosqich — Telegram tasdiqlash (3 kun)
+### 3-bosqich — Telegram tasdiqlash ✍️ YOZILDI, QO‘LLANMAGAN
 
-- `kassa-telegram` chekka funksiyasi (bot)
-- Havola yaratish, kartochka, ikki tugma
-- Tasdiq kelganda ilovaga bildirishnoma
-- Sinov: `kassa-tasdiq` — begona token, muddati o'tgan token, ikki
-  marta tasdiqlash, yopilgan bitimni tasdiqlash
+- `kassa-telegram` chekka funksiyasi (ALOHIDA bot, `telegram-qarz` emas)
+- `20260920000003_kassa_tasdiq.sql`: `kassa_tasdiq_tokenlar` +
+  `kassa_tasdiq_havola` / `kassa_tasdiq_korish` / `kassa_tasdiq_bajar`
+- Ilovada: bitim qatorini uzoq bosish → «Tasdiqlash havolasi»
+- Sinov: `kassa-tasdiq` — 22 ta tekshiruv
 
-### 4-bosqich — Soddalashtirish va tozalash (2 kun)
+**Bildirishnoma YO‘Q** (qaror 20.09). Tasdiq kelgani ro‘yxatda
+holat belgisi bo‘lib ko‘rinadi.
 
-- Kalendar «Yana» ga ko'chadi, bo'limlar to'rtta bo'ladi
-- Eski «Kirim/Chiqim» tugmalari «Kassa yozuvi» ostiga tushadi
-- Hisobotga «tasdiqlangan / tasdiqlanmagan qarz» ustuni
-- Lug'atga yangi matnlar (`kassa-til` sinovi ularni talab qiladi)
+Nega ALOHIDA bot: `telegram-qarz` sizning AGENTINGIZ uchun — u
+kirib, klient qo‘shib, hisobot oladi. Bu yerdagi odam esa HAMKOR,
+u sizning xodimingiz emas. Bitta botga ikkovini qo‘ysak, Tonirok
+«Klientlarim» tugmasini ko‘rib turardi.
 
-### 5-bosqich — Hujjat (1 kun)
+Qo‘llashdan oldin kerak:
 
-- Bitim bo'yicha PDF (hozirgi `hujjat.ts` dvigateli qayta ishlatiladi)
-- Muddati o'tgan qarz ro'yxatda QIZIL bo'lib turadi (bildirishnoma yo'q —
-  qaror 20.09: kerak emas)
+1. BotFather’da yangi bot, tokeni `TELEGRAM_KASSA_BOT_TOKEN`
+2. `TELEGRAM_KASSA_WEBHOOK_SECRET` — tasodifiy satr
+3. `EXPO_PUBLIC_KASSA_BOT` (eas.json) — bot nomi, @ siz
+4. Webhook: `setWebhook` + `secret_token`
+
+**Qo‘llanmagani uchun hech qanday sinovdan o‘tmagan.**
+
+### 4-bosqich — Soddalashtirish va tozalash ✅ BAJARILDI
+
+- Kalendar «Yana» ichiga ko‘chdi, pastda TO‘RT bo‘lim qoldi
+- Bosh ekrandagi «Farq» kartochkasi o‘rnida «Bizga qarzdor» va
+  «Biz qarzdormiz»
+- Hisobotda «tasdiqlangan / tasdiqlanmagan qarz»
+- Lug‘at to‘ldirildi (`kassa-til` yashil)
+
+Yo‘l-yo‘lakay topilgan xato: bosh ekran `klientQoldiq` (daftar),
+hamkor kartochkasi `hamkorQoldiq` (bitim) bilan hisoblardi — ikki
+ekranda ikki xil raqam turardi. Endi ikkalasi bitta funksiyadan
+oladi va eski, bitimsiz yozuvlar ham qarzga kiradi.
+
+### 5-bosqich — Hujjat ✅ BAJARILDI
+
+- Bitim bo‘yicha PDF: qatorni uzoq bosish → «Hujjat (PDF)»
+- Muddati o‘tgan qarz ro‘yxatda QIZIL: «N kun kechikdi»
+  (bildirishnoma yo‘q — qaror 20.09)
+
+Hujjatda pul `raqam()` bilan emas, `formatla()` bilan yoziladi:
+`raqam()` butunga yaxlitlaydi va $0.10 birlik narxi NOLGA
+aylanardi — konsepsiyadagi 1 200 × 0.10 = 24 000 xatosi ham
+aynan shunday tug‘ilgan edi.
 
 **Jami: ~11 ish kuni.**
 
