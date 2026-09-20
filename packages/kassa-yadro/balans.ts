@@ -339,3 +339,107 @@ export function cheklovTekshir(
   const yangi = joriyQoldiq + ozgarish;
   return { oshdi: yangi > cheklov, yangi, oshgan: yangi - cheklov, cheklov };
 }
+
+// =============================================================
+//  YURUVCHI BALANS — mijoz kartochkasidagi ustun
+//
+//  Har qatorning yonida o'sha paytdagi qoldiq turadi: odam
+//  «qachon 2 millionga chiqdim?» degan savolga ro'yxatni
+//  varaqlab javob topadi.
+//
+//  ENG MUHIM INVARIANT: oxirgi qatordagi qoldiq `hamkorQoldiq`
+//  bilan AYNAN teng. Teng bo'lmasa, ro'yxat oxiri bir raqamni,
+//  kartochkadagi «Balans» boshqasini ko'rsatardi va qaysi biri
+//  to'g'ri ekanini hech kim bilmasdi. Sinov shuni talab qiladi.
+//
+//  Shu sababli ikkala funksiya BIR XIL qoidalarga tayanadi:
+//  `hisobga`, `ishora` va bitimsiz yozuv sharti — hammasi shu
+//  fayldagi bitta nusxadan olinadi.
+// =============================================================
+
+export type HamkorQator =
+  | { tur: 'bitim'; id: string; sana: string; o_raqam?: number | null; bitim: Bitim }
+  | { tur: 'tolov'; id: string; sana: string; o_raqam?: number | null; tolov: Tolov }
+  | { tur: 'yozuv'; id: string; sana: string; o_raqam?: number | null; yozuv: Yozuv };
+
+/**
+ * Tartib: sana → `o_raqam` → `id`.
+ *
+ * Uchtasi ham kerak. Bitta soniyada ikki qurilmadan yozilgan
+ * operatsiyalar faqat sana bo'yicha saralansa, ro'yxat har
+ * ochilganda boshqa tartibda chiqardi — va u bilan birga
+ * yuruvchi balans ham o'zgarardi (`solishtir` dagi o'sha dars).
+ */
+function qatorSolishtir(a: HamkorQator, b: HamkorQator): number {
+  const sa = Date.parse(a.sana);
+  const sb = Date.parse(b.sana);
+  if (sa !== sb) return sa - sb;
+  const oa = a.o_raqam ?? Number.MAX_SAFE_INTEGER;
+  const ob = b.o_raqam ?? Number.MAX_SAFE_INTEGER;
+  if (oa !== ob) return oa - ob;
+  return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
+}
+
+/** Bitta qatorning qoldiqqa qo'shadigan ishorali qiymati */
+export function qatorOzgarish(q: HamkorQator): number {
+  if (q.tur === 'bitim') return ishora(q.bitim.yonalish) * q.bitim.summa;
+  if (q.tur === 'tolov') return ishora(q.tolov.yonalish) * q.tolov.summa;
+  return q.yozuv.turi === 'chiqim' ? q.yozuv.summa : -q.yozuv.summa;
+}
+
+export function hamkorYuruvchi(
+  klientId: string,
+  bitimlar: Bitim[],
+  tolovlar: Tolov[],
+  yozuvlar: Yozuv[] = [],
+): { qator: HamkorQator; ozgarish: number; qoldiq: number }[] {
+  const qatorlar: HamkorQator[] = [];
+
+  for (const b of bitimlar) {
+    if (b.klient_id !== klientId || !hisobga(b.holat)) continue;
+    qatorlar.push({ tur: 'bitim', id: b.id, sana: b.sana, o_raqam: b.o_raqam, bitim: b });
+  }
+  for (const t of tolovlar) {
+    if (t.klient_id !== klientId || !hisobga(t.holat)) continue;
+    qatorlar.push({ tur: 'tolov', id: t.id, sana: t.sana, o_raqam: t.o_raqam, tolov: t });
+  }
+  // Bitimga BOG'LANGAN yozuv olinmaydi: u bitim va to'lov orqali
+  // allaqachon sanalgan. `eskiQarz` dagi o'sha shart.
+  for (const y of yozuvlar) {
+    if (y.klient_id !== klientId || y.bitim_id) continue;
+    if (!hisobga_kiradi(y) || y.kochirma_id) continue;
+    qatorlar.push({ tur: 'yozuv', id: y.id, sana: y.sana, o_raqam: y.o_raqam, yozuv: y });
+  }
+
+  qatorlar.sort(qatorSolishtir);
+
+  let qoldiq = 0;
+  return qatorlar.map((qator) => {
+    const ozgarish = qatorOzgarish(qator);
+    qoldiq += ozgarish;
+    return { qator, ozgarish, qoldiq };
+  });
+}
+
+/**
+ * Operatsiya nomi: «Tovar berdim», «Pul oldim».
+ *
+ * Qaytadigan qiymat — LUG'AT KALITI (o'zbekcha matnning o'zi).
+ * Tarjima ekranda `tr()` bilan qilinadi: bu funksiya yadroda
+ * turadi va tilni bilmaydi.
+ */
+export function operatsiyaNomi(q: {
+  tur: 'bitim' | 'tolov' | 'yozuv';
+  bitim?: { nima: string; yonalish: string };
+  tolov?: { yonalish: string };
+  yozuv?: { turi: string };
+}): string {
+  if (q.tur === 'bitim' && q.bitim) {
+    const nima = q.bitim.nima === 'qarz' ? 'Qarz' : 'Tovar';
+    return q.bitim.yonalish === 'berdim' ? `${nima} berdim` : `${nima} oldim`;
+  }
+  if (q.tur === 'tolov' && q.tolov) {
+    return q.tolov.yonalish === 'oldim' ? 'Pul oldim' : 'Pul berdim';
+  }
+  return q.yozuv?.turi === 'kirim' ? 'Kirim' : 'Chiqim';
+}

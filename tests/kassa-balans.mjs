@@ -506,6 +506,80 @@ tekshir('kechikkanKun va muddatiOtgan bir xil qaror beradi',
   })());
 
 // -------------------------------------------------------------
+//  YURUVCHI BALANS (mijoz kartochkasidagi ustun)
+//
+//  ENG MUHIM INVARIANT: oxirgi qatordagi qoldiq `hamkorQoldiq`
+//  bilan AYNAN teng. Teng bo'lmasa, ro'yxat oxiri bir raqamni,
+//  pastdagi «Balans» boshqasini ko'rsatardi.
+// -------------------------------------------------------------
+console.log('\n6v. Yuruvchi balans');
+
+const yb1 = B({ id: 'yb1', k: 'aziz', y: 'berdim', s: 12000, sana: '2026-09-10T09:00:00.000Z' });
+const yb2 = T({ id: 'yb2', k: 'aziz', b: 'yb1', y: 'oldim', s: 5000 });
+const yb3 = B({ id: 'yb3', k: 'aziz', y: 'oldim', s: 3000, sana: '2026-09-25T09:00:00.000Z' });
+const ybEski = eskiY({ id: 'yb4', k: 'aziz', turi: 'chiqim', s: 800 });
+
+const yurish = Y.hamkorYuruvchi('aziz', [yb1, yb3], [yb2], [ybEski]);
+
+tekshir('hamma qator chiqdi', yurish.length === 4, yurish.length + ' ta');
+
+tekshir('tartib ESKIDAN yangiga',
+  yurish.map((x) => x.qator.id).join(',') === 'yb4,yb1,yb2,yb3',
+  yurish.map((x) => x.qator.id).join(','));
+
+// ENG MUHIM: oxiri jami bilan teng
+const jamiQoldiq = Y.hamkorQoldiq('aziz', [yb1, yb3], [yb2], [ybEski]);
+tekshir('INVARIANT: oxirgi qator = hamkorQoldiq',
+  yurish[yurish.length - 1].qoldiq === jamiQoldiq,
+  yurish[yurish.length - 1].qoldiq + ' / ' + jamiQoldiq);
+
+// Qadamma-qadam: 800 → 12800 → 7800 → 4800
+tekshir('qadamlar to‘g‘ri',
+  yurish.map((x) => x.qoldiq).join(',') === '800,12800,7800,4800',
+  yurish.map((x) => x.qoldiq).join(','));
+
+// Bekor qilingani UMUMAN chiqmaydi: ro'yxatda tursa, yig'indi
+// bilan qatorlar mos kelmasdi.
+const ybBekor = B({ id: 'yb9', k: 'aziz', y: 'berdim', s: 99999, h: 'bekor' });
+const yurish2 = Y.hamkorYuruvchi('aziz', [yb1, yb3, ybBekor], [yb2], [ybEski]);
+tekshir('bekor qilingan bitim ro‘yxatda yo‘q',
+  yurish2.length === 4 && yurish2[yurish2.length - 1].qoldiq === jamiQoldiq);
+
+// Boshqa hamkorniki aralashmasin
+const yurish3 = Y.hamkorYuruvchi('boshqa', [yb1, yb3], [yb2], [ybEski]);
+tekshir('boshqa hamkorda bo‘sh', yurish3.length === 0);
+
+// Bitimga BOG'LANGAN yozuv ikki marta sanalmaydi
+const ybBogli = eskiY({ id: 'yb5', k: 'aziz', turi: 'kirim', s: 5000, b: 'yb1' });
+const yurish4 = Y.hamkorYuruvchi('aziz', [yb1, yb3], [yb2], [ybEski, ybBogli]);
+tekshir('bitimga bog‘langan yozuv ro‘yxatda yo‘q',
+  yurish4.length === 4 &&
+  yurish4[yurish4.length - 1].qoldiq === Y.hamkorQoldiq('aziz', [yb1, yb3], [yb2], [ybEski, ybBogli]));
+
+// Bir sanada ikki yozuv — tartib BARQAROR bo'lishi kerak
+const bir1 = B({ id: 'aaa', k: 'x', y: 'berdim', s: 100, sana: '2026-09-10T09:00:00.000Z' });
+const bir2 = B({ id: 'bbb', k: 'x', y: 'berdim', s: 200, sana: '2026-09-10T09:00:00.000Z' });
+tekshir('bir sanada tartib barqaror',
+  Y.hamkorYuruvchi('x', [bir1, bir2], [], []).map((v) => v.qator.id).join(',') ===
+  Y.hamkorYuruvchi('x', [bir2, bir1], [], []).map((v) => v.qator.id).join(','));
+
+// -------------------------------------------------------------
+//  OPERATSIYA NOMI
+// -------------------------------------------------------------
+tekshir('tovar berdim',
+  Y.operatsiyaNomi({ tur: 'bitim', bitim: { nima: 'tovar', yonalish: 'berdim' } }) === 'Tovar berdim');
+tekshir('tovar oldim',
+  Y.operatsiyaNomi({ tur: 'bitim', bitim: { nima: 'tovar', yonalish: 'oldim' } }) === 'Tovar oldim');
+tekshir('qarz berdim',
+  Y.operatsiyaNomi({ tur: 'bitim', bitim: { nima: 'qarz', yonalish: 'berdim' } }) === 'Qarz berdim');
+tekshir('pul oldim',
+  Y.operatsiyaNomi({ tur: 'tolov', tolov: { yonalish: 'oldim' } }) === 'Pul oldim');
+tekshir('pul berdim',
+  Y.operatsiyaNomi({ tur: 'tolov', tolov: { yonalish: 'berdim' } }) === 'Pul berdim');
+tekshir('eski yozuv: kirim',
+  Y.operatsiyaNomi({ tur: 'yozuv', yozuv: { turi: 'kirim' } }) === 'Kirim');
+
+// -------------------------------------------------------------
 //  BALANS CHEKLOVI
 //
 //  Cheklov — hamkorga berilishi mumkin bo'lgan eng katta QARZ.

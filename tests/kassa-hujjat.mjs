@@ -315,6 +315,82 @@ tekshir('matn o\u2018ng chetdan chiqmaydi',
   bJoylar.length > 0 && bJoylar.every((x) => x <= 556),
   bJoylar.length ? 'eng o\u2018ngi x=' + Math.max(...bJoylar) : 'bo\u2018lak topilmadi');
 
+console.log('\n\x1b[1mMIJOZGA XABAR\x1b[0m');
+
+const xChiqish = join(ish, 'xabar.mjs');
+await esbuild.build({
+  entryPoints: [join(ROOT, 'apps/kassa/src/lib/xabar.ts')],
+  outfile: xChiqish,
+  bundle: true,
+  format: 'esm',
+  platform: 'neutral',
+});
+const X = await import('file://' + xChiqish.replace(/\\/g, '/'));
+
+const XQ = [
+  {
+    qator: {
+      tur: 'bitim',
+      id: 'x1',
+      sana: '2026-09-20T09:00:00.000Z',
+      bitim: { nima: 'tovar', yonalish: 'berdim' },
+    },
+    ozgarish: 120000000,
+  },
+  {
+    qator: {
+      tur: 'tolov',
+      id: 'x2',
+      sana: '2026-09-21T09:00:00.000Z',
+      tolov: { yonalish: 'oldim' },
+    },
+    ozgarish: -50000000,
+  },
+];
+
+const xabar = X.xabarMatni({
+  ism: 'Tonirok',
+  biznes: "Anvar do'koni",
+  valyuta: 'UZS',
+  qatorlar: XQ,
+  qoldiq: 70000000,
+});
+
+tekshir('ism va biznes bor', xabar.includes('Tonirok') && xabar.includes("Anvar do'koni"), '');
+tekshir('operatsiya nomi tarjima qilingan', xabar.includes('Tovar berdim'), '');
+tekshir('ishoralar bor', xabar.includes('+1 200 000') && xabar.includes('\u2212500 000'), '');
+tekshir('qoldiq chiqdi', xabar.includes('700 000'), '');
+
+// Musbat qoldiq — MIJOZ qarzdor
+tekshir('musbat qoldiqda «sizdan olamiz»', xabar.includes('Sizdan olamiz'), '');
+
+// Manfiy qoldiq — MEN qarzdorman. Buni «siz qarzdorsiz» deb
+// yuborish jiddiy xato bo'lardi.
+const xabar2 = X.xabarMatni({
+  ism: 'Tonirok', biznes: 'A', valyuta: 'UZS', qatorlar: XQ, qoldiq: -70000000,
+});
+tekshir('MANFIY qoldiqda «sizga beramiz»',
+  xabar2.includes('Sizga beramiz') && !xabar2.includes('Sizdan olamiz'), '');
+tekshir('manfiy qoldiq minus bilan takrorlanmaydi',
+  !xabar2.includes('\u2212700 000'), 'ishora yorliqda, raqamda emas');
+
+// Ustunlar TEKISLANGAN: summalar bir xil ustunda tugashi kerak.
+// Tab ishlatilsa har ilovada har xil kenglikda chizilardi.
+tekshir('tab ishlatilmagan', !xabar.includes('\t'), '');
+{
+  const satrlar = xabar.split('\n').filter((q) => q.includes('+1 200 000') || q.includes('\u2212500 000'));
+  const oxirlar = satrlar.map((q) => q.length);
+  tekshir('summalar bir ustunda tugaydi',
+    satrlar.length === 2 && oxirlar[0] === oxirlar[1],
+    oxirlar.join(' / '));
+}
+
+// Raqam tozalash
+tekshir('raqamdan faqat raqam qoladi',
+  X.raqamToza('+998 90 123-45-67') === '998901234567',
+  X.raqamToza('+998 90 123-45-67'));
+tekshir('raqam yo‘q bo‘lsa bo‘sh', X.raqamToza(null) === '', '');
+
 console.log('\n  fayllar: ' + ish);
 console.log('\n' + (yiqildi === 0 ? '\x1b[32mHAMMASI O‘TDI\x1b[0m' : `\x1b[31m${yiqildi} TA XATO\x1b[0m`) + '\n');
 process.exit(yiqildi === 0 ? 0 : 1);

@@ -15,7 +15,7 @@
 // ro‘yxat emas, funksiya orqali olinadi.
 import { HAFTA_NOMLARI, joriyTil, OY_NOMLARI, OY_SANADA, tr } from './til';
 
-export type DavrTuri = 'kun' | 'hafta' | 'oy' | 'hammasi';
+export type DavrTuri = 'kun' | 'hafta' | 'oy' | 'yil' | 'hammasi';
 
 /** Joriy tildagi oy nomlari: «сентябрь» */
 export function oylar(): string[] {
@@ -86,6 +86,15 @@ export function davrOraligi(turi: DavrTuri, siljish: number): Oraliq {
         ? tr('Shu hafta')
         : `${ikki(b.getDate())} ${oySanada()[b.getMonth()].slice(0, 3)} – ${ikki(o.getDate())} ${oySanada()[o.getMonth()].slice(0, 3)}`;
     return { bosh: kunBoshi(b), oxir: kunOxiri(o), nom };
+  }
+
+  if (turi === 'yil') {
+    const y = bugun.getFullYear() + siljish;
+    return {
+      bosh: kunBoshi(new Date(y, 0, 1)),
+      oxir: kunOxiri(new Date(y, 11, 31)),
+      nom: siljish === 0 ? tr('Shu yil') : String(y),
+    };
   }
 
   // oy
