@@ -36,6 +36,7 @@ import MijozKartochka from './MijozKartochka';
 import { bitimHujjati, tasdiqYubor } from './KontaktlarEkrani';
 import XabarOynasi from './XabarOynasi';
 import { xabarMatni } from '../lib/xabar';
+import type { XabarTil } from '../lib/xabar-til';
 
 type Filtr = 'hammasi' | 'qarzlarim' | 'haqlarim' | 'muddat';
 
@@ -66,7 +67,9 @@ export default function BoshEkran({
   const [tanlangan, setTanlangan] = useState<Klient | null>(null);
   // Xabar oynasi kartochkaning USTIDAN ochiladi: odam xabarni
   // yuborgach o‘sha mijozning tarixiga qaytishi kerak.
-  const [xabar, setXabar] = useState<string | null>(null);
+  // Matn EMAS, MATN YASOVCHI saqlanadi: xabar oynasida til
+  // almashsa, matn shu funksiya bilan qaytadan yasaladi.
+  const [xabar, setXabar] = useState<((til: XabarTil) => string) | null>(null);
 
   const valyuta = klientlar[0]?.valyuta ?? 'UZS';
 
@@ -291,8 +294,12 @@ export default function BoshEkran({
             ochMijoz(k);
           }}
           ochXabar={(qatorlar, qoldiq) =>
-            setXabar(
+            // `setXabar` FUNKSIYA saqlaydi, shuning uchun
+            // `() => fn`: aks holda React uni yangilovchi deb
+            // o‘ylab darhol chaqirib yuborardi.
+            setXabar(() => (til: XabarTil) =>
               xabarMatni({
+                til,
                 ism: [tanlangan.ism, tanlangan.familya].filter(Boolean).join(' '),
                 telefon: tanlangan.telefon,
                 biznes: men.biznes,
@@ -312,7 +319,7 @@ export default function BoshEkran({
       )}
 
       {tanlangan && xabar !== null && (
-        <XabarOynasi klient={tanlangan} matn={xabar} yopish={() => setXabar(null)} />
+        <XabarOynasi klient={tanlangan} matnYasa={xabar} yopish={() => setXabar(null)} />
       )}
     </View>
   );

@@ -20,22 +20,33 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Clipboard from 'expo-clipboard';
 import type { Klient } from '@ilova/kassa-yadro';
 import { raqamToza } from '../lib/xabar';
+import { XABAR_TILLAR, type XabarTil } from '../lib/xabar-til';
 import { O, useTema } from '../lib/tema';
 import { tr } from '../lib/til';
 import { Orqaga } from '../ui/ikonka';
 
 export default function XabarOynasi({
   klient,
-  matn,
+  matnYasa,
   yopish,
 }: {
   klient: Klient;
-  matn: string;
+  /** Tanlangan tilda matn qaytaradi */
+  matnYasa: (til: XabarTil) => string;
   yopish: () => void;
 }) {
   const { C } = useTema();
   const chekka = useSafeAreaInsets();
-  const [tahrir, setTahrir] = useState(matn);
+  const [til, setTil] = useState<XabarTil>('uz');
+  const [tahrir, setTahrir] = useState(() => matnYasa('uz'));
+
+  // Til almashsa matn QAYTADAN yasaladi — qo‘lda kiritilgan
+  // tahrir yo‘qoladi. Buni yashirmaymiz: matn ko‘z oldida
+  // almashadi va odam nima bo‘lganini ko‘rib turadi.
+  function tilniQoy(yangi: XabarTil) {
+    setTil(yangi);
+    setTahrir(matnYasa(yangi));
+  }
 
   const raqam = raqamToza(klient.telefon);
   const raqamBor = raqam.length >= 7;
@@ -83,6 +94,45 @@ export default function XabarOynasi({
               {klient.telefon ? ' · ' + klient.telefon : ' · ' + tr('raqam yo‘q')}
             </Text>
           </View>
+        </View>
+
+        {/* TIL TANLAGICH — matndan OLDIN: odam avval tilni
+            tanlaydi, keyin matnni o‘qiydi. Teskarisi bo‘lsa
+            o‘qib bo‘lgandan keyin hammasi almashardi. */}
+        <View style={{ backgroundColor: C.karta, borderBottomWidth: 1, borderBottomColor: C.ajratgich }}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{ paddingHorizontal: O.chekka - 4, paddingVertical: 8, gap: 6 }}
+          >
+            {XABAR_TILLAR.map((t) => {
+              const faolmi = t.kalit === til;
+              return (
+                <TouchableOpacity
+                  key={t.kalit}
+                  onPress={() => tilniQoy(t.kalit)}
+                  style={{
+                    paddingHorizontal: 13,
+                    paddingVertical: 7,
+                    borderRadius: 999,
+                    backgroundColor: faolmi ? C.faol : 'transparent',
+                    borderWidth: 1,
+                    borderColor: faolmi ? C.faol : C.chegara,
+                  }}
+                >
+                  <Text
+                    style={{
+                      color: faolmi ? C.faolMatn : C.matn2,
+                      fontSize: 13,
+                      fontWeight: faolmi ? '700' : '500',
+                    }}
+                  >
+                    {t.nom}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
         </View>
 
         <ScrollView contentContainerStyle={{ padding: O.chekka }}>

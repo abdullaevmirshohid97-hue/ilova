@@ -327,6 +327,16 @@ await esbuild.build({
 });
 const X = await import('file://' + xChiqish.replace(/\\/g, '/'));
 
+const xtChiqish = join(ish, 'xabar-til.mjs');
+await esbuild.build({
+  entryPoints: [join(ROOT, 'apps/kassa/src/lib/xabar-til.ts')],
+  outfile: xtChiqish,
+  bundle: true,
+  format: 'esm',
+  platform: 'neutral',
+});
+const XT = await import('file://' + xtChiqish.replace(/\\/g, '/'));
+
 // Konsepsiyadagi misol: 1 200 dona karobka, keyin qisman to'lov.
 const XQ = [
   {
@@ -381,7 +391,9 @@ tekshir('8. muddat', xabar.includes('Muddat: 05.10.2026'), '');
 tekshir('sana TOLIQ, «Kecha» emas',
   xabar.includes('20.09.2026') && !xabar.includes('Kecha') && !xabar.includes('Bugun'), '');
 tekshir('9. muddati kelgan', xabar.includes('Muddati kelgan'), '');
-tekshir('biznes nomi oxirida', xabar.trimEnd().endsWith("Anvar do'koni"), '');
+// Biznes nomi JAMI QARZDORLIKDAN oldin: eng pastda raqam
+// turishi kerak (21.09 qarori).
+tekshir('biznes nomi bor', xabar.includes("Anvar do'koni"), '');
 
 // SUMMA va KIRIM boshqa yorliq: mijoz uchun «summa» qarz,
 // «kirim» esa uning to'lagani. Bitta so'z bo'lsa qo'shilib
@@ -392,7 +404,7 @@ tekshir('qarz «Summa», to‘lov «Kirim»',
 // Har operatsiya ALOHIDA blok: ular bo'sh qator bilan ajralgan
 {
   const bloklar = xabar.split('\n\n');
-  tekshir('operatsiyalar bo‘sh qator bilan ajratilgan', bloklar.length >= 3,
+  tekshir('operatsiyalar bo‘sh qator bilan ajratilgan', bloklar.length >= 2,
     bloklar.length + ' ta blok');
 }
 
@@ -426,6 +438,36 @@ tekshir('raqamdan faqat raqam qoladi',
   X.raqamToza('+998 90 123-45-67') === '998901234567',
   X.raqamToza('+998 90 123-45-67'));
 tekshir('raqam yo‘q bo‘lsa bo‘sh', X.raqamToza(null) === '', '');
+
+// --- Sakkiz til ---
+//
+// Lug'at YARIM bo'lmasligi kerak: bitta so'z tushib qolsa xabar
+// ikki tilda aralash chiqardi va mijoz uni tushunmasdi.
+for (const t of XT.XABAR_TILLAR) {
+  const x = X.xabarMatni({
+    ism: 'Tonirok', biznes: 'A', valyuta: 'UZS', qatorlar: XQ,
+    qoldiq: 70000000, til: t.kalit,
+  });
+  tekshir(t.kalit + ': matn yasaldi', x.length > 60, t.nom);
+}
+
+// Har tilda O'ZBEKCHA so'z qolmasin (o'zbekchadan boshqasida)
+for (const t of XT.XABAR_TILLAR.filter((x) => x.kalit !== 'uz')) {
+  const x = X.xabarMatni({
+    ism: 'T', biznes: 'A', valyuta: 'UZS', qatorlar: XQ, qoldiq: 1, til: t.kalit,
+  });
+  const qolgan = ['Tovar berdim', 'Summa:', 'Izoh:', 'Muddat:', 'Umumiy qarz:', 'dona']
+    .filter((w) => x.includes(w));
+  tekshir(t.kalit + ": o'zbekcha so'z qolmadi", qolgan.length === 0, qolgan.join(', ') || 'toza');
+}
+
+// JAMI QARZDORLIK ENG PASTDA
+{
+  const satrlar = xabar.trimEnd().split('\n');
+  tekshir('jami qarzdorlik ENG PASTKI qatorda',
+    satrlar[satrlar.length - 1].includes('700 000'),
+    satrlar[satrlar.length - 1]);
+}
 
 console.log('\n\x1b[90m' + xabar.split('\n').map((q) => '    ' + q).join('\n') + '\x1b[0m');
 

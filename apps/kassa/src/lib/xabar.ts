@@ -24,13 +24,19 @@
 import { formatla, operatsiyaNomi, type HamkorQator } from '@ilova/kassa-yadro';
 import type { Valyuta } from '@ilova/kassa-yadro';
 import { sanaRaqam } from './davr';
-import { tr } from './til';
+import { xtr, type XabarTil } from './xabar-til';
 
 export type XabarManba = {
   ism: string;
   telefon?: string | null;
   biznes: string;
   valyuta: Valyuta;
+  /**
+   * Xabar tili — ILOVA tilidan alohida. Mijoz boshqa tilda
+   * gaplashishi mumkin, ilovani esa do'kondor o'zi uchun
+   * sozlagan.
+   */
+  til?: XabarTil;
   qatorlar: { qator: HamkorQator; ozgarish: number }[];
   qoldiq: number;
   /** Muddati o'tgan va hali to'lanmagan summa */
@@ -40,50 +46,52 @@ export type XabarManba = {
 const CHIZIQ = '—'.repeat(26);
 
 /** «1 200 dona», «12.5 kg» — ortiqcha nolsiz */
-function miqdorMatni(miqdor?: number | null, birlik?: string | null): string | null {
+function miqdorMatni(miqdor: number | null | undefined, birlik: string | null | undefined, til: XabarTil): string | null {
   if (miqdor === null || miqdor === undefined || !Number.isFinite(miqdor) || miqdor === 0) return null;
   const son = String(Number(miqdor.toFixed(3)));
-  return son + ' ' + tr(birlik ?? 'dona');
+  return son + ' ' + xtr(til, birlik ?? 'dona');
 }
 
 /** Bitta operatsiya bloki */
 function blok(
   x: { qator: HamkorQator; ozgarish: number },
   valyuta: Valyuta,
+  til: XabarTil,
 ): string[] {
   const q = x.qator;
   const satr: string[] = [];
   const pul = (n: number) => formatla(Math.abs(n), valyuta, { belgisiz: true, kasrsiz: true });
 
-  satr.push(sanaRaqam(q.sana) + '  ' + tr(operatsiyaNomi(q)));
+  satr.push(sanaRaqam(q.sana) + '  ' + xtr(til, operatsiyaNomi(q)));
 
   if (q.tur === 'bitim') {
     // Tovar nomi va miqdori BIR QATORDA: ikkalasi ham qisqa va
     // birga o'qilganda «nima, nechta» degan savolga javob beradi.
-    const tafsilot = [q.bitim.tovar_nom, miqdorMatni(q.bitim.miqdor, q.bitim.birlik)]
+    const tafsilot = [q.bitim.tovar_nom, miqdorMatni(q.bitim.miqdor, q.bitim.birlik, til)]
       .filter(Boolean)
       .join(' · ');
     if (tafsilot) satr.push(tafsilot);
   }
 
   const izoh = q.tur === 'bitim' ? q.bitim.izoh : q.tur === 'tolov' ? q.tolov.izoh : q.yozuv.izoh;
-  if (izoh) satr.push(tr('Izoh:') + ' ' + izoh);
+  if (izoh) satr.push(xtr(til, 'Izoh:') + ' ' + izoh);
 
   // KIRIM va SUMMA ataylab boshqa yorliq: mijoz uchun «summa»
   // qarz, «kirim» esa uning to'lagani. Bitta so'z bilan yozilsa
   // ikkalasi qo'shilib ketardi.
-  satr.push((x.ozgarish >= 0 ? tr('Summa:') : tr('Kirim:')) + ' ' + pul(x.ozgarish));
+  satr.push((x.ozgarish >= 0 ? xtr(til, 'Summa:') : xtr(til, 'Kirim:')) + ' ' + pul(x.ozgarish));
 
   if (q.tur === 'bitim' && q.bitim.muddat) {
-    satr.push(tr('Muddat:') + ' ' + sanaRaqam(q.bitim.muddat));
+    satr.push(xtr(til, 'Muddat:') + ' ' + sanaRaqam(q.bitim.muddat));
   } else if (q.tur === 'tolov' && q.tolov.muddat) {
-    satr.push(tr('Muddat:') + ' ' + sanaRaqam(q.tolov.muddat));
+    satr.push(xtr(til, 'Muddat:') + ' ' + sanaRaqam(q.tolov.muddat));
   }
 
   return satr;
 }
 
 export function xabarMatni(m: XabarManba): string {
+  const til: XabarTil = m.til ?? 'uz';
   const pul = (n: number) => formatla(Math.abs(n), m.valyuta, { belgisiz: true, kasrsiz: true });
 
   const satrlar: string[] = [m.ism];
@@ -92,22 +100,33 @@ export function xabarMatni(m: XabarManba): string {
 
   m.qatorlar.forEach((x, i) => {
     if (i > 0) satrlar.push('');
-    satrlar.push(...blok(x, m.valyuta));
+    satrlar.push(...blok(x, m.valyuta, til));
   });
 
   satrlar.push(CHIZIQ);
 
-  // Qoldiq ISHORASI bilan: manfiy bo'lsa MEN qarzdorman va uni
-  // mijozga «siz qarzdorsiz» deb yuborish xato bo'lardi.
-  satrlar.push(
-    (m.qoldiq >= 0 ? tr('Umumiy qarz:') : tr('Sizga beramiz:')) + ' ' + pul(m.qoldiq),
-  );
-
   if (m.kechikkan && m.kechikkan > 0) {
-    satrlar.push(tr('Muddati kelgan:') + ' ' + pul(m.kechikkan));
+    satrlar.push(xtr(til, 'Muddati kelgan:') + ' ' + pul(m.kechikkan));
   }
 
-  satrlar.push('', m.biznes);
+  satrlar.push(m.biznes);
+
+  // JAMI QARZDORLIK ENG PASTDA (foydalanuvchi qarori, 21.09).
+  //
+  // Bu — oxirgi kirim-chiqimdan keyingi qoldiq, ya’ni xabarning
+  // asosiy javobi. Ro‘yxat uzun bo‘lsa odam uni oxirigacha
+  // varaqlaydi va ko‘zi eng pastda to‘xtaydi — raqam o‘sha
+  // yerda turishi kerak.
+  //
+  // Ishorasi bilan: manfiy bo‘lsa MEN qarzdorman va buni
+  // mijozga «siz qarzdorsiz» deb yuborish xato bo‘lardi.
+  satrlar.push(CHIZIQ);
+  satrlar.push(
+    (m.qoldiq >= 0 ? xtr(til, 'Umumiy qarz:') : xtr(til, 'Sizga beramiz:')) +
+      ' ' +
+      pul(m.qoldiq),
+  );
+
   return satrlar.join('\n');
 }
 
