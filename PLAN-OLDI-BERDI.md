@@ -320,7 +320,7 @@ Natija: bosh ekranda bitta tugma, ichida oltita aniq javob. Hozirgi
 Har bosqich oxirida ilova **ishlaydigan** holatda qoladi. Bu shart:
 yarim qurilgan ilova bilan bir kun ham yashab bo'lmaydi.
 
-### 1-bosqich — Baza (2 kun) ✍️ YOZILDI, QO'LLANMAGAN
+### 1-bosqich — Baza ✅ QO‘LLANDI VA SINOVDAN O‘TDI
 
 - `kassa_klientlar` kengayadi (telegram, kompaniya, stir, manzil, valyuta)
 - `kassa_bitimlar`, `kassa_bitim_tolovlar` jadvallari + RLS + trigger
@@ -330,19 +330,27 @@ yarim qurilgan ilova bilan bir kun ham yashab bo'lmaydi.
 
 **Ilovaga ta'siri yo'q** — eski oqim ishlayveradi.
 
-`supabase/migrations/20260920000001_kassa_bitimlar.sql` yozildi.
-Supabase boshqaruv tokeni 401 qaytargani uchun **jonli bazaga
-qo'llanmagan** va shu sababli **hech qanday sinovdan o'tmagan**.
+Qo‘llandi (20.09), uchta migratsiya:
 
-Qo'llangandan keyin tekshirish:
+| Fayl | Nima |
+|---|---|
+| `20260920000001_kassa_bitimlar.sql` | jadvallar, RLS, RPC lar |
+| `20260920000002_kassa_eski_qarz.sql` | eski, bitimsiz yozuvlar ham qarzga kiradi |
+| `20260920000003_kassa_tasdiq.sql` | tasdiq tokenlari (3-bosqich) |
 
-```
-node tests/kassa-bitim.mjs --sql
-```
+`supabase/sinov/kassa-bitim-sinov.sql` bajarildi: **24 ta tekshiruv,
+hammasi yashil**. Tasdiqlangani:
 
-Chiqqan blokni Dashboard → SQL Editor'ga qo'ying. U 20 dan ortiq
-tekshiruv bajaradi va oxirida hammasini **qaytarib oladi** — bazada
-iz qolmaydi.
+- tovar bitimi kassaga tegmaydi (0 ta yozuv, hisob qoldig‘i 0.00)
+- ishora qoidasi: `oldim → −120`, `berdim → +50`, jami −70
+- tasdiqlanmagan bitim qoldiqda turadi
+- to‘liq to‘lovdan keyin bitim o‘zi yopiladi
+- begona tenant hamkoriga to‘lov yozilmaydi
+- kasr yo‘qolmaydi: `125000.50`
+- sinxda summa **matn** (float bo‘lsa kasr nollari yo‘qolardi)
+
+Bloklar oxirida `raise exception` turadi, shuning uchun bazada iz
+qolmadi — buni sinovning o‘zi ham tekshiradi.
 
 ### 2-bosqich — Bitim ilovada (3 kun) ✅ BAJARILDI
 
@@ -365,16 +373,17 @@ Bajarilgani (20.09, versiya 2.0.0):
 - Operatsiyalar ro‘yxati: bitim va yozuv birgalikda
 - Offline: bitim ham navbatdan o‘tadi (`kassa_ozgarishlar` ikki yangi massiv)
 
-**Sinovdan o‘tmagan qismi:** baza. Migratsiya hali qo‘llanmagani
-uchun sinxronizatsiya jonli serverga bir marta ham ulanmagan.
+**Baza endi tayyor** (20.09 da qo‘llandi va sinovdan o‘tdi).
+Sinxronizatsiya jonli serverga hali bir marta ham ulanmagan —
+buni faqat yangi APK bilan bilinadi.
 
-### 3-bosqich — Telegram tasdiqlash ✍️ YOZILDI, QO‘LLANMAGAN
+### 3-bosqich — Telegram tasdiqlash ◑ BAZA TAYYOR, BOT YO‘Q
 
 - `kassa-telegram` chekka funksiyasi (ALOHIDA bot, `telegram-qarz` emas)
 - `20260920000003_kassa_tasdiq.sql`: `kassa_tasdiq_tokenlar` +
   `kassa_tasdiq_havola` / `kassa_tasdiq_korish` / `kassa_tasdiq_bajar`
 - Ilovada: bitim qatorini uzoq bosish → «Tasdiqlash havolasi»
-- Sinov: `kassa-tasdiq` — 22 ta tekshiruv
+- Sinov: `kassa-tasdiq` — **30 ta tekshiruv, hammasi yashil** (20.09)
 
 **Bildirishnoma YO‘Q** (qaror 20.09). Tasdiq kelgani ro‘yxatda
 holat belgisi bo‘lib ko‘rinadi.
@@ -384,14 +393,24 @@ kirib, klient qo‘shib, hisobot oladi. Bu yerdagi odam esa HAMKOR,
 u sizning xodimingiz emas. Bitta botga ikkovini qo‘ysak, Tonirok
 «Klientlarim» tugmasini ko‘rib turardi.
 
-Qo‘llashdan oldin kerak:
+Baza qismi tasdiqlangani:
+
+- token xeshlanib saqlanadi, ochiq matn bazada yo‘q
+- kartochkani ko‘rish tokenni sarflamaydi, tasdiqlash bir martalik
+- **tasdiq qoldiqni o‘zgartirmaydi**: 120.00 → 120.00
+- rad etilgan bitim qoldiqda qoladi («rad» ≠ «bekor»)
+- begona tashkilot bitimiga havola berilmaydi
+- `kassa_tasdiq_bajar` va `kassa_tasdiq_korish` anon’ga ham,
+  authenticated’ga ham yopiq — faqat `service_role`
+
+**QOLGANI — BOTNING O‘ZI.** Kod yozilgan, lekin hali deploy
+qilinmagan va bir marta ham ishga tushmagan. Kerak:
 
 1. BotFather’da yangi bot, tokeni `TELEGRAM_KASSA_BOT_TOKEN`
 2. `TELEGRAM_KASSA_WEBHOOK_SECRET` — tasodifiy satr
 3. `EXPO_PUBLIC_KASSA_BOT` (eas.json) — bot nomi, @ siz
-4. Webhook: `setWebhook` + `secret_token`
-
-**Qo‘llanmagani uchun hech qanday sinovdan o‘tmagan.**
+4. `.\kodchi\edge-deploy-api.ps1 -Funksiya kassa-telegram`
+5. Webhook: `setWebhook` + `secret_token`
 
 ### 4-bosqich — Soddalashtirish va tozalash ✅ BAJARILDI
 
