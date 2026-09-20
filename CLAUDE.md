@@ -35,7 +35,13 @@ Bu loyihaning bazasi: **`gnuddryjsmcrjchrbvyz`**.
 bash /opt/ilova/infra/deploy.sh
 
 # Deploy tekshiruvi — O'Z KOMPYUTERINGIZDA
-bash infra/tekshir.sh
+# PowerShell da `bash` WSL ga ketadi va /bin/bash topilmaydi.
+# Git Bash to‘liq yo‘l bilan chaqiriladi:
+& "C:\Program Files\Git\bin\bash.exe" infra/tekshir.sh
+
+# Supabase boshqaruv tokeni bekor qilinsa (401): baza sinovlari va
+# chekka funksiya deploy‘i to‘xtaydi. Yangi token olib:
+.\kodchi\token-yangila.ps1 -Token sbp_xxxx
 ```
 
 Sinovlar (`node tests/<nom>.mjs`): `tenant-ajratish`, `xavfsizlik`, `dizayn`,
