@@ -754,3 +754,31 @@ export async function biznesNomi(orgId: string, nom: string): Promise<string> {
   if (error) throw error;
   return data as string;
 }
+
+export type OchirishNatija = {
+  quruq: boolean;
+  nom: string;
+  yozuvlar: number;
+  bitimlar: number;
+  klientlar: number;
+  joriy?: string | null;
+};
+
+/**
+ * Biznesni o'chiradi.
+ *
+ * `qollash = false` (standart) — QURUQ SINOV: nima o'chishini
+ * sanab beradi, hech narsaga tegmaydi. Ilova avval shuni
+ * ko'rsatadi, odam tasdiqlagandan keyin `true` bilan chaqiradi.
+ * Bu loyihaning 1-qoidasi va bu yerda ayniqsa muhim: o'chirilgan
+ * biznesni qaytarib bo'lmaydi.
+ */
+export async function biznesOchir(orgId: string, qollash = false): Promise<OchirishNatija> {
+  const { data, error } = await supabase.rpc('kassa_biznes_ochir', {
+    p_org_id: orgId,
+    p_qollash: qollash,
+  });
+  if (error) throw error;
+  if (qollash) await ombor().tozala();
+  return data as OchirishNatija;
+}

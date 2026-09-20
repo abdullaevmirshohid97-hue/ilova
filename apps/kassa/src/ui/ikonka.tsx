@@ -220,3 +220,44 @@ export function Ruchka({ rang, olcham = 20 }: Imkon) {
     </View>
   );
 }
+
+/** Savat — o'chirish */
+export function Chiqindi({ rang, olcham = 20 }: Imkon) {
+  const qalin = Math.max(2, Math.round(olcham / 10));
+  const tanaEn = Math.round(olcham * 0.62);
+  const tanaBoy = Math.round(olcham * 0.58);
+  const qopqoqEn = Math.round(olcham * 0.82);
+  const dastaEn = Math.round(olcham * 0.3);
+  return (
+    <View style={{ width: olcham, height: olcham, alignItems: 'center' }}>
+      {/* Dasta */}
+      <View
+        style={{
+          width: dastaEn,
+          height: Math.round(olcham * 0.12),
+          borderTopWidth: qalin,
+          borderLeftWidth: qalin,
+          borderRightWidth: qalin,
+          borderColor: rang,
+          borderTopLeftRadius: 2,
+          borderTopRightRadius: 2,
+        }}
+      />
+      {/* Qopqoq — savatdan kengroq, shakli shundan tanaladi */}
+      <View style={{ width: qopqoqEn, height: qalin, backgroundColor: rang, borderRadius: qalin }} />
+      {/* Tanasi */}
+      <View
+        style={{
+          width: tanaEn,
+          height: tanaBoy,
+          marginTop: qalin,
+          borderWidth: qalin,
+          borderTopWidth: 0,
+          borderColor: rang,
+          borderBottomLeftRadius: qalin * 1.5,
+          borderBottomRightRadius: qalin * 1.5,
+        }}
+      />
+    </View>
+  );
+}

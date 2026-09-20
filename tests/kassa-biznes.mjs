@@ -286,6 +286,96 @@ begin
       and has_function_privilege('authenticated', 'public.kassa_bizneslarim()', 'execute'),
     'izoh', 'authenticated');
 
+  -- ---------- 8b. Biznesni o'chirish ----------
+  -- Quruq sinov HECH NARSAGA tegmasligi kerak: ilova avval
+  -- shuni ko'rsatadi, odam tasdiqlagandan keyingina o'chiriladi.
+  insert into public.kassa_klientlar (org_id, ism, turi) values (v_org1, 'O''chadi', 'hamkor');
+
+  v_royxat := public.kassa_biznes_ochir(v_org1);
+  v_n := v_n || jsonb_build_object(
+    'nom', 'quruq sinov: o''chmaydi, sanab beradi',
+    'ok', (v_royxat->>'quruq')::boolean is true
+      and (v_royxat->>'klientlar')::int >= 1
+      and exists (select 1 from public.organizations where id = v_org1),
+    'izoh', coalesce(v_royxat->>'klientlar', '?') || ' ta klient');
+
+  -- Begona tashkilotni sanab ham bo''lmaydi
+  begin
+    perform public.kassa_biznes_ochir(v_begona);
+    v_ok := false;
+  exception when others then
+    v_ok := sqlerrm like 'RUXSAT_YOQ%';
+  end;
+  v_n := v_n || jsonb_build_object(
+    'nom', 'BEGONA biznesni o''chirib bo''lmaydi', 'ok', v_ok);
+
+  -- Haqiqiy o'chirish. Shu paytda JORIY biznes — v_org2,
+  -- ya'ni o'chirilayotgani boshqasi.
+  v_royxat := public.kassa_biznes_ochir(v_org1, true);
+  v_n := v_n || jsonb_build_object(
+    'nom', 'biznes o''chdi',
+    'ok', (v_royxat->>'quruq')::boolean is false
+      and not exists (select 1 from public.organizations where id = v_org1));
+
+  v_n := v_n || jsonb_build_object(
+    'nom', 'o''chgan biznesning klientlari ham ketdi',
+    'ok', not exists (select 1 from public.kassa_klientlar where org_id = v_org1));
+
+  v_n := v_n || jsonb_build_object(
+    'nom', 'a''zolik ham ketdi',
+    'ok', not exists (select 1 from public.uzvliklar where org_id = v_org1));
+
+  -- Endi bitta biznes qoldi — uni o'chirib bo'lmaydi.
+  -- Aks holda profiles.org_id bo'sh qolib, ilova butunlay
+  -- ishlamay qolardi.
+  begin
+    perform public.kassa_biznes_ochir(v_org2, true);
+    v_ok := false;
+  exception when others then
+    v_ok := sqlerrm like 'OXIRGI_BIZNES%';
+  end;
+  v_n := v_n || jsonb_build_object(
+    'nom', 'OXIRGI biznesni o''chirib bo''lmaydi', 'ok', v_ok);
+
+  v_n := v_n || jsonb_build_object(
+    'nom', 'rad etilgandan keyin biznes joyida',
+    'ok', exists (select 1 from public.organizations where id = v_org2));
+
+  -- ---------- 8v. Mijoz kartochkasi ustunlari ----------
+  insert into public.kassa_klientlar (org_id, ism, familya, turi, cheklov, lat, lng, kategoriya)
+  values (v_org2, 'Tonirok', 'Tojiyev', 'hamkor', 1000000000, 41.31, 69.24, 'Bozor');
+  v_n := v_n || jsonb_build_object(
+    'nom', 'yangi ustunlar yozildi (cheklov tiyinda)',
+    'ok', (select cheklov from public.kassa_klientlar where ism = 'Tonirok' and org_id = v_org2)
+          = 1000000000);
+
+  -- Cheklov musbat bo'lishi kerak
+  begin
+    insert into public.kassa_klientlar (org_id, ism, turi, cheklov)
+    values (v_org2, 'Manfiy', 'hamkor', -5);
+    v_ok := false;
+  exception when others then
+    v_ok := true;
+  end;
+  v_n := v_n || jsonb_build_object('nom', 'manfiy cheklov rad etiladi', 'ok', v_ok);
+
+  -- Koordinata JUFT bo'lishi kerak: bittasi bo'lsa xarita
+  -- nuqtani ekvatorga qo''yib yuborardi.
+  begin
+    insert into public.kassa_klientlar (org_id, ism, turi, lat)
+    values (v_org2, 'Yarim', 'hamkor', 41.31);
+    v_ok := false;
+  exception when others then
+    v_ok := true;
+  end;
+  v_n := v_n || jsonb_build_object('nom', 'yarim koordinata rad etiladi', 'ok', v_ok);
+
+  -- Rasmlar ombori
+  v_n := v_n || jsonb_build_object(
+    'nom', 'kassa-rasm ombori bor va OCHIQ EMAS',
+    'ok', exists (select 1 from storage.buckets where id = 'kassa-rasm' and public = false));
+
+
   -- ---------- 9. Eski oqim buzilmagan ----------
   -- Profili bor odam «kassa_royxatdan_ot» ni chaqirsa, avvalgidek
   -- rad etilishi kerak: ikki funksiya chalkashib ketmasin.

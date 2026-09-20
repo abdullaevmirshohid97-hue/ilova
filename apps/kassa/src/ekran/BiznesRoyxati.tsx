@@ -28,11 +28,18 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { bizneslarOl, biznesNomi, biznesQosh, biznesTanla, type Biznes } from '../lib/baza';
+import {
+  bizneslarOl,
+  biznesNomi,
+  biznesOchir,
+  biznesQosh,
+  biznesTanla,
+  type Biznes,
+} from '../lib/baza';
 import { xatoMatn } from '../lib/supabase';
 import { O, useTema } from '../lib/tema';
 import { tr, trn } from '../lib/til';
-import { Dokon, Lupa, Orqaga, Ruchka } from '../ui/ikonka';
+import { Chiqindi, Dokon, Lupa, Orqaga, Ruchka } from '../ui/ikonka';
 import { BoshHolat, Tugma } from '../ui/qismlar';
 
 export default function BiznesRoyxati({
@@ -94,6 +101,61 @@ export default function BiznesRoyxati({
     } catch (e) {
       setBand(false);
       Alert.alert(tr('Biznes qo‘shilmadi'), xatoMatn(e));
+    }
+  }
+
+  /**
+   * O‘chirish — IKKI QADAM.
+   *
+   * Avval quruq sinov: server nima o‘chishini sanab beradi va
+   * hech narsaga tegmaydi. Odam raqamlarni ko‘rib tasdiqlaydi.
+   * Ro‘yxatda «o‘chirasizmi?» deb so‘rab qo‘ya qolish yetarli
+   * emas: odam nechta yozuv ketayotganini bilmasdi.
+   */
+  async function ochiramiz(b: Biznes) {
+    if (band) return;
+    setBand(true);
+    try {
+      const quruq = await biznesOchir(b.org_id);
+      setBand(false);
+      Alert.alert(
+        tr('Biznesni o‘chirasizmi?'),
+        b.nom +
+          '\n\n' +
+          trn('{n} ta yozuv', quruq.yozuvlar) +
+          '\n' +
+          trn('{n} ta bitim', quruq.bitimlar) +
+          '\n' +
+          trn('{n} ta hamkor', quruq.klientlar) +
+          '\n\n' +
+          tr('Bularni qaytarib bo‘lmaydi.'),
+        [
+          { text: tr('Bekor'), style: 'cancel' },
+          {
+            text: tr('O‘chirish'),
+            style: 'destructive',
+            onPress: async () => {
+              setBand(true);
+              try {
+                await biznesOchir(b.org_id, true);
+                // Joriy biznes o‘chgan bo‘lsa server boshqasiga
+                // o‘tkazdi — ilova qaytadan yuklanishi shart.
+                if (b.joriymi) almashdi();
+                else {
+                  setRoyxat((r) => (r ?? []).filter((x) => x.org_id !== b.org_id));
+                  setBand(false);
+                }
+              } catch (e) {
+                setBand(false);
+                Alert.alert(tr('O‘chmadi'), xatoMatn(e));
+              }
+            },
+          },
+        ],
+      );
+    } catch (e) {
+      setBand(false);
+      Alert.alert(tr('O‘chmadi'), xatoMatn(e));
     }
   }
 
@@ -191,7 +253,7 @@ export default function BiznesRoyxati({
             paddingTop: 10,
           }}
         >
-          {tr('Nomini o‘zgartirish uchun biznesni bosing')}
+          {tr('Nomini o‘zgartirish uchun biznesni bosing, o‘chirish uchun — savatni')}
         </Text>
       )}
 
@@ -267,7 +329,17 @@ export default function BiznesRoyxati({
                 </View>
 
                 {tahrir ? (
-                  <Ruchka rang={C.xira} olcham={16} />
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <Ruchka rang={C.xira} olcham={16} />
+                    <TouchableOpacity
+                      onPress={() => ochiramiz(b)}
+                      hitSlop={10}
+                      style={{ padding: 6 }}
+                      accessibilityLabel="O‘chirish"
+                    >
+                      <Chiqindi rang={C.chiqim} olcham={17} />
+                    </TouchableOpacity>
+                  </View>
                 ) : b.joriymi ? (
                   <Text style={{ color: C.kirim, fontSize: 16, fontWeight: '700' }}>✓</Text>
                 ) : (
