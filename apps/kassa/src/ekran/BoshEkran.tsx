@@ -34,7 +34,7 @@ export default function BoshEkran({
   ochYozuvlar,
   ochKontaktlar,
 }: {
-  ochQoshish: (turi: 'kirim' | 'chiqim') => void;
+  ochQoshish: () => void;
   ochTakror: (y: Yozuv) => void;
   ochYozuvlar: () => void;
   ochKontaktlar: () => void;
@@ -367,19 +367,24 @@ export default function BoshEkran({
         </TouchableOpacity>
       )}
 
-      {/* Ikki katta tugma — eng ko‘p ishlatiladigan ikki amal */}
-      <View style={{ flexDirection: 'row', padding: 10, gap: 10, backgroundColor: C.karta }}>
+      {/* Bitta tugma, ichida oltita aniq javob.
+
+          Avval ikkita edi: «Kirim» va «Chiqim». Ular ATAMA, mahsulot
+          esa endi oldi-berdi haqida — «oldim / berdim». */}
+      <View style={{ padding: 10, backgroundColor: C.karta }}>
         <TouchableOpacity
-          style={{ flex: 1, backgroundColor: C.kirim, paddingVertical: 14, borderRadius: O.radiusKichik, alignItems: 'center' }}
-          onPress={() => ochQoshish('kirim')}
+          style={{
+            backgroundColor: C.faol,
+            minHeight: 52,
+            justifyContent: 'center',
+            alignItems: 'center',
+            borderRadius: O.radiusKichik,
+          }}
+          onPress={ochQoshish}
         >
-          <Text style={{ color: '#fff', fontSize: 16, fontWeight: '700' }}>{tr('↑ Kirim')}</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={{ flex: 1, backgroundColor: C.chiqim, paddingVertical: 14, borderRadius: O.radiusKichik, alignItems: 'center' }}
-          onPress={() => ochQoshish('chiqim')}
-        >
-          <Text style={{ color: '#fff', fontSize: 16, fontWeight: '700' }}>{tr('↓ Chiqim')}</Text>
+          <Text style={{ color: C.faolMatn, fontSize: 16, fontWeight: '700' }}>
+            {tr('+ Operatsiya')}
+          </Text>
         </TouchableOpacity>
       </View>
     </View>

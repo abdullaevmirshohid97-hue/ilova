@@ -307,6 +307,82 @@ begin
 end $$;
 `;
 
+// =============================================================
+// 6b. OLDI-BERDI QOLDIG‘I (bazasiz, sof mantiq)
+//
+//  Bu funksiyalar bazadagi `kassa_hamkor_qoldiq` bilan AYNAN bir
+//  xil hisoblashi shart. Farq bo'lsa, ilova internetsiz bir
+//  raqamni, internet kelganda boshqasini ko‘rsatardi.
+// =============================================================
+console.log('\n6b. Oldi-berdi qoldig‘i');
+
+const B = (x) => ({
+  id: x.id, klient_id: x.k, yonalish: x.y, nima: x.n ?? 'tovar',
+  tovar_nom: 'Karobka', summa: x.s, valyuta: 'USD', kurs: 1,
+  sana: x.sana ?? '2026-09-20T09:00:00.000Z', holat: x.h ?? 'kutilmoqda',
+  muddat: x.muddat ?? null, versiya: 1,
+});
+const T = (x) => ({
+  id: x.id, klient_id: x.k, bitim_id: x.b ?? null, yonalish: x.y,
+  summa: x.s, valyuta: 'USD', kurs: 1, usuli: 'naqd',
+  sana: '2026-09-21T09:00:00.000Z', holat: x.h ?? 'kutilmoqda', versiya: 1,
+});
+
+// Misol: Tonirokdan 1 200 x $0.10 = $120 tovar oldim
+const b1 = B({ id: 'b1', k: 'tonirok', y: 'oldim', s: 12000 });
+
+tekshir('«oldim» → qoldiq MANFIY (men qarzdorman)',
+  Y.hamkorQoldiq('tonirok', [b1], []) === -12000,
+  String(Y.hamkorQoldiq('tonirok', [b1], [])));
+
+tekshir('tasdiqlanmagan bitim ham qoldiqda',
+  Y.hamkorQoldiq('tonirok', [{ ...b1, holat: 'kutilmoqda' }], []) === -12000);
+
+tekshir('bekor qilingan bitim qoldiqdan chiqadi',
+  Y.hamkorQoldiq('tonirok', [{ ...b1, holat: 'bekor' }], []) === 0);
+
+// $120 to‘ladim — to‘lov teskari yo‘nalishda
+const t1 = T({ id: 't1', k: 'tonirok', b: 'b1', y: 'berdim', s: 12000 });
+tekshir('to‘liq to‘lovdan keyin qoldiq 0',
+  Y.hamkorQoldiq('tonirok', [b1], [t1]) === 0,
+  String(Y.hamkorQoldiq('tonirok', [b1], [t1])));
+
+const yarim = T({ id: 't2', k: 'tonirok', b: 'b1', y: 'berdim', s: 7000 });
+tekshir('qisman to‘lov: -12000 + 7000 = -5000',
+  Y.hamkorQoldiq('tonirok', [b1], [yarim]) === -5000,
+  String(Y.hamkorQoldiq('tonirok', [b1], [yarim])));
+tekshir('bitim qoldig‘i: 12000 - 7000 = 5000',
+  Y.bitimQoldiq(b1, [yarim]) === 5000, String(Y.bitimQoldiq(b1, [yarim])));
+tekshir('ortiqcha to‘lovda bitim qoldig‘i MANFIY bo‘lmaydi',
+  Y.bitimQoldiq(b1, [T({ id: 't3', k: 'tonirok', b: 'b1', y: 'berdim', s: 99999 })]) === 0);
+
+// Boshqa hamkorning bitimi aralashmasin
+const b2 = B({ id: 'b2', k: 'ali', y: 'berdim', s: 5000 });
+tekshir('boshqa hamkor qoldig‘i aralashmaydi',
+  Y.hamkorQoldiq('tonirok', [b1, b2], []) === -12000 &&
+  Y.hamkorQoldiq('ali', [b1, b2], []) === 5000);
+
+// Jami: kim bizga qarzdor, biz kimga
+const yig = Y.qarzYigindi([b1, b2], []);
+tekshir('jami: olamiz 5000, beramiz 12000',
+  yig.olamiz === 5000 && yig.beramiz === 12000,
+  'olamiz ' + yig.olamiz + ', beramiz ' + yig.beramiz);
+
+// Bir hamkorda ikki tomonlama: -12000 + 5000 = -7000 → faqat «beramiz»
+const ikki = Y.qarzYigindi([b1, { ...b2, klient_id: 'tonirok' }], []);
+tekshir('bir hamkorda ikki tomon O‘ZARO YECHILADI',
+  ikki.olamiz === 0 && ikki.beramiz === 7000,
+  'olamiz ' + ikki.olamiz + ', beramiz ' + ikki.beramiz);
+
+// Muddat
+const kechikkan = B({ id: 'b3', k: 'tonirok', y: 'berdim', s: 1000, muddat: '2026-09-01' });
+const kelasi = B({ id: 'b4', k: 'tonirok', y: 'berdim', s: 1000, muddat: '2026-12-01' });
+const otgan = Y.muddatiOtgan([kechikkan, kelasi], [], new Date(2026, 8, 20));
+tekshir('muddati o‘tgan bitim topiladi', otgan.length === 1 && otgan[0].id === 'b3',
+  otgan.length + ' ta');
+tekshir('to‘langan bitim muddat ro‘yxatiga tushmaydi',
+  Y.muddatiOtgan([kechikkan], [T({ id: 't4', k: 'tonirok', b: 'b3', y: 'oldim', s: 1000 })], new Date(2026, 8, 20)).length === 0);
+
 console.log('\n7. Baza funksiyalari va cheklovlar');
 
 const javob = await sqlXom(BLOK);

@@ -10,9 +10,26 @@
 //  joyi bor.
 // =============================================================
 
-export type Jadval = 'hisoblar' | 'turkumlar' | 'klientlar' | 'yozuvlar';
+// `bitimlar` va `tolovlar` — oldi-berdi qatlami. Ombor
+// interfeysi jadval nomiga qarab ishlaydi, shuning uchun
+// ro‘yxatga qo‘shilishi kifoya: SQLite ham, IndexedDB ham
+// qatorlarni bitta umumiy joyda saqlaydi.
+export type Jadval =
+  | 'hisoblar'
+  | 'turkumlar'
+  | 'klientlar'
+  | 'yozuvlar'
+  | 'bitimlar'
+  | 'tolovlar';
 
-export const JADVALLAR: Jadval[] = ['hisoblar', 'turkumlar', 'klientlar', 'yozuvlar'];
+export const JADVALLAR: Jadval[] = [
+  'hisoblar',
+  'turkumlar',
+  'klientlar',
+  'yozuvlar',
+  'bitimlar',
+  'tolovlar',
+];
 
 /** Bazadagi jadval nomi — mahalliy nom qisqa, serverniki prefiksli */
 export const BAZA_NOMI: Record<Jadval, string> = {
@@ -20,6 +37,8 @@ export const BAZA_NOMI: Record<Jadval, string> = {
   turkumlar: 'kassa_turkumlar',
   klientlar: 'kassa_klientlar',
   yozuvlar: 'kassa_yozuvlar',
+  bitimlar: 'kassa_bitimlar',
+  tolovlar: 'kassa_bitim_tolovlar',
 };
 
 export type AmalTuri = 'qosh' | 'tahrir';
@@ -86,14 +105,11 @@ export interface Ombor {
 
 /** Serverga yuborish va olish — sinxronizatsiya dvigateli shu orqali ishlaydi */
 export interface Server {
-  ozgarishlar(kursor: number): Promise<{
-    kursor: number;
-    yana: boolean;
-    hisoblar: Record<string, unknown>[];
-    turkumlar: Record<string, unknown>[];
-    klientlar: Record<string, unknown>[];
-    yozuvlar: Record<string, unknown>[];
-  }>;
+  // Har jadval uchun alohida maydon sanab o‘tilmaydi: yangi
+  // jadval qo‘shilganda bu yerni ham tahrirlash esdan chiqardi.
+  ozgarishlar(kursor: number): Promise<
+    { kursor: number; yana: boolean } & Record<Jadval, Record<string, unknown>[]>
+  >;
   yubor(amal: Amal): Promise<{ holat: 'ok' | 'ziddiyat' | 'rad'; sabab?: string }>;
   kursorSaqla(kursor: number): Promise<void>;
 }

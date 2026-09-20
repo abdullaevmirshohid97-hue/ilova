@@ -22,7 +22,7 @@
 // =============================================================
 
 import type { Amal, Server } from '../ombor/turi';
-import { BAZA_NOMI } from '../ombor/turi';
+import { BAZA_NOMI, JADVALLAR, type Jadval } from '../ombor/turi';
 import { supabase } from './supabase';
 import { tr } from './til';
 
@@ -37,21 +37,16 @@ export function supabaseServer(qurilmaId: string, platforma: string): Server {
         p_chegara: 500,
       });
       if (error) throw error;
-      const j = (data ?? {}) as {
-        kursor?: number;
-        yana?: boolean;
-        hisoblar?: Record<string, unknown>[];
-        turkumlar?: Record<string, unknown>[];
-        klientlar?: Record<string, unknown>[];
-        yozuvlar?: Record<string, unknown>[];
-      };
+      const j = (data ?? {}) as Record<string, unknown>;
+      // Eski server yangi massivni qaytarmasligi mumkin — bo‘sh
+      // ro‘yxat bilan to‘ldiriladi, ilova yiqilmaydi.
+      const olingan = Object.fromEntries(
+        JADVALLAR.map((x) => [x, (j[x] as Record<string, unknown>[]) ?? []]),
+      ) as Record<Jadval, Record<string, unknown>[]>;
       return {
         kursor: Number(j.kursor ?? kursor),
         yana: !!j.yana,
-        hisoblar: j.hisoblar ?? [],
-        turkumlar: j.turkumlar ?? [],
-        klientlar: j.klientlar ?? [],
-        yozuvlar: j.yozuvlar ?? [],
+        ...olingan,
       };
     },
 

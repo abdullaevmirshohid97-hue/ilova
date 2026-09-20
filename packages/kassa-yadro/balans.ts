@@ -18,7 +18,7 @@
 // =============================================================
 
 import type { Valyuta } from './pul';
-import type { Hisob, Yozuv } from './turi';
+import type { Bitim, Hisob, Tolov, Yozuv } from './turi';
 
 export type Yigindi = { kirim: number; chiqim: number; farq: number };
 
@@ -145,4 +145,86 @@ export function umumiyBalans(
     valyuta: valyuta as Valyuta,
     qoldiq,
   }));
+}
+
+// =============================================================
+//  OLDI-BERDI QOLDIG‘I
+//
+//  Bu funksiyalar bazadagi `kassa_hamkor_qoldiq` va
+//  `kassa_bitim_qoldiq` bilan AYNAN bir xil hisoblaydi. Ikkisi
+//  bir xil bo‘lishi shart: ilova internetsiz ishlaydi va
+//  qoldiqni o‘zi ko‘rsatadi. Farq bo‘lsa, internet kelganda
+//  raqam o‘zgarib ketardi — bu esa ishonchni bir zumda yo‘qotadi.
+// =============================================================
+
+/** Bekor qilingani hisobga kirmaydi; TASDIQLANMAGANI KIRADI */
+const hisobga = (h: string) => h !== 'bekor';
+
+/** Ishora qoidasi: berdim +, oldim − */
+const ishora = (y: 'oldim' | 'berdim') => (y === 'berdim' ? 1 : -1);
+
+/**
+ * Hamkor qoldig‘i.
+ *
+ * Musbat — u menga qarzdor, manfiy — men unga.
+ */
+export function hamkorQoldiq(klientId: string, bitimlar: Bitim[], tolovlar: Tolov[]): number {
+  let q = 0;
+  for (const b of bitimlar) {
+    if (b.klient_id !== klientId || !hisobga(b.holat)) continue;
+    q += ishora(b.yonalish) * b.summa;
+  }
+  for (const t of tolovlar) {
+    if (t.klient_id !== klientId || !hisobga(t.holat)) continue;
+    q += ishora(t.yonalish) * t.summa;
+  }
+  return q;
+}
+
+/** Bitta bitimning to‘lanmagan qoldig‘i (manfiy bo‘lmaydi) */
+export function bitimQoldiq(bitim: Bitim, tolovlar: Tolov[]): number {
+  if (bitim.holat === 'bekor') return 0;
+  let tolangan = 0;
+  for (const t of tolovlar) {
+    if (t.bitim_id !== bitim.id || !hisobga(t.holat)) continue;
+    tolangan += t.summa;
+  }
+  return Math.max(0, bitim.summa - tolangan);
+}
+
+/**
+ * Hamma hamkorlar bo‘yicha jami: kim bizga qarzdor, biz kimga.
+ *
+ * Bosh ekrandagi ikki katta raqam shu yerdan chiqadi.
+ */
+export function qarzYigindi(
+  bitimlar: Bitim[],
+  tolovlar: Tolov[],
+): { olamiz: number; beramiz: number } {
+  const boyicha = new Map<string, number>();
+  for (const b of bitimlar) {
+    if (!hisobga(b.holat)) continue;
+    boyicha.set(b.klient_id, (boyicha.get(b.klient_id) ?? 0) + ishora(b.yonalish) * b.summa);
+  }
+  for (const t of tolovlar) {
+    if (!hisobga(t.holat)) continue;
+    boyicha.set(t.klient_id, (boyicha.get(t.klient_id) ?? 0) + ishora(t.yonalish) * t.summa);
+  }
+  let olamiz = 0;
+  let beramiz = 0;
+  for (const q of boyicha.values()) {
+    if (q > 0) olamiz += q;
+    else beramiz += -q;
+  }
+  return { olamiz, beramiz };
+}
+
+/** Muddati o‘tgan va hali yopilmagan bitimlar */
+export function muddatiOtgan(bitimlar: Bitim[], tolovlar: Tolov[], hozir = new Date()): Bitim[] {
+  const bugun = new Date(hozir.getFullYear(), hozir.getMonth(), hozir.getDate()).getTime();
+  return bitimlar.filter((b) => {
+    if (!b.muddat || b.holat === 'bekor' || b.holat === 'yopilgan') return false;
+    if (bitimQoldiq(b, tolovlar) <= 0) return false;
+    return Date.parse(b.muddat) < bugun;
+  });
 }

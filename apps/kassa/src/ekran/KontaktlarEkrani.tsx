@@ -21,9 +21,10 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { formatla, klientQoldiq, solishtir } from '@ilova/kassa-yadro';
-import type { Klient, Yozuv } from '@ilova/kassa-yadro';
+import { bitimQoldiq, formatla, hamkorQoldiq, solishtir } from '@ilova/kassa-yadro';
+import type { Bitim, Klient, Tolov } from '@ilova/kassa-yadro';
 import { klientQosh, klientTahrirla } from '../lib/baza';
+import { sanaQisqa } from '../lib/davr';
 import { useHolat } from '../lib/holat';
 import { xatoMatn } from '../lib/supabase';
 import { O, useTema } from '../lib/tema';
@@ -34,13 +35,15 @@ import { tr } from '../lib/til';
 type Filtr = 'hammasi' | 'qarzi' | 'oldindan';
 
 export default function KontaktlarEkrani({
-  qoshish,
+  ochOperatsiya,
+  ochTolov,
 }: {
-  qoshish: (turi: 'kirim' | 'chiqim', klientId: string) => void;
+  ochOperatsiya: (klientId: string) => void;
+  ochTolov: (klientId: string) => void;
 }) {
   const { C } = useTema();
   const s = uslublar(C);
-  const { klientlar, yozuvlar, turkumlar, yangila, yuklanmoqda } = useHolat();
+  const { klientlar, yozuvlar, turkumlar, bitimlar, tolovlar, yangila, yuklanmoqda } = useHolat();
 
   const [filtr, setFiltr] = useState<Filtr>('hammasi');
   const [qidiruv, setQidiruv] = useState('');
@@ -49,11 +52,17 @@ export default function KontaktlarEkrani({
 
   const valyuta = 'UZS' as const;
 
+  // Qoldiq endi DAFTARDAN emas, BITIMDAN hisoblanadi.
+  //
+  // Eski usulda hamkor qarzi kirim/chiqim yozuvlaridan chiqarilardi:
+  // «tovar berdim» chiqim bo‘lgani uchun kassadan ham pul yechilib,
+  // bir amal ikki marta hisoblanardi. Endi tovar kassaga tegmaydi,
+  // qarz esa bitim va to‘lovdan chiqadi.
   const qoldiqlar = useMemo(() => {
     const m = new Map<string, number>();
-    for (const k of klientlar) m.set(k.id, klientQoldiq(k.id, yozuvlar));
+    for (const k of klientlar) m.set(k.id, hamkorQoldiq(k.id, bitimlar, tolovlar));
     return m;
-  }, [klientlar, yozuvlar]);
+  }, [klientlar, bitimlar, tolovlar]);
 
   const jami = useMemo(() => {
     let olamiz = 0;
@@ -154,13 +163,18 @@ export default function KontaktlarEkrani({
         <KontaktOynasi
           klient={ochiq}
           qoldiq={qoldiqlar.get(ochiq.id) ?? 0}
-          yozuvlar={yozuvlar.filter((y) => y.klient_id === ochiq.id).sort((a, b) => solishtir(b, a))}
-          turkumNomi={(id) => turkumlar.find((t) => t.id === id)?.nom}
+          bitimlar={bitimlar}
+          tolovlar={tolovlar}
           yopish={() => setOchiq(null)}
-          qoshish={(turi) => {
+          ochOperatsiya={() => {
             const id = ochiq.id;
             setOchiq(null);
-            qoshish(turi, id);
+            ochOperatsiya(id);
+          }}
+          ochTolov={() => {
+            const id = ochiq.id;
+            setOchiq(null);
+            ochTolov(id);
           }}
           ochirildi={async () => {
             setOchiq(null);
@@ -185,21 +199,36 @@ export default function KontaktlarEkrani({
 function KontaktOynasi({
   klient,
   qoldiq,
-  yozuvlar,
-  turkumNomi,
+  bitimlar,
+  tolovlar,
   yopish,
-  qoshish,
+  ochOperatsiya,
+  ochTolov,
   ochirildi,
 }: {
   klient: Klient;
   qoldiq: number;
-  yozuvlar: Yozuv[];
-  turkumNomi: (id?: string | null) => string | undefined;
+  bitimlar: Bitim[];
+  tolovlar: Tolov[];
   yopish: () => void;
-  qoshish: (turi: 'kirim' | 'chiqim') => void;
+  ochOperatsiya: () => void;
+  ochTolov: () => void;
   ochirildi: () => void;
 }) {
   const { C } = useTema();
+  const valyuta = klient.valyuta ?? 'UZS';
+
+  // Bitim va to‘lov bitta ro‘yxatda, sana bo‘yicha teskari
+  // tartibda — hamkor bilan bo‘lgan hamma narsa bir joyda.
+  const tarix = useMemo(() => {
+    const b = bitimlar
+      .filter((x) => x.klient_id === klient.id)
+      .map((x) => ({ tur: 'bitim' as const, id: x.id, sana: x.sana, bitim: x }));
+    const t = tolovlar
+      .filter((x) => x.klient_id === klient.id)
+      .map((x) => ({ tur: 'tolov' as const, id: x.id, sana: x.sana, tolov: x }));
+    return [...b, ...t].sort((x, y) => Date.parse(y.sana) - Date.parse(x.sana));
+  }, [bitimlar, tolovlar, klient.id]);
 
   function yashir() {
     Alert.alert(tr('Kontaktni yashirish'),
@@ -260,37 +289,47 @@ function KontaktOynasi({
 
             <View style={{ marginTop: 14 }}>
               <Text style={{ color: C.tunXira, fontSize: 12 }}>
-                {qoldiq > 0 ? tr('Bizga qarzdor') : qoldiq < 0 ? tr('Oldindan to‘lagan') : tr('Hisob yopiq')}
+                {qoldiq > 0 ? tr('Sizga qarzdor') : qoldiq < 0 ? tr('Siz qarzdorsiz') : tr('Hisob yopiq')}
               </Text>
               <Text
                 style={{
-                  color: qoldiq > 0 ? C.chiqim : qoldiq < 0 ? C.kirim : C.tunMatn,
+                  color: qoldiq > 0 ? C.kirim : qoldiq < 0 ? C.chiqim : C.tunMatn,
                   fontSize: 26,
                   fontWeight: '800',
                   marginTop: 2,
                 }}
               >
-                {formatla(Math.abs(qoldiq), 'UZS')}
+                {formatla(Math.abs(qoldiq), valyuta)}
               </Text>
             </View>
           </View>
 
           <ScrollView style={{ maxHeight: 360 }}>
-            {yozuvlar.length === 0 ? (
-              <BoshHolat belgi="↑↓" matn={tr('Yozuv yo‘q')} izoh={tr('Pastdagi tugmalar bilan birinchi amalni kiriting')} />
+            {tarix.length === 0 ? (
+              <BoshHolat
+                belgi="▣"
+                matn={tr('Bitim yo‘q')}
+                izoh={tr('Pastdagi tugmalar bilan birinchi amalni kiriting')}
+              />
             ) : (
-              yozuvlar.map((y) => <YozuvQatori key={y.id} y={y} turkumNomi={turkumNomi(y.turkum_id)} />)
+              tarix.map((x) =>
+                x.tur === 'bitim' ? (
+                  <BitimQatori key={x.id} b={x.bitim} tolovlar={tolovlar} />
+                ) : (
+                  <TolovQatori key={x.id} t={x.tolov} />
+                ),
+              )
             )}
           </ScrollView>
 
           <View style={{ flexDirection: 'row', padding: 10, gap: 10, backgroundColor: C.karta }}>
+            <Tugma matn={tr('+ Operatsiya')} bos={ochOperatsiya} uslub={{ flex: 1 }} />
             <Tugma
-              matn={tr('Tovar berdim')}
-              rang={C.chiqim}
-              bos={() => qoshish('chiqim')}
+              matn={tr('+ To‘lov')}
+              ikkilamchi
+              bos={ochTolov}
               uslub={{ flex: 1 }}
             />
-            <Tugma matn={tr('Pul oldim')} rang={C.kirim} bos={() => qoshish('kirim')} uslub={{ flex: 1 }} />
           </View>
           <TouchableOpacity onPress={yashir} style={{ paddingBottom: 16, alignItems: 'center' }}>
             <Text style={{ color: C.xira, fontSize: 13 }}>{tr('Kontaktni yashirish')}</Text>
@@ -380,5 +419,47 @@ function YangiKontakt({ yopish, saqlandi }: { yopish: () => void; saqlandi: () =
         </View>
       </View>
     </Modal>
+  );
+}
+
+/** Bitim qatori: tovar/qarz, qoldig‘i va holati */
+function BitimQatori({ b, tolovlar }: { b: Bitim; tolovlar: Tolov[] }) {
+  const { C } = useTema();
+  const qoldi = bitimQoldiq(b, tolovlar);
+  const berdim = b.yonalish === 'berdim';
+  const nomi = b.tovar_nom || (b.nima === 'qarz' ? tr('Qarz') : tr('Tovar'));
+  const tafsilot = [
+    sanaQisqa(b.sana),
+    b.miqdor ? `${b.miqdor} ${tr(b.birlik ?? 'dona')}` : null,
+    b.holat === 'yopilgan' ? tr('yopilgan') : qoldi > 0 ? `${formatla(qoldi, b.valyuta, { belgisiz: true, kasrsiz: true })} ${tr('qoldi')}` : null,
+    b.holat === 'bekor' ? tr('bekor') : null,
+  ]
+    .filter(Boolean)
+    .join(' · ');
+
+  return (
+    <Qator
+      nom={nomi}
+      izoh={tafsilot}
+      ong={`${berdim ? '+' : '−'} ${formatla(b.summa, b.valyuta, { belgisiz: true, kasrsiz: true })}`}
+      ongRang={berdim ? C.kirim : C.chiqim}
+      ongIzoh={b.holat === 'kutilmoqda' ? tr('kutilmoqda') : undefined}
+      sozilgan={b.holat === 'bekor'}
+    />
+  );
+}
+
+/** To‘lov qatori */
+function TolovQatori({ t }: { t: Tolov }) {
+  const { C } = useTema();
+  const berdim = t.yonalish === 'berdim';
+  return (
+    <Qator
+      nom={tr('To‘lov')}
+      izoh={[sanaQisqa(t.sana), tr(t.usuli)].filter(Boolean).join(' · ')}
+      ong={`${berdim ? '+' : '−'} ${formatla(t.summa, t.valyuta, { belgisiz: true, kasrsiz: true })}`}
+      ongRang={berdim ? C.kirim : C.chiqim}
+      sozilgan={t.holat === 'bekor'}
+    />
   );
 }

@@ -28,7 +28,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { Session } from '@supabase/supabase-js';
-import type { Yozuv } from '@ilova/kassa-yadro';
+import type { BitimNima, BitimYonalish, Yozuv } from '@ilova/kassa-yadro';
 import { menKim, type Men } from './src/lib/baza';
 import { HolatProvider, useHolat } from './src/lib/holat';
 import { supabase, xatoMatn } from './src/lib/supabase';
@@ -49,6 +49,8 @@ import KontaktlarEkrani from './src/ekran/KontaktlarEkrani';
 import KalendarEkrani from './src/ekran/KalendarEkrani';
 import YanaEkrani, { type YanaSahifa } from './src/ekran/YanaEkrani';
 import YozuvOynasi, { type OynaRejimi } from './src/ekran/YozuvOynasi';
+import BitimOynasi from './src/ekran/BitimOynasi';
+import TolovOynasi from './src/ekran/TolovOynasi';
 import SinxBelgi from './src/ui/SinxBelgi';
 import XatoQalqoni from './src/ui/XatoQalqoni';
 import { xatolarniTut } from './src/lib/xatolar';
@@ -215,8 +217,8 @@ type Bolim = 'bosh' | 'yozuvlar' | 'kontaktlar' | 'kalendar' | 'yana';
 // til esa keyinroq yuklanadi. Tarjima chizishda qilinadi.
 const BOLIMLAR: { kalit: Bolim; belgi: string; matn: string }[] = [
   { kalit: 'bosh', belgi: '⌂', matn: 'Bosh' },
-  { kalit: 'yozuvlar', belgi: '≡', matn: 'Yozuvlar' },
-  { kalit: 'kontaktlar', belgi: '☺', matn: 'Kontakt' },
+  { kalit: 'yozuvlar', belgi: '≡', matn: 'Operatsiyalar' },
+  { kalit: 'kontaktlar', belgi: '☺', matn: 'Hamkorlar' },
   { kalit: 'kalendar', belgi: '▦', matn: 'Kalendar' },
   { kalit: 'yana', belgi: '⋯', matn: 'Yana' },
 ];
@@ -235,6 +237,19 @@ function Qobiq() {
     klient?: string | null;
   } | null>(null);
   const [tanlov, setTanlov] = useState(false);
+  // Hamkor kartochkasidan ochilsa, u oldindan tanlangan bo'ladi
+  const [tanlovKlient, setTanlovKlient] = useState<string | null>(null);
+  // Oldi-berdi oynalari: bitim (tovar/qarz) va to‘lov (pul)
+  const [bitimOyna, setBitimOyna] = useState<{
+    yonalish: BitimYonalish;
+    nima: BitimNima;
+    klient?: string | null;
+  } | null>(null);
+  const [tolovOyna, setTolovOyna] = useState<{
+    yonalish: BitimYonalish;
+    klient?: string | null;
+    bitim?: string | null;
+  } | null>(null);
   const [yanaSahifa, setYanaSahifa] = useState<YanaSahifa>('asosiy');
 
   /**
@@ -257,6 +272,14 @@ function Qobiq() {
         setTanlov(false);
         return true;
       }
+      if (bitimOyna) {
+        setBitimOyna(null);
+        return true;
+      }
+      if (tolovOyna) {
+        setTolovOyna(null);
+        return true;
+      }
       if (bolim === 'yana' && yanaSahifa !== 'asosiy') {
         setYanaSahifa('asosiy');
         return true;
@@ -268,7 +291,7 @@ function Qobiq() {
       return false;
     });
     return () => obuna.remove();
-  }, [bolim, yanaSahifa, tanlov]);
+  }, [bolim, yanaSahifa, tanlov, bitimOyna, tolovOyna]);
 
   if (yuklanmoqda) return <Kutish />;
 
@@ -290,7 +313,7 @@ function Qobiq() {
       <View style={{ flex: 1 }}>
         {bolim === 'bosh' && (
           <BoshEkran
-            ochQoshish={(turi) => setOyna({ rejim: turi })}
+            ochQoshish={() => setTanlov(true)}
             ochTakror={(y) => setOyna({ rejim: y.turi, namuna: y })}
             ochYozuvlar={() => setBolim('yozuvlar')}
             ochKontaktlar={() => setBolim('kontaktlar')}
@@ -298,7 +321,13 @@ function Qobiq() {
         )}
         {bolim === 'yozuvlar' && <YozuvlarEkrani tahrirla={(y) => setOyna({ rejim: y.turi, tahrir: y })} />}
         {bolim === 'kontaktlar' && (
-          <KontaktlarEkrani qoshish={(turi, klientId) => setOyna({ rejim: turi, klient: klientId })} />
+          <KontaktlarEkrani
+            ochOperatsiya={(klientId) => {
+              setTanlovKlient(klientId);
+              setTanlov(true);
+            }}
+            ochTolov={(klientId) => setTolovOyna({ yonalish: 'oldim', klient: klientId })}
+          />
         )}
         {bolim === 'kalendar' && <KalendarEkrani tahrirla={(y) => setOyna({ rejim: y.turi, tahrir: y })} />}
         {bolim === 'yana' && (
@@ -312,7 +341,9 @@ function Qobiq() {
 
       {/* Suzuvchi + tugmasi. Bosh ekranda ikkita katta tugma bor,
           shuning uchun u yerda takrorlanmaydi. */}
-      {bolim !== 'bosh' && (
+      {/* Suzuvchi tugma HAMMA bo‘limda: «+ Operatsiya» endi asosiy
+          amal, bosh ekranda ham qo‘l ostida turishi kerak */}
+      {true && (
         <TouchableOpacity
           onPress={() => setTanlov(true)}
           style={{
@@ -374,14 +405,26 @@ function Qobiq() {
           );
         })}
       </View>
+      </View>
 
-      {/* Nima qo'shamiz — uch yo'l */}
+      {/* Nima qildingiz? — olti aniq javob.
+
+          «Credit / Debit» emas, «Oldim / Berdim»: do'kondor uchun
+          birinchisi atama, ikkinchisi — o‘zi kun bo‘yi aytadigan
+          so‘z. Pastdagi xira qator esa hamkorsiz kirim-chiqim
+          (ijara, benzin) — eski oqim shu yerga tushdi. */}
       {tanlov && (
-        <Modal transparent animationType="fade" onRequestClose={() => setTanlov(false)}>
+        <Modal transparent animationType="fade" onRequestClose={() => {
+          setTanlov(false);
+          setTanlovKlient(null);
+        }}>
           <TouchableOpacity
             style={{ flex: 1, backgroundColor: 'rgba(11,18,26,0.45)', justifyContent: 'flex-end' }}
             activeOpacity={1}
-            onPress={() => setTanlov(false)}
+            onPress={() => {
+              setTanlov(false);
+              setTanlovKlient(null);
+            }}
           >
             <View
               style={{
@@ -389,43 +432,123 @@ function Qobiq() {
                 borderTopLeftRadius: 20,
                 borderTopRightRadius: 20,
                 padding: 12,
-                paddingBottom: 28 + chekka.bottom,
+                paddingBottom: 20 + chekka.bottom,
                 width: '100%',
                 maxWidth: 520,
                 alignSelf: 'center',
               }}
             >
+              <Text style={{ color: C.xira, fontSize: 12, fontWeight: '700', paddingHorizontal: 6, paddingBottom: 8 }}>
+                {tr('Nima qildingiz?')}
+              </Text>
+
               {(
                 [
-                  { r: 'kirim' as const, m: tr('↑ Kirim'), rang: C.kirim },
-                  { r: 'chiqim' as const, m: tr('↓ Chiqim'), rang: C.chiqim },
-                  { r: 'kochirma' as const, m: '⇄  ' + tr('Hisoblararo o‘tkazma'), rang: C.matn2 },
+                  { y: 'oldim' as const, n: 'tovar' as const, belgi: '▣', m: tr('Tovar oldim') },
+                  { y: 'berdim' as const, n: 'tovar' as const, belgi: '▣', m: tr('Tovar berdim') },
+                  { y: 'oldim' as const, n: 'qarz' as const, belgi: '●', m: tr('Qarz oldim') },
+                  { y: 'berdim' as const, n: 'qarz' as const, belgi: '●', m: tr('Qarz berdim') },
                 ]
               ).map((v) => (
                 <TouchableOpacity
-                  key={v.r}
+                  key={v.y + v.n}
                   onPress={() => {
                     setTanlov(false);
-                    setOyna({ rejim: v.r });
+                    setBitimOyna({ yonalish: v.y, nima: v.n, klient: tanlovKlient });
+                    setTanlovKlient(null);
                   }}
                   style={{
-                    paddingVertical: 15,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: 12,
+                    minHeight: 52,
                     paddingHorizontal: 16,
                     borderRadius: O.radiusKichik,
                     backgroundColor: C.fon,
                     marginTop: 8,
                   }}
                 >
-                  <Text style={{ color: v.rang, fontSize: 16, fontWeight: '700' }}>{v.m}</Text>
+                  <Text style={{ color: v.y === 'berdim' ? C.kirim : C.chiqim, fontSize: 15 }}>
+                    {v.belgi}
+                  </Text>
+                  <Text style={{ color: C.matn, fontSize: 16, fontWeight: '700' }}>{v.m}</Text>
                 </TouchableOpacity>
               ))}
+
+              {(
+                [
+                  { y: 'oldim' as const, m: tr('Pul oldim'), rang: C.kirim },
+                  { y: 'berdim' as const, m: tr('Pul berdim'), rang: C.chiqim },
+                ]
+              ).map((v) => (
+                <TouchableOpacity
+                  key={v.y}
+                  onPress={() => {
+                    setTanlov(false);
+                    setTolovOyna({ yonalish: v.y, klient: tanlovKlient });
+                    setTanlovKlient(null);
+                  }}
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: 12,
+                    minHeight: 52,
+                    paddingHorizontal: 16,
+                    borderRadius: O.radiusKichik,
+                    backgroundColor: C.fon,
+                    marginTop: 8,
+                  }}
+                >
+                  <Text style={{ color: v.rang, fontSize: 15 }}>▬</Text>
+                  <Text style={{ color: C.matn, fontSize: 16, fontWeight: '700' }}>{v.m}</Text>
+                </TouchableOpacity>
+              ))}
+
+              {/* Hamkorsiz kirim-chiqim — ikkinchi darajada */}
+              <View style={{ borderTopWidth: 1, borderTopColor: C.ajratgich, marginTop: 12, paddingTop: 6 }}>
+                {(
+                  [
+                    { r: 'kirim' as const, m: tr('Kassa kirimi'), rang: C.kirim },
+                    { r: 'chiqim' as const, m: tr('Kassa chiqimi'), rang: C.chiqim },
+                    { r: 'kochirma' as const, m: tr('Hisoblararo o‘tkazma'), rang: C.matn2 },
+                  ]
+                ).map((v) => (
+                  <TouchableOpacity
+                    key={v.r}
+                    onPress={() => {
+                      setTanlov(false);
+                      setOyna({ rejim: v.r });
+                    }}
+                    style={{ minHeight: 44, justifyContent: 'center', paddingHorizontal: 16 }}
+                  >
+                    <Text style={{ color: C.matn2, fontSize: 14 }}>{v.m}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
             </View>
           </TouchableOpacity>
         </Modal>
       )}
 
-      </View>
+      {bitimOyna && (
+        <BitimOynasi
+          yonalish={bitimOyna.yonalish}
+          nima={bitimOyna.nima}
+          boshKlient={bitimOyna.klient ?? null}
+          yopish={() => setBitimOyna(null)}
+          saqlandi={yangila}
+        />
+      )}
 
+      {tolovOyna && (
+        <TolovOynasi
+          yonalish={tolovOyna.yonalish}
+          boshKlient={tolovOyna.klient ?? null}
+          boshBitim={tolovOyna.bitim ?? null}
+          yopish={() => setTolovOyna(null)}
+          saqlandi={yangila}
+        />
+      )}
       {oyna && (
         <YozuvOynasi
           rejim={oyna.rejim}

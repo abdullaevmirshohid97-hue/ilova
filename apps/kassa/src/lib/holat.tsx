@@ -27,11 +27,13 @@ import {
 } from 'react';
 import { AppState, Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import type { Hisob, Klient, Turkum, Yozuv } from '@ilova/kassa-yadro';
+import type { Bitim, Hisob, Klient, Tolov, Turkum, Yozuv } from '@ilova/kassa-yadro';
 import {
+  bitimlarOl,
   hisoblarOl,
   klientlarOl,
   omborniQoy,
+  tolovlarOl,
   turkumlarOl,
   yozuvlarOl,
   type Men,
@@ -52,6 +54,8 @@ type Holat = {
   turkumlar: Turkum[];
   klientlar: Klient[];
   yozuvlar: Yozuv[];
+  bitimlar: Bitim[];
+  tolovlar: Tolov[];
   yuklanmoqda: boolean;
   xato: string | null;
 
@@ -99,6 +103,8 @@ export function HolatProvider({ men, children }: { men: Men; children: ReactNode
   const [turkumlar, setTurkumlar] = useState<Turkum[]>([]);
   const [klientlar, setKlientlar] = useState<Klient[]>([]);
   const [yozuvlar, setYozuvlar] = useState<Yozuv[]>([]);
+  const [bitimlar, setBitimlar] = useState<Bitim[]>([]);
+  const [tolovlar, setTolovlar] = useState<Tolov[]>([]);
   const [yuklanmoqda, setYuklanmoqda] = useState(true);
   const [xato, setXato] = useState<string | null>(null);
 
@@ -116,16 +122,20 @@ export function HolatProvider({ men, children }: { men: Men; children: ReactNode
   const yangila = useCallback(async () => {
     if (!omborRef.current) return;
     try {
-      const [h, t, k, y] = await Promise.all([
+      const [h, t, k, y, b, tl] = await Promise.all([
         hisoblarOl(),
         turkumlarOl(),
         klientlarOl(),
         yozuvlarOl(),
+        bitimlarOl(),
+        tolovlarOl(),
       ]);
       setHisoblar(h);
       setTurkumlar(t);
       setKlientlar(k);
       setYozuvlar(y);
+      setBitimlar(b);
+      setTolovlar(tl);
       setZiddiyatlar(await omborRef.current.ziddiyatlar());
     } catch (e) {
       // Mahalliy ombordan o‘qib bo‘lmadi — ilova bo‘sh ko‘rinadi
@@ -210,6 +220,8 @@ export function HolatProvider({ men, children }: { men: Men; children: ReactNode
       turkumlar,
       klientlar,
       yozuvlar,
+      bitimlar,
+      tolovlar,
       yuklanmoqda,
       xato,
       sinxHolat: natija?.holat ?? (sinxlanmoqda ? 'navbatda' : 'sinxron'),
@@ -223,7 +235,7 @@ export function HolatProvider({ men, children }: { men: Men; children: ReactNode
       nomniQoy: setBiznes,
     }),
     [
-      men, biznes, hisoblar, turkumlar, klientlar, yozuvlar, yuklanmoqda, xato,
+      men, biznes, hisoblar, turkumlar, klientlar, yozuvlar, bitimlar, tolovlar, yuklanmoqda, xato,
       natija, sinxlanmoqda, ziddiyatlar, doimiy, yangila, sinxlash, ziddiyatniYop,
     ],
   );

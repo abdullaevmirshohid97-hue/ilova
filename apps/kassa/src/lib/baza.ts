@@ -18,7 +18,8 @@
 // =============================================================
 
 import { bazaga, tiyinga } from '@ilova/kassa-yadro';
-import type { Hisob, Klient, Turkum, Yozuv } from '@ilova/kassa-yadro';
+import { bitimQoldiq } from '@ilova/kassa-yadro';
+import type { Bitim, Hisob, Klient, Tolov, Turkum, Yozuv } from '@ilova/kassa-yadro';
 import type { Amal, Jadval, Ombor } from '../ombor/turi';
 import { amalYasa, uuid } from './sinx';
 import { supabase } from './supabase';
@@ -160,11 +161,15 @@ export type YangiYozuv = {
   sana?: string;
   valyuta?: string;
   kochirma_id?: string | null;
+  /** Qaysi bitimdan chiqqani — oldi-berdi qatlami */
+  bitim_id?: string | null;
+  tolov_usuli?: string;
 };
 
-export async function yozuvQosh(y: YangiYozuv): Promise<void> {
+export async function yozuvQosh(y: YangiYozuv): Promise<string> {
+  const id = uuid();
   await mahalliyQosh('yozuvlar', {
-    id: uuid(),
+    id,
     hisob_id: y.hisob_id,
     turi: y.turi,
     summa: bazaga(y.summa),
@@ -174,14 +179,16 @@ export async function yozuvQosh(y: YangiYozuv): Promise<void> {
     klient_id: y.klient_id ?? null,
     izoh: y.izoh?.trim() || null,
     sana: y.sana ?? new Date().toISOString(),
-    tolov_usuli: 'naqd',
+    tolov_usuli: y.tolov_usuli ?? 'naqd',
     kochirma_id: y.kochirma_id ?? null,
+    bitim_id: y.bitim_id ?? null,
     bekor_at: null,
     bekor_sabab: null,
     versiya: 1,
     o_raqam: null,
     created_at: new Date().toISOString(),
   });
+  return id;
 }
 
 export async function yozuvTahrirla(
@@ -485,4 +492,210 @@ export async function aiHolat(): Promise<{
     oy_soralgan: number;
     oy_narx_usd: number;
   };
+}
+
+// =============================================================
+//  OLDI-BERDI: bitim va to‘lov
+//
+//  DIQQAT — MANTIQ IKKI JOYDA TAKRORLANADI va bu ATAYLAB:
+//
+//  Bazada `kassa_bitim_yarat` va `kassa_tolov_qosh` funksiyalari
+//  bor. Lekin ilova ULARNI CHAQIRMAYDI: u avval qurilmaga yozadi,
+//  keyin navbat orqali jadvalga to‘g‘ridan-to‘g‘ri INSERT qiladi.
+//  Internetsiz ishlashning boshqa yo‘li yo‘q.
+//
+//  Shuning uchun «qarz bitimi daftarga yozuv tushiradi» va
+//  «to‘liq to‘langach bitim yopiladi» qoidalari SHU YERDA ham
+//  yozilgan. Ikkisi bir xil bo‘lishi shart; ikkalasi ham sinov
+//  bilan qo‘riqlanadi (`kassa-balans` — JS tomoni, `kassa-bitim`
+//  — baza tomoni).
+//
+//  Baza funksiyalari esa TASHQI chaqiruvchilar uchun kerak:
+//  MCP orqali ulangan AI agent va Telegram boti.
+// =============================================================
+
+export async function bitimlarOl(): Promise<Bitim[]> {
+  const qatorlar = await ombor().royxat<Record<string, unknown>>('bitimlar');
+  return qatorlar.map((b) => ({
+    ...(b as unknown as Bitim),
+    summa: tiyinga(b.summa as string),
+    narx: b.narx === null || b.narx === undefined ? null : tiyinga(b.narx as string),
+    miqdor: b.miqdor === null || b.miqdor === undefined ? null : Number(b.miqdor),
+    kurs: Number(b.kurs ?? 1),
+  }));
+}
+
+export async function tolovlarOl(): Promise<Tolov[]> {
+  const qatorlar = await ombor().royxat<Record<string, unknown>>('tolovlar');
+  return qatorlar.map((t) => ({
+    ...(t as unknown as Tolov),
+    summa: tiyinga(t.summa as string),
+    kurs: Number(t.kurs ?? 1),
+  }));
+}
+
+export type YangiBitim = {
+  klient_id: string;
+  yonalish: 'oldim' | 'berdim';
+  nima: 'tovar' | 'qarz';
+  /** Tiyinda */
+  summa: number;
+  tovar_nom?: string | null;
+  birlik?: string | null;
+  miqdor?: number | null;
+  /** Tiyinda */
+  narx?: number | null;
+  valyuta?: string;
+  muddat?: string | null;
+  izoh?: string | null;
+  sana?: string;
+  /** `nima === 'qarz'` bo‘lsa MAJBURIY: pul qaysi hisobdan */
+  hisob_id?: string | null;
+};
+
+/**
+ * Bitim qo‘shadi.
+ *
+ * TOVAR kassaga TEGMAYDI — faqat qarz paydo bo‘ladi. Eski ilovada
+ * «tovar berdim» chiqim bo‘lib kassadan pul yechardi va bir amal
+ * ikki marta hisoblanardi.
+ */
+export async function bitimQosh(b: YangiBitim): Promise<string> {
+  if (b.nima === 'qarz' && !b.hisob_id) throw new Error(tr('Hisobni tanlang.'));
+  const id = uuid();
+  const sana = b.sana ?? new Date().toISOString();
+
+  await mahalliyQosh('bitimlar', {
+    id,
+    klient_id: b.klient_id,
+    yonalish: b.yonalish,
+    nima: b.nima,
+    tovar_nom: b.tovar_nom?.trim() || null,
+    birlik: b.birlik?.trim() || null,
+    miqdor: b.miqdor ?? null,
+    narx: b.narx === null || b.narx === undefined ? null : bazaga(b.narx),
+    summa: bazaga(b.summa),
+    valyuta: b.valyuta ?? 'UZS',
+    kurs: 1,
+    muddat: b.muddat ?? null,
+    izoh: b.izoh?.trim() || null,
+    sana,
+    holat: 'kutilmoqda',
+    tasdiq_at: null,
+    tasdiq_kim: null,
+    bekor_sabab: null,
+    versiya: 1,
+    o_raqam: null,
+    created_at: new Date().toISOString(),
+  });
+
+  // Pul harakati bor bitim daftarga ham tushadi
+  if (b.nima === 'qarz' && b.hisob_id) {
+    await yozuvQosh({
+      hisob_id: b.hisob_id,
+      turi: b.yonalish === 'berdim' ? 'chiqim' : 'kirim',
+      summa: b.summa,
+      klient_id: b.klient_id,
+      izoh: b.izoh?.trim() || tr('Qarz'),
+      sana,
+      valyuta: b.valyuta,
+      bitim_id: id,
+    });
+  }
+
+  return id;
+}
+
+export type YangiTolov = {
+  klient_id: string;
+  yonalish: 'oldim' | 'berdim';
+  /** Tiyinda */
+  summa: number;
+  hisob_id: string;
+  bitim_id?: string | null;
+  usuli?: 'naqd' | 'karta' | 'bank' | 'tovar';
+  valyuta?: string;
+  izoh?: string | null;
+  sana?: string;
+};
+
+/**
+ * To‘lov qo‘shadi: daftarga yozuv, to‘lovlar jadvaliga qator.
+ *
+ * Bitimga bog‘langan bo‘lsa, yo‘nalish TESKARI bo‘lishi shart —
+ * «men berdim» bitimi «men oldim» to‘lovi bilan yopiladi. Bir xil
+ * yo‘nalishda qarz kamaymay, ikki baravar oshib ketardi.
+ */
+export async function tolovQosh(t: YangiTolov): Promise<string> {
+  const id = uuid();
+  const sana = t.sana ?? new Date().toISOString();
+
+  if (t.bitim_id) {
+    const bitim = await ombor().bitta<Record<string, unknown>>('bitimlar', t.bitim_id);
+    if (!bitim) throw new Error(tr('Yozuv topilmadi'));
+    if (bitim.yonalish === t.yonalish) {
+      throw new Error(tr('To‘lov yo‘nalishi bitimga teskari bo‘lishi kerak.'));
+    }
+    if (bitim.klient_id !== t.klient_id) {
+      throw new Error(tr('Bu bitim boshqa hamkorniki.'));
+    }
+  }
+
+  const yozuvId = await yozuvQosh({
+    hisob_id: t.hisob_id,
+    turi: t.yonalish === 'berdim' ? 'chiqim' : 'kirim',
+    summa: t.summa,
+    klient_id: t.klient_id,
+    izoh: t.izoh?.trim() || tr('To‘lov'),
+    sana,
+    valyuta: t.valyuta,
+    bitim_id: t.bitim_id ?? null,
+    tolov_usuli: t.usuli === 'bank' ? 'otkazma' : t.usuli === 'tovar' ? 'naqd' : t.usuli,
+  });
+
+  await mahalliyQosh('tolovlar', {
+    id,
+    klient_id: t.klient_id,
+    bitim_id: t.bitim_id ?? null,
+    yonalish: t.yonalish,
+    summa: bazaga(t.summa),
+    valyuta: t.valyuta ?? 'UZS',
+    kurs: 1,
+    usuli: t.usuli ?? 'naqd',
+    yozuv_id: yozuvId,
+    izoh: t.izoh?.trim() || null,
+    sana,
+    holat: 'kutilmoqda',
+    tasdiq_at: null,
+    tasdiq_kim: null,
+    bekor_sabab: null,
+    versiya: 1,
+    o_raqam: null,
+    created_at: new Date().toISOString(),
+  });
+
+  // To‘liq to‘langan bo‘lsa bitim yopiladi. Holat — faqat
+  // ko‘rsatkich: qoldiq har doim qaytadan hisoblanadi.
+  if (t.bitim_id) {
+    const [bitimlar, tolovlar] = await Promise.all([bitimlarOl(), tolovlarOl()]);
+    const bitim = bitimlar.find((x) => x.id === t.bitim_id);
+    if (bitim && bitimQoldiq(bitim, tolovlar) <= 0) {
+      await mahalliyTahrir('bitimlar', bitim.id, { holat: 'yopilgan' });
+    }
+  }
+
+  return id;
+}
+
+/** Bitim bekor qilinadi — o‘chirilmaydi, tarix qoladi */
+export async function bitimBekorQil(id: string, sabab: string): Promise<void> {
+  await mahalliyTahrir('bitimlar', id, { holat: 'bekor', bekor_sabab: sabab });
+}
+
+/** Hamkor tasdiqlagani belgilanadi (Telegram bosqichida ishlatiladi) */
+export async function bitimTasdiqla(id: string): Promise<void> {
+  await mahalliyTahrir('bitimlar', id, {
+    holat: 'tasdiqlangan',
+    tasdiq_at: new Date().toISOString(),
+  });
 }
