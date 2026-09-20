@@ -38,6 +38,28 @@ import { ASBOBLAR, javob, oraliq, pul, son, xatoJavob } from './asboblar.ts';
 // xarajat uchun emas — suiiste'molga qarshi.
 const ZAXIRA_CHEGARA = 100;
 
+const FAQAT_OQISH =
+  'Bu ulanish faqat O‘QISH uchun. Yozish uchun ilovada yangi token yarating va ' +
+  '«yozishi mumkin» belgisini qo‘ying.';
+
+const TASDIQ_MATN =
+  '\nHech narsa YOZILMADI. Foydalanuvchidan tasdiq oling va shu chaqiruvni ' +
+  '`tasdiq: true` bilan takrorlang.';
+
+/**
+ * Hamkorni nomi bo‘yicha topadi: avval to‘liq moslik, keyin qism.
+ * Odam «Anvar» deydi, bazada esa «Anvar do‘koni» turadi — qism
+ * bo‘yicha izlamasak, agent «topilmadi» deb turib olardi.
+ */
+function hamkorTop<T extends { ism: string }>(royxat: T[], ism: unknown): T | undefined {
+  const q = String(ism ?? '').trim().toLowerCase();
+  if (!q) return undefined;
+  return (
+    royxat.find((x) => x.ism.toLowerCase() === q) ??
+    royxat.find((x) => x.ism.toLowerCase().includes(q))
+  );
+}
+
 const cors = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, content-type, apikey, x-client-info, mcp-protocol-version, mcp-session-id',
@@ -97,7 +119,7 @@ async function hisoblar(org: string) {
 async function yozuvlar(org: string, bosh: Date, oxir: Date, chegara = 500) {
   const { data } = await admin
     .from('kassa_yozuvlar')
-    .select('id, hisob_id, turi, summa, turkum_id, klient_id, izoh, sana, kochirma_id, bekor_at')
+    .select('id, hisob_id, turi, summa, turkum_id, klient_id, izoh, sana, kochirma_id, bekor_at, bitim_id')
     .eq('org_id', org)
     .gte('sana', bosh.toISOString())
     .lte('sana', oxir.toISOString())
@@ -106,10 +128,73 @@ async function yozuvlar(org: string, bosh: Date, oxir: Date, chegara = 500) {
   return (data ?? []).filter((y) => !y.bekor_at);
 }
 
+// -------------------------------------------------------------
+//  OLDI-BERDI
+//
+//  Qarz ikki manbadan chiqadi: hamkor bilan BITIM/TO‘LOV va
+//  eski daftar yozuvlari. Ilova ikkalasini qo‘shib ko‘rsatadi
+//  (`hamkorQoldiq`), MCP esa faqat yozuvlarni sanardi — natijada
+//  agent aytgan qarz ekrandagidan boshqa bo‘lardi.
+// -------------------------------------------------------------
+async function bitimlar(org: string, chegara = 2000) {
+  const { data } = await admin
+    .from('kassa_bitimlar')
+    .select('id, klient_id, yonalish, nima, tovar_nom, birlik, miqdor, summa, valyuta, muddat, izoh, sana, holat')
+    .eq('org_id', org)
+    .order('sana', { ascending: false })
+    .limit(chegara);
+  return data ?? [];
+}
+
+async function tolovlar(org: string, chegara = 2000) {
+  const { data } = await admin
+    .from('kassa_bitim_tolovlar')
+    .select('id, klient_id, bitim_id, yonalish, summa, valyuta, usuli, izoh, sana, holat')
+    .eq('org_id', org)
+    .order('sana', { ascending: false })
+    .limit(chegara);
+  return data ?? [];
+}
+
+/** Bekor qilingani kirmaydi. TASDIQLANMAGANI KIRADI — ilovadagidek. */
+const hisobga = (h: string) => h !== 'bekor';
+
+/** «berdim» = men berdim = u menga qarzdor (+). */
+const ishora = (y: string) => (y === 'berdim' ? 1 : -1);
+
+/**
+ * `packages/kassa-yadro/balans.ts` dagi `hamkorQoldiq` ning aynan
+ * o‘zi. Ikki joyda ikki xil hisoblansa, farq sekin o‘sib borardi
+ * va qaysi biri to‘g‘ri ekanini hech kim ayta olmasdi.
+ */
+function hamkorQoldiq(
+  klientId: string,
+  bits: Array<Record<string, unknown>>,
+  tols: Array<Record<string, unknown>>,
+  yozs: Array<Record<string, unknown>>,
+): number {
+  let q = 0;
+  for (const b of bits) {
+    if (b.klient_id !== klientId || !hisobga(String(b.holat))) continue;
+    q += ishora(String(b.yonalish)) * t(b.summa);
+  }
+  for (const x of tols) {
+    if (x.klient_id !== klientId || !hisobga(String(x.holat))) continue;
+    q += ishora(String(x.yonalish)) * t(x.summa);
+  }
+  // Bitimdan tug‘ilgan yozuv IKKI MARTA sanalmasin, ko‘chirma esa
+  // qarz emas — hisobdan hisobga o‘tkazma.
+  for (const y of yozs) {
+    if (y.klient_id !== klientId || y.bitim_id || y.kochirma_id) continue;
+    q += y.turi === 'chiqim' ? t(y.summa) : -t(y.summa);
+  }
+  return q;
+}
+
 async function nomlar(org: string) {
   const [{ data: turkumlar }, { data: klientlar }, h] = await Promise.all([
     admin.from('kassa_turkumlar').select('id, nom, turi').eq('org_id', org),
-    admin.from('kassa_klientlar').select('id, ism, turi').eq('org_id', org),
+    admin.from('kassa_klientlar').select('id, ism, turi, valyuta').eq('org_id', org),
     hisoblar(org),
   ]);
   return {
@@ -218,14 +303,17 @@ async function asbobniBajar(e: Egasi, nom: string, arg: Record<string, unknown>)
   if (nom === 'qarzlar_ol') {
     const faqat = String(arg.faqat ?? 'qarzi');
     const n = await nomlar(org);
-    const y = await yozuvlar(org, new Date(2000, 0, 1), new Date(2999, 0, 1), 5000);
+    const [y, bits, tols] = await Promise.all([
+      yozuvlar(org, new Date(2000, 0, 1), new Date(2999, 0, 1), 5000),
+      bitimlar(org),
+      tolovlar(org),
+    ]);
     const qatorlar = n.klientRoyxat
-      .map((k) => {
-        const qarz = y
-          .filter((z) => z.klient_id === k.id)
-          .reduce((s, z) => s + (z.turi === 'chiqim' ? t(z.summa) : -t(z.summa)), 0);
-        return { kontakt: k.ism, turi: k.turi, qarz_som: qarz / 100 };
-      })
+      .map((k) => ({
+        kontakt: k.ism,
+        turi: k.turi,
+        qarz_som: hamkorQoldiq(k.id, bits, tols, y) / 100,
+      }))
       .filter((x) => (faqat === 'qarzi' ? x.qarz_som > 0 : faqat === 'oldindan' ? x.qarz_som < 0 : true))
       .sort((a, b) => Math.abs(b.qarz_som) - Math.abs(a.qarz_som));
     const olamiz = qatorlar.filter((x) => x.qarz_som > 0).reduce((s, x) => s + x.qarz_som, 0);
@@ -323,6 +411,192 @@ async function asbobniBajar(e: Egasi, nom: string, arg: Record<string, unknown>)
     if (error) return xatoJavob('Yozilmadi: ' + error.message);
 
     return javob(korinish + '\n✓ Yozuv qo‘shildi.', { yozildi: true });
+  }
+
+  // -----------------------------------------------------------
+  //  OLDI-BERDI asboblari
+  // -----------------------------------------------------------
+
+  if (nom === 'bitimlar_ol') {
+    const n = await nomlar(org);
+    const k = hamkorTop(n.klientRoyxat, arg.kontakt);
+    if (!k) return xatoJavob('Hamkor topilmadi: ' + String(arg.kontakt ?? ''));
+    const chegara = Math.min(Number(arg.chegara ?? 40), 200);
+    const [y, bits, tols] = await Promise.all([
+      yozuvlar(org, new Date(2000, 0, 1), new Date(2999, 0, 1), 5000),
+      bitimlar(org),
+      tolovlar(org),
+    ]);
+
+    const qatorlar = [
+      ...bits
+        .filter((b) => b.klient_id === k.id && hisobga(String(b.holat)))
+        .map((b) => ({
+          sana: String(b.sana).slice(0, 10),
+          tur: String(b.nima),
+          yonalish: String(b.yonalish),
+          summa_som: t(b.summa) / 100,
+          tavsif: [b.tovar_nom, b.miqdor ? b.miqdor + ' ' + (b.birlik ?? '') : null, b.izoh]
+            .filter(Boolean)
+            .join(' · ')
+            .trim(),
+          muddat: b.muddat ? String(b.muddat).slice(0, 10) : null,
+        })),
+      ...tols
+        .filter((x) => x.klient_id === k.id && hisobga(String(x.holat)))
+        .map((x) => ({
+          sana: String(x.sana).slice(0, 10),
+          tur: 'tolov',
+          yonalish: String(x.yonalish),
+          summa_som: t(x.summa) / 100,
+          tavsif: [x.usuli, x.izoh].filter(Boolean).join(' · '),
+          muddat: null as string | null,
+        })),
+    ]
+      .sort((a, b) => (a.sana < b.sana ? 1 : -1))
+      .slice(0, chegara);
+
+    const qoldiq = hamkorQoldiq(k.id, bits, tols, y);
+    const matn =
+      qatorlar
+        .map(
+          (x) =>
+            x.sana + '  ' + x.yonalish + '  ' + x.tur + '  ' + son(x.summa_som) +
+            (x.tavsif ? '  — ' + x.tavsif : '') +
+            (x.muddat ? '  (muddat ' + x.muddat + ')' : ''),
+        )
+        .join('\n') +
+      '\n\n' + k.ism + ': ' +
+      (qoldiq > 0
+        ? 'sizga ' + son(qoldiq / 100) + ' qarzdor'
+        : qoldiq < 0
+          ? 'siz unga ' + son(-qoldiq / 100) + ' qarzdorsiz'
+          : 'hisob teng');
+
+    return javob(qatorlar.length ? matn : k.ism + ' bilan oldi-berdi yo‘q', {
+      kontakt: k.ism,
+      qoldiq_som: qoldiq / 100,
+      qatorlar,
+    });
+  }
+
+  if (nom === 'bitim_yarat') {
+    if (!e.yozishi) return xatoJavob(FAQAT_OQISH);
+    const yonalish = arg.yonalish === 'oldim' ? 'oldim' : 'berdim';
+    const nima = arg.nima === 'tovar' ? 'tovar' : 'qarz';
+    const summa = Number(arg.summa);
+    if (!Number.isFinite(summa) || summa <= 0) return xatoJavob('Summa noto‘g‘ri');
+    const tovarNom = arg.tovar_nom ? String(arg.tovar_nom).slice(0, 200) : null;
+    if (nima === 'tovar' && !tovarNom) return xatoJavob('Tovar nomi kerak');
+
+    const n = await nomlar(org);
+    const k = hamkorTop(n.klientRoyxat, arg.kontakt);
+    const ism = String(arg.kontakt ?? '').trim().slice(0, 120);
+    if (!k && !ism) return xatoJavob('Hamkor ismi kerak');
+    const valyuta = String(arg.valyuta ?? k?.valyuta ?? 'UZS');
+
+    const korinish =
+      'BITIM — ' + yonalish.toUpperCase() + ' (' + nima + ')\n' +
+      'Hamkor: ' + (k ? k.ism : ism + '  ← YANGI, yaratiladi') + '\n' +
+      'Summa:  ' + son(summa) + ' ' + valyuta + '\n' +
+      (tovarNom ? 'Tovar:  ' + tovarNom + '\n' : '') +
+      (arg.miqdor ? 'Miqdor: ' + arg.miqdor + ' ' + (arg.birlik ?? '') + '\n' : '') +
+      (arg.muddat ? 'Muddat: ' + String(arg.muddat).slice(0, 10) + '\n' : '') +
+      (arg.izoh ? 'Izoh:   ' + arg.izoh + '\n' : '') +
+      'Ta’sir: ' + (yonalish === 'berdim' ? 'u sizga' : 'siz unga') + ' ' +
+      son(summa) + ' qarzdor bo‘ladi\n';
+
+    if (arg.tasdiq !== true) return javob(korinish + TASDIQ_MATN, { tasdiq_kerak: true });
+
+    let klientId = k?.id;
+    if (!klientId) {
+      const { data: yangi, error: xatoK } = await admin
+        .from('kassa_klientlar')
+        .insert({ org_id: org, ism, turi: 'hamkor', valyuta })
+        .select('id')
+        .single();
+      if (xatoK) return xatoJavob('Hamkor yaratilmadi: ' + xatoK.message);
+      klientId = yangi.id;
+    }
+
+    const { error } = await admin.from('kassa_bitimlar').insert({
+      org_id: org,
+      klient_id: klientId,
+      yonalish,
+      nima,
+      tovar_nom: tovarNom,
+      birlik: arg.birlik ? String(arg.birlik).slice(0, 30) : null,
+      miqdor: arg.miqdor ? Number(arg.miqdor) : null,
+      summa: summa.toFixed(2),
+      valyuta,
+      muddat: arg.muddat ? String(arg.muddat).slice(0, 10) : null,
+      izoh: arg.izoh ? String(arg.izoh).slice(0, 300) : null,
+      sana: arg.sana ? String(arg.sana) : new Date().toISOString(),
+    });
+    if (error) return xatoJavob('Yozilmadi: ' + error.message);
+    return javob(korinish + '\n✓ Bitim qo‘shildi.', { yozildi: true });
+  }
+
+  if (nom === 'tolov_yarat') {
+    if (!e.yozishi) return xatoJavob(FAQAT_OQISH);
+    const yonalish = arg.yonalish === 'berdim' ? 'berdim' : 'oldim';
+    const summa = Number(arg.summa);
+    if (!Number.isFinite(summa) || summa <= 0) return xatoJavob('Summa noto‘g‘ri');
+
+    const n = await nomlar(org);
+    const k = hamkorTop(n.klientRoyxat, arg.kontakt);
+    if (!k) return xatoJavob('Hamkor topilmadi: ' + String(arg.kontakt ?? ''));
+
+    const [y, bits, tols] = await Promise.all([
+      yozuvlar(org, new Date(2000, 0, 1), new Date(2999, 0, 1), 5000),
+      bitimlar(org),
+      tolovlar(org),
+    ]);
+    const oldin = hamkorQoldiq(k.id, bits, tols, y);
+    const keyin = oldin + ishora(yonalish) * Math.round(summa * 100);
+
+    const korinish =
+      'TO‘LOV — ' + (yonalish === 'oldim' ? 'U TO‘LADI' : 'MEN TO‘LADIM') + '\n' +
+      'Hamkor: ' + k.ism + '\n' +
+      'Summa:  ' + son(summa) + '\n' +
+      (arg.usuli ? 'Usuli:  ' + arg.usuli + '\n' : '') +
+      (arg.izoh ? 'Izoh:   ' + arg.izoh + '\n' : '') +
+      'Qarz:   ' + son(oldin / 100) + ' → ' + son(keyin / 100) + '\n';
+
+    if (arg.tasdiq !== true) return javob(korinish + TASDIQ_MATN, { tasdiq_kerak: true });
+
+    const { error } = await admin.from('kassa_bitim_tolovlar').insert({
+      org_id: org,
+      klient_id: k.id,
+      yonalish,
+      summa: summa.toFixed(2),
+      valyuta: k.valyuta ?? 'UZS',
+      usuli: arg.usuli ? String(arg.usuli) : 'naqd',
+      izoh: arg.izoh ? String(arg.izoh).slice(0, 300) : null,
+      sana: arg.sana ? String(arg.sana) : new Date().toISOString(),
+    });
+    if (error) return xatoJavob('Yozilmadi: ' + error.message);
+    return javob(korinish + '\n✓ To‘lov qo‘shildi.', { yozildi: true });
+  }
+
+  if (nom === 'valyutalar_ol') {
+    const { data } = await admin
+      .from('kassa_valyutalar')
+      .select('valyuta, kurs, asosiy')
+      .eq('org_id', org);
+    const qatorlar = (data ?? []).map((x) => ({
+      valyuta: String(x.valyuta),
+      kurs: Number(x.kurs),
+      asosiy: x.asosiy === true,
+    }));
+    const asosiy = qatorlar.find((x) => x.asosiy);
+    const matn =
+      (asosiy ? 'Asosiy valyuta: ' + asosiy.valyuta + '\n\n' : 'Asosiy valyuta belgilanmagan\n\n') +
+      qatorlar
+        .filter((x) => !x.asosiy)
+        .map((x) => '1 ' + x.valyuta + ' = ' + son(x.kurs) + ' ' + (asosiy?.valyuta ?? ''))
+        .join('\n');
+    return javob(qatorlar.length ? matn : 'Valyuta sozlanmagan', qatorlar);
   }
 
   return xatoJavob('Noma’lum asbob: ' + nom);

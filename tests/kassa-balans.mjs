@@ -19,7 +19,7 @@
 //  Ishga tushirish:  node tests/kassa-balans.mjs
 // =============================================================
 
-import { mkdtempSync, readFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -671,6 +671,122 @@ tekshir('manfiy o‘zgarish cheklovni buzmaydi',
   Y.cheklovTekshir(10000, 9000, -5000)?.oshdi === false);
 tekshir('men qarzdor bo‘lsam cheklov ishlamaydi',
   Y.cheklovTekshir(10000, -50000, -9000)?.oshdi === false);
+
+// =============================================================
+// 6d. MCP AGENTI ILOVA BILAN BIR XIL HISOBLASIN
+//
+//  Qarz ikki joyda hisoblanadi: ilovada (packages/kassa-yadro)
+//  va MCP serverida (supabase/functions/kassa-mcp). Ikkinchisi
+//  uzoq vaqt FAQAT daftar yozuvlarini sanadi — bitim va to'lovni
+//  ko'rmasdi. Natijada agent «Anvar 700 000 qarzdor» deganda
+//  ekranda butunlay boshqa raqam turardi va qaysi biri to'g'ri
+//  ekanini hech kim ayta olmasdi.
+//
+//  Shuning uchun bu yerda ikkala kod BIR XIL MA'LUMOTDA
+//  yuritiladi va javoblari taqqoslanadi. MCP kodi Deno uchun
+//  yozilgan, shuning uchun kerakli qismi matn sifatida olinadi
+//  va esbuild bilan JS ga o'giriladi.
+//
+//  MUHIM farq: ilova TIYIN bilan ishlaydi, MCP esa bazadan
+//  kelgan o'nlik matn bilan ("120.00"). Shuning uchun bir xil
+//  misol ikki ko'rinishda beriladi.
+// =============================================================
+console.log('\n6d. MCP ilova bilan bir xil hisoblaydi');
+
+{
+  const manba = readFileSync(join(ROOT, 'supabase/functions/kassa-mcp/index.ts'), 'utf8')
+    .split('\r\n')
+    .join('\n');
+
+  const bitta = (boshi) => {
+    const i = manba.indexOf(boshi);
+    if (i < 0) throw new Error('MCP da topilmadi: ' + boshi);
+    return manba.slice(i, manba.indexOf('\n', i) + 1);
+  };
+
+  // Funksiya oxiri — ustuni 0 bo'lgan yolg'iz yopuvchi qavs. Qavs
+  // sanash usuli bu yerda ishlamasdi: parametrlar ro'yxatidagi
+  // ochuvchi qavs uni erta to'xtatardi.
+  const funksiya = (boshi) => {
+    const i = manba.indexOf(boshi);
+    if (i < 0) throw new Error('MCP da topilmadi: ' + boshi);
+    const oxir = manba.indexOf('\n}\n', i);
+    if (oxir < 0) throw new Error('oxiri topilmadi: ' + boshi);
+    return manba.slice(i, oxir + 3);
+  };
+
+  const parcha =
+    bitta('const t = (x: unknown)') +
+    bitta('const hisobga = (h: string)') +
+    bitta('const ishora = (y: string)') +
+    funksiya('function hamkorQoldiq(') +
+    '\nexport { hamkorQoldiq };\n';
+
+  const ogirilgan = await esbuild.transform(parcha, { loader: 'ts', format: 'esm' });
+  const mcpFayl = join(ish, 'mcp-qarz.mjs');
+  writeFileSync(mcpFayl, ogirilgan.code);
+  const M = await import('file://' + mcpFayl.replace(/\\/g, '/'));
+
+  // Bir misol, ikki ko'rinish. Tiyin -> o'nlik matn.
+  const som = (tiyin) => (tiyin / 100).toFixed(2);
+
+  const holatlar = [
+    {
+      nom: 'tovar oldim, yarmini to‘ladim',
+      bitimlar: [B({ id: 'm1', k: 'anvar', y: 'oldim', s: 120_000_00 })],
+      tolovlar: [T({ id: 'mt1', k: 'anvar', b: 'm1', y: 'berdim', s: 50_000_00 })],
+      yozuvlar: [],
+    },
+    {
+      nom: 'bekor qilingan bitim sanalmaydi',
+      bitimlar: [
+        B({ id: 'm2', k: 'anvar', y: 'berdim', s: 80_000_00 }),
+        B({ id: 'm3', k: 'anvar', y: 'berdim', s: 30_000_00, h: 'bekor' }),
+      ],
+      tolovlar: [],
+      yozuvlar: [],
+    },
+    {
+      nom: 'eski daftar yozuvi ham qo‘shiladi',
+      bitimlar: [B({ id: 'm4', k: 'anvar', y: 'berdim', s: 10_000_00 })],
+      tolovlar: [],
+      yozuvlar: [
+        { id: 'y1', klient_id: 'anvar', turi: 'chiqim', summa: 25_000_00, bitim_id: null, kochirma_id: null },
+      ],
+    },
+    {
+      nom: 'bitimdan tug‘ilgan yozuv IKKI MARTA sanalmaydi',
+      bitimlar: [B({ id: 'm5', k: 'anvar', y: 'berdim', s: 40_000_00 })],
+      tolovlar: [],
+      yozuvlar: [
+        { id: 'y2', klient_id: 'anvar', turi: 'chiqim', summa: 40_000_00, bitim_id: 'm5', kochirma_id: null },
+      ],
+    },
+    {
+      nom: 'ko‘chirma qarz emas',
+      bitimlar: [],
+      tolovlar: [],
+      yozuvlar: [
+        { id: 'y3', klient_id: 'anvar', turi: 'chiqim', summa: 90_000_00, bitim_id: null, kochirma_id: 'k1' },
+      ],
+    },
+  ];
+
+  for (const h of holatlar) {
+    const ilova = Y.hamkorQoldiq('anvar', h.bitimlar, h.tolovlar, h.yozuvlar);
+    const mcp = M.hamkorQoldiq(
+      'anvar',
+      h.bitimlar.map((x) => ({ ...x, summa: som(x.summa) })),
+      h.tolovlar.map((x) => ({ ...x, summa: som(x.summa) })),
+      h.yozuvlar.map((x) => ({ ...x, summa: som(x.summa) })),
+    );
+    tekshir(
+      h.nom,
+      ilova === mcp,
+      ilova === mcp ? som(ilova) : 'ilova ' + som(ilova) + ' ≠ MCP ' + som(mcp),
+    );
+  }
+}
 
 console.log('\n7. Baza funksiyalari va cheklovlar');
 

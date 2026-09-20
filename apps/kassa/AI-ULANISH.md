@@ -95,6 +95,24 @@ Javobda hisoblaringiz va qoldiq chiqsa — ulanish ishlayapti.
 | `qidir` | Izoh, turkum yoki kontakt bo'yicha qidirish |
 | `yozuv_yarat` | Yangi kirim/chiqim — **faqat yozish huquqli kalitda** |
 
+**Hamkor bilan oldi-berdi.** Daftar yozuvi (kirim/chiqim) va hamkor
+bilan oldi-berdi — boshqa-boshqa narsa. Birinchisi kassadagi pul
+harakati, ikkinchisi «kim kimga qarzdor».
+
+| Asbob | Nima qiladi |
+|---|---|
+| `bitimlar_ol` | Bitta hamkor bilan bitim va to'lovlar tarixi, oxirida qoldiq |
+| `bitim_yarat` | Tovar/qarz berdim yoki oldim — **yozish huquqli kalitda** |
+| `tolov_yarat` | Qarzni kamaytiradigan to'lov — **yozish huquqli kalitda** |
+| `valyutalar_ol` | Asosiy valyuta va kurslar |
+
+`bitim_yarat` da hamkor topilmasa, **yangi hamkor yaratiladi** — lekin
+tasdiqdan oldin buni ekranda aytib qo'yadi («← YANGI, yaratiladi»).
+
+Yo'nalish ishorasi hamma joyda bir xil: **berdim** — u sizga qarzdor
+bo'ladi, **oldim** — siz unga. To'lovda esa teskari: hamkor to'lasa
+`oldim`, siz to‘lasangiz `berdim`.
+
 Davr nomlari: `bugun`, `kecha`, `hafta`, `oy`, `yil`, `hammasi`.
 
 ---
@@ -104,7 +122,8 @@ Davr nomlari: `bugun`, `kecha`, `hafta`, `oy`, `yil`, `hammasi`.
 Bu ataylab shunday, chunki pul masalasida model xato tushunishi
 mumkin:
 
-1. Agent `yozuv_yarat` ni **tasdiqsiz** chaqiradi. Server hech narsa
+1. Agent `yozuv_yarat` (yoki `bitim_yarat`, `tolov_yarat`) ni
+   **tasdiqsiz** chaqiradi. Server hech narsa
    yozmaydi va faqat nima yoziladiganini qaytaradi:
 
    ```

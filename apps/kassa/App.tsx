@@ -470,36 +470,11 @@ function Qobiq({ qaytaYukla }: { qaytaYukla: () => void }) {
         {bolim === 'sozlama' && <Sozlama />}
       </View>
 
-      {/* Suzuvchi tugma HAMMA bo‘limda: «+ Operatsiya» asosiy
-          amal. Bosh sahifa bo‘sh bo‘lgani uchun (20.09 qarori)
-          yozuv qo‘shishning YAGONA yo‘li — shu tugma. */}
-      {true && (
-        <TouchableOpacity
-          onPress={() => setTanlov(true)}
-          style={{
-            position: 'absolute',
-            right: 16,
-            // Pastki qator yo‘qolgani uchun tugma pastga tushdi.
-            // 20 px — tizim ishora chizig‘i ustidan: nolga qo‘ysak
-            // Samsung'larda tugma o‘sha chiziq bilan ustma-ust
-            // tushib, bosilmay qolardi.
-            bottom: 20 + chekka.bottom,
-            width: 56,
-            height: 56,
-            borderRadius: 28,
-            backgroundColor: C.faol,
-            alignItems: 'center',
-            justifyContent: 'center',
-            shadowColor: '#000',
-            shadowOpacity: 0.18,
-            shadowRadius: 8,
-            shadowOffset: { width: 0, height: 3 },
-            elevation: 5,
-          }}
-        >
-          <Text style={{ color: C.faolMatn, fontSize: 28, fontWeight: '300', marginTop: -3 }}>+</Text>
-        </TouchableOpacity>
-      )}
+      {/* Suzuvchi «+» tugmasi OLIB TASHLANDI (21.09 qarori).
+          Endi operatsiya hamkor kartochkasidan qo‘shiladi: bosh
+          sahifada mijozni tanlash → kirim/chiqim. Bu ilovaning
+          o‘z modeliga mos — har bitim hamkor nomi bo‘yicha
+          yuritiladi, ya’ni hamkorsiz operatsiya baribir yo‘q. */}
 
       {/* Pastki bo‘limlar qatori OLIB TASHLANDI (20.09 qarori).
           Navigatsiya yon paneldan boradi — ekran balandroq,

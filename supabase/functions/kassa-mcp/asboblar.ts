@@ -121,6 +121,99 @@ export const ASBOBLAR: Asbob[] = [
       additionalProperties: false,
     },
   },
+
+  // -------------------------------------------------------------
+  //  OLDI-BERDI
+  //
+  //  Daftar yozuvi (kirim/chiqim) va hamkor bilan oldi-berdi —
+  //  BOSHQA-BOSHQA narsa. Birinchisi kassadagi pul harakati,
+  //  ikkinchisi «kim kimga qarzdor». Ilovada ikkalasi bor, MCP'da
+  //  esa faqat birinchisi bor edi: agent bitim yozilganini
+  //  ko'rmasdi va qarzni eskicha aytardi.
+  // -------------------------------------------------------------
+  {
+    name: 'bitimlar_ol',
+    title: 'Hamkor bilan oldi-berdi',
+    description:
+      'Bitta hamkor bilan bo‘lgan bitim va to‘lovlar tarixi, oxirida qoldiq. ' +
+      'Musbat qoldiq — u sizga qarzdor, manfiy — siz unga.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        kontakt: { type: 'string', description: 'Hamkor ismi' },
+        chegara: { type: 'number', description: 'Nechta qator (standart 40)' },
+      },
+      required: ['kontakt'],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'bitim_yarat',
+    title: 'Yangi bitim',
+    description:
+      'Hamkor bilan oldi-berdi yozadi: tovar berdim/oldim yoki qarz berdim/oldim. ' +
+      'MUHIM: `tasdiq` berilmasa hech narsa yozilmaydi — funksiya faqat nima ' +
+      'yoziladiganini ko‘rsatadi. Foydalanuvchidan tasdiq olgandan KEYIN ' +
+      '`tasdiq: true` bilan qayta chaqiring.',
+    yozadi: true,
+    inputSchema: {
+      type: 'object',
+      properties: {
+        kontakt: { type: 'string', description: 'Hamkor ismi. Yo‘q bo‘lsa yaratiladi' },
+        yonalish: {
+          type: 'string',
+          enum: ['berdim', 'oldim'],
+          description: 'berdim — u menga qarzdor bo‘ladi; oldim — men unga',
+        },
+        nima: { type: 'string', enum: ['tovar', 'qarz'] },
+        summa: { type: 'number', exclusiveMinimum: 0, description: 'So‘mda (tiyinsiz)' },
+        tovar_nom: { type: 'string', description: 'nima=tovar bo‘lsa SHART' },
+        miqdor: { type: 'number', exclusiveMinimum: 0 },
+        birlik: { type: 'string', description: 'dona, kg, metr…' },
+        muddat: { type: 'string', description: 'To‘lov muddati, ISO sana' },
+        valyuta: { type: 'string', description: 'Standart — hamkorning valyutasi' },
+        izoh: { type: 'string' },
+        sana: { type: 'string', description: 'ISO sana. Berilmasa — hozir' },
+        tasdiq: { type: 'boolean', description: 'true bo‘lsagina bazaga yoziladi' },
+      },
+      required: ['kontakt', 'yonalish', 'nima', 'summa'],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'tolov_yarat',
+    title: 'Qarzga to‘lov',
+    description:
+      'Hamkor qarzini kamaytiradigan to‘lov yozadi. `tasdiq` berilmasa hech narsa ' +
+      'yozilmaydi.',
+    yozadi: true,
+    inputSchema: {
+      type: 'object',
+      properties: {
+        kontakt: { type: 'string', description: 'Hamkor ismi' },
+        yonalish: {
+          type: 'string',
+          enum: ['oldim', 'berdim'],
+          description: 'oldim — u menga to‘ladi; berdim — men unga to‘ladim',
+        },
+        summa: { type: 'number', exclusiveMinimum: 0, description: 'So‘mda (tiyinsiz)' },
+        usuli: { type: 'string', enum: ['naqd', 'karta', 'bank', 'tovar'] },
+        izoh: { type: 'string' },
+        sana: { type: 'string', description: 'ISO sana. Berilmasa — hozir' },
+        tasdiq: { type: 'boolean', description: 'true bo‘lsagina bazaga yoziladi' },
+      },
+      required: ['kontakt', 'yonalish', 'summa'],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'valyutalar_ol',
+    title: 'Valyuta va kurs',
+    description:
+      'Tashkilotning asosiy valyutasi va qo‘shimcha valyutalar kursi. Summani ' +
+      'boshqa valyutada aytishdan oldin shu kursni oling — taxmin qilmang.',
+    inputSchema: { type: 'object', properties: {}, additionalProperties: false },
+  },
 ];
 
 // ---------------------------------------------------------------
