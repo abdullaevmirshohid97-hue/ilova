@@ -168,6 +168,7 @@ const RU: Record<string, string> = {
   'Ruxsat yo‘q': 'Нет разрешения',
   'Galereyaga kirish uchun ruxsat bering': 'Разрешите доступ к галерее',
   'Joylashuv uchun ruxsat bering': 'Разрешите доступ к геолокации',
+  'Kontaktlardan tanlash uchun ruxsat bering': 'Разрешите доступ к контактам',
   'Joylashuv olinmadi': 'Геолокация не получена',
   'Shu yerdaman — joylashuvni qo‘yish': 'Я здесь — отметить место',
   'Joylashuv qo‘yildi': 'Место отмечено',

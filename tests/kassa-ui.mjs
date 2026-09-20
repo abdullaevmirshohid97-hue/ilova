@@ -249,5 +249,47 @@ tekshir(
   shubhali.length ? shubhali.join(' | ') : 'toza',
 );
 
+// =============================================================
+// 6. QO'YILMAYDIGAN HOLAT
+//
+//  Eng jimgina xato turi: holat e'lon qilinadi, ekranlar undan
+//  o'qiydi, lekin uni HECH KIM QO'YMAYDI. Hech narsa yiqilmaydi,
+//  TypeScript ham rozi — qiymat shunchaki abadiy boshlang'ich
+//  holida qoladi.
+//
+//  Shunday bo'lgan edi: `yangila()` da yettita so'rov va oltita
+//  nom turardi, ya'ni `valyutalarOl()` o'qilar, natijasi esa
+//  yo'qolardi. `valyutalar` doim bo'sh qoldi va ko'p valyuta
+//  BUTUN ilovada o'lik bo'ldi — sozlamada «UZS» qotib turardi,
+//  bosh sahifadagi jami hech qachon o'girilmasdi. Odam tugmani
+//  qayta-qayta bosardi, bazada esa versiya 13 gacha o'sgandi.
+//
+//  Shuning uchun: har `useState` juftligining `setX` i shu
+//  faylda kamida bir marta chaqirilsin.
+// =============================================================
+console.log('\n6. Qo‘yilmaydigan holat');
+
+{
+  const holatsiz = [];
+  for (const [f, matn] of matnlar) {
+    for (const m of matn.matchAll(/const \[\s*(\w+)\s*,\s*(set\w+)\s*\]\s*=\s*useState/g)) {
+      const qoy = m[2];
+      // Chaqiruv ham, HAVOLA ham hisobga kiradi: ko‘p joyda
+      // setter to‘g‘ridan to‘g‘ri uzatiladi — onChangeText={setX}.
+      // E‘lon qatorining o‘zi bitta uchrash beradi, shuning uchun
+      // jami bittadan ko‘p bo‘lishi kerak.
+      const soni = [...matn.matchAll(new RegExp('\\b' + qoy + '\\b', 'g'))].length;
+      if (soni <= 1) holatsiz.push(qisqa(f).split('/').pop() + ': ' + qoy);
+    }
+  }
+
+  tekshir(
+    'har bir useState holati qo‘yiladi',
+    holatsiz.length === 0,
+    holatsiz.length ? holatsiz.join(', ') : 'hammasi ishlatiladi',
+  );
+}
+
+
 console.log('\n' + (yiqildi === 0 ? '\x1b[32mHAMMASI O‘TDI\x1b[0m' : `\x1b[31m${yiqildi} TA XATO\x1b[0m`) + '\n');
 process.exit(yiqildi === 0 ? 0 : 1);

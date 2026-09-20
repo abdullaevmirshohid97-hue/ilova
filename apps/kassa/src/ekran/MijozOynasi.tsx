@@ -108,9 +108,27 @@ export default function MijozOynasi({
    * Ism/familya BO‘SH bo‘lsagina to‘ldiriladi: odam allaqachon
    * bir nimani yozgan bo‘lsa, uni kontakt ustiga yozib yuborish
    * kutilmagan yo‘qotish bo‘lardi.
+   *
+   * RUXSAT AVVAL SO‘RALADI va bu shart. `presentContactPickerAsync`
+   * o‘zi ruxsat so‘ramaydi: tanlagich ochilishi uchun ruxsat kerak
+   * emas, lekin tanlangandan KEYIN modul kontaktni provayderdan
+   * o‘qiydi —
+   *
+   *   getContactById -> resolver.query(ContactsContract.Data...)
+   *
+   * — va bu READ_CONTACTS ni ish vaqtida talab qiladi. Ruxsatsiz
+   * u SecurityException beradi, xato esa native tomonda ushlanmay
+   * ILOVANI YOPIB YUBORADI. JS dagi try/catch ham yordam bermaydi,
+   * chunki crash JS ga umuman yetib kelmaydi.
    */
   async function kontaktdanOl() {
     try {
+      const ruxsat = await Contacts.requestPermissionsAsync();
+      if (!ruxsat.granted) {
+        Ogoh.alert(tr('Ruxsat yo‘q'), tr('Kontaktlardan tanlash uchun ruxsat bering'));
+        return;
+      }
+
       const k = await Contacts.presentContactPickerAsync();
       if (!k) return;
 

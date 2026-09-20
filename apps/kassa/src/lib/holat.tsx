@@ -125,7 +125,14 @@ export function HolatProvider({ men, children }: { men: Men; children: ReactNode
   const yangila = useCallback(async () => {
     if (!omborRef.current) return;
     try {
-      const [h, t, k, y, b, tl] = await Promise.all([
+      // Nomlar soni so‘rovlar soniga TENG bo‘lishi shart. Bir vaqt
+      // bu yerda yettita so‘rov va oltita nom turgan edi:
+      // `valyutalarOl()` o‘qilar, natijasi esa hech kimga
+      // tegmasdi. Natijada `valyutalar` doim bo‘sh qolib, ko‘p
+      // valyuta butun ilovada o‘lik edi — sozlamada «UZS»
+      // qotib turardi, bosh sahifadagi jami esa hech qachon
+      // o‘girilmasdi.
+      const [h, t, k, y, b, tl, vl] = await Promise.all([
         hisoblarOl(),
         turkumlarOl(),
         klientlarOl(),
@@ -140,6 +147,7 @@ export function HolatProvider({ men, children }: { men: Men; children: ReactNode
       setYozuvlar(y);
       setBitimlar(b);
       setTolovlar(tl);
+      setValyutalar(vl);
       setZiddiyatlar(await omborRef.current.ziddiyatlar());
     } catch (e) {
       // Mahalliy ombordan o‘qib bo‘lmadi — ilova bo‘sh ko‘rinadi
