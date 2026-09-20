@@ -1,6 +1,7 @@
 do $$
 declare
-  v_org uuid; v_user uuid; v_hisob uuid; v_hamkor uuid;
+  v_org uuid; v_b2b uuid; v_user uuid; v_hisob uuid; v_hamkor uuid;
+  v_valyuta text;
   v_ok boolean; v_soni int; v_ozg jsonb; v_kurs numeric;
   v_n jsonb := '[]'::jsonb;
 begin
@@ -62,11 +63,31 @@ begin
   v_n := v_n || jsonb_build_object('nom', 'bitimda TRY qabul qilinadi', 'ok', v_ok);
 
   -- ---------- 2. Valyuta jadvali ----------
+  --
+  -- Trigger tashkilot yaratilganda asosiy valyutani qo‘yadi.
+  -- Usiz yangi biznes valyutasiz qolardi va unikal indeks ham
+  -- ishga tushmasdi: asosiy umuman yo‘q bo‘lsa, ikkinchisini
+  -- rad etadigan narsa qolmaydi.
   select count(*) into v_soni from public.kassa_valyutalar
    where org_id = v_org and asosiy;
   v_n := v_n || jsonb_build_object(
-    'nom', 'yangi tashkilotda asosiy valyuta bor',
+    'nom', 'TRIGGER yangi tashkilotga asosiy valyuta qo''yadi',
     'ok', v_soni = 1, 'izoh', v_soni || ' ta');
+
+  select valyuta into v_valyuta from public.kassa_valyutalar
+   where org_id = v_org and asosiy;
+  v_n := v_n || jsonb_build_object(
+    'nom', 'asosiy valyuta UZS',
+    'ok', v_valyuta = 'UZS', 'izoh', coalesce(v_valyuta, 'null'));
+
+  -- B2B tashkilotiga TEGMAYDI: trigger qamrovi tor.
+  insert into public.organizations (name, subscription_status, yonalishlar)
+  values ('SINOV-VALYUTA B2B ' || gen_random_uuid(), 'active', array['b2b'])
+  returning id into v_b2b;
+  select count(*) into v_soni from public.kassa_valyutalar where org_id = v_b2b;
+  v_n := v_n || jsonb_build_object(
+    'nom', 'B2B tashkilotiga valyuta qo''yilmaydi',
+    'ok', v_soni = 0, 'izoh', v_soni || ' ta');
 
   insert into public.kassa_valyutalar (org_id, valyuta, kurs)
   values (v_org, 'USD', 11850.5);
