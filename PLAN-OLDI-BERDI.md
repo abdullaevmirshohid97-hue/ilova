@@ -320,7 +320,7 @@ Natija: bosh ekranda bitta tugma, ichida oltita aniq javob. Hozirgi
 Har bosqich oxirida ilova **ishlaydigan** holatda qoladi. Bu shart:
 yarim qurilgan ilova bilan bir kun ham yashab bo'lmaydi.
 
-### 1-bosqich — Baza (2 kun)
+### 1-bosqich — Baza (2 kun) ✍️ YOZILDI, QO'LLANMAGAN
 
 - `kassa_klientlar` kengayadi (telegram, kompaniya, stir, manzil, valyuta)
 - `kassa_bitimlar`, `kassa_bitim_tolovlar` jadvallari + RLS + trigger
@@ -329,6 +329,20 @@ yarim qurilgan ilova bilan bir kun ham yashab bo'lmaydi.
 - Sinov: `kassa-bitim` — qoldiq matematikasi, qisman to'lov, bekor qilish
 
 **Ilovaga ta'siri yo'q** — eski oqim ishlayveradi.
+
+`supabase/migrations/20260920000001_kassa_bitimlar.sql` yozildi.
+Supabase boshqaruv tokeni 401 qaytargani uchun **jonli bazaga
+qo'llanmagan** va shu sababli **hech qanday sinovdan o'tmagan**.
+
+Qo'llangandan keyin tekshirish:
+
+```
+node tests/kassa-bitim.mjs --sql
+```
+
+Chiqqan blokni Dashboard → SQL Editor'ga qo'ying. U 20 dan ortiq
+tekshiruv bajaradi va oxirida hammasini **qaytarib oladi** — bazada
+iz qolmaydi.
 
 ### 2-bosqich — Bitim ilovada (3 kun)
 
