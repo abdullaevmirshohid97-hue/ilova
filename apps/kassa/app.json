@@ -3,7 +3,7 @@
     "name": "Clary",
     "slug": "credit-debit",
     "scheme": "creditdebit",
-    "version": "2.0.0",
+    "version": "2.1.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -23,7 +23,7 @@
         "backgroundColor": "#013a26"
       },
       "package": "uz.yukchibolla.creditdebit",
-      "versionCode": 12,
+      "versionCode": 13,
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
       "permissions": []
