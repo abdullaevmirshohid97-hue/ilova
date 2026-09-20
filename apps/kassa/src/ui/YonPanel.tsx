@@ -22,7 +22,6 @@ import { tr } from '../lib/til';
 export type PanelBolim =
   | 'bosh'
   | 'yozuvlar'
-  | 'kontaktlar'
   | 'hisoblar'
   | 'turkumlar'
   | 'hisobot'
@@ -39,9 +38,8 @@ type Qator = { kalit: PanelBolim; belgi: string; matn: string };
 // bir marta ochiladigani.
 const GURUHLAR: Qator[][] = [
   [
-    { kalit: 'bosh', belgi: '⌂', matn: 'Bosh' },
+    { kalit: 'bosh', belgi: '☺', matn: 'Mijozlar' },
     { kalit: 'yozuvlar', belgi: '≡', matn: 'Operatsiyalar' },
-    { kalit: 'kontaktlar', belgi: '☺', matn: 'Hamkorlar' },
   ],
   [
     { kalit: 'hisoblar', belgi: '▤', matn: 'Hisoblar' },

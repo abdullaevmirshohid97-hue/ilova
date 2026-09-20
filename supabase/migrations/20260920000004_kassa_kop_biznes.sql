@@ -253,3 +253,24 @@ end $$;
 
 revoke all on function public.kassa_biznes_nomi(uuid, text) from public, anon;
 grant execute on function public.kassa_biznes_nomi(uuid, text) to authenticated;
+
+
+-- ---------- 6. Eski bir argumentli nusxa ----------
+--
+-- `kassa_biznes_nomi(text)` 20260913000005 da yaratilgan va ilova
+-- uni hali ham chaqiradi (sozlamalar ekrani). Endi ikki argumentli
+-- nusxa ham bor — ya'ni bitta nom ostida IKKI XIL tekshiruv
+-- turibdi: biri `is_admin()`, ikkinchisi `uzvliklar`.
+--
+-- Ikkisi vaqt o'tib bir-biridan uzoqlashardi va qaysi biri
+-- ishlayotganini faqat xato chiqqanda bilinardi. Shuning uchun
+-- eskisi endi yangisini CHAQIRADI, o'z tekshiruvi yo'q.
+create or replace function public.kassa_biznes_nomi(p_nom text)
+returns text
+language sql security definer set search_path = public
+as $$
+  select public.kassa_biznes_nomi(public.current_org_id(), p_nom);
+$$;
+
+revoke all on function public.kassa_biznes_nomi(text) from public, anon;
+grant execute on function public.kassa_biznes_nomi(text) to authenticated;

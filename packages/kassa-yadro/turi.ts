@@ -52,7 +52,21 @@ export type Klient = {
   stir?: string | null;
   manzil?: string | null;
   valyuta?: Valyuta | null;
+  /** Storage dagi yo‘l: `<org_id>/<klient_id>.jpg`, URL emas */
   rasm_path?: string | null;
+  familya?: string | null;
+  kategoriya?: string | null;
+  /** Jonli joylashuv — ikkalasi birga bo‘ladi yoki ikkalasi bo‘sh */
+  lat?: number | null;
+  lng?: number | null;
+  /**
+   * Qarz chegarasi TIYINDA. null = cheklov yo‘q.
+   *
+   * Ilova buni QAT’IY to‘smaydi, ogohlantiradi va tasdiqlatadi:
+   * savdo o‘rtasida ilova to‘sib qo‘ysa, odam yozuvni umuman
+   * yozmay qo‘yardi va daftar yolg‘on bo‘lardi.
+   */
+  cheklov?: number | null;
   izoh?: string | null;
   faol: boolean;
   versiya: number;

@@ -18,6 +18,7 @@ import {
   ActivityIndicator,
   Modal,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
   useColorScheme,
@@ -28,7 +29,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { Session } from '@supabase/supabase-js';
-import type { BitimNima, BitimYonalish, Yozuv } from '@ilova/kassa-yadro';
+import type { BitimNima, BitimYonalish, Klient, Yozuv } from '@ilova/kassa-yadro';
 import { muddatiOtgan } from '@ilova/kassa-yadro';
 import { menKim, type Men } from './src/lib/baza';
 import { HolatProvider, useHolat } from './src/lib/holat';
@@ -46,7 +47,6 @@ import KirishEkrani from './src/ekran/KirishEkrani';
 import BiznesEkrani from './src/ekran/BiznesEkrani';
 import BoshEkran from './src/ekran/BoshEkran';
 import YozuvlarEkrani from './src/ekran/YozuvlarEkrani';
-import KontaktlarEkrani from './src/ekran/KontaktlarEkrani';
 import Hisoblar from './src/ekran/YanaHisoblar';
 import Turkumlar from './src/ekran/YanaTurkumlar';
 import Hisobot from './src/ekran/YanaHisobot';
@@ -56,6 +56,8 @@ import AiModel from './src/ekran/AiModel';
 import KalendarEkrani from './src/ekran/KalendarEkrani';
 import KunYakuni from './src/ekran/KunYakuni';
 import BiznesRoyxati from './src/ekran/BiznesRoyxati';
+import MijozOynasi from './src/ekran/MijozOynasi';
+import BitimlarEkrani from './src/ekran/BitimlarEkrani';
 import YozuvOynasi, { type OynaRejimi } from './src/ekran/YozuvOynasi';
 import BitimOynasi from './src/ekran/BitimOynasi';
 import TolovOynasi from './src/ekran/TolovOynasi';
@@ -244,7 +246,6 @@ type Bolim = PanelBolim;
 const SARLAVHA: Record<Exclude<Bolim, 'yakun'>, string> = {
   bosh: 'Clary',
   yozuvlar: 'Operatsiyalar',
-  kontaktlar: 'Hamkorlar',
   hisoblar: 'Hisoblar',
   turkumlar: 'Turkumlar',
   hisobot: 'Hisobot',
@@ -288,6 +289,15 @@ function Qobiq({ qaytaYukla }: { qaytaYukla: () => void }) {
   } | null>(null);
   const [yonPanel, setYonPanel] = useState(false);
   const [biznesOyna, setBiznesOyna] = useState(false);
+  const [bitimlarOyna, setBitimlarOyna] = useState(false);
+  // `undefined` — oyna yopiq, `null` — yangi mijoz,
+  // obyekt — tahrirlash. Uchta holatni bitta o‘zgaruvchida
+  // saqlash ikkita bayroqdan sodda va ular bir-biriga zid
+  // bo‘lib qolishi mumkin emas.
+  const [mijozOyna, setMijozOyna] = useState<Klient | null | undefined>(undefined);
+  // Yuqoridagi lupa shu maydonni ochadi
+  const [qidiruvOchiq, setQidiruvOchiq] = useState(false);
+  const [qidiruv, setQidiruv] = useState('');
   const [bildirishnoma, setBildirishnoma] = useState(false);
   const [amallar, setAmallar] = useState(false);
   const [yakunOynasi, setYakunOynasi] = useState(false);
@@ -333,6 +343,11 @@ function Qobiq({ qaytaYukla }: { qaytaYukla: () => void }) {
         setBiznesOyna(false);
         return true;
       }
+      if (qidiruvOchiq) {
+        setQidiruvOchiq(false);
+        setQidiruv('');
+        return true;
+      }
       if (yonPanel) {
         setYonPanel(false);
         return true;
@@ -344,7 +359,7 @@ function Qobiq({ qaytaYukla }: { qaytaYukla: () => void }) {
       return false;
     });
     return () => obuna.remove();
-  }, [bolim, yonPanel, biznesOyna, tanlov, bitimOyna, tolovOyna]);
+  }, [bolim, yonPanel, biznesOyna, qidiruvOchiq, tanlov, bitimOyna, tolovOyna]);
 
   if (yuklanmoqda) return <Kutish />;
 
@@ -364,11 +379,49 @@ function Qobiq({ qaytaYukla }: { qaytaYukla: () => void }) {
         sarlavhaBos={bolim === 'bosh' ? () => setBiznesOyna(true) : undefined}
         menyu={() => setYonPanel(true)}
         orqaga={ICHKI(bolim) ? () => setBolim('bosh') : undefined}
-        qidiruv={() => setBolim('yozuvlar')}
+        qidiruv={() => {
+          if (bolim === 'bosh') setQidiruvOchiq((x) => !x);
+          else setBolim('yozuvlar');
+        }}
         bildirishnoma={() => setBildirishnoma(true)}
         oqilmagan={kechikkanlar.length > 0}
         uchNuqta={() => setAmallar(true)}
       />
+
+      {/* Qidiruv — lupa bosilganda ochiladi. Doim ko‘rinib
+          tursa, bo‘sh ekranda ham joy egallardi. */}
+      {qidiruvOchiq && bolim === 'bosh' && (
+        <View
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 10,
+            paddingHorizontal: O.chekka,
+            paddingVertical: 10,
+            backgroundColor: C.karta,
+            borderBottomWidth: 1,
+            borderBottomColor: C.ajratgich,
+          }}
+        >
+          <TextInput
+            value={qidiruv}
+            onChangeText={setQidiruv}
+            autoFocus
+            placeholder={tr('Mijoz, telefon yoki kategoriya')}
+            placeholderTextColor={C.xira}
+            style={{ flex: 1, fontSize: 15, color: C.matn, paddingVertical: 4 }}
+          />
+          <TouchableOpacity
+            onPress={() => {
+              setQidiruvOchiq(false);
+              setQidiruv('');
+            }}
+            hitSlop={10}
+          >
+            <Text style={{ color: C.xira, fontSize: 16 }}>✕</Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
       {/* Sinx belgisi va xato YUQORI QATORDAN KEYIN turadi.
           Avval ular tepada edi va tizim paneli (soat, batareya)
@@ -383,13 +436,11 @@ function Qobiq({ qaytaYukla }: { qaytaYukla: () => void }) {
       )}
 
       <View style={{ flex: 1 }}>
-        {bolim === 'bosh' && <BoshEkran />}
-        {bolim === 'yozuvlar' && (
-          <YozuvlarEkrani ichki tahrirla={(y) => setOyna({ rejim: y.turi, tahrir: y })} />
-        )}
-        {bolim === 'kontaktlar' && (
-          <KontaktlarEkrani
-            ichki
+        {bolim === 'bosh' && (
+          <BoshEkran
+            qidiruv={qidiruv}
+            ochMijoz={(k) => setMijozOyna(k ?? null)}
+            ochBitimlar={() => setBitimlarOyna(true)}
             ochOperatsiya={(klientId) => {
               setTanlovKlient(klientId);
               setTanlov(true);
@@ -397,6 +448,14 @@ function Qobiq({ qaytaYukla }: { qaytaYukla: () => void }) {
             ochTolov={(klientId) => setTolovOyna({ yonalish: 'oldim', klient: klientId })}
           />
         )}
+        {bolim === 'yozuvlar' && (
+          <YozuvlarEkrani ichki tahrirla={(y) => setOyna({ rejim: y.turi, tahrir: y })} />
+        )}
+        {/* «Hamkorlar» bo‘limi OLIB TASHLANDI: bosh ekran endi
+            aynan shu ro‘yxat. Ikkita bir xil ekran bir-biridan
+            uzoqlashib ketardi. `KontaktlarEkrani` fayli qoldi —
+            hamkor kartochkasi (`KontaktOynasi`) va qatorlar shu
+            yerda va bosh ekran ularni ishlatadi. */}
         {bolim === 'hisoblar' && <Hisoblar kochirma={() => setOyna({ rejim: 'kochirma' })} />}
         {bolim === 'turkumlar' && <Turkumlar />}
         {bolim === 'hisobot' && <Hisobot />}
@@ -592,6 +651,16 @@ function Qobiq({ qaytaYukla }: { qaytaYukla: () => void }) {
         </Modal>
       )}
 
+      {mijozOyna !== undefined && (
+        <MijozOynasi
+          tahrir={mijozOyna}
+          yopish={() => setMijozOyna(undefined)}
+          saqlandi={yangila}
+        />
+      )}
+
+      {bitimlarOyna && <BitimlarEkrani yopish={() => setBitimlarOyna(false)} />}
+
       <YonPanel
         ochiq={yonPanel}
         joriy={bolim}
@@ -612,7 +681,10 @@ function Qobiq({ qaytaYukla }: { qaytaYukla: () => void }) {
         kechikkanlar={kechikkanlar}
         tolovlar={tolovlar}
         klientlar={klientlar}
-        och={() => setBolim('kontaktlar')}
+        // Bildirishnomadan mijozga o‘tish: bosh ekran endi
+        // aynan mijozlar ro‘yxati, ya’ni boshqa joyga borish
+        // shart emas.
+        och={() => setBolim('bosh')}
       />
 
       <AmallarMenyusi

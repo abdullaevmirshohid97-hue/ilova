@@ -316,3 +316,26 @@ export function muddatiOtgan(bitimlar: Bitim[], tolovlar: Tolov[], hozir = new D
     return Date.parse(b.muddat) < bugun;
   });
 }
+
+/**
+ * Balans cheklovi buzildimi.
+ *
+ * Cheklov — hamkorga berilishi mumkin bo'lgan eng katta QARZ,
+ * ya'ni uning qoldig'i shu sondan oshmasligi kerak. Manfiy
+ * tomonga (men unga qarzdorman) cheklov qo'yilmaydi: o'z qarzim
+ * mening ishim.
+ *
+ * Bu QAT'IY TO'SIQ EMAS, ogohlantirish uchun (qaror 20.09):
+ * savdo o'rtasida ilova to'sib qo'ysa, odam yozuvni umuman
+ * yozmay qo'yardi va daftar yolg'on bo'lardi.
+ */
+export function cheklovTekshir(
+  cheklov: number | null | undefined,
+  joriyQoldiq: number,
+  /** Bitimning ishorali qiymati: berdim +, oldim − */
+  ozgarish: number,
+): { oshdi: boolean; yangi: number; oshgan: number; cheklov: number } | null {
+  if (!cheklov || cheklov <= 0) return null;
+  const yangi = joriyQoldiq + ozgarish;
+  return { oshdi: yangi > cheklov, yangi, oshgan: yangi - cheklov, cheklov };
+}

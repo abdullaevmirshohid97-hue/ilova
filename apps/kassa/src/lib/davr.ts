@@ -146,3 +146,17 @@ export function oyTori(yil: number, oy: number): (Date | null)[][] {
   for (let i = 0; i < hujayralar.length; i += 7) qatorlar.push(hujayralar.slice(i, i + 7));
   return qatorlar;
 }
+
+/**
+ * "13 sentabr 2026, 14:35" — YIL BILAN.
+ *
+ * `sanaVaqt` yilni tashlab ketadi, `sanaQisqa` esa joriy yilda
+ * ham tashlaydi. Bitimlar ro'yxatida bu yaramaydi: daftar yillab
+ * yuritiladi va «12 mart» degan sana bir necha yilga mos kelib
+ * qoladi. Bahsda esa aynan yil kerak bo'ladi.
+ */
+export function sanaVaqtToliq(d: string | Date): string {
+  const x = typeof d === 'string' ? new Date(d) : d;
+  if (Number.isNaN(x.getTime())) return '—';
+  return `${x.getDate()} ${oySanada()[x.getMonth()]} ${x.getFullYear()}, ${ikki(x.getHours())}:${ikki(x.getMinutes())}`;
+}

@@ -16,9 +16,9 @@
 // =============================================================
 
 import { useMemo, useState } from 'react';
-import { Modal, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert, Modal, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { formatla, ifodaKorinish, tiyinga } from '@ilova/kassa-yadro';
+import { cheklovTekshir, formatla, hamkorQoldiq, ifodaKorinish, tiyinga } from '@ilova/kassa-yadro';
 import type { BitimNima, BitimYonalish } from '@ilova/kassa-yadro';
 import { bitimQosh } from '../lib/baza';
 import { useHolat } from '../lib/holat';
@@ -44,7 +44,7 @@ export default function BitimOynasi({
   saqlandi: () => void;
 }) {
   const { C } = useTema();
-  const { hisoblar, klientlar } = useHolat();
+  const { hisoblar, klientlar, bitimlar, tolovlar, yozuvlar } = useHolat();
   const chekka = useSafeAreaInsets();
 
   const faolHisoblar = hisoblar.filter((h) => h.faol);
@@ -85,6 +85,42 @@ export default function BitimOynasi({
     );
   }, [klientlar, qidiruv]);
 
+  /**
+   * Cheklov buzilsa — so‘raydi, to‘smaydi.
+   *
+   * «Ha» desa `true` qaytadi. Promise bilan yozilgan, chunki
+   * `Alert` javobini kutish kerak: usiz bitim so‘roq ekranda
+   * turganda ham yozilib ketardi.
+   */
+  function cheklovSora(): Promise<boolean> {
+    const k = klientlar.find((x) => x.id === klientId);
+    if (!k?.cheklov) return Promise.resolve(true);
+
+    const joriy = hamkorQoldiq(k.id, bitimlar, tolovlar, yozuvlar);
+    const ishora = yonalish === 'berdim' ? 1 : -1;
+    const n = cheklovTekshir(k.cheklov, joriy, ishora * (jamiTiyin ?? 0));
+    if (!n?.oshdi) return Promise.resolve(true);
+
+    const pul = (x: number) => formatla(x, valyuta, { belgisiz: true, kasrsiz: true });
+    return new Promise((javob) => {
+      Alert.alert(
+        tr('Cheklovdan oshdi'),
+        k.ism +
+          '\n\n' +
+          tr('Bo‘ladi:') + ' ' + pul(n.yangi) +
+          '\n' +
+          tr('Cheklov:') + ' ' + pul(n.cheklov) +
+          '\n' +
+          tr('Oshib ketdi:') + ' ' + pul(n.oshgan),
+        [
+          { text: tr('Bekor'), style: 'cancel', onPress: () => javob(false) },
+          { text: tr('Davom etish'), onPress: () => javob(true) },
+        ],
+        { cancelable: true, onDismiss: () => javob(false) },
+      );
+    });
+  }
+
   async function yubor() {
     if (!klientId) return setXato(tr('Hamkorni tanlang.'));
     if (tovarmi && !tovarNom.trim()) return setXato(tr('Tovar nomini yozing.'));
@@ -92,6 +128,9 @@ export default function BitimOynasi({
     if (!tovarmi && !hisobId) return setXato(tr('Hisobni tanlang.'));
 
     setXato(null);
+    // Cheklov SAQLASHDAN OLDIN: odam «bekor» desa hech narsa
+    // yozilmasligi kerak.
+    if (!(await cheklovSora())) return;
     setSaqlanmoqda(true);
     try {
       await bitimQosh({

@@ -22,9 +22,12 @@
 -- ---------- 1. Mijoz kartochkasi ----------
 alter table public.kassa_klientlar
   add column if not exists familya    text,
-  -- Storage'dagi YO'L, to'liq URL emas: bucket nomi o'zgarsa yoki
-  -- loyiha ko'chsa, bazadagi yuzlab URL eskirib qolardi.
-  add column if not exists rasm       text,
+  -- DIQQAT: rasm uchun ustun ALLAQACHON bor — `rasm_path`
+  -- (20260913000003). Ikkinchisini qo‘shmaymiz: ikkita rasm
+  -- ustuni bo‘lsa, qaysi biri haqiqiy ekani faqat birinchi
+  -- xatoda ayon bo‘lardi. U Storage dagi YO‘L ni saqlaydi,
+  -- to‘liq URL emas: bucket nomi o‘zgarsa yoki loyiha ko‘chsa,
+  -- bazadagi yuzlab URL eskirib qolardi.
   add column if not exists manzil     text,
   add column if not exists lat        double precision,
   add column if not exists lng        double precision,
@@ -54,6 +57,11 @@ alter table public.kassa_klientlar
 alter table public.kassa_klientlar
   add constraint kassa_klientlar_joylashuv_chegara
   check (lat is null or (lat between -90 and 90 and lng between -180 and 180));
+
+
+-- Bu migratsiyaning avvalgi nusxasi `rasm` degan ortiqcha ustun
+-- qo‘shgan edi. Unga hech narsa yozilmagan — olib tashlaymiz.
+alter table public.kassa_klientlar drop column if exists rasm;
 
 
 -- ---------- 2. Rasmlar ombori ----------

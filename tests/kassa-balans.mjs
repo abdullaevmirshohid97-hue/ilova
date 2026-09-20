@@ -505,6 +505,32 @@ tekshir('kechikkanKun va muddatiOtgan bir xil qaror beradi',
     return royxat === birma;
   })());
 
+// -------------------------------------------------------------
+//  BALANS CHEKLOVI
+//
+//  Cheklov — hamkorga berilishi mumkin bo'lgan eng katta QARZ.
+//  Manfiy tomonga (men unga qarzdorman) cheklov qo'yilmaydi:
+//  o'z qarzim mening ishim.
+// -------------------------------------------------------------
+tekshir('cheklov yo‘q → null', Y.cheklovTekshir(null, 5000, 9999) === null);
+tekshir('nol cheklov ham yo‘q deb qaraladi', Y.cheklovTekshir(0, 5000, 9999) === null);
+
+tekshir('10000 cheklovda 4000+5000=9000 — oshmadi',
+  Y.cheklovTekshir(10000, 4000, 5000)?.oshdi === false);
+tekshir('10000 cheklovda 4000+7000=11000 — OSHDI',
+  Y.cheklovTekshir(10000, 4000, 7000)?.oshdi === true);
+tekshir('oshgan miqdori 1000',
+  Y.cheklovTekshir(10000, 4000, 7000)?.oshgan === 1000,
+  String(Y.cheklovTekshir(10000, 4000, 7000)?.oshgan));
+tekshir('aynan cheklovga teng bo‘lsa oshmagan',
+  Y.cheklovTekshir(10000, 4000, 6000)?.oshdi === false);
+
+// «oldim» manfiy o‘zgarish: qarzim kamayadi, cheklov tegmaydi
+tekshir('manfiy o‘zgarish cheklovni buzmaydi',
+  Y.cheklovTekshir(10000, 9000, -5000)?.oshdi === false);
+tekshir('men qarzdor bo‘lsam cheklov ishlamaydi',
+  Y.cheklovTekshir(10000, -50000, -9000)?.oshdi === false);
+
 console.log('\n7. Baza funksiyalari va cheklovlar');
 
 const javob = await sqlXom(BLOK);

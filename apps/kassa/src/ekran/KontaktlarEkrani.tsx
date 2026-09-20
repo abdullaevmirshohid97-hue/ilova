@@ -205,7 +205,7 @@ export default function KontaktlarEkrani({
   );
 }
 
-function KontaktOynasi({
+export function KontaktOynasi({
   klient,
   qoldiq,
   bitimlar,

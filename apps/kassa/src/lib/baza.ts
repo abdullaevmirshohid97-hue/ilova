@@ -108,7 +108,15 @@ export async function turkumlarOl(): Promise<Turkum[]> {
 export async function klientlarOl(): Promise<Klient[]> {
   const qatorlar = await ombor().royxat<Record<string, unknown>>('klientlar');
   return qatorlar
-    .map((k) => k as unknown as Klient)
+    .map((k) => ({
+      ...(k as unknown as Klient),
+      // SQLite hamma narsani matn qilib qaytaradi; bazada bu
+      // ustunlar son. Qo‘lda o‘girmasak «10000000» < «9» bo‘lib
+      // solishtirilardi.
+      cheklov: k.cheklov == null ? null : Number(k.cheklov),
+      lat: k.lat == null ? null : Number(k.lat),
+      lng: k.lng == null ? null : Number(k.lng),
+    }))
     .filter((k) => k.faol !== false)
     .sort((a, b) => a.ism.localeCompare(b.ism));
 }
@@ -303,14 +311,30 @@ export async function klientQosh(p: {
   telefon?: string;
   turi: Klient['turi'];
   izoh?: string;
+  familya?: string | null;
+  manzil?: string | null;
+  kategoriya?: string | null;
+  lat?: number | null;
+  lng?: number | null;
+  /** Qarz chegarasi TIYINDA. null = cheklov yo‘q */
+  cheklov?: number | null;
+  rasm_path?: string | null;
+  /** Oldindan berilsa — rasm shu id bilan yuklangan bo‘ladi */
+  id?: string;
 }): Promise<string> {
-  const id = uuid();
+  const id = p.id ?? uuid();
   await mahalliyQosh('klientlar', {
     id,
     ism: p.ism.trim(),
+    familya: p.familya?.trim() || null,
     telefon: p.telefon?.trim() || null,
     turi: p.turi,
-    rasm_path: null,
+    manzil: p.manzil?.trim() || null,
+    kategoriya: p.kategoriya?.trim() || null,
+    lat: p.lat ?? null,
+    lng: p.lng ?? null,
+    cheklov: p.cheklov ?? null,
+    rasm_path: p.rasm_path ?? null,
     izoh: p.izoh?.trim() || null,
     faol: true,
     versiya: 1,
@@ -321,12 +345,38 @@ export async function klientQosh(p: {
 
 export async function klientTahrirla(
   id: string,
-  p: { ism?: string; telefon?: string | null; turi?: Klient['turi']; izoh?: string | null; faol?: boolean },
+  p: {
+    ism?: string;
+    telefon?: string | null;
+    turi?: Klient['turi'];
+    izoh?: string | null;
+    faol?: boolean;
+  familya?: string | null;
+  manzil?: string | null;
+  kategoriya?: string | null;
+  lat?: number | null;
+  lng?: number | null;
+  /** Qarz chegarasi TIYINDA. null = cheklov yo‘q */
+  cheklov?: number | null;
+  rasm_path?: string | null;
+  },
 ): Promise<void> {
   const patch: Record<string, unknown> = {};
   if (p.ism !== undefined) patch.ism = p.ism.trim();
+  if (p.familya !== undefined) patch.familya = p.familya?.trim() || null;
   if (p.telefon !== undefined) patch.telefon = p.telefon?.trim() || null;
   if (p.turi !== undefined) patch.turi = p.turi;
+  if (p.manzil !== undefined) patch.manzil = p.manzil?.trim() || null;
+  if (p.kategoriya !== undefined) patch.kategoriya = p.kategoriya?.trim() || null;
+  // Koordinata JUFT yoziladi: bazada ham shunday cheklov bor.
+  // Bittasini yuborsak server rad etardi va sabab ekranga
+  // «cheklov buzildi» bo‘lib chiqardi.
+  if (p.lat !== undefined || p.lng !== undefined) {
+    patch.lat = p.lat ?? null;
+    patch.lng = p.lng ?? null;
+  }
+  if (p.cheklov !== undefined) patch.cheklov = p.cheklov ?? null;
+  if (p.rasm_path !== undefined) patch.rasm_path = p.rasm_path ?? null;
   if (p.izoh !== undefined) patch.izoh = p.izoh?.trim() || null;
   if (p.faol !== undefined) patch.faol = p.faol;
   await mahalliyTahrir('klientlar', id, patch);
