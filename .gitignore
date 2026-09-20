@@ -37,8 +37,12 @@ credentials.json
 #
 # Loyihaning O'Z skilli esa haqiqiy papka va SAQLANADI.
 # Qayta o'rnatish: npx skills add supabase/agent-skills
-.claude/skills/*
-!.claude/skills/ilova/
+# Havolalar NOM BILAN chetlatiladi, umumiy yulduzcha bilan emas:
+# yulduzcha loyihaning yangi skillini ham jimgina yutib yuboradi
+# (bir marta shunday bo‘ldi). Yangi begona skill qo‘shilsa,
+# uni shu yerga yozing.
+.claude/skills/supabase/
+.claude/skills/supabase-postgres-best-practices/
 
 # Dizayn tizimining yig'ilgan chiqishi — qayta quriladi
 packages/kassa-dizayn/dist/
