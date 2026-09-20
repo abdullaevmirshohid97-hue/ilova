@@ -242,8 +242,10 @@ begin
   update public.kassa_bitimlar
      set holat      = v_yangi,
          tasdiq_at  = now(),
-         tasdiq_kim = p_chat_id,
-         versiya    = versiya + 1
+         tasdiq_kim = p_chat_id
+         -- `versiya` va `o_raqam` ni trigger (tg_kassa_oqim) qo‘yadi.
+         -- Bu yerda ham oshirsak versiya IKKITAGA sakrardi va
+         -- ilovadagi optimistik qulf yolgon toqnashuv korardi.
    where id = v_bitim.id and org_id = v_t.org_id;
 
   -- Hamkorga chat bog'lanadi: keyingi safar havola kerak emas.
