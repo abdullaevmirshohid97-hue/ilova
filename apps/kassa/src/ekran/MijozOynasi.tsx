@@ -35,6 +35,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
+import * as Contacts from 'expo-contacts';
 import { formatla, ifodaHisobla } from '@ilova/kassa-yadro';
 import type { Klient } from '@ilova/kassa-yadro';
 import { klientQosh, klientTahrirla } from '../lib/baza';
@@ -44,7 +45,7 @@ import { xatoMatn } from '../lib/supabase';
 import { O, useTema } from '../lib/tema';
 import { tr } from '../lib/til';
 import { uuid } from '../lib/sinx';
-import { Orqaga } from '../ui/ikonka';
+import { Kitob, Orqaga } from '../ui/ikonka';
 import { Tugma } from '../ui/qismlar';
 
 export default function MijozOynasi({
@@ -109,6 +110,46 @@ export default function MijozOynasi({
     });
     if (natija.canceled || !natija.assets?.[0]) return;
     setRasmUri(natija.assets[0].uri);
+  }
+
+  /**
+   * Telefon kontaktlaridan tanlash.
+   *
+   * Ism/familya BO‘SH bo‘lsagina to‘ldiriladi: odam allaqachon
+   * bir nimani yozgan bo‘lsa, uni kontakt ustiga yozib yuborish
+   * kutilmagan yo‘qotish bo‘lardi.
+   */
+  async function kontaktdanOl() {
+    try {
+      const k = await Contacts.presentContactPickerAsync();
+      if (!k) return;
+
+      // Android’da ko‘pincha faqat `name` to‘ladi, `firstName`
+      // esa bo‘sh qoladi — shunda nomni bo‘shliq bo‘yicha o‘zimiz
+      // ajratamiz: birinchi so‘z ism, qolgani familya.
+      let yangiIsm = (k.firstName ?? '').trim();
+      let yangiFamilya = (k.lastName ?? '').trim();
+      if (!yangiIsm && !yangiFamilya) {
+        const bolaklar = (k.name ?? '').trim().split(/\s+/).filter(Boolean);
+        yangiIsm = bolaklar[0] ?? '';
+        yangiFamilya = bolaklar.slice(1).join(' ');
+      }
+
+      // Asosiy raqam bo‘lsa o‘sha, bo‘lmasa birinchisi
+      const raqamlar = k.phoneNumbers ?? [];
+      const raqam = raqamlar.find((x) => x.isPrimary) ?? raqamlar[0];
+      const nomer = (raqam?.number ?? raqam?.digits ?? '').trim();
+
+      if (yangiIsm && !ism.trim()) setIsm(yangiIsm);
+      if (yangiFamilya && !familya.trim()) setFamilya(yangiFamilya);
+      if (nomer && !telefon.trim()) setTelefon(nomer);
+
+      if (!yangiIsm && !yangiFamilya && !nomer) {
+        Alert.alert(tr('Kontakt bo‘sh'), tr('Bu kontaktda ism ham, raqam ham yo‘q'));
+      }
+    } catch (e) {
+      Alert.alert(tr('Kontakt ochilmadi'), xatoMatn(e));
+    }
   }
 
   async function joylashuvOl() {
@@ -234,6 +275,36 @@ export default function MijozOynasi({
               {rasmUri ? tr('Rasmni almashtirish') : tr('Rasm qo‘shish')}
             </Text>
           </TouchableOpacity>
+
+          {/* Kontaktlardan olish — ism maydonining TEPASIDA:
+              odam yozishni boshlagandan keyin taklif qilish kech
+              bo‘lardi.
+
+              Brauzerda tizim kontakt tanlagichi YO‘Q: tugma
+              bosilsa faqat xato chiqardi, shuning uchun u yerda
+              umuman ko‘rsatilmaydi. */}
+          {Platform.OS !== 'web' && (
+          <TouchableOpacity
+            onPress={kontaktdanOl}
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 10,
+              paddingVertical: 11,
+              paddingHorizontal: 14,
+              borderRadius: O.radiusKichik,
+              borderWidth: 1,
+              borderColor: C.chegara,
+              marginBottom: 16,
+            }}
+          >
+            <Kitob rang={C.matn2} olcham={18} />
+            <Text style={{ flex: 1, color: C.matn, fontSize: 14 }}>
+              {tr('Kontaktlardan tanlash')}
+            </Text>
+            <Text style={{ color: C.matn2, fontSize: 18 }}>›</Text>
+          </TouchableOpacity>
+          )}
 
           <Maydon nom={tr('Ism')} qiymat={ism} setQiymat={setIsm} autoFocus />
           <Maydon nom={tr('Familya')} qiymat={familya} setQiymat={setFamilya} />

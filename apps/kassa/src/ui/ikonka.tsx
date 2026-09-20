@@ -261,3 +261,56 @@ export function Chiqindi({ rang, olcham = 20 }: Imkon) {
     </View>
   );
 }
+
+/** Manzillar kitobi — telefon kontaktlari */
+export function Kitob({ rang, olcham = 20 }: Imkon) {
+  const qalin = Math.max(2, Math.round(olcham / 10));
+  const en = Math.round(olcham * 0.76);
+  const chiziq = Math.round(olcham * 0.18);
+  return (
+    <View style={{ width: olcham, height: olcham, flexDirection: 'row', alignItems: 'center' }}>
+      {/* Chap chetdagi uch qirqim — daftarni kitobdan ajratadi */}
+      <View style={{ width: qalin * 2, justifyContent: 'space-around', height: en }}>
+        {[0, 1, 2].map((i) => (
+          <View key={i} style={{ width: qalin * 2, height: qalin, backgroundColor: rang, borderRadius: qalin }} />
+        ))}
+      </View>
+      {/* Muqova */}
+      <View
+        style={{
+          flex: 1,
+          height: olcham,
+          borderWidth: qalin,
+          borderColor: rang,
+          borderRadius: qalin,
+          marginLeft: qalin,
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        {/* Odam: bosh va yelka */}
+        <View
+          style={{
+            width: chiziq,
+            height: chiziq,
+            borderRadius: chiziq,
+            borderWidth: qalin * 0.8,
+            borderColor: rang,
+          }}
+        />
+        <View
+          style={{
+            width: chiziq * 1.7,
+            height: chiziq * 0.7,
+            marginTop: qalin * 0.6,
+            borderTopLeftRadius: chiziq,
+            borderTopRightRadius: chiziq,
+            borderWidth: qalin * 0.8,
+            borderBottomWidth: 0,
+            borderColor: rang,
+          }}
+        />
+      </View>
+    </View>
+  );
+}
