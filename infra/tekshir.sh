@@ -91,6 +91,49 @@ case "$sahifa" in
     ;;
 esac
 
+# Bundle ICHIDA oldi-berdi oqimi bormi.
+#
+# Sabab: /kassa/ ochilishi va _expo/ ga ishora qilishi ESKI bundle
+# bilan ham bo'ladi. Ya'ni yuqoridagi tekshiruv yashil, ilova esa
+# eski — buni faqat telefonda ochib bilinardi.
+#
+# Qidiriladigan satrlar ATAYLAB tarjima qilinmaydiganlaridan olindi:
+# lug'atda kalit o'zbekcha matnning O'ZI, ya'ni ular bundle'da
+# baribir turadi.
+bundle=$(printf '%s' "$sahifa" | grep -o '/kassa/_expo/[^"]*\.js' | head -1)
+if [ -n "$bundle" ]; then
+  kod=$(curl -s --max-time 60 "$CD$bundle")
+  yoq=""
+  for izl in "Nima qildingiz?" "Hamkorlar" "kassa_bitimlar" "Tasdiqlash havolasi"; do
+    case "$kod" in
+      *"$izl"*) ;;
+      *) yoq="$yoq \"$izl\"" ;;
+    esac
+  done
+  if [ -z "$yoq" ]; then
+    echo "  ✓ bundle'da oldi-berdi oqimi bor (bitim, hamkor, tasdiq)"
+  else
+    echo "  x bundle ESKI — topilmadi:$yoq"
+    echo "    serverda: bash /opt/ilova/infra/deploy.sh"
+    ORTDA=1
+  fi
+
+  # Bot nomi TEKSHIRILMAYDI — va buni ochiq aytamiz.
+  #
+  # Metro qurilishda `process.env.EXPO_PUBLIC_KASSA_BOT` ni
+  # QIYMATIGA almashtiradi. Bo‘sh bo‘lsa bundle’da shunchaki ""
+  # qoladi — tashqaridan qarab bilib bo‘lmaydi. "t.me/" esa har
+  # ikki holatda ham turadi, ya’ni unga qarab xulosa qilsak
+  # tekshiruv «sozlangan» deb ALDARDI.
+  #
+  # Haqiqiy javob deploy.sh dagi KASSA_BOT da va u serverda
+  # deploy paytida aytiladi.
+  echo "  · bot nomi: tashqaridan tekshirib bo‘lmaydi — deploy.sh dagi"
+  echo "    KASSA_BOT to‘ldirilganini serverdagi deploy chiqishidan ko‘ring"
+else
+  echo "  ! bundle manzili topilmadi — ichini tekshirib bo'lmadi"
+fi
+
 # Play uchun majburiy ikki sahifa. Ular yo'q bo'lsa ilova do'konda
 # rad etiladi va sabab faqat Play Console'da ko'rinadi.
 for sahifa in maxfiylik hisob-ochirish; do

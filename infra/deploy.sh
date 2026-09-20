@@ -144,6 +144,15 @@ fi
 SUPABASE_URL=https://gnuddryjsmcrjchrbvyz.supabase.co
 SUPABASE_PUBLISHABLE_KEY=sb_publishable_BjX_3t2LGX9y8FsKbCqFdw_7AOnXTN3
 
+# Credit Debit bitim tasdiqlash boti (@ siz, masalan ClaryTasdiqBot).
+# Bot NOMI maxfiy emas: u baribir t.me havolasida ko‘rinadi.
+# TOKEN esa bu yerda YO‘Q va bo‘lmasligi kerak — u faqat chekka
+# funksiya secret’ida turadi (TELEGRAM_KASSA_BOT_TOKEN).
+#
+# Bo‘sh qoldirilsa ilova yiqilmaydi: «Tasdiqlash havolasi» tugmasi
+# «Bot sozlanmagan» deb ochiq aytadi.
+KASSA_BOT=
+
 cat > apps/admin/.env <<ENVEOF
 VITE_SUPABASE_URL=$SUPABASE_URL
 VITE_SUPABASE_ANON_KEY=$SUPABASE_PUBLISHABLE_KEY
@@ -157,9 +166,14 @@ ENVEOF
 cat > apps/kassa/.env <<ENVEOF
 EXPO_PUBLIC_SUPABASE_URL=$SUPABASE_URL
 EXPO_PUBLIC_SUPABASE_ANON_KEY=$SUPABASE_PUBLISHABLE_KEY
+EXPO_PUBLIC_KASSA_BOT=$KASSA_BOT
 ENVEOF
 
 echo "apps/admin/.env, apps/mobile/.env va apps/kassa/.env yozildi -> $SUPABASE_URL"
+if [ -z "$KASSA_BOT" ]; then
+  echo "   ⚠  KASSA_BOT bo‘sh — /kassa da «Tasdiqlash havolasi» ishlamaydi."
+  echo "      Bot ochilgach infra/deploy.sh dagi KASSA_BOT ga nomini yozing."
+fi
 
 corepack enable
 pnpm install --filter "@ilova/admin..." --filter "@ilova/mobile..." --filter "@ilova/kassa..." --frozen-lockfile
