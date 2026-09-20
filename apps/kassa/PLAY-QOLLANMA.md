@@ -103,7 +103,8 @@ etadi:
 
 ## 4. Do'kon sahifasi uchun grafika — tayyor
 
-Hammasi koddan yasaladi: `node scripts/credit-debit-logo.mjs`
+Hammasi manba rasmdan yasaladi: `node scripts/idaa-ikonka-yasa.mjs apps/kassa/assets/manba-ikonka.jpg`
+(yoki `pnpm --filter @ilova/kassa logo`). Manba `assets/manba-ikonka.jpg`.
 
 | Fayl | O'lcham | Qayerda kerak |
 |---|---|---|
@@ -113,7 +114,6 @@ Hammasi koddan yasaladi: `node scripts/credit-debit-logo.mjs`
 | `assets/adaptive-icon.png` | 1024×1024 | Android adaptiv ikonka |
 | `assets/splash-icon.png` | 1024×1024 | ochilish ekrani |
 | `assets/favicon.png` | 196×196 | brauzer |
-| `assets/play/logo-gorizontal-oq.png` | 1200×300 | sayt, reklama |
 
 **Hali yo'q:** ekran rasmlari (screenshots). Play kamida 2 ta,
 telefon uchun 1080×1920 atrofida so'raydi. Ularni ilova tayyor bo'lgach
