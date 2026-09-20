@@ -29,3 +29,13 @@ credentials.json
 # Boshqa AI vositalarining papkalari — bu repoga aloqasi yo'q
 .agents/
 .codex/
+
+# `npx skills add` o'rnatgan skilllar .agents/ ga tushadi (u yuqorida
+# gitignore'da) va bu yerga SIMVOLIK HAVOLA qo'yadi. Havola mutlaq
+# yo'lga ishora qiladi — /d/ilova/... — ya'ni serverda va boshqa
+# kompyuterda buziladi. Shuning uchun havolalar repoga chiqmaydi.
+#
+# Loyihaning O'Z skilli esa haqiqiy papka va SAQLANADI.
+# Qayta o'rnatish: npx skills add supabase/agent-skills
+.claude/skills/*
+!.claude/skills/ilova/
