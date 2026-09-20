@@ -29,6 +29,7 @@ import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { Session } from '@supabase/supabase-js';
 import type { BitimNima, BitimYonalish, Yozuv } from '@ilova/kassa-yadro';
+import { muddatiOtgan } from '@ilova/kassa-yadro';
 import { menKim, type Men } from './src/lib/baza';
 import { HolatProvider, useHolat } from './src/lib/holat';
 import { supabase, xatoMatn } from './src/lib/supabase';
@@ -46,11 +47,21 @@ import BiznesEkrani from './src/ekran/BiznesEkrani';
 import BoshEkran from './src/ekran/BoshEkran';
 import YozuvlarEkrani from './src/ekran/YozuvlarEkrani';
 import KontaktlarEkrani from './src/ekran/KontaktlarEkrani';
-import YanaEkrani, { type YanaSahifa } from './src/ekran/YanaEkrani';
+import Hisoblar from './src/ekran/YanaHisoblar';
+import Turkumlar from './src/ekran/YanaTurkumlar';
+import Hisobot from './src/ekran/YanaHisobot';
+import Sozlama from './src/ekran/YanaSozlama';
+import AiUlanish from './src/ekran/AiUlanish';
+import AiModel from './src/ekran/AiModel';
+import KalendarEkrani from './src/ekran/KalendarEkrani';
+import KunYakuni from './src/ekran/KunYakuni';
 import YozuvOynasi, { type OynaRejimi } from './src/ekran/YozuvOynasi';
 import BitimOynasi from './src/ekran/BitimOynasi';
 import TolovOynasi from './src/ekran/TolovOynasi';
 import SinxBelgi from './src/ui/SinxBelgi';
+import { YuqoriQator } from './src/ui/YuqoriQator';
+import { YonPanel, type PanelBolim } from './src/ui/YonPanel';
+import { AmallarMenyusi, BildirishnomaOyna } from './src/ui/YuqoriOynalar';
 import XatoQalqoni from './src/ui/XatoQalqoni';
 import { xatolarniTut } from './src/lib/xatolar';
 
@@ -210,20 +221,34 @@ function Kutish() {
   );
 }
 
-type Bolim = 'bosh' | 'yozuvlar' | 'kontaktlar' | 'yana';
+// Bo‘lim ro‘yxati endi YON PANELDA (src/ui/YonPanel.tsx).
+// Pastki qator 20.09 da olib tashlandi — shuning uchun bu yerda
+// faqat tur va sarlavhalar qoldi.
+type Bolim = PanelBolim;
 
-// `matn` bu yerda TARJIMA EMAS, kalit: modul bir marta o‘qiladi,
-// til esa keyinroq yuklanadi. Tarjima chizishda qilinadi.
-const BOLIMLAR: { kalit: Bolim; belgi: string; matn: string }[] = [
-  { kalit: 'bosh', belgi: '⌂', matn: 'Bosh' },
-  { kalit: 'yozuvlar', belgi: '≡', matn: 'Operatsiyalar' },
-  { kalit: 'kontaktlar', belgi: '☺', matn: 'Hamkorlar' },
-  { kalit: 'yana', belgi: '⋯', matn: 'Yana' },
-];
+// `matn` TARJIMA EMAS, kalit: modul bir marta o‘qiladi, til esa
+// keyinroq yuklanadi. Tarjima chizishda qilinadi.
+const SARLAVHA: Record<Exclude<Bolim, 'yakun'>, string> = {
+  bosh: 'Clary',
+  yozuvlar: 'Operatsiyalar',
+  kontaktlar: 'Hamkorlar',
+  hisoblar: 'Hisoblar',
+  turkumlar: 'Turkumlar',
+  hisobot: 'Hisobot',
+  kalendar: 'Kalendar',
+  aimodel: 'AI modeli',
+  ai: 'AI ulanish',
+  sozlama: 'Sozlamalar',
+};
+
+// Bosh sahifadan boshqasi — ichki sahifa: u yerda ☰ o‘rniga ‹
+// turadi va orqaga qaytaradi. Aks holda bir tugmada ikki amal
+// bo‘lib, odam qaysi biri chiqishini bilmasdi.
+const ICHKI = (b: Bolim) => b !== 'bosh';
 
 function Qobiq() {
   const { C } = useTema();
-  const { yangila, yuklanmoqda, xato } = useHolat();
+  const { men, yangila, yuklanmoqda, xato, bitimlar, tolovlar, klientlar } = useHolat();
   // Pastdagi tizim paneli balandligi: Samsung‘larda 3 ta tugma,
   // boshqalarida ishora chizig‘i — ikkalasi ham joy egallaydi.
   const chekka = useSafeAreaInsets();
@@ -248,7 +273,18 @@ function Qobiq() {
     klient?: string | null;
     bitim?: string | null;
   } | null>(null);
-  const [yanaSahifa, setYanaSahifa] = useState<YanaSahifa>('asosiy');
+  const [yonPanel, setYonPanel] = useState(false);
+  const [bildirishnoma, setBildirishnoma] = useState(false);
+  const [amallar, setAmallar] = useState(false);
+  const [yakunOynasi, setYakunOynasi] = useState(false);
+
+  // Kechikkan qarzlar — qo‘ng‘iroq ustidagi qizil nuqta shunga
+  // tayanadi. Push-bildirishnoma yo‘q (qaror 20.09): telefon
+  // jiringlashi bilan odam ilovani o‘chirib qo‘yadi.
+  const kechikkanlar = useMemo(
+    () => muddatiOtgan(bitimlar, tolovlar),
+    [bitimlar, tolovlar],
+  );
 
   /**
    * Android «orqaga» tugmasi.
@@ -257,8 +293,9 @@ function Qobiq() {
    * bo'limida turib orqaga bossa, ilovadan chiqib ketardi va buni
    * buzuqlik deb qabul qilardi.
    *
-   * Tartib: tanlov oynasi -> «Yana» ichki sahifasi -> bo'lim ->
-   * bosh sahifa -> ilovadan chiqish (false qaytarsak tizim yopadi).
+   * Tartib: tanlov oynasi -> oldi-berdi oynalari -> yon panel ->
+   * bo'lim -> bosh sahifa -> ilovadan chiqish (false qaytarsak
+   * tizim yopadi).
    *
    * Modallar bu yerda YO'Q: React Native ularni `onRequestClose`
    * orqali o'zi yopadi.
@@ -278,8 +315,8 @@ function Qobiq() {
         setTolovOyna(null);
         return true;
       }
-      if (bolim === 'yana' && yanaSahifa !== 'asosiy') {
-        setYanaSahifa('asosiy');
+      if (yonPanel) {
+        setYonPanel(false);
         return true;
       }
       if (bolim !== 'bosh') {
@@ -289,7 +326,7 @@ function Qobiq() {
       return false;
     });
     return () => obuna.remove();
-  }, [bolim, yanaSahifa, tanlov, bitimOyna, tolovOyna]);
+  }, [bolim, yonPanel, tanlov, bitimOyna, tolovOyna]);
 
   if (yuklanmoqda) return <Kutish />;
 
@@ -300,6 +337,24 @@ function Qobiq() {
     // telefonda hech narsa o'zgarmaydi.
     <View style={{ flex: 1, backgroundColor: C.fon, alignItems: 'center' }}>
       <View style={{ flex: 1, width: '100%', maxWidth: 640 }}>
+      {/* Yuqori qator — HAMMA bo‘limda bir xil. Pastki qator
+          olib tashlangani uchun ☰ yo‘qolsa odam ilovada qamalib
+          qolardi, shuning uchun u ixtiyoriy emas. */}
+      <YuqoriQator
+        sarlavha={bolim === 'bosh' ? men.biznes : tr(SARLAVHA[bolim as Exclude<Bolim, 'yakun'>])}
+        izoh={bolim === 'bosh' ? tr('Oldi-berdi daftari') : undefined}
+        menyu={() => setYonPanel(true)}
+        orqaga={ICHKI(bolim) ? () => setBolim('bosh') : undefined}
+        qidiruv={() => setBolim('yozuvlar')}
+        bildirishnoma={() => setBildirishnoma(true)}
+        oqilmagan={kechikkanlar.length > 0}
+        uchNuqta={() => setAmallar(true)}
+      />
+
+      {/* Sinx belgisi va xato YUQORI QATORDAN KEYIN turadi.
+          Avval ular tepada edi va tizim paneli (soat, batareya)
+          ostida qolib ketardi: yuqori qator o'z ustki chekkasini
+          o'zi hisoblaydi, bu ikkisi esa hisoblamaydi. */}
       <SinxBelgi />
 
       {xato && (
@@ -309,17 +364,13 @@ function Qobiq() {
       )}
 
       <View style={{ flex: 1 }}>
-        {bolim === 'bosh' && (
-          <BoshEkran
-            ochQoshish={() => setTanlov(true)}
-            ochTakror={(y) => setOyna({ rejim: y.turi, namuna: y })}
-            ochYozuvlar={() => setBolim('yozuvlar')}
-            ochKontaktlar={() => setBolim('kontaktlar')}
-          />
+        {bolim === 'bosh' && <BoshEkran />}
+        {bolim === 'yozuvlar' && (
+          <YozuvlarEkrani ichki tahrirla={(y) => setOyna({ rejim: y.turi, tahrir: y })} />
         )}
-        {bolim === 'yozuvlar' && <YozuvlarEkrani tahrirla={(y) => setOyna({ rejim: y.turi, tahrir: y })} />}
         {bolim === 'kontaktlar' && (
           <KontaktlarEkrani
+            ichki
             ochOperatsiya={(klientId) => {
               setTanlovKlient(klientId);
               setTanlov(true);
@@ -327,27 +378,31 @@ function Qobiq() {
             ochTolov={(klientId) => setTolovOyna({ yonalish: 'oldim', klient: klientId })}
           />
         )}
-        {bolim === 'yana' && (
-          <YanaEkrani
-            kochirma={() => setOyna({ rejim: 'kochirma' })}
-            tahrirla={(y) => setOyna({ rejim: y.turi, tahrir: y })}
-            sahifa={yanaSahifa}
-            setSahifa={setYanaSahifa}
-          />
+        {bolim === 'hisoblar' && <Hisoblar kochirma={() => setOyna({ rejim: 'kochirma' })} />}
+        {bolim === 'turkumlar' && <Turkumlar />}
+        {bolim === 'hisobot' && <Hisobot />}
+        {bolim === 'kalendar' && (
+          <KalendarEkrani ichki tahrirla={(y) => setOyna({ rejim: y.turi, tahrir: y })} />
         )}
+        {bolim === 'aimodel' && <AiModel />}
+        {bolim === 'ai' && <AiUlanish />}
+        {bolim === 'sozlama' && <Sozlama />}
       </View>
 
-      {/* Suzuvchi + tugmasi. Bosh ekranda ikkita katta tugma bor,
-          shuning uchun u yerda takrorlanmaydi. */}
-      {/* Suzuvchi tugma HAMMA bo‘limda: «+ Operatsiya» endi asosiy
-          amal, bosh ekranda ham qo‘l ostida turishi kerak */}
+      {/* Suzuvchi tugma HAMMA bo‘limda: «+ Operatsiya» asosiy
+          amal. Bosh sahifa bo‘sh bo‘lgani uchun (20.09 qarori)
+          yozuv qo‘shishning YAGONA yo‘li — shu tugma. */}
       {true && (
         <TouchableOpacity
           onPress={() => setTanlov(true)}
           style={{
             position: 'absolute',
             right: 16,
-            bottom: 78 + chekka.bottom,
+            // Pastki qator yo‘qolgani uchun tugma pastga tushdi.
+            // 20 px — tizim ishora chizig‘i ustidan: nolga qo‘ysak
+            // Samsung'larda tugma o‘sha chiziq bilan ustma-ust
+            // tushib, bosilmay qolardi.
+            bottom: 20 + chekka.bottom,
             width: 56,
             height: 56,
             borderRadius: 28,
@@ -365,44 +420,9 @@ function Qobiq() {
         </TouchableOpacity>
       )}
 
-      {/* Pastki bo'limlar */}
-      <View
-        style={{
-          flexDirection: 'row',
-          backgroundColor: C.karta,
-          borderTopWidth: 1,
-          borderTopColor: C.chegara,
-          paddingBottom: 6 + chekka.bottom,
-          paddingTop: 6,
-        }}
-      >
-        {BOLIMLAR.map((b) => {
-          const faolmi = b.kalit === bolim;
-          return (
-            <TouchableOpacity
-              key={b.kalit}
-              onPress={() => {
-                // «Yana» ni qayta bosish ichki sahifadan qaytaradi
-                if (b.kalit === 'yana' && bolim === 'yana') setYanaSahifa('asosiy');
-                setBolim(b.kalit);
-              }}
-              style={{ flex: 1, alignItems: 'center', paddingVertical: 4 }}
-            >
-              <Text style={{ fontSize: 18, color: faolmi ? C.matn : C.xira }}>{b.belgi}</Text>
-              <Text
-                style={{
-                  fontSize: 10,
-                  marginTop: 2,
-                  color: faolmi ? C.matn : C.xira,
-                  fontWeight: faolmi ? '700' : '500',
-                }}
-              >
-                {tr(b.matn)}
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
-      </View>
+      {/* Pastki bo‘limlar qatori OLIB TASHLANDI (20.09 qarori).
+          Navigatsiya yon paneldan boradi — ekran balandroq,
+          lekin har bo‘limga ikki tegish kerak: ☰ → bo‘lim. */}
       </View>
 
       {/* Nima qildingiz? — olti aniq javob.
@@ -547,6 +567,44 @@ function Qobiq() {
           saqlandi={yangila}
         />
       )}
+      <YonPanel
+        ochiq={yonPanel}
+        joriy={bolim}
+        biznes={men.biznes}
+        yop={() => setYonPanel(false)}
+        tanla={(b) => {
+          setYonPanel(false);
+          // «Kun yakuni» bo‘lim emas, oyna: uni tanlash joriy
+          // ekrandan olib ketmasligi kerak.
+          if (b === 'yakun') setYakunOynasi(true);
+          else setBolim(b);
+        }}
+      />
+
+      <BildirishnomaOyna
+        ochiq={bildirishnoma}
+        yop={() => setBildirishnoma(false)}
+        kechikkanlar={kechikkanlar}
+        tolovlar={tolovlar}
+        klientlar={klientlar}
+        och={() => setBolim('kontaktlar')}
+      />
+
+      <AmallarMenyusi
+        ochiq={amallar}
+        yop={() => setAmallar(false)}
+        amallar={[
+          { matn: tr('Yangilash'), bos: yangila },
+          { matn: tr('Hisoblararo o‘tkazma'), bos: () => setOyna({ rejim: 'kochirma' }) },
+          { matn: tr('Kun yakuni'), bos: () => setYakunOynasi(true) },
+          { matn: tr('Sozlamalar'), bos: () => setBolim('sozlama') },
+        ]}
+      />
+
+      {yakunOynasi && (
+        <KunYakuni yopish={() => setYakunOynasi(false)} yakunlandi={() => setYakunOynasi(false)} />
+      )}
+
       {oyna && (
         <YozuvOynasi
           rejim={oyna.rejim}

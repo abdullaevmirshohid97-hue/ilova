@@ -22,7 +22,7 @@ import { useHolat } from '../lib/holat';
 import { xatoMatn } from '../lib/supabase';
 import { O, useTema } from '../lib/tema';
 import { BoshHolat, Chip, DavrOqlari, Tanlagich, YigindiPaneli, uslublar } from '../ui/qismlar';
-import { YozuvQatori } from './BoshEkran';
+import { YozuvQatori } from '../ui/YozuvQatori';
 import { BitimQatori } from './KontaktlarEkrani';
 import { tr } from '../lib/til';
 
@@ -40,7 +40,14 @@ function davrlar() {
   return DAVRLAR.map((d) => ({ ...d, matn: tr(d.matn) }));
 }
 
-export default function YozuvlarEkrani({ tahrirla }: { tahrirla: (y: Yozuv) => void }) {
+/** `ichki` — sarlavhani qobiq chizadi, ekran o‘zinikini bermaydi */
+export default function YozuvlarEkrani({
+  tahrirla,
+  ichki,
+}: {
+  tahrirla: (y: Yozuv) => void;
+  ichki?: boolean;
+}) {
   const { C } = useTema();
   const s = uslublar(C);
   const { hisoblar, turkumlar, klientlar, yozuvlar, bitimlar, tolovlar, yangila, yuklanmoqda } =
@@ -160,12 +167,14 @@ export default function YozuvlarEkrani({ tahrirla }: { tahrirla: (y: Yozuv) => v
 
   return (
     <View style={s.ekran}>
-      <View style={s.boshliq}>
-        <Text style={s.boshliqMatn}>{tr('Yozuvlar')}</Text>
-        <Text style={s.boshliqIzoh}>
-          {korinadigan.length} ta · {oraliq.nom}
-        </Text>
-      </View>
+      {!ichki && (
+        <View style={s.boshliq}>
+          <Text style={s.boshliqMatn}>{tr('Yozuvlar')}</Text>
+          <Text style={s.boshliqIzoh}>
+            {korinadigan.length} ta · {oraliq.nom}
+          </Text>
+        </View>
+      )}
 
       {/* Qidiruv */}
       <View style={{ backgroundColor: C.karta, paddingHorizontal: O.chekka, paddingTop: 10 }}>

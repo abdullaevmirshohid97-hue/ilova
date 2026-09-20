@@ -43,20 +43,25 @@ export type Ranglar = {
   faolMatn: string;
 };
 
+// OQ VARIANT (20.09). Fon ham, karta ham sof oq: ular endi
+// chegara bilan ajraladi, rang bilan emas. `tun` — sarlavha
+// zolining rangi — ham oq, ya’ni tepadagi ko‘k chiziq yo‘qoldi.
 export const YORUG: Ranglar = {
-  fon: '#F4F6F8',
+  fon: '#FFFFFF',
   karta: '#FFFFFF',
-  karta2: '#FAFBFC',
-  chegara: '#E4E9EF',
-  ajratgich: '#EFF2F6',
+  karta2: '#FAFAFA',
+  // Fon va karta bir xil bo‘lgani uchun chegara TO‘QROQ:
+  // avvalgi ochiq kulrang bilan kartalar ko‘rinmay qolardi.
+  chegara: '#E2E2E2',
+  ajratgich: '#EFEFEF',
 
-  matn: '#16202E',
-  matn2: '#46556A',
-  xira: '#8A97A8',
+  matn: '#000000',
+  matn2: '#3C3C3C',
+  xira: '#8A8A8A',
 
-  tun: '#16202E',
-  tunMatn: '#F2F4F7',
-  tunXira: '#8A97A8',
+  tun: '#FFFFFF',
+  tunMatn: '#000000',
+  tunXira: '#8A8A8A',
 
   kirim: '#3E8E68',
   kirimYumshoq: '#E9F3EE',
@@ -66,7 +71,7 @@ export const YORUG: Ranglar = {
   ogoh: '#B7791F',
   ogohYumshoq: '#FBF3E3',
 
-  faol: '#16202E',
+  faol: '#000000',
   faolMatn: '#FFFFFF',
 };
 

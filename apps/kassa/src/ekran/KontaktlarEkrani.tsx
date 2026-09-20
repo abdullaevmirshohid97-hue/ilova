@@ -30,7 +30,7 @@ import { useHolat } from '../lib/holat';
 import { xatoMatn } from '../lib/supabase';
 import { O, useTema } from '../lib/tema';
 import { BoshHolat, Chip, Qator, Tugma, YigindiPaneli, uslublar } from '../ui/qismlar';
-import { YozuvQatori } from './BoshEkran';
+import { YozuvQatori } from '../ui/YozuvQatori';
 import { tr, trn } from '../lib/til';
 import { bitimPdf } from '../lib/hisobot';
 import { taklifMatni, tasdiqHavolasi } from '../lib/tasdiq';
@@ -38,12 +38,15 @@ import { ulash } from '../lib/ulash';
 
 type Filtr = 'hammasi' | 'qarzi' | 'oldindan';
 
+/** `ichki` — sarlavhani qobiq chizadi, ekran o‘zinikini bermaydi */
 export default function KontaktlarEkrani({
   ochOperatsiya,
   ochTolov,
+  ichki,
 }: {
   ochOperatsiya: (klientId: string) => void;
   ochTolov: (klientId: string) => void;
+  ichki?: boolean;
 }) {
   const { C } = useTema();
   const s = uslublar(C);
@@ -94,10 +97,12 @@ export default function KontaktlarEkrani({
 
   return (
     <View style={s.ekran}>
-      <View style={s.boshliq}>
-        <Text style={s.boshliqMatn}>{tr('Kontaktlar')}</Text>
-        <Text style={s.boshliqIzoh}>{korinadigan.length} · {tr('mijoz va ta’minotchi')}</Text>
-      </View>
+      {!ichki && (
+        <View style={s.boshliq}>
+          <Text style={s.boshliqMatn}>{tr('Kontaktlar')}</Text>
+          <Text style={s.boshliqIzoh}>{korinadigan.length} · {tr('mijoz va ta’minotchi')}</Text>
+        </View>
+      )}
 
       <View style={{ backgroundColor: C.karta, paddingHorizontal: O.chekka, paddingTop: 10 }}>
         <TextInput

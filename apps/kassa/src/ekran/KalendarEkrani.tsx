@@ -17,7 +17,7 @@ import { haftaKunlari, oylar, kunKaliti, oyTori, sanaQisqa } from '../lib/davr';
 import { useHolat } from '../lib/holat';
 import { O, useTema } from '../lib/tema';
 import { BoshHolat, DavrOqlari, YigindiPaneli, uslublar } from '../ui/qismlar';
-import { YozuvQatori } from './BoshEkran';
+import { YozuvQatori } from '../ui/YozuvQatori';
 import { tr } from '../lib/til';
 
 /** 1 234 567 tiyin → "12 345" emas, "1,2 mln" — hujayraga sig'sin */
