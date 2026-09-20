@@ -110,6 +110,11 @@ const XOSSALAR = 'matn|nom|izoh|placeholder|yorliq|sarlavha|xabar';
 const kodQiymatlari = new Set([
   'naqd', 'bank', 'karta', 'boshqa', 'kirim', 'chiqim', 'mijoz', 'taminotchi',
   'UZS', 'USD', 'EUR', 'RUB', 'xlsx', 'pdf', 'uz', 'ru',
+  // BREND nomlari: ular hech qaysi tilda tarjima qilinmaydi.
+  // Lug‘atga «Telegram: Telegram» deb yozish faqat ortiqcha
+  // qator bo‘lardi va keyingi odam uni nima uchunligini
+  // tushunmasdi.
+  'SMS', 'Telegram', 'WhatsApp',
 ]);
 
 const qoldi = [];

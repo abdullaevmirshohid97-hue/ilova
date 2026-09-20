@@ -13,7 +13,7 @@
 // Oy va hafta nomlari TILGA bog‘liq: ruscha tanlansa «sentabr»
 // emas, «сентябрь» chiqadi. Shuning uchun ular o‘zgarmas
 // ro‘yxat emas, funksiya orqali olinadi.
-import { HAFTA_NOMLARI, joriyTil, OY_NOMLARI, OY_SANADA, tr } from './til';
+import { HAFTA_NOMLARI, HAFTA_TOLIQ, joriyTil, OY_NOMLARI, OY_SANADA, tr } from './til';
 
 export type DavrTuri = 'kun' | 'hafta' | 'oy' | 'yil' | 'hammasi';
 
@@ -168,4 +168,12 @@ export function sanaVaqtToliq(d: string | Date): string {
   const x = typeof d === 'string' ? new Date(d) : d;
   if (Number.isNaN(x.getTime())) return '—';
   return `${x.getDate()} ${oySanada()[x.getMonth()]} ${x.getFullYear()}, ${ikki(x.getHours())}:${ikki(x.getMinutes())}`;
+}
+
+/** "Payshanba, 20 sentabr 2026, 14:35" — mijoz kartochkasi uchun */
+export function sanaHaftaToliq(d: string | Date): string {
+  const x = typeof d === 'string' ? new Date(d) : d;
+  if (Number.isNaN(x.getTime())) return '—';
+  const kun = HAFTA_TOLIQ[joriyTil()][haftaKuni(x)];
+  return `${kun}, ${x.getDate()} ${oySanada()[x.getMonth()]} ${x.getFullYear()}, ${ikki(x.getHours())}:${ikki(x.getMinutes())}`;
 }

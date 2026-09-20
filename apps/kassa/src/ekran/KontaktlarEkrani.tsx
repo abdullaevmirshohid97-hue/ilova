@@ -465,7 +465,7 @@ function YangiKontakt({ yopish, saqlandi }: { yopish: () => void; saqlandi: () =
  * Xato yutilmaydi: fayl yozilmasa odam buni BILISHI kerak, aks
  * holda «bosdim, hech narsa bo‘lmadi» degan holat chiqardi.
  */
-async function bitimHujjati(b: Bitim, tolovlar: Tolov[], hamkor: Klient | null, biznes: string) {
+export async function bitimHujjati(b: Bitim, tolovlar: Tolov[], hamkor: Klient | null, biznes: string) {
   try {
     const bayt = bitimPdf({ biznes, bitim: b, tolovlar, hamkor });
     const nom = `${hamkor?.ism ?? tr('Hamkor')}-${b.sana.slice(0, 10)}`;
@@ -483,7 +483,7 @@ async function bitimHujjati(b: Bitim, tolovlar: Tolov[], hamkor: Klient | null, 
  * bilmaymiz, va bilsak ham uning nomidan xabar yozish
  * ishonchni buzardi.
  */
-async function tasdiqYubor(b: Bitim, hamkor: Klient | null, biznes: string) {
+export async function tasdiqYubor(b: Bitim, hamkor: Klient | null, biznes: string) {
   try {
     const { havola } = await tasdiqHavolasi(b.id);
     await Share.share({ message: taklifMatni(havola, biznes) });

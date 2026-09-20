@@ -66,6 +66,37 @@ const RU: Record<string, string> = {
   'Bosh': 'Главная',
   'Yozuvlar': 'Записи',
   'Kalendar': 'Календарь',
+  'Raqam yo‘q': 'Нет номера',
+  'Bu mijozga telefon raqami kiritilmagan': 'У этого клиента нет номера',
+  'Bu davrda operatsiya yo‘q': 'За этот период операций нет',
+  'Pastdagi tugmalar bilan birinchisini yozing': 'Запишите первую кнопками ниже',
+  'O‘CHIRILGANLAR': 'УДАЛЁННЫЕ',
+  '+ Kirim': '+ Приход',
+  '− Chiqim': '− Расход',
+  'Jami kirim': 'Всего приход',
+  'Jami chiqim': 'Всего расход',
+  '{n} ta operatsiya': 'операций: {n}',
+  'Profilga': 'В профиль',
+  'O‘chirilgan operatsiyalar': 'Удалённые операции',
+  'O‘chirilganlarni yashirish': 'Скрыть удалённые',
+  'Xabar yuborish': 'Отправить сообщение',
+  'Tahrirlash': 'Редактировать',
+  'Qo‘ng‘iroq': 'Позвонить',
+  'Saralash': 'Сортировка',
+  'Sana ↓ (yangisi)': 'Дата ↓ (новые)',
+  'Sana ↑ (eskisi)': 'Дата ↑ (старые)',
+  'muddat': 'срок',
+  'balans': 'баланс',
+  'Xabar': 'Сообщение',
+  'raqam yo‘q': 'нет номера',
+  'Matnni o‘zgartirsangiz ham bo‘ladi': 'Текст можно изменить',
+  'Nusxa olish': 'Копировать',
+  'Nusxa olindi': 'Скопировано',
+  'Xabar matni buferga ko‘chirildi': 'Текст скопирован в буфер',
+  'SMS va WhatsApp uchun mijoz raqami kerak': 'Для SMS и WhatsApp нужен номер',
+  'Ilova topilmadi': 'Приложение не найдено',
+  'bu telefonda yo‘q': 'не установлено на этом телефоне',
+  'Ochilmadi': 'Не открылось',
   'Shu yil': 'Этот год',
   'Yillik': 'За год',
   'Sizdan olamiz:': 'К получению:',
@@ -585,6 +616,17 @@ export const OY_SANADA: Record<Til, string[]> = {
 export const HAFTA_NOMLARI: Record<Til, string[]> = {
   uz: ['Du', 'Se', 'Ch', 'Pa', 'Ju', 'Sh', 'Ya'],
   ru: ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'],
+};
+/**
+ * To‘liq hafta kuni — mijoz kartochkasidagi sana qatorida.
+ *
+ * Qisqasi («Pa») kalendar katakchasi uchun: u yerda joy yo‘q.
+ * Qatorda esa joy bor va «Payshanba» bir qarashda o‘qiladi —
+ * do‘kondor ko‘pincha kunni sanasidan emas, nomidan eslaydi.
+ */
+export const HAFTA_TOLIQ: Record<Til, string[]> = {
+  uz: ['Dushanba', 'Seshanba', 'Chorshanba', 'Payshanba', 'Juma', 'Shanba', 'Yakshanba'],
+  ru: ['Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота', 'Воскресенье'],
 };
 
 let joriy: Til = 'uz';

@@ -23,8 +23,8 @@
 // =============================================================
 
 import { useMemo, useState } from 'react';
-import { RefreshControl, ScrollView, Text, TouchableOpacity, View } from 'react-native';
-import { formatla, hamkorQoldiq, muddatiOtgan } from '@ilova/kassa-yadro';
+import { Alert, RefreshControl, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { formatla, hamkorQoldiq, muddatiOtgan, type HamkorQator } from '@ilova/kassa-yadro';
 import type { Klient } from '@ilova/kassa-yadro';
 import { boshHarflar } from '../lib/rasm';
 import { useHolat } from '../lib/holat';
@@ -32,7 +32,10 @@ import { O, useTema } from '../lib/tema';
 import { tr } from '../lib/til';
 import { BoshHolat } from '../ui/qismlar';
 import { MijozRasmi } from '../ui/MijozRasmi';
-import { KontaktOynasi } from './KontaktlarEkrani';
+import MijozKartochka from './MijozKartochka';
+import { bitimHujjati, tasdiqYubor } from './KontaktlarEkrani';
+import XabarOynasi from './XabarOynasi';
+import { xabarMatni } from '../lib/xabar';
 
 type Filtr = 'hammasi' | 'qarzlarim' | 'haqlarim' | 'muddat';
 
@@ -58,9 +61,12 @@ export default function BoshEkran({
   ochTolov: (klientId: string) => void;
 }) {
   const { C } = useTema();
-  const { klientlar, yozuvlar, bitimlar, tolovlar, yangila, yuklanmoqda } = useHolat();
+  const { men, klientlar, yozuvlar, bitimlar, tolovlar, yangila, yuklanmoqda } = useHolat();
   const [filtr, setFiltr] = useState<Filtr>('hammasi');
   const [tanlangan, setTanlangan] = useState<Klient | null>(null);
+  // Xabar oynasi kartochkaning USTIDAN ochiladi: odam xabarni
+  // yuborgach o‘sha mijozning tarixiga qaytishi kerak.
+  const [xabar, setXabar] = useState<string | null>(null);
 
   const valyuta = klientlar[0]?.valyuta ?? 'UZS';
 
@@ -97,6 +103,33 @@ export default function BoshEkran({
       // Kattaroq qarz tepada: odam ertalab aynan shuni qidiradi.
       .sort((a, b) => Math.abs(qoldiqlar.get(b.id) ?? 0) - Math.abs(qoldiqlar.get(a.id) ?? 0));
   }, [klientlar, qoldiqlar, kechikkanlar, filtr, qidiruv]);
+
+  /**
+   * Qator bosilganda.
+   *
+   * To‘liq operatsiya oynasi keyingi bosqichda. Hozircha
+   * mavjud amallar beriladi — qator bosilib hech narsa
+   * bo‘lmasligi eng yomon variant edi: odam ikki-uch marta
+   * bosib, ilova qotib qoldi deb o‘ylardi.
+   */
+  function amallarKorsat(q: HamkorQator) {
+    if (q.tur !== 'bitim' || !tanlangan) return;
+    const b = q.bitim;
+    const tugmalar: { text: string; onPress?: () => void; style?: 'cancel' }[] = [
+      {
+        text: tr('Hujjat (PDF)'),
+        onPress: () => bitimHujjati(b, tolovlar, tanlangan, men.biznes),
+      },
+    ];
+    if (b.holat === 'kutilmoqda') {
+      tugmalar.push({
+        text: tr('Tasdiqlash havolasi'),
+        onPress: () => tasdiqYubor(b, tanlangan, men.biznes),
+      });
+    }
+    tugmalar.push({ text: tr('Bekor'), style: 'cancel' });
+    Alert.alert(b.tovar_nom || tr('Bitim'), formatla(b.summa, b.valyuta), tugmalar);
+  }
 
   const jami = useMemo(() => {
     let haqlar = 0;
@@ -246,27 +279,33 @@ export default function BoshEkran({
       </View>
 
       {tanlangan && (
-        <KontaktOynasi
+        <MijozKartochka
           klient={tanlangan}
-          qoldiq={qoldiqlar.get(tanlangan.id) ?? 0}
-          bitimlar={bitimlar.filter((b) => b.klient_id === tanlangan.id)}
-          tolovlar={tolovlar.filter((t) => t.klient_id === tanlangan.id)}
           yopish={() => setTanlangan(null)}
-          ochOperatsiya={() => {
-            const id = tanlangan.id;
+          ochKirim={() => ochTolov(tanlangan.id)}
+          ochChiqim={() => ochOperatsiya(tanlangan.id)}
+          ochOperatsiya={(q: HamkorQator) => amallarKorsat(q)}
+          ochProfil={() => {
+            const k = tanlangan;
             setTanlangan(null);
-            ochOperatsiya(id);
+            ochMijoz(k);
           }}
-          ochTolov={() => {
-            const id = tanlangan.id;
-            setTanlangan(null);
-            ochTolov(id);
-          }}
-          ochirildi={() => {
-            setTanlangan(null);
-            yangila();
-          }}
+          ochXabar={(qatorlar, qoldiq) =>
+            setXabar(
+              xabarMatni({
+                ism: [tanlangan.ism, tanlangan.familya].filter(Boolean).join(' '),
+                biznes: men.biznes,
+                valyuta: tanlangan.valyuta ?? 'UZS',
+                qatorlar,
+                qoldiq,
+              }),
+            )
+          }
         />
+      )}
+
+      {tanlangan && xabar !== null && (
+        <XabarOynasi klient={tanlangan} matn={xabar} yopish={() => setXabar(null)} />
       )}
     </View>
   );
