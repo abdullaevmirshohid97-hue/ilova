@@ -134,6 +134,19 @@ else
   echo "  ! bundle manzili topilmadi — ichini tekshirib bo'lmadi"
 fi
 
+# Huquqiy sahifalarning IKONKASI.
+#
+# Ular oddiy statik HTML va saytning ildizida turadi. Ikonkasiz
+# qolsa brauzer `/favicon.ico` ni oladi — u esa B2B ilovasiniki,
+# ya’ni Clary sahifasi yonida boshqa loyihaning kubi turardi.
+kod=$(curl -s -o /dev/null -w '%{http_code}' --max-time 15 "$CD/clary-ikonka.png")
+if [ "$kod" = "200" ]; then
+  echo "  ✓ $CD/clary-ikonka.png"
+else
+  echo "  x $CD/clary-ikonka.png — $kod (huquqiy sahifalar begona ikonka bilan turadi)"
+  ORTDA=1
+fi
+
 # Play uchun majburiy ikki sahifa. Ular yo'q bo'lsa ilova do'konda
 # rad etiladi va sabab faqat Play Console'da ko'rinadi.
 for sahifa in maxfiylik hisob-ochirish; do

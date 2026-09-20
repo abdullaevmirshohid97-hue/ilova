@@ -216,7 +216,9 @@ fi
 # maxfiylik siyosati va hisobni o'chirish yo'li VEB manzilda ham
 # bo'lishi shart (ilova ichidagisi yetarli emas). Ular oddiy statik
 # HTML, ya'ni /kassa SPA'sidan mustaqil ochiladi.
-cp apps/kassa/ommaviy/*.html "$LANDING_WWW/"
+# *.html va ikonka birga: sahifalar unga `/clary-ikonka.png` deb
+# ishora qiladi, ya’ni fayl ildizda turishi shart.
+cp apps/kassa/ommaviy/*.html apps/kassa/ommaviy/*.png "$LANDING_WWW/"
 
 echo ""
 echo "✅ Statik fayllar joylashtirildi:"
