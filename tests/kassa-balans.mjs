@@ -440,6 +440,71 @@ tekshir('eski yozuv jamida ham ko‘rinadi (beramiz 12000 → 11500)',
   jamiY.olamiz === 5000 && jamiY.beramiz === 11500,
   'olamiz ' + jamiY.olamiz + ', beramiz ' + jamiY.beramiz);
 
+// -------------------------------------------------------------
+//  TASDIQ HOLATI BO'YICHA QARZ (hisobot ustuni)
+//
+//  Reja 7.4: tasdiq shart emas, lekin DALIL. Ikkisi qo'shilganda
+//  umumiy qarzga teng chiqishi shart — aks holda hisobotda pul
+//  yo'qolardi.
+// -------------------------------------------------------------
+const tasdiqli = B({ id: 'bt1', k: 'tonirok', y: 'berdim', s: 4000, h: 'tasdiqlangan' });
+const kutayotgan = B({ id: 'bt2', k: 'tonirok', y: 'berdim', s: 1000, h: 'kutilmoqda' });
+const yopilgan = B({ id: 'bt3', k: 'ali', y: 'oldim', s: 2000, h: 'yopilgan' });
+
+const bolingan = Y.qarzTasdiqBoyicha([tasdiqli, kutayotgan, yopilgan], []);
+tekshir('tasdiqlangan: olamiz 4000, beramiz 2000',
+  bolingan.tasdiqlangan.olamiz === 4000 && bolingan.tasdiqlangan.beramiz === 2000,
+  'olamiz ' + bolingan.tasdiqlangan.olamiz + ', beramiz ' + bolingan.tasdiqlangan.beramiz);
+tekshir('«yopilgan» ham TASDIQLANGAN tomonda',
+  bolingan.tasdiqlangan.beramiz === 2000);
+tekshir('tasdiqlanmagan: olamiz 1000',
+  bolingan.tasdiqlanmagan.olamiz === 1000 && bolingan.tasdiqlanmagan.beramiz === 0,
+  'olamiz ' + bolingan.tasdiqlanmagan.olamiz);
+
+// Eski daftar yozuvi hech kim tasdiqlamagan — u TASDIQLANMAGAN tomonda
+const bolingan2 = Y.qarzTasdiqBoyicha([tasdiqli], [], [eskiY({ id: 'e9', k: 'ali', turi: 'chiqim', s: 700 })]);
+tekshir('eski yozuv tasdiqlanmagan deb sanaladi',
+  bolingan2.tasdiqlanmagan.olamiz === 700 && bolingan2.tasdiqlangan.olamiz === 4000,
+  'tasdiqsiz ' + bolingan2.tasdiqlanmagan.olamiz + ', tasdiqli ' + bolingan2.tasdiqlangan.olamiz);
+
+// Ikkisining yig'indisi umumiy qarzga TENG
+const umumiy = Y.qarzYigindi([tasdiqli, kutayotgan, yopilgan], []);
+tekshir('tasdiqli + tasdiqsiz = umumiy qarz',
+  bolingan.tasdiqlangan.olamiz + bolingan.tasdiqlanmagan.olamiz === umumiy.olamiz &&
+  bolingan.tasdiqlangan.beramiz + bolingan.tasdiqlanmagan.beramiz === umumiy.beramiz,
+  umumiy.olamiz + ' / ' + umumiy.beramiz);
+
+// -------------------------------------------------------------
+//  KECHIKKAN KUN (ro'yxatdagi qizil yozuv)
+// -------------------------------------------------------------
+const BUGUN = new Date(2026, 8, 20); // 20-sentabr
+tekshir('3 kun oldingi muddat → 3 kun',
+  Y.kechikkanKun(B({ id: 'k1', k: 'a', y: 'berdim', s: 100, muddat: '2026-09-17' }), [], BUGUN) === 3,
+  String(Y.kechikkanKun(B({ id: 'k1', k: 'a', y: 'berdim', s: 100, muddat: '2026-09-17' }), [], BUGUN)));
+tekshir('BUGUNGI muddat hali kechikmagan',
+  Y.kechikkanKun(B({ id: 'k2', k: 'a', y: 'berdim', s: 100, muddat: '2026-09-20' }), [], BUGUN) === 0);
+tekshir('kelajakdagi muddat kechikmagan',
+  Y.kechikkanKun(B({ id: 'k3', k: 'a', y: 'berdim', s: 100, muddat: '2026-12-01' }), [], BUGUN) === 0);
+tekshir('muddatsiz bitim kechikmaydi',
+  Y.kechikkanKun(B({ id: 'k4', k: 'a', y: 'berdim', s: 100 }), [], BUGUN) === 0);
+tekshir('to‘langan bitim kechikkan emas',
+  Y.kechikkanKun(
+    B({ id: 'k5', k: 'a', y: 'berdim', s: 100, muddat: '2026-09-01' }),
+    [T({ id: 'kt', k: 'a', b: 'k5', y: 'oldim', s: 100 })],
+    BUGUN,
+  ) === 0);
+tekshir('kechikkanKun va muddatiOtgan bir xil qaror beradi',
+  (() => {
+    const ro = [
+      B({ id: 'z1', k: 'a', y: 'berdim', s: 100, muddat: '2026-09-17' }),
+      B({ id: 'z2', k: 'a', y: 'berdim', s: 100, muddat: '2026-12-01' }),
+      B({ id: 'z3', k: 'a', y: 'berdim', s: 100, muddat: '2026-09-01', h: 'yopilgan' }),
+    ];
+    const royxat = Y.muddatiOtgan(ro, [], BUGUN).map((b) => b.id).sort().join(',');
+    const birma = ro.filter((b) => Y.kechikkanKun(b, [], BUGUN) > 0).map((b) => b.id).sort().join(',');
+    return royxat === birma;
+  })());
+
 console.log('\n7. Baza funksiyalari va cheklovlar');
 
 const javob = await sqlXom(BLOK);

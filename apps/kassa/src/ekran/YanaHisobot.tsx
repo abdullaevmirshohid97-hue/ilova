@@ -7,8 +7,8 @@
 
 import { useMemo, useState } from 'react';
 import { Alert, ScrollView, Text, View } from 'react-native';
-import { davrYigindi, formatla, hisobQoldiq } from '@ilova/kassa-yadro';
-import type { Hisob } from '@ilova/kassa-yadro';
+import { davrYigindi, formatla, hisobQoldiq, qarzTasdiqBoyicha } from '@ilova/kassa-yadro';
+import type { Hisob, QarzJami } from '@ilova/kassa-yadro';
 import { davrOraligi, oraliqdami, type DavrTuri } from '../lib/davr';
 import { hisobotPdf, hisobotXlsx } from '../lib/hisobot';
 import { ulash } from '../lib/ulash';
@@ -20,7 +20,7 @@ import { tr } from '../lib/til';
 
 export default function Hisobot() {
   const { C } = useTema();
-  const { men, yozuvlar, turkumlar, hisoblar, klientlar } = useHolat();
+  const { men, yozuvlar, turkumlar, hisoblar, klientlar, bitimlar, tolovlar } = useHolat();
   const [davr, setDavr] = useState<DavrTuri>('oy');
   const [siljish, setSiljish] = useState(0);
   const [chiqarmoqda, setChiqarmoqda] = useState<'xlsx' | 'pdf' | null>(null);
@@ -28,6 +28,12 @@ export default function Hisobot() {
   const oraliq = useMemo(() => davrOraligi(davr, siljish), [davr, siljish]);
   const davrniki = useMemo(() => yozuvlar.filter((y) => oraliqdami(y.sana, oraliq)), [yozuvlar, oraliq]);
   const yigindi = useMemo(() => davrYigindi(davrniki), [davrniki]);
+
+  // Qarz davrga bogliq emas: bugungi holat
+  const qarz = useMemo(
+    () => qarzTasdiqBoyicha(bitimlar, tolovlar, yozuvlar),
+    [bitimlar, tolovlar, yozuvlar],
+  );
   const valyuta = hisoblar[0]?.valyuta ?? 'UZS';
 
   const turkumKesimi = useMemo(() => {
@@ -117,6 +123,25 @@ export default function Hisobot() {
             {kirimlar.map((t) => (
               <UstunQator key={t.nom + t.turi} nom={t.nom} summa={t.summa} eng={engKatta} rang={C.kirim} valyuta={valyuta} />
             ))}
+
+            {/* Qarz DAVRGA bog‘liq emas: u bugungi holat, oqim
+                emas. Shuning uchun davr o‘qlari unga ta‘sir
+                qilmaydi — sarlavhada shu aytilgan. */}
+            <Sarlavha matn={tr('Qarzlar — bugungi holat')} />
+            <View style={{ paddingHorizontal: O.chekka, gap: 8 }}>
+              <QarzQatori
+                nom={tr('Tasdiqlangan')}
+                izoh={tr('Hamkor Telegramda tan olgan')}
+                jami={qarz.tasdiqlangan}
+                valyuta={valyuta}
+              />
+              <QarzQatori
+                nom={tr('Tasdiqlanmagan')}
+                izoh={tr('Daftarda bor, hamkor hali tasdiqlamagan')}
+                jami={qarz.tasdiqlanmagan}
+                valyuta={valyuta}
+              />
+            </View>
 
             <Sarlavha matn={tr('Hisoblar')} />
             <View style={{ paddingHorizontal: O.chekka, gap: 8 }}>
@@ -208,5 +233,46 @@ function UstunQator({
         <View style={{ height: 6, width: `${Math.max(2, (summa / eng) * 100)}%`, backgroundColor: rang, borderRadius: 3 }} />
       </View>
     </View>
+  );
+}
+
+/**
+ * Tasdiq holati bo'yicha qarz qatori.
+ *
+ * Ikki raqam yonma-yon turadi, chunki savol ham ikkitadir: «menga
+ * qancha qarzdor» va «men qancha qarzdorman». Bittasi nol bo'lsa
+ * ham ko'rsatiladi — bo'shligi ham javob.
+ */
+function QarzQatori({
+  nom,
+  izoh,
+  jami,
+  valyuta,
+}: {
+  nom: string;
+  izoh: string;
+  jami: QarzJami;
+  valyuta: Hisob['valyuta'];
+}) {
+  const { C } = useTema();
+  return (
+    <Karta uslub={{ paddingVertical: 12 }}>
+      <Text style={{ color: C.matn, fontSize: 14, fontWeight: '700' }}>{nom}</Text>
+      <Text style={{ color: C.xira, fontSize: 11, marginTop: 2 }}>{izoh}</Text>
+      <View style={{ flexDirection: 'row', marginTop: 8, gap: 16 }}>
+        <View style={{ flex: 1 }}>
+          <Text style={{ color: C.xira, fontSize: 11 }}>{tr('Bizga qarzdor')}</Text>
+          <Text style={{ color: C.kirim, fontSize: 14, fontWeight: '700', marginTop: 2 }} numberOfLines={1}>
+            {formatla(jami.olamiz, valyuta, { belgisiz: true, kasrsiz: true })}
+          </Text>
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={{ color: C.xira, fontSize: 11 }}>{tr('Biz qarzdormiz')}</Text>
+          <Text style={{ color: C.chiqim, fontSize: 14, fontWeight: '700', marginTop: 2 }} numberOfLines={1}>
+            {formatla(jami.beramiz, valyuta, { belgisiz: true, kasrsiz: true })}
+          </Text>
+        </View>
+      </View>
+    </Karta>
   );
 }

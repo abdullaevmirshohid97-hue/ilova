@@ -66,6 +66,12 @@ const RU: Record<string, string> = {
   'Bosh': 'Главная',
   'Yozuvlar': 'Записи',
   'Kalendar': 'Календарь',
+  '{n} kun kechikdi': 'просрочено на {n} дн.',
+  'Qarzlar — bugungi holat': 'Долги — на сегодня',
+  'Tasdiqlangan': 'Подтверждено',
+  'Hamkor Telegramda tan olgan': 'Партнёр подтвердил в Telegram',
+  'Tasdiqlanmagan': 'Не подтверждено',
+  'Daftarda bor, hamkor hali tasdiqlamagan': 'Записано, но партнёр ещё не подтвердил',
   'Kontaktlar': 'Контакты',
   'Yana': 'Ещё',
 

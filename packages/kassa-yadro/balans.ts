@@ -225,11 +225,13 @@ export function bitimQoldiq(bitim: Bitim, tolovlar: Tolov[]): number {
  *
  * Bosh ekrandagi ikki katta raqam shu yerdan chiqadi.
  */
+export type QarzJami = { olamiz: number; beramiz: number };
+
 export function qarzYigindi(
   bitimlar: Bitim[],
   tolovlar: Tolov[],
   yozuvlar: Yozuv[] = [],
-): { olamiz: number; beramiz: number } {
+): QarzJami {
   const boyicha = new Map<string, number>();
   for (const b of bitimlar) {
     if (!hisobga(b.holat)) continue;
@@ -256,6 +258,53 @@ export function qarzYigindi(
     else beramiz += -q;
   }
   return { olamiz, beramiz };
+}
+
+/**
+ * Qarz tasdiq holati bo‘yicha ikkiga bo‘linadi.
+ *
+ * Reja 7.4: tasdiq shart emas, lekin DALIL. Nizoda qaysi raqamga
+ * suyanish mumkinligi shundan bilinadi — shuning uchun hisobotda
+ * ikkisi alohida turadi.
+ *
+ * Eski, bitimsiz daftar yozuvlari TASDIQLANMAGAN deb sanaladi:
+ * ularni hech kim tasdiqlamagan, chunki tasdiq tushunchasi
+ * ular yozilganda yo‘q edi.
+ */
+export function qarzTasdiqBoyicha(
+  bitimlar: Bitim[],
+  tolovlar: Tolov[],
+  yozuvlar: Yozuv[] = [],
+): { tasdiqlangan: QarzJami; tasdiqlanmagan: QarzJami } {
+  const tasdiqli = (h: string) => h === 'tasdiqlangan' || h === 'yopilgan';
+  return {
+    tasdiqlangan: qarzYigindi(
+      bitimlar.filter((b) => tasdiqli(b.holat)),
+      tolovlar.filter((t) => tasdiqli(t.holat)),
+    ),
+    tasdiqlanmagan: qarzYigindi(
+      bitimlar.filter((b) => !tasdiqli(b.holat)),
+      tolovlar.filter((t) => !tasdiqli(t.holat)),
+      yozuvlar,
+    ),
+  };
+}
+
+/**
+ * Bitta bitim necha KUN kechikkan. Kechikmagan bo‘lsa 0.
+ *
+ * `muddatiOtgan` ro‘yxat qaytaradi, bu esa bitta qator uchun:
+ * ekranda har bitim yonida «3 kun kechikdi» deb turishi kerak,
+ * ro‘yxatni qidirib o‘tirmasdan.
+ *
+ * Ikkalasi BIR XIL shartga tayanadi — biri qizil, ikkinchisi
+ * oq ko‘rsatsa odam qaysi biriga ishonishni bilmasdi.
+ */
+export function kechikkanKun(bitim: Bitim, tolovlar: Tolov[], hozir = new Date()): number {
+  if (!muddatiOtgan([bitim], tolovlar, hozir).length) return 0;
+  const bugun = new Date(hozir.getFullYear(), hozir.getMonth(), hozir.getDate()).getTime();
+  const kun = 24 * 60 * 60 * 1000;
+  return Math.max(1, Math.round((bugun - Date.parse(bitim.muddat as string)) / kun));
 }
 
 /** Muddati o‘tgan va hali yopilmagan bitimlar */

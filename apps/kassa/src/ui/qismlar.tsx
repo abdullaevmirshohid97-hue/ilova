@@ -196,6 +196,7 @@ export function Qator({
   ong,
   ongIzoh,
   ongRang,
+  ongIzohRang,
   bos,
   uzoqBos,
   sozilgan,
@@ -206,6 +207,7 @@ export function Qator({
   ong?: string;
   ongIzoh?: string;
   ongRang?: string;
+  ongIzohRang?: string;
   bos?: () => void;
   uzoqBos?: () => void;
   sozilgan?: boolean;
@@ -242,7 +244,9 @@ export function Qator({
             {ong}
           </Text>
           {ongIzoh ? (
-            <Text style={{ color: C.xira, fontSize: 11, marginTop: 3 }}>{ongIzoh}</Text>
+            <Text style={{ color: ongIzohRang ?? C.xira, fontSize: 11, marginTop: 3, fontWeight: ongIzohRang ? '700' : '400' }}>
+              {ongIzoh}
+            </Text>
           ) : null}
         </View>
       ) : null}

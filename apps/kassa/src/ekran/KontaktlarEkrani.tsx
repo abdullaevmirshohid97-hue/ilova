@@ -21,7 +21,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { bitimQoldiq, formatla, hamkorQoldiq, solishtir } from '@ilova/kassa-yadro';
+import { bitimQoldiq, formatla, hamkorQoldiq, kechikkanKun, solishtir } from '@ilova/kassa-yadro';
 import type { Bitim, Klient, Tolov } from '@ilova/kassa-yadro';
 import { klientQosh, klientTahrirla } from '../lib/baza';
 import { sanaQisqa } from '../lib/davr';
@@ -30,7 +30,7 @@ import { xatoMatn } from '../lib/supabase';
 import { O, useTema } from '../lib/tema';
 import { BoshHolat, Chip, Qator, Tugma, YigindiPaneli, uslublar } from '../ui/qismlar';
 import { YozuvQatori } from './BoshEkran';
-import { tr } from '../lib/til';
+import { tr, trn } from '../lib/til';
 
 type Filtr = 'hammasi' | 'qarzi' | 'oldindan';
 
@@ -427,6 +427,9 @@ export function BitimQatori({ b, tolovlar }: { b: Bitim; tolovlar: Tolov[] }) {
   const { C } = useTema();
   const qoldi = bitimQoldiq(b, tolovlar);
   const berdim = b.yonalish === 'berdim';
+  // Muddati o‘tgan qarz ro‘yxatning o‘zida ko‘rinadi —
+  // bildirishnoma yubormaymiz (qaror 20.09).
+  const kechikdi = kechikkanKun(b, tolovlar);
   const nomi = b.tovar_nom || (b.nima === 'qarz' ? tr('Qarz') : tr('Tovar'));
   const tafsilot = [
     sanaQisqa(b.sana),
@@ -443,7 +446,10 @@ export function BitimQatori({ b, tolovlar }: { b: Bitim; tolovlar: Tolov[] }) {
       izoh={tafsilot}
       ong={`${berdim ? '+' : '−'} ${formatla(b.summa, b.valyuta, { belgisiz: true, kasrsiz: true })}`}
       ongRang={berdim ? C.kirim : C.chiqim}
-      ongIzoh={b.holat === 'kutilmoqda' ? tr('kutilmoqda') : undefined}
+      ongIzoh={
+        kechikdi > 0 ? trn('{n} kun kechikdi', kechikdi) : b.holat === 'kutilmoqda' ? tr('kutilmoqda') : undefined
+      }
+      ongIzohRang={kechikdi > 0 ? C.chiqim : undefined}
       sozilgan={b.holat === 'bekor'}
     />
   );
