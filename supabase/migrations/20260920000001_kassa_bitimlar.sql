@@ -162,6 +162,31 @@ create trigger trg_kassa_bitimlar_oqim
   for each row execute function public.tg_kassa_oqim();
 
 
+-- ---------- 2b. `kassa_yozuvlar` ga yetishmagan unikal cheklov ----------
+--
+-- Kompozit tashqi kalit `(id, org_id)` juftligi bo'yicha UNIKAL
+-- cheklov talab qiladi. `kassa_hisoblar`, `kassa_turkumlar` va
+-- `kassa_klientlar` da u bor, `kassa_yozuvlar` da esa qolib ketgan
+-- — birinchi qo'llashda aynan shu yerda yiqildi:
+--
+--   42830: there is no unique constraint matching given keys
+--          for referenced table "kassa_yozuvlar"
+--
+-- `id` allaqachon birlamchi kalit, shuning uchun bu cheklov hech
+-- qanday qatorni rad etmaydi: u faqat FK uchun kerak.
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint
+    where conname = 'kassa_yozuvlar_id_org_uniq'
+      and conrelid = 'public.kassa_yozuvlar'::regclass
+  ) then
+    alter table public.kassa_yozuvlar
+      add constraint kassa_yozuvlar_id_org_uniq unique (id, org_id);
+  end if;
+end $$;
+
+
 -- ---------- 3. To'lovlar ----------
 --
 -- `bitim_id` ATAYLAB ixtiyoriy: bozorda «Tonirokka 500 ming berdim»
