@@ -39,3 +39,6 @@ credentials.json
 # Qayta o'rnatish: npx skills add supabase/agent-skills
 .claude/skills/*
 !.claude/skills/ilova/
+
+# Dizayn tizimining yig'ilgan chiqishi — qayta quriladi
+packages/kassa-dizayn/dist/

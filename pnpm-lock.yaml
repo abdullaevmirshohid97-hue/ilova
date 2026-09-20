@@ -183,6 +183,18 @@ importers:
         specifier: ~5.9.2
         version: 5.9.3
 
+  packages/kassa-dizayn:
+    dependencies:
+      '@ilova/kassa-yadro':
+        specifier: workspace:*
+        version: link:../kassa-yadro
+      react:
+        specifier: '>=19'
+        version: 19.1.0
+      react-dom:
+        specifier: '>=19'
+        version: 19.1.0(react@19.1.0)
+
   packages/kassa-yadro: {}
 
 packages:

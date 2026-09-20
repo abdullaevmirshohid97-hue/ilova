@@ -1,0 +1,30 @@
+{
+  "name": "@ilova/kassa-dizayn",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Clary dizayn tizimi — kassa ilovasining UI qismlari brauzer uchun yig'ilgan",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "node qur.mjs && tsc -p tsconfig.qur.json",
+    "typecheck": "tsc --noEmit -p tsconfig.qur.json"
+  },
+  "dependencies": {
+    "@ilova/kassa-yadro": "workspace:*"
+  },
+  "peerDependencies": {
+    "react": ">=19",
+    "react-dom": ">=19"
+  }
+}
