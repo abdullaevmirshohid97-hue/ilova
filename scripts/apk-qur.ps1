@@ -18,7 +18,22 @@ param(
   [switch]$Toza
 )
 
-$ErrorActionPreference = "Stop"
+# NATIVE BUYRUQLAR UCHUN "Stop" YARAMAYDI.
+#
+# PowerShell native dasturning stderr chiqishini ErrorRecord ga
+# o‘raydi va "Stop" bilan u TERMINAL XATOGA aylanadi. Natijada
+# `expo prebuild` ning oddiy OGOHLANTIRISHI —
+#
+#   » android: userInterfaceStyle: Install expo-system-ui...
+#
+# — butun skriptni to‘xtatib qo‘ydi, holbuki prebuild
+# muvaffaqiyatli tugagandi.
+#
+# Shuning uchun natija CHIQISH KODIGA emas, DISKKA qarab
+# tekshiriladi: papka yaratildimi, APK chiqdimi. Bu yerda
+# sdkmanager bilan ham shunday bo‘lgan edi — u ishni
+# bajargandan keyin 0xC0000409 bilan yiqilardi.
+$ErrorActionPreference = "Continue"
 
 $ILDIZ = Split-Path -Parent $PSScriptRoot
 $KASSA = Join-Path $ILDIZ "apps\kassa"
@@ -51,7 +66,10 @@ if (-not (Test-Path $ANDROID)) {
   Push-Location $KASSA
   cmd /c "npx expo prebuild --platform android --no-install"
   Pop-Location
-  if (-not (Test-Path $ANDROID)) { Write-Host "prebuild yiqildi" -ForegroundColor Red; exit 1 }
+  # Diskdan tekshiramiz: gradlew bo‘lmasa prebuild haqiqatan yiqilgan.
+  if (-not (Test-Path (Join-Path $ANDROID "gradlew.bat"))) {
+    Write-Host "prebuild yiqildi — gradlew.bat yo‘q" -ForegroundColor Red; exit 1
+  }
 }
 
 # --- 2. Prebuild qoldirgan kamchiliklarni tuzatish ---

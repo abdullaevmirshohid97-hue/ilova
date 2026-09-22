@@ -2,7 +2,7 @@
 //  SOZLAMALAR — biznes nomi, ko‘rinish, hisobdan chiqish
 // =============================================================
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ScrollView, Text, TextInput, View } from 'react-native';
 import { biznesNomiQoy, hisobniOchir } from '../lib/baza';
 import { useHolat } from '../lib/holat';
@@ -11,6 +11,7 @@ import { O, useTema, type TemaRejimi } from '../lib/tema';
 import { Chip, Qator, Sarlavha, Tugma } from '../ui/qismlar';
 import { tr, trn, useTil, type Til } from '../lib/til';
 import { Ogoh } from '../lib/ogoh';
+import { qulfYoqilganmi, qulfniQoy, qurilmaQulfiBormi } from '../lib/qulf';
 
 export default function Sozlama() {
   const { C, rejim, qoy } = useTema();
@@ -18,6 +19,17 @@ export default function Sozlama() {
   const { men, nomniQoy } = useHolat();
   const [nom, setNom] = useState(men.biznes);
   const [kutmoqda, setKutmoqda] = useState(false);
+  // Qurilmada qulf yo‘q bo‘lsa sozlama UMUMAN ko‘rsatilmaydi.
+  // Aks holda odam uni yoqardi-yu, keyin ilova ochilmay
+  // qolardi — eng yomon turdagi xato.
+  const [qulfBor, setQulfBor] = useState(false);
+  const [qulfYoq, setQulfYoq] = useState(false);
+
+  useEffect(() => {
+    void qurilmaQulfiBormi().then(setQulfBor);
+    void qulfYoqilganmi().then(setQulfYoq);
+  }, []);
+
   const [xabar, setXabar] = useState<string | null>(null);
 
   async function saqla() {
@@ -115,6 +127,35 @@ export default function Sozlama() {
         )}
         <Tugma matn={tr('Nomni saqlash')} bos={saqla} kutmoqda={kutmoqda} uslub={{ marginTop: 10 }} />
       </View>
+
+      {qulfBor && (
+        <>
+          <Sarlavha matn={tr('Xavfsizlik')} />
+          <View style={{ paddingHorizontal: O.chekka }}>
+            <Text style={{ color: C.xira, fontSize: 12, marginBottom: 10 }}>
+              {tr('Ilova ochilganda barmoq izi, PIN yoki chizma so‘raladi')}
+            </Text>
+            <View style={{ flexDirection: 'row' }}>
+              {(
+                [
+                  { k: true, m: tr('Yoqilgan') },
+                  { k: false, m: tr('O‘chirilgan') },
+                ] as { k: boolean; m: string }[]
+              ).map((v) => (
+                <Chip
+                  key={String(v.k)}
+                  matn={v.m}
+                  tanlangan={qulfYoq === v.k}
+                  bos={() => {
+                    setQulfYoq(v.k);
+                    void qulfniQoy(v.k);
+                  }}
+                />
+              ))}
+            </View>
+          </View>
+        </>
+      )}
 
       <Sarlavha matn={tr('Ko‘rinish')} />
       <View style={{ flexDirection: 'row', paddingHorizontal: O.chekka }}>

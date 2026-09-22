@@ -13,7 +13,7 @@
 //  eksportini sekinlashtiradi. Bo'lim — oddiy holat.
 // =============================================================
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, useRef } from 'react';
 import {
   ActivityIndicator,
   Modal,
@@ -24,6 +24,7 @@ import {
   useColorScheme,
   BackHandler,
   Platform,
+  AppState,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { StatusBar } from 'expo-status-bar';
@@ -46,6 +47,8 @@ import {
   type TemaRejimi,
 } from './src/lib/tema';
 import KirishEkrani from './src/ekran/KirishEkrani';
+import { QulfEkrani } from './src/ui/QulfEkrani';
+import { KUTISH_DAQIQA, qulfYoqilganmi } from './src/lib/qulf';
 import BiznesEkrani from './src/ekran/BiznesEkrani';
 import BoshEkran from './src/ekran/BoshEkran';
 import YozuvlarEkrani from './src/ekran/YozuvlarEkrani';
@@ -79,10 +82,48 @@ export default function App() {
   const [rejim, setRejim] = useState<TemaRejimi>('tizim');
   const [til, setTil] = useState<Til>('uz');
   const [sessiya, setSessiya] = useState<Session | null>(null);
+  const [qulflangan, setQulflangan] = useState(false);
   const [tekshirildi, setTekshirildi] = useState(false);
   const [men, setMen] = useState<Men | null>(null);
   const [menYuklandi, setMenYuklandi] = useState(false);
   const [xato, setXato] = useState<string | null>(null);
+
+  // ----- QULF -----
+  //
+  // Ikki payt so‘raladi: ilova ochilganda va fondan
+  // qaytganda. Ikkinchisi muhim — telefonni stolga qo‘yib
+  // ketgan odamning daftari ochiq qolmasin.
+  //
+  // Lekin HAR qaytganda so‘rasak, ilova ishlatib bo‘lmas
+  // holga kelardi: odam rasm tanlash yoki kontakt olish uchun
+  // chiqib-kirganda ham qulf chiqardi. Shuning uchun fonda
+  // KUTISH_DAQIQA dan ko‘p turgan bo‘lsagina.
+  const fongaKetgan = useRef<number | null>(null);
+
+  useEffect(() => {
+    void qulfYoqilganmi().then((y) => {
+      if (y) setQulflangan(true);
+    });
+  }, []);
+
+  useEffect(() => {
+    const obuna = AppState.addEventListener('change', (holat) => {
+      if (holat === 'active') {
+        const ketgan = fongaKetgan.current;
+        fongaKetgan.current = null;
+        if (ketgan === null) return;
+        const daqiqa = (Date.now() - ketgan) / 60000;
+        if (daqiqa < KUTISH_DAQIQA) return;
+        void qulfYoqilganmi().then((y) => {
+          if (y) setQulflangan(true);
+        });
+      } else {
+        // `background` ham, `inactive` ham hisobga olinadi
+        if (fongaKetgan.current === null) fongaKetgan.current = Date.now();
+      }
+    });
+    return () => obuna.remove();
+  }, []);
 
   // Tutilmagan xatolar ilova ochilishida BIR MARTA ulanadi.
   // Busiz telefondagi nosozlik hech qayerga yetib bormasdi: odam
@@ -176,6 +217,16 @@ export default function App() {
   let ichki: React.ReactNode;
   if (!tekshirildi) ichki = <Kutish />;
   else if (!sessiya) ichki = <KirishEkrani />;
+  else if (qulflangan)
+    ichki = (
+      <QulfEkrani
+        ochildi={() => setQulflangan(false)}
+        chiqish={() => {
+          setQulflangan(false);
+          void supabase.auth.signOut();
+        }}
+      />
+    );
   else if (!menYuklandi) ichki = <Kutish />;
   else if (xato)
     ichki = (
