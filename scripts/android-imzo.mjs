@@ -108,6 +108,38 @@ ayt('parollar: ' + xos + '  (alias ' + k.keyAlias + ')');
   }
 }
 
+// ---------- 3. Metro kirish fayli: root MONOREPO ILDIZI ----------
+//
+// Prebuild `root` ni izohda qoldiradi, ya’ni standart `../..`
+// ishlaydi va u `apps/kassa` ga tushadi. Shunda Gradle bundlerga
+// `--entry-file index.ts` uzatadi.
+//
+// Lekin `metro.config.js` da `watchFolders` monorepo ildizini
+// qamraydi (hoisted pnpm uchun shart), va Metro shundan SERVER
+// ILDIZINI D:/ilova qilib oladi. Kirish fayli o‘sha ildizga
+// nisbatan izlanadi: `index.ts` -> D:/ilova/index.ts -> topilmaydi:
+//
+//   Error: Unable to resolve module ./index.ts from D:\ilova/.
+//
+// Ildizni monorepo ildiziga qo‘ysak, Gradle
+// `apps/kassa/index.ts` uzatadi va Metro uni topadi.
+//
+// Qavatlar: android/app dan .. = android, ../.. = apps/kassa,
+// ../../.. = apps, ../../../.. = monorepo ildizi.
+{
+  let g0 = readFileSync(GRADLE, 'utf8');
+  const ESKI = '    // root = file("../../")';
+  const YANGI_QATOR = '    root = file("../../../../")';
+  if (g0.includes(YANGI_QATOR)) {
+    ayt('root: allaqachon monorepo ildizi');
+  } else if (g0.includes(ESKI)) {
+    writeFileSync(GRADLE, g0.replace(ESKI, YANGI_QATOR));
+    ayt('root: monorepo ildizi (Metro server ildizi bilan mos)');
+  } else {
+    throw new Error('root qatori topilmadi — prebuild shabloni o‘zgargan');
+  }
+}
+
 // ---------- 2. build.gradle ni tuzatish ----------
 let g = readFileSync(GRADLE, 'utf8').split('\r\n').join('\n');
 
