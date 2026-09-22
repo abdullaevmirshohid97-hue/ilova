@@ -46,3 +46,12 @@ credentials.json
 
 # Dizayn tizimining yig'ilgan chiqishi — qayta quriladi
 packages/kassa-dizayn/dist/
+
+# `expo prebuild` yaratadigan native papkalar. Ular QAYTA YARATILADI —
+# qo'lda tahrir qilinmaydi va git'da turmasligi kerak (~150 ta fayl).
+# Imzo sozlamasi shuning uchun skript bilan qo'yiladi: qo'lda yozilgani
+# keyingi prebuild'da yo'qolardi. `kodchi/apk-qur.ps1` ga qarang.
+apps/kassa/android/
+apps/kassa/ios/
+apps/mobile/android/
+apps/mobile/ios/
