@@ -166,7 +166,7 @@ SUPABASE_PUBLISHABLE_KEY=sb_publishable_BjX_3t2LGX9y8FsKbCqFdw_7AOnXTN3
 #
 # Bo‘sh qoldirilsa ilova yiqilmaydi: «Tasdiqlash havolasi» tugmasi
 # «Bot sozlanmagan» deb ochiq aytadi.
-KASSA_BOT=
+KASSA_BOT=Kirimchiqim2_bot
 
 cat > apps/admin/.env <<ENVEOF
 VITE_SUPABASE_URL=$SUPABASE_URL
