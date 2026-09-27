@@ -1,20 +1,34 @@
 // =============================================================
-//  RANG, O'LCHAM VA TUNGI REJIM
+//  RANG, O'LCHAM VA TUNGI REJIM — TELEGRAM RANGLARI
 //
-//  Palitra ataylab TINCH. Play Market'dagi hisob-kitob ilovalari
-//  baland ko'k, chinni-qizil va o't-yashildan foydalanadi — ular
-//  ekranda "qichqiradi" va kun bo'yi qaralganda ko'z charchaydi.
+//  2026-09-27 QARORI: ilovaning ranglari Telegram messenjeri bilan
+//  BIR XIL. Foydalanuvchi kun bo'yi Telegram'da o'tiradi — daftar
+//  unga begona ilova emas, tanish ekran bo'lib ko'rinsin.
 //
-//  KIRIM KO‘K, CHIQIM QIZIL (21.09 qarori). Avval yashil va
-//  terakota edi. Rang o‘zgardi, lekin qoida o‘zgarmadi: ular
-//  to'yingan emas, bosiq olingan — oq fonda ham, tungi rejimda
-//  ham ko‘zni qamashtirmaydi.
+//  MANBA — Telegram Android'ning o'z kodi (DrKLO/Telegram, master):
+//    kunduzgi → `ThemeColors.java` dagi `defaultColors`
+//    tungi    → `assets/night.attheme`
+//  Har rang yonida Telegram'dagi kaliti yozilgan. Xotiradan
+//  taxmin qilinmagan: fayl yuklab olinib, imzoli ARGB son hex ga
+//  o'girilgan. `tests/kassa-dizayn.mjs` shu qiymatlarni qotirib
+//  tekshiradi — kimdir «biroz chiroyliroq» qilib o'zgartirsa,
+//  sinov aytadi.
 //
-//  Kirim/chiqim farqi FAQAT rangda emas: har doim ishora ham bor
-//  (+ / −). Rang ajratmaydigan odam ham o'qiy olishi kerak.
+//  ATAYLAB QILINGAN BITTA CHETLANISH: kunduzgi `kirim`.
+//  Telegram ko'ki oq fonda hech qayerda 4.5:1 ga yetmaydi
+//  (`#229AF0` — 3.0, `#298ACF` — 3.7). Summa esa quyoshda, ko'chada
+//  o'qiladi va noto'g'ri o'qilgan raqam pul demakdir. Shuning uchun
+//  kirim — Telegram'ning `#298ACF` tusining o'zi, faqat 12% to'qroq
+//  (`#2479B6`, 4.7:1). Rang oilasi o'sha, ko'z uni Telegram ko'ki deb
+//  taniydi.
 //
-//  Tungi rejim shart: daftar ko'pincha kechqurun, do'kon yopilgandan
-//  keyin yuritiladi.
+//  KIRIM KO'K, CHIQIM QIZIL (21.09 qarori) o'zgarmadi — Telegram'da
+//  ham aynan shu ikki rang bor. Kirim/chiqim farqi FAQAT rangda
+//  emas: har doim ishora ham bor (+ / −).
+//
+//  «SHIFO» REJIMI OLIB TASHLANDI: Telegram ranglari uning o'rnini
+//  egalladi. Uning asosiy g'oyasi esa qoldi — karta fondan QIYMAT
+//  bilan ajraladi (Telegram'da ham: kulrang fon, oq bo'limlar).
 // =============================================================
 
 import { createContext, useContext } from 'react';
@@ -42,7 +56,7 @@ export type Ranglar = {
   ogoh: string;
   ogohYumshoq: string;
 
-  /** Tanlangan element (chip, tab) */
+  /** Tanlangan element (chip, tab) va asosiy tugma */
   faol: string;
   faolMatn: string;
 
@@ -51,11 +65,6 @@ export type Ranglar = {
   // Modal ortidagi qorayish va rasm ko‘rish oynasi HAR IKKI
   // temada to‘q bo‘lishi kerak: oq parda modalni ajratmaydi,
   // rasmni esa oq fonda ko‘rish uni buzadi.
-  //
-  // Ilgari bu ranglar ekranlarda QOTIRIB yozilardi va
-  // `kassa-dizayn` sinovida uchta istisno paydo bo‘lgandi —
-  // uchalasining sababi bir xil edi. Token qilib qo‘yilsa,
-  // istisno umuman kerak bo‘lmaydi va sinov qattiq qoladi.
 
   /** Modal ortidagi yengil qorayish */
   parda: string;
@@ -65,166 +74,70 @@ export type Ranglar = {
   pardaMatn: string;
 };
 
-// OQ VARIANT (20.09). Fon ham, karta ham sof oq: ular endi
-// chegara bilan ajraladi, rang bilan emas. `tun` — sarlavha
-// zolining rangi — ham oq, ya’ni tepadagi ko‘k chiziq yo‘qoldi.
+// =============================================================
+//  KUNDUZGI — Telegram Android, standart tema
+// =============================================================
 export const YORUG: Ranglar = {
-  fon: '#FFFFFF',
-  karta: '#FFFFFF',
-  karta2: '#FAFAFA',
-  // Fon va karta bir xil bo‘lgani uchun chegara TO‘QROQ:
-  // avvalgi ochiq kulrang bilan kartalar ko‘rinmay qolardi.
-  chegara: '#E2E2E2',
-  ajratgich: '#EFEFEF',
+  fon: '#F1F1F3', //         windowBackgroundGray — kulrang fon
+  karta: '#FFFFFF', //       windowBackgroundWhite — oq bo'lim
+  karta2: '#F1F1F3', //      windowBackgroundGray — maydon ichi
+  chegara: '#DBDBDB', //     windowBackgroundWhiteInputField
+  ajratgich: '#D9D9D9', //   divider
 
-  matn: '#000000',
-  matn2: '#3C3C3C',
-  xira: '#8A8A8A',
+  matn: '#1A1D21', //        DEFAULT_BLACK_TEXT
+  matn2: '#75787A', //       chats_message
+  xira: '#808384', //        windowBackgroundWhiteGrayText
 
-  tun: '#FFFFFF',
-  tunMatn: '#000000',
-  tunXira: '#8A8A8A',
+  tun: '#FFFFFF', //         actionBarDefault
+  tunMatn: '#1A1D21', //     actionBarDefaultTitle
+  tunXira: '#79817E', //     actionBarDefaultSubtitle
 
-  // Ko‘k — pul KELDI. Sof «brend ko‘ki» emas, bir oz
-  // kulrangga tortilgan: yorqinrog‘i oq fonda porlab, uzoq
-  // qaralganda charchatardi.
-  kirim: '#1F6FB2',
-  kirimYumshoq: '#E8F1F9',
-  // Qizil — pul KETDI. Ogohlantirish qizilidan bir pog‘ona
-  // bosiqroq: ro‘yxatda o‘nlab qator qizil bo‘lishi mumkin va
-  // ularning hammasi «xavf» bo‘lib ko‘rinmasligi kerak.
-  chiqim: '#C23B32',
-  chiqimYumshoq: '#FBECEA',
+  kirim: '#2479B6', //       TELEGRAM_COLOR_TEXT (#298ACF), 12% to'qroq — yuqoridagi izoh
+  kirimYumshoq: '#E9F5FE', // TELEGRAM_COLOR ning 10% i oq ustida
+  chiqim: '#CC2929', //      text_RedRegular
+  chiqimYumshoq: '#FAECEC', // text_RedRegular ning 9% i oq ustida
 
-  ogoh: '#B7791F',
-  ogohYumshoq: '#FBF3E3',
+  ogoh: '#AD601C', //        avatar_nameInMessageOrange (#D67722), matn uchun to'qroq
+  ogohYumshoq: '#FFF4E5', // avatar_backgroundOrange ning 16% i
 
-  faol: '#000000',
-  faolMatn: '#FFFFFF',
+  faol: '#229AF0', //        TELEGRAM_COLOR — tugma, switch, belgi
+  faolMatn: '#FFFFFF', //    featuredStickers_buttonText
   parda: '#00000080',
   pardaQuyuq: '#000000E6',
   pardaMatn: '#FFFFFF',
 };
 
+// =============================================================
+//  TUNGI — Telegram Android, «Night» temasi
+// =============================================================
 export const QORONGI: Ranglar = {
-  // Sof qora emas: OLED'da kontrast juda keskin bo'lib, oq matn
-  // "qaltiraydi". Ko'k-kulrang fon yumshoqroq.
-  fon: '#0F1720',
-  karta: '#16202E',
-  karta2: '#1B2736',
-  chegara: '#24323F',
-  ajratgich: '#1E2A38',
+  fon: '#000000', //         windowBackgroundGray
+  karta: '#181819', //       windowBackgroundWhite
+  karta2: '#1E1E1E', //      dialogBackground
+  chegara: '#505050', //     windowBackgroundWhiteInputField
+  ajratgich: '#000000', //   divider
 
-  matn: '#ECF1F6',
-  matn2: '#B3C0CE',
-  xira: '#7C8CA1',
+  matn: '#FFFFFF', //        windowBackgroundWhiteBlackText
+  matn2: '#828282', //       chats_message
+  xira: '#7D7D7D', //        windowBackgroundWhiteHintText
 
-  tun: '#0B121A',
-  tunMatn: '#ECF1F6',
-  tunXira: '#7C8CA1',
+  tun: '#232326', //         actionBarDefault
+  tunMatn: '#FFFFFF', //     actionBarDefaultTitle
+  tunXira: '#808082', //     actionBarDefaultSubtitle (#F2F2F2, 45%) sarlavha ustida
 
-  // Qorong'ida to'yingan rang porlab ketadi — ochroq va kamroq
-  // to'yingan variant olinadi. Ko'k ayniqsa nozik: to'q ko'k
-  // qora fonda deyarli o'qilmaydi.
-  kirim: '#6BA9E0',
-  kirimYumshoq: '#132330',
-  chiqim: '#E07B72',
-  chiqimYumshoq: '#2C1A18',
+  kirim: '#64B5EF', //       windowBackgroundWhiteBlueText
+  kirimYumshoq: '#212B33', // kirim ning 12% i karta ustida
+  chiqim: '#EE686F', //      text_RedRegular
+  chiqimYumshoq: '#322223', // chiqim ning 12% i karta ustida
 
-  ogoh: '#D9A441',
-  ogohYumshoq: '#2A2316',
+  ogoh: '#FEBB5B', //        avatar_backgroundOrange
+  ogohYumshoq: '#342C21', // ogoh ning 12% i karta ustida
 
-  faol: '#ECF1F6',
-  faolMatn: '#16202E',
-  parda: '#00000080',
-  pardaQuyuq: '#000000E6',
-  pardaMatn: '#FFFFFF',
-};
-
-// =============================================================
-//  SHIFO — TIBBIYOT REJIMI
-//
-//  Sabab: oq variant (20.09) haddan tashqari yalang'och chiqdi.
-//  `fon` ham, `karta` ham sof oq bo'lgani uchun kartalar fondan
-//  QIYMAT bilan ajralmaydi — faqat ingichka chiziq bilan. Ekran
-//  tekis va quruq ko'rinadi.
-//
-//  Shu yerda asosiy tuzatish: fon RANGLI, karta oq. Endi karta
-//  fonning ustida turadi va chegara ikkilamchi bo'lib qoladi.
-//  Bu eng arzon chuqurlik: soya ham, gradient ham kerak emas.
-//
-//  Ikkinchi farq — URG'U RANGI. Yorug' temada `faol` sof qora,
-//  ya'ni ilovaning o'z rangi yo'q. Bu yerda u chuqur ko'k-yashil:
-//  klinikaning tinch rangi, lekin to'yingan emas.
-//
-//  KIRIM KO'K, CHIQIM QIZIL qoidasi O'ZGARMAYDI (21.09 qarori) —
-//  faqat ikkalasi shu palitraga moslab bir oz ko'k-yashilga
-//  tortilgan.
-// =============================================================
-export const SHIFO: Ranglar = {
-  // Yumshoq mint-kulrang. Oqdan sal to'qroq, lekin "rangli" deb
-  // sezilmaydi — ko'z uni oq deb qabul qiladi, karta esa baribir
-  // ajralib turadi.
-  fon: '#F1F6F5',
-  karta: '#FFFFFF',
-  karta2: '#F8FBFA',
-  // Karta endi qiymat bilan ajralgani uchun chegara YENGIL:
-  // to'q chiziq bu yerda ortiqcha shovqin bo'lardi.
-  chegara: '#DDE8E6',
-  ajratgich: '#E8F0EE',
-
-  // Sof qora emas: yashil ostki tonli deyarli qora. Rangli fonda
-  // sof qora "kesilgan" bo'lib ko'rinadi.
-  matn: '#0E1C1A',
-  matn2: '#3A4E4B',
-  xira: '#788C89',
-
-  // Sarlavha zoli OQ: rangli tanadan ajralib, tepani tiniq
-  // qiladi. Chuqurlik shundan ham chiqadi.
-  tun: '#FFFFFF',
-  tunMatn: '#0E1C1A',
-  tunXira: '#788C89',
-
-  kirim: '#176B8A',
-  kirimYumshoq: '#E4F1F5',
-  chiqim: '#BE4A42',
-  chiqimYumshoq: '#FAECEA',
-
-  ogoh: '#A97A1E',
-  ogohYumshoq: '#FAF2E2',
-
-  faol: '#0F6E63',
-  faolMatn: '#FFFFFF',
-  parda: '#00000080',
-  pardaQuyuq: '#000000E6',
-  pardaMatn: '#FFFFFF',
-};
-
-export const SHIFO_TUN: Ranglar = {
-  fon: '#0C1614',
-  karta: '#132220',
-  karta2: '#172926',
-  chegara: '#22332F',
-  ajratgich: '#1C2C29',
-
-  matn: '#E8F1EF',
-  matn2: '#B0C4C0',
-  xira: '#7B908C',
-
-  tun: '#08110F',
-  tunMatn: '#E8F1EF',
-  tunXira: '#7B908C',
-
-  kirim: '#5FA9C4',
-  kirimYumshoq: '#122630',
-  chiqim: '#DE8A82',
-  chiqimYumshoq: '#2A1A18',
-
-  ogoh: '#D2A44A',
-  ogohYumshoq: '#2A2417',
-
-  faol: '#4EAE9E',
-  faolMatn: '#0C1614',
+  // Tungi temada Telegram tugma rangini O'ZGARTIRMAYDI:
+  // `featuredStickers_addButton` night.attheme da yo'q, ya'ni
+  // standart TELEGRAM_COLOR qoladi.
+  faol: '#229AF0', //        featuredStickers_addButton (standart)
+  faolMatn: '#FFFFFF', //    featuredStickers_buttonText
   parda: '#00000080',
   pardaQuyuq: '#000000E6',
   pardaMatn: '#FFFFFF',
@@ -236,7 +149,7 @@ export const O = {
   radiusKichik: 10,
 } as const;
 
-export type TemaRejimi = 'tizim' | 'yorug' | 'qorongi' | 'shifo';
+export type TemaRejimi = 'tizim' | 'yorug' | 'qorongi';
 
 export type TemaHolati = {
   C: Ranglar;

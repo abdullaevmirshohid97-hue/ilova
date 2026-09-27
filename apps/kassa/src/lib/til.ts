@@ -406,8 +406,8 @@ const RU: Record<string, string> = {
   'Nomni saqlash': 'Сохранить название',
   'Ko‘rinish': 'Оформление',
   'Til': 'Язык',
-  'Yorug‘': 'Светлое',
-  'Tungi': 'Тёмное',
+  'Kunduzgi': 'Дневная',
+  'Tungi': 'Ночная',
   'Qidiruv': 'Поиск',
   'Qidiruv ✓': 'Поиск ✓',
   'Kalit so‘z': 'Ключевое слово',
@@ -458,7 +458,6 @@ const RU: Record<string, string> = {
   'Ochilmadi. Qayta urinib ko‘ring.': 'Не открылось. Попробуйте ещё раз.',
   'Ochish': 'Открыть',
   'Parol bilan kirish': 'Войти по паролю',
-  'Shifo': 'Клиника',
   // «Как в системе» uch chipli qatorga sig'masdi — qisqartirildi
   'Tizim': 'Системная',
   'O‘zbekcha': 'Узбекский',
@@ -659,6 +658,19 @@ const RU: Record<string, string> = {
   'Yozuvlaringiz joyida — ular telefonda saqlangan va yo‘qolmaydi. Nosozlik haqida bizga xabar ketdi.':
     'Ваши записи на месте — они сохранены в телефоне и не потеряются. Сообщение о сбое отправлено нам.',
   'TEXNIK MA’LUMOT': 'ТЕХНИЧЕСКИЕ ДАННЫЕ',
+
+  // ---------- Biznes ochish ----------
+  'Bu nom hisobotlarda va hujjatlarda ko‘rinadi. Keyin o‘zgartirsa bo‘ladi.':
+    'Это название будет в отчётах и документах. Его можно изменить позже.',
+  'Sizga «Naqd» va «Karta» hisoblari hamda odatiy turkumlar tayyor holda ochiladi.':
+    'Для вас сразу откроются счета «Наличные» и «Карта» и обычные категории.',
+
+  // ---------- Turkumni o‘chirish ----------
+  'o‘chirilsinmi?': 'удалить?',
+  'O‘chirilganlar': 'Удалённые',
+  'Yangi yozuvda endi tanlanmaydi.': 'В новых записях больше не выбирается.',
+  'Unga yozilgan {n} ta yozuv joyida qoladi va hisobotda shu nom bilan ko‘rinadi.':
+    'Записи в ней ({n}) останутся и будут видны в отчётах под этим названием.',
 
   // ---------- Operatsiyani tahrirlash ----------
   'Sana va vaqt': 'Дата и время',

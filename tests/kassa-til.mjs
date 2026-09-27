@@ -76,7 +76,10 @@ console.log('\n2. Kodda ishlatilgan matnlar');
 const ishlatilgan = new Map();
 for (const f of hamma) {
   if (f.endsWith('til.ts')) continue;
-  for (const m of oqish(f).matchAll(/\btr\('((?:[^'\\]|\\.)*)'\)/g)) {
+  // `trn('…', n)` ham: avval faqat `tr('…')` qidirilardi va sonli
+  // matnlar tarjimasiz o'tib ketardi — ruscha ekranda o'zbekcha
+  // chiqib turardi, sinov esa yashil edi (2026-09-27).
+  for (const m of oqish(f).matchAll(/\btrn?\('((?:[^'\\]|\\.)*)'\s*[,)]/g)) {
     if (!ishlatilgan.has(m[1])) ishlatilgan.set(m[1], new Set());
     ishlatilgan.get(m[1]).add(qisqaNom(f));
   }

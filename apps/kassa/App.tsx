@@ -39,8 +39,6 @@ import { joriyTilniQoy, TilKontekst, tr, type Til } from './src/lib/til';
 import {
   O,
   QORONGI,
-  SHIFO,
-  SHIFO_TUN,
   TemaKontekst,
   YORUG,
   useTema,
@@ -136,7 +134,15 @@ export default function App() {
   // Tema tanlovi qurilmada qoladi — har ochilganda qayta so'ralmasin
   useEffect(() => {
     AsyncStorage.getItem(TEMA_KALIT).then((x) => {
-      if (x === 'yorug' || x === 'qorongi' || x === 'tizim' || x === 'shifo') setRejim(x);
+      if (x === 'yorug' || x === 'qorongi' || x === 'tizim') setRejim(x);
+      // «shifo» rejimi olib tashlandi (Telegram ranglari keldi).
+      // U tizim temasiga bo‘ysunardi — ya’ni eng yaqin o‘rinbosari
+      // «tizim». Ko‘chirilmasa odam ilovani ochganda saqlangan
+      // tanlovi hech narsaga mos kelmay, jimgina yo‘qolardi.
+      else if (x === 'shifo') {
+        setRejim('tizim');
+        AsyncStorage.setItem(TEMA_KALIT, 'tizim').catch(() => {});
+      }
     });
   }, []);
 
@@ -168,20 +174,15 @@ export default function App() {
     });
   }, []);
 
-  // «shifo» ham tungi rejimga BO‘YSUNADI: odam kechqurun
-  // ilovani ochganda mavzu o‘zgargani uchun ko‘zi qamashmasin.
-  const qorongi =
-    rejim === 'qorongi' ||
-    ((rejim === 'tizim' || rejim === 'shifo') && tizimTemasi === 'dark');
-  const shifo = rejim === 'shifo';
+  const qorongi = rejim === 'qorongi' || (rejim === 'tizim' && tizimTemasi === 'dark');
   const tema = useMemo(
     () => ({
-      C: shifo ? (qorongi ? SHIFO_TUN : SHIFO) : qorongi ? QORONGI : YORUG,
+      C: qorongi ? QORONGI : YORUG,
       rejim,
       qorongi,
       qoy: temaQoy,
     }),
-    [shifo, qorongi, rejim, temaQoy],
+    [qorongi, rejim, temaQoy],
   );
 
   useEffect(() => {

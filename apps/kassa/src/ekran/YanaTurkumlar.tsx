@@ -2,18 +2,33 @@
 //  TURKUMLAR — pul nimaga ketdi va nimadan keldi
 //
 //  Ro'yxatdan o'tganda o'nta turkum tayyor beriladi; bu yerda
-//  ular tahrirlanadi. Turkum ham o'chirilmaydi — nofaol bo'ladi,
-//  aks holda eski yozuvlar "turkumsiz" bo'lib qolardi.
+//  ular tahrirlanadi va O'CHIRILADI.
+//
+//  O'CHIRISH = `faol: false`. Bazadan qator olinmaydi, ikki sababga
+//  ko'ra:
+//    1. Sinx faqat `qosh` va `tahrir` ni biladi — o'chirish amali
+//       yo'q. Bazadan olingan turkum boshqa telefonlarga «o'chdi»
+//       deb yetib bormasdi va u yerda abadiy qolardi.
+//    2. `kassa_yozuvlar.turkum_id` — `on delete restrict`. Eski
+//       yozuvlar hisobotda turkum NOMI bilan ko'rinishi kerak.
+//
+//  Lekin foydalanuvchi uchun bu HAQIQIY o'chirish: tugma ko'rinib
+//  turadi (avval uzoq bosish kerak edi va uni hech kim topmasdi),
+//  turkum ro'yxatdan yo'qoladi (avval kulrang bo'lib qolib
+//  ketardi) va yangi yozuvda tanlanmaydi. Adashib o'chirilgani
+//  pastdagi «O'chirilganlar» dan qaytariladi — tayyor shablonlarni
+//  qayta yozishga to'g'ri kelmaydi.
 // =============================================================
 
-import { useState } from 'react';
-import { ScrollView, Text, TextInput, View } from 'react-native';
+import { useMemo, useState } from 'react';
+import { ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import type { Turkum } from '@ilova/kassa-yadro';
 import { turkumQosh, turkumTahrirla } from '../lib/baza';
 import { useHolat } from '../lib/holat';
 import { xatoMatn } from '../lib/supabase';
 import { O, useTema } from '../lib/tema';
-import { BoshHolat, Qator, Tanlagich, Tugma } from '../ui/qismlar';
+import { BoshHolat, Tanlagich, Tugma } from '../ui/qismlar';
+import { Chiqindi } from '../ui/ikonka';
 import { tr, trn } from '../lib/til';
 import { Ogoh } from '../lib/ogoh';
 
@@ -23,8 +38,20 @@ export default function Turkumlar() {
   const [turi, setTuri] = useState<Turkum['turi']>('chiqim');
   const [yangiNom, setYangiNom] = useState('');
   const [kutmoqda, setKutmoqda] = useState(false);
+  const [ochirilganlarOchiq, setOchirilganlarOchiq] = useState(false);
 
-  const royxat = turkumlar.filter((t) => t.turi === turi);
+  const faollar = turkumlar.filter((t) => t.turi === turi && t.faol);
+  const ochirilganlar = turkumlar.filter((t) => t.turi === turi && !t.faol);
+
+  /** Har turkumdagi yozuvlar soni — bir marta hisoblanadi */
+  const sonlar = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const y of yozuvlar) {
+      if (!y.turkum_id || y.bekor_at) continue;
+      m.set(y.turkum_id, (m.get(y.turkum_id) ?? 0) + 1);
+    }
+    return m;
+  }, [yozuvlar]);
 
   async function qosh() {
     if (yangiNom.trim().length < 2) return;
@@ -40,20 +67,26 @@ export default function Turkumlar() {
     }
   }
 
-  function yashir(t: Turkum) {
-    Ogoh.alert(tr('Turkumni yashirish'), `«${t.nom}» ${tr('yangi yozuvlarda ko‘rinmaydi. Eski yozuvlar o‘zgarmaydi.')}`, [
+  async function faolQoy(t: Turkum, faol: boolean) {
+    try {
+      await turkumTahrirla(t.id, { faol });
+      await yangila();
+    } catch (e) {
+      Ogoh.alert(tr('Xatolik'), xatoMatn(e));
+    }
+  }
+
+  function ochir(t: Turkum) {
+    const soni = sonlar.get(t.id) ?? 0;
+    // Yozuvi bor turkumda odam «yozuvlarim ham o'chadimi» deb
+    // qo'rqadi — shuning uchun aniq aytamiz: yo'q.
+    const izoh =
+      soni > 0
+        ? trn('Unga yozilgan {n} ta yozuv joyida qoladi va hisobotda shu nom bilan ko‘rinadi.', soni)
+        : tr('Yangi yozuvda endi tanlanmaydi.');
+    Ogoh.alert(`«${t.nom}» ${tr('o‘chirilsinmi?')}`, izoh, [
       { text: tr('Yo‘q'), style: 'cancel' },
-      {
-        text: tr('Yashirish'),
-        onPress: async () => {
-          try {
-            await turkumTahrirla(t.id, { faol: false });
-            await yangila();
-          } catch (e) {
-            Ogoh.alert(tr('Xatolik'), xatoMatn(e));
-          }
-        },
-      },
+      { text: tr('O‘chirish'), onPress: () => void faolQoy(t, false) },
     ]);
   }
 
@@ -71,20 +104,40 @@ export default function Turkumlar() {
       </View>
 
       <ScrollView style={{ flex: 1 }}>
-        {royxat.map((t) => {
-          const soni = yozuvlar.filter((y) => y.turkum_id === t.id && !y.bekor_at).length;
-          return (
-            <Qator
-              key={t.id}
-              nom={t.nom}
-              izoh={trn('{n} ta yozuv', soni)}
-              ong={t.faol ? '' : tr('yashirilgan')}
-              sozilgan={!t.faol}
-              uzoqBos={() => t.faol && yashir(t)}
-            />
-          );
-        })}
-        {royxat.length === 0 && <BoshHolat belgi="□" matn={tr('Turkum yo‘q')} izoh={tr('Pastdan qo‘shing')} />}
+        {faollar.map((t) => (
+          <TurkumQatori key={t.id} nom={t.nom} soni={sonlar.get(t.id) ?? 0}>
+            <TouchableOpacity
+              onPress={() => ochir(t)}
+              hitSlop={8}
+              style={{ padding: 8 }}
+              accessibilityLabel={tr('O‘chirish')}
+            >
+              <Chiqindi rang={C.chiqim} olcham={18} />
+            </TouchableOpacity>
+          </TurkumQatori>
+        ))}
+        {faollar.length === 0 && <BoshHolat belgi="□" matn={tr('Turkum yo‘q')} izoh={tr('Pastdan qo‘shing')} />}
+
+        {ochirilganlar.length > 0 && (
+          <>
+            <TouchableOpacity
+              onPress={() => setOchirilganlarOchiq((x) => !x)}
+              style={{ paddingHorizontal: O.chekka, paddingVertical: 14, marginTop: 8 }}
+            >
+              <Text style={{ color: C.xira, fontSize: 13, fontWeight: '600' }}>
+                {ochirilganlarOchiq ? '▾' : '▸'} {tr('O‘chirilganlar')} · {ochirilganlar.length}
+              </Text>
+            </TouchableOpacity>
+            {ochirilganlarOchiq &&
+              ochirilganlar.map((t) => (
+                <TurkumQatori key={t.id} nom={t.nom} soni={sonlar.get(t.id) ?? 0} xira>
+                  <TouchableOpacity onPress={() => void faolQoy(t, true)} hitSlop={8} style={{ padding: 8 }}>
+                    <Text style={{ color: C.faol, fontSize: 14, fontWeight: '700' }}>{tr('Qaytarish')}</Text>
+                  </TouchableOpacity>
+                </TurkumQatori>
+              ))}
+          </>
+        )}
         <View style={{ height: 12 }} />
       </ScrollView>
 
@@ -105,12 +158,48 @@ export default function Turkumlar() {
           onChangeText={setYangiNom}
           placeholder={turi === 'chiqim' ? tr('Yangi chiqim turkumi') : tr('Yangi kirim turkumi')}
           placeholderTextColor={C.xira}
+          returnKeyType="done"
+          onSubmitEditing={() => void qosh()}
         />
         <Tugma matn={tr('Qo‘shish')} bos={qosh} kutmoqda={kutmoqda} uslub={{ paddingHorizontal: 18 }} />
       </View>
-      <Text style={{ color: C.xira, fontSize: 11, textAlign: 'center', paddingBottom: 10, backgroundColor: C.karta }}>
-        Turkumni yashirish uchun uzoq bosing
-      </Text>
     </>
+  );
+}
+
+function TurkumQatori({
+  nom,
+  soni,
+  xira,
+  children,
+}: {
+  nom: string;
+  soni: number;
+  xira?: boolean;
+  children: React.ReactNode;
+}) {
+  const { C } = useTema();
+  return (
+    <View
+      style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingLeft: O.chekka,
+        paddingRight: O.chekka - 8,
+        paddingVertical: 10,
+        backgroundColor: C.karta,
+        borderBottomWidth: 1,
+        borderBottomColor: C.ajratgich,
+        opacity: xira ? 0.6 : 1,
+      }}
+    >
+      <View style={{ flex: 1 }}>
+        <Text style={{ color: C.matn, fontSize: 15, fontWeight: '600' }} numberOfLines={1}>
+          {nom}
+        </Text>
+        <Text style={{ color: C.xira, fontSize: 12, marginTop: 3 }}>{trn('{n} ta yozuv', soni)}</Text>
+      </View>
+      {children}
+    </View>
   );
 }

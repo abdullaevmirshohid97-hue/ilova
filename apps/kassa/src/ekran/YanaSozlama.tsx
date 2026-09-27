@@ -203,9 +203,8 @@ export default function Sozlama() {
         {(
           [
             { k: 'tizim', m: tr('Tizim') },
-            { k: 'yorug', m: tr('Yorug‘') },
+            { k: 'yorug', m: tr('Kunduzgi') },
             { k: 'qorongi', m: tr('Tungi') },
-            { k: 'shifo', m: tr('Shifo') },
           ] as { k: TemaRejimi; m: string }[]
         ).map((v) => (
           <Chip key={v.k} matn={v.m} tanlangan={rejim === v.k} bos={() => qoy(v.k)} />

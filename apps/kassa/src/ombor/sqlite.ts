@@ -12,6 +12,29 @@
 //  bir tenantda bir necha ming yozuv bo'ladi, bu esa telefon uchun
 //  kichik yuk. Yuz minglab yozuv paydo bo'lsa — o'shanda SQL
 //  yig'indilariga o'tamiz.
+//
+//  ULANISH BITTA — ILOVA UMRI DAVOMIDA (2026-09-27).
+//
+//  Ekranda chiqqan xato: «Call to function 'NativeDatabase.
+//  prepareAsync' has been rejected → NullPointerException».
+//
+//  `expo-sqlite` (Android, `SQLiteModule.kt`) bir yo'ldagi bazani
+//  KESHLAYDI: ikkinchi `openDatabaseAsync('kassa.db')` yangi
+//  ulanish ochmaydi, o'sha native obyektni qaytaradi. Lekin
+//  birinchi JS obyekti chiqindiga (GC) tushganda
+//  `sharedObjectDidRelease()` native ulanishni YOPADI — keshdan
+//  olmasdan va `isClosed` ni qo'ymasdan. Ikkinchi obyekt esa
+//  yopilgan ulanishga so'rov yuboradi va NullPointerException
+//  oladi. GC qachon ishlashi noma'lum, shuning uchun xato
+//  tasodifiy ko'rinadi.
+//
+//  Ikkinchi ochilish qayerdan: `HolatProvider` qayta o'rnatilganda.
+//  Qulf ekrani, biznes almashishi va «Qayta urinish» — uchalasi
+//  ham uni olib tashlab qayta qo'yadi.
+//
+//  Yechim: ulanish modul darajasida BIR MARTA ochiladi va unga
+//  kuchli havola saqlanadi — JS obyekti hech qachon chiqindiga
+//  tushmaydi, ikkinchi ochilish esa umuman bo'lmaydi.
 // =============================================================
 
 import * as SQLite from 'expo-sqlite';
@@ -40,11 +63,60 @@ const SXEMA = `
   );
 `;
 
+/**
+ * Ochilgan ulanishlar — nom bo'yicha. MODUL DARAJASIDA turadi:
+ * bu yerdagi havola JS obyektini chiqindidan saqlaydi. Havola
+ * yo'qolsa, GC native ulanishni yopadi (yuqoridagi izoh).
+ *
+ * Promise saqlanadi, tayyor ulanish emas: ikki joy bir vaqtda
+ * `ochil()` chaqirsa, ikkalasi ham BITTA ochilishni kutadi.
+ */
+const ulanishlar = new Map<string, Promise<SQLite.SQLiteDatabase>>();
+
+function ulan(nom: string): Promise<SQLite.SQLiteDatabase> {
+  let u = ulanishlar.get(nom);
+  if (!u) {
+    u = (async () => {
+      const db = await SQLite.openDatabaseAsync(nom);
+      await db.execAsync(SXEMA);
+      return db;
+    })();
+    ulanishlar.set(nom, u);
+    // Ochilish YIQILSA keshda qolmasin: aks holda keyingi urinish
+    // ham o'sha yiqilgan va'dani olib, hech qachon tiklanmasdi.
+    u.catch(() => ulanishlar.delete(nom));
+  }
+  return u;
+}
+
+/**
+ * Yozish tranzaksiyalari NAVBAT bilan. `withTransactionAsync`
+ * ulanishni ajratmaydi: ikkitasi bir vaqtda boshlansa ikkinchisi
+ * «cannot start a transaction within a transaction» bilan
+ * yiqiladi. Sinx `saqla()` qilib turganda odam yozuv qo'shsa
+ * aynan shunday bo'ladi. Modul darajasida — chunki ulanish ham
+ * modul darajasida va hamma `sqliteOmbori()` nusxalari bitta.
+ */
+let yozishNavbati: Promise<unknown> = Promise.resolve();
+
+function navbatda<T>(ish: () => Promise<T>): Promise<T> {
+  // `then(ish, ish)` — ikkinchi `ish` ATAYLAB: oldingi tranzaksiya
+  // yiqilgan bo'lsa ham keyingisi ishlaydi, ya'ni navbat xatoda
+  // UZILMAYDI. Xato esa o'z chaqiruvchisiga qaytadi.
+  const natija = yozishNavbati.then(ish, ish);
+  yozishNavbati = natija;
+  return natija;
+}
+
+// Navbat tartibi SAQLANISHI kerak: "hisob qo'shish" undan keyingi
+// "yozuv qo'shish"dan oldin ketsin. Shuning uchun o'suvchi raqam.
+// Modul darajasida: ulanish bitta, demak hisoblagich ham bitta
+// bo'lishi kerak — aks holda qayta o'rnatilgan `HolatProvider`
+// eskisi bilan bir xil raqam berib, tartibni buzardi.
+let tartib = Date.now();
+
 export function sqliteOmbori(nom = 'kassa.db'): Ombor {
   let db: SQLite.SQLiteDatabase | null = null;
-  // Navbat tartibi SAQLANISHI kerak: "hisob qo'shish" undan keyingi
-  // "yozuv qo'shish"dan oldin ketsin. Shuning uchun o'suvchi raqam.
-  let tartib = Date.now();
 
   const baza = () => {
     if (!db) throw new Error('Ombor ochilmagan');
@@ -53,8 +125,7 @@ export function sqliteOmbori(nom = 'kassa.db'): Ombor {
 
   return {
     async ochil() {
-      db = await SQLite.openDatabaseAsync(nom);
-      await db.execAsync(SXEMA);
+      db = await ulan(nom);
       const oxirgi = await db.getFirstAsync<{ t: number }>('select max(tartib) as t from navbat');
       if (oxirgi?.t) tartib = Math.max(tartib, oxirgi.t + 1);
     },
@@ -69,7 +140,7 @@ export function sqliteOmbori(nom = 'kassa.db'): Ombor {
 
     async saqla(jadval: Jadval, qatorlar: Record<string, unknown>[]) {
       if (!qatorlar.length) return;
-      await baza().withTransactionAsync(async () => {
+      await navbatda(() => baza().withTransactionAsync(async () => {
         for (const q of qatorlar) {
           const id = String(q.id);
           // Eski qatorni yo'qotmaymiz: server faqat o'zgargan
@@ -88,7 +159,7 @@ export function sqliteOmbori(nom = 'kassa.db'): Ombor {
             JSON.stringify(yangi),
           );
         }
-      });
+      }));
     },
 
     async bitta<T>(jadval: Jadval, id: string) {

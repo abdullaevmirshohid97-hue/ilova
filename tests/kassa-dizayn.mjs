@@ -161,12 +161,15 @@ const rangliEkranlar = hammasi
   .map((f) => ({ f, soni: (izohsiz(oqish(f)).match(/#[0-9a-fA-F]{6}(?:[0-9a-fA-F]{2})?/g) ?? []).length }))
   .filter((x) => x.soni > 0);
 
-// ISTISNOLAR — faqat login oldidagi ekran.
+// ISTISNOLAR — YO‘Q (2026-09-27).
 //
-// Ro‘yxat ilgari uchta edi: modal pardalari uchun. Ular endi
-// temada token (`parda`, `pardaQuyuq`, `pardaMatn`) bo‘lib,
-// istisno kerak emas. Sinov shu bilan QATTIQROQ bo‘ldi.
-const ruxsat = ['BiznesEkrani.tsx'];
+// Ro‘yxat ilgari uchta edi (modal pardalari), keyin bitta qoldi:
+// `BiznesEkrani`. Aynan o‘sha istisno XATONI YASHIRGAN: ekranda
+// tugma foni ham, ekran foni ham oq, tugma matni `#fff` edi —
+// ro‘yxatdan o‘tishning ikkinchi qadamida «Boshlash» ko‘rinmasdi.
+// Istisno «bu fayl tekshirilmasin» degani ekan, «bu fayl to‘g‘ri»
+// degani emas.
+const ruxsat = [];
 const qoidabuzganlar = rangliEkranlar.filter((x) => !ruxsat.some((r) => x.f.endsWith(r)));
 tekshir(
   'ranglar tema faylida (ekranlarda qattiq yozilmagan)',
@@ -174,13 +177,29 @@ tekshir(
   qoidabuzganlar.map((x) => `${x.f.split(/[\\/]/).pop()}:${x.soni}`).join(', ') || 'toza',
 );
 
-// Kirish va biznes ekrani ro'yxatdan TASHQARI: ular login oldidan
-// ko'rsatiladi va ataylab doim to'q fonda — tanlash mumkin bo'lgan
-// tema u yerda hali yo'q (foydalanuvchi sozlamasi ham yuklanmagan).
+// Endi kirish va biznes ekrani ham tekshiriladi: «login oldidan
+// tema yo'q» degan eski taxmin noto'g'ri edi — `TemaKontekst`
+// ildizda turadi va ular ham uni oladi.
 const ekranlar = fayllar(join(APP, 'ekran')).filter(
   (f) => !ruxsat.some((r) => f.endsWith(r)),
 );
 const temasiz = ekranlar.filter((f) => !/useTema/.test(oqish(f)));
+
+// KIRISH YO'LIDAGI TUGMA KO'RINSIN. Ikki marta aynan shu buzilgan:
+// avval KirishEkrani, keyin BiznesEkrani — tugma foni ekran foni
+// bilan bir xil (`C.tun`), matni oq. Bu yo'l yopilsa odam ilovaga
+// umuman kira olmaydi, shuning uchun alohida qoida: asosiy tugma
+// temadagi urg'u rangida (`faol` / `faolMatn`).
+for (const nom of ['KirishEkrani.tsx', 'BiznesEkrani.tsx']) {
+  const t = izohsiz(oqish(join(APP, 'ekran', nom)));
+  const tugma = t.match(/\btugma:\s*\{[^}]*\}/)?.[0] ?? '';
+  const tugmaMatn = t.match(/\btugmaMatn:\s*\{[^}]*\}/)?.[0] ?? '';
+  tekshir(
+    nom + ': asosiy tugma ko‘rinadi',
+    /backgroundColor:\s*C\.faol\b/.test(tugma) && /color:\s*C\.faolMatn\b/.test(tugmaMatn),
+    tugma ? tugma.replace(/\s+/g, ' ').slice(0, 70) : 'tugma uslubi topilmadi',
+  );
+}
 tekshir(
   'har ekran tungi rejimni biladi (useTema)',
   temasiz.length === 0,
@@ -282,10 +301,8 @@ function kontrast(a, b) {
   };
 
   for (const [blok, nomi] of [
-    ['YORUG', 'yorug‘'],
+    ['YORUG', 'kunduzgi'],
     ['QORONGI', 'tungi'],
-    ['SHIFO', 'shifo'],
-    ['SHIFO_TUN', 'shifo tungi'],
   ]) {
     const karta = olish(blok, 'karta');
     for (const rang of ['kirim', 'chiqim', 'matn']) {
@@ -313,27 +330,82 @@ function kontrast(a, b) {
 }
 
 // -------------------------------------------------------------
-//  SHIFO: KARTA FONDAN AJRALSIN
+//  TELEGRAM RANGLARI (2026-09-27 qarori)
 //
-//  Bu temaning butun sababi shu. Oq variantda `fon` ham,
-//  `karta` ham sof oq edi va ekran tekis ko‘rinardi — «dizayni
-//  juda oddiy» degan e’tiroz aynan shundan chiqqan. Shifo
-//  temasida fon rangli, karta oq: karta fon USTIDA turadi.
+//  Foydalanuvchi talabi: ilova ranglari Telegram bilan BIR XIL.
+//  Qiymatlar Telegram Android kodidan olingan (`ThemeColors.java`,
+//  `assets/night.attheme`) va shu yerda QOTIRILADI. Kimdir rangni
+//  «biroz yumshoqroq» qilsa — talab jimgina buziladi, ko'z bilan
+//  esa farqni hech kim sezmaydi. Sinov sezadi.
 //
-//  Agar kelajakda kimdir fonni yana oqqa qaytarsa, tema o‘z
-//  ma’nosini yo‘qotadi va buni hech narsa aytmasdi.
+//  `kirim` (kunduzgi) bu ro'yxatda YO'Q — u ataylab chetlanadi,
+//  sababi `tema.ts` boshida yozilgan: Telegram ko'ki oq fonda
+//  4.5:1 ga yetmaydi. Uning o'rniga pastda tusi tekshiriladi.
 // -------------------------------------------------------------
-console.log('\nSHIFO CHUQURLIGI');
+console.log('\nTELEGRAM RANGLARI');
 
 {
   const temaMatn2 = readFileSync(join(ROOT, 'apps/kassa/src/lib/tema.ts'), 'utf8');
   const ol = (blok, nom) => {
     const b = temaMatn2.indexOf('export const ' + blok);
     const qism = temaMatn2.slice(b, temaMatn2.indexOf('};', b));
-    return qism.match(new RegExp(nom + ":\\s*'(#[0-9A-Fa-f]{6})'"))?.[1] ?? null;
+    return qism.match(new RegExp('\\b' + nom + ":\\s*'(#[0-9A-Fa-f]{6})'"))?.[1]?.toUpperCase() ?? null;
   };
 
-  for (const blok of ['SHIFO', 'SHIFO_TUN']) {
+  const TELEGRAM = {
+    YORUG: {
+      fon: '#F1F1F3', //    windowBackgroundGray
+      karta: '#FFFFFF', //  windowBackgroundWhite
+      matn: '#1A1D21', //   DEFAULT_BLACK_TEXT
+      xira: '#808384', //   windowBackgroundWhiteGrayText
+      tun: '#FFFFFF', //    actionBarDefault
+      chiqim: '#CC2929', // text_RedRegular
+      faol: '#229AF0', //   TELEGRAM_COLOR
+    },
+    QORONGI: {
+      fon: '#000000', //    windowBackgroundGray
+      karta: '#181819', //  windowBackgroundWhite
+      matn: '#FFFFFF', //   windowBackgroundWhiteBlackText
+      xira: '#7D7D7D', //   windowBackgroundWhiteHintText
+      tun: '#232326', //    actionBarDefault
+      kirim: '#64B5EF', //  windowBackgroundWhiteBlueText
+      chiqim: '#EE686F', // text_RedRegular
+      faol: '#229AF0', //   featuredStickers_addButton (standart)
+    },
+  };
+
+  for (const [blok, ranglar] of Object.entries(TELEGRAM)) {
+    for (const [nom, kerak] of Object.entries(ranglar)) {
+      const bor = ol(blok, nom);
+      tekshir(`${blok}.${nom} = Telegram`, bor === kerak, `${bor ?? '?'}${bor === kerak ? '' : ' — kerak ' + kerak}`);
+    }
+  }
+
+  // Kunduzgi kirim — Telegram ko'kining O'SHA TUSI bo'lsin.
+  // Rang oilasi saqlanmasa, «Telegram ranglari» degan talab shu
+  // bitta joyda sezilmay buziladi.
+  const tus = (hex) => {
+    const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255);
+    const mx = Math.max(r, g, b);
+    const mn = Math.min(r, g, b);
+    const d = mx - mn;
+    if (d === 0) return 0;
+    let h = mx === r ? ((g - b) / d) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4;
+    h *= 60;
+    return h < 0 ? h + 360 : h;
+  };
+  const kirimKun = ol('YORUG', 'kirim');
+  const farq = kirimKun ? Math.abs(tus(kirimKun) - tus('#298ACF')) : 999;
+  tekshir(
+    'kunduzgi kirim — Telegram ko‘kining tusi',
+    farq < 3,
+    `${kirimKun} tusi ${kirimKun ? tus(kirimKun).toFixed(1) : '?'}°, Telegram #298ACF ${tus('#298ACF').toFixed(1)}°`,
+  );
+
+  // Karta fondan QIYMAT bilan ajralsin — Telegram'da ham shunday:
+  // kulrang fon, oq bo'limlar. Oq-oq bo'lsa ekran tekis ko'rinadi
+  // («dizayni juda oddiy» degan e'tiroz shundan chiqqan edi).
+  for (const blok of ['YORUG', 'QORONGI']) {
     const fon = ol(blok, 'fon');
     const karta = ol(blok, 'karta');
     const n = fon && karta ? kontrast(fon, karta) : 1;
@@ -344,18 +416,34 @@ console.log('\nSHIFO CHUQURLIGI');
     );
   }
 
-  // Urg‘u rangi oq matn bilan o‘qilsin: tugma yozuvi shu juftlikda
-  // chiqadi va u yerda kontrast yetmasa tugma o‘qilmay qoladi.
-  for (const blok of ['SHIFO', 'SHIFO_TUN']) {
+  // Tugma matni. Chegara 3:1, 4.5 emas — ATAYLAB: Telegram'ning o'z
+  // tugmasi (`#229AF0` ustida oq) aynan 3.0:1, va ranglar Telegram
+  // bilan bir xil bo'lishi talab qilingan. Tugma yozuvi qisqa va
+  // qalin, WCAG 1.4.11 / katta matn uchun talab ham 3:1. Summalar
+  // va oddiy matn esa yuqorida 4.5:1 bilan tekshiriladi.
+  for (const blok of ['YORUG', 'QORONGI']) {
     const faol = ol(blok, 'faol');
     const faolMatn = ol(blok, 'faolMatn');
     const n = faol && faolMatn ? kontrast(faol, faolMatn) : 0;
     tekshir(
-      blok + ': faol tugma matni o\u2018qiladi (4.5:1)',
-      n >= 4.5,
+      blok + ': tugma matni o‘qiladi (3:1)',
+      n >= 3,
       faol + ' / ' + faolMatn + ' = ' + n.toFixed(2) + ':1',
     );
   }
+
+  // Olib tashlangan rejim qaytmasin: ikki joyda qolsa, tanlovda
+  // ko'rinib, bosilganda hech narsa o'zgarmasdi.
+  const app = readFileSync(join(ROOT, 'apps/kassa/App.tsx'), 'utf8');
+  const sozlama = readFileSync(join(ROOT, 'apps/kassa/src/ekran/YanaSozlama.tsx'), 'utf8');
+  tekshir(
+    '«shifo» palitrasi olib tashlangan',
+    !/export const SHIFO/.test(temaMatn2) && !/\bSHIFO\b/.test(app),
+    'tema.ts, App.tsx',
+  );
+  tekshir('sozlamada «shifo» tugmasi yo‘q', !/k: 'shifo'/.test(sozlama));
+  // Eski tanlov «shifo» saqlangan telefonlarda jimgina yo'qolmasin
+  tekshir("saqlangan «shifo» → «tizim» ko'chiriladi", /x === 'shifo'[\s\S]{0,400}setRejim\('tizim'\)/.test(app));
 }
 console.log('\n' + (yiqildi === 0 ? '\x1b[32mHAMMASI O‘TDI\x1b[0m' : `\x1b[31m${yiqildi} TA XATO\x1b[0m`) + '\n');
 process.exit(yiqildi === 0 ? 0 : 1);

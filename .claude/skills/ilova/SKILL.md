@@ -592,6 +592,33 @@ Uch narsani unutmang:
    telefonda, klaviatura chiqqanda ko'rinadi — shuning uchun qoida
    fayldan tekshiriladi.
 
+### `expo-sqlite`: bazani IKKINCHI marta ochmang
+
+Ekranda: «Call to function 'NativeDatabase.prepareAsync' has been
+rejected → NullPointerException». Tasodifiy ko'rinadi, lekin sababi aniq.
+
+`SQLiteModule.kt` bir yo'ldagi bazani **keshlaydi**: ikkinchi
+`openDatabaseAsync('kassa.db')` o'sha native ulanishni qaytaradi. Birinchi
+JS obyekti chiqindiga (GC) tushganda esa `sharedObjectDidRelease()`
+ulanishni **yopadi** — keshdan olmasdan va `isClosed` ni qo'ymasdan.
+Ikkinchi obyekt yopilgan ulanishga so'rov yuboradi.
+
+Ikkinchi ochilish `HolatProvider` qayta o'rnatilganda bo'ladi: qulf
+ekrani, biznes almashishi, «Qayta urinish». Yechim `ombor/sqlite.ts`
+da: ulanish modul darajasida **bir marta** ochiladi va unga kuchli
+havola saqlanadi. `tests/kassa-ombor.mjs` soxta `expo-sqlite` bilan
+aynan shu xatoni takrorlaydi — eski kod qo'yilsa sinov telefondagi
+NullPointerException ni beradi.
+
+### Sinovdagi istisno xatoni YASHIRADI
+
+`kassa-dizayn` da `BiznesEkrani` qattiq ranglar istisnosida turgan.
+Shu vaqt ichida uning «Boshlash» tugmasi oq ustida oq bo'lib qolgan
+va ro'yxatdan o'tgan odam ikkinchi qadamda nima bosishini bilmagan.
+Istisno «bu fayl tekshirilmasin» degani, «bu fayl to'g'ri» degani
+emas. Istisno qo'shishdan oldin faylni temaga o'tkazish mumkinmi —
+avval shuni ko'ring.
+
 ### `expo prebuild` versiyani KO'CHIRMAYDI
 
 `app.json` da `version` va `versionCode` ko'tarilsa, `prebuild`
