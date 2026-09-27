@@ -154,7 +154,11 @@ const izohsiz = (t) =>
 
 const rangliEkranlar = hammasi
   .filter((f) => f !== temaFayl)
-  .map((f) => ({ f, soni: (izohsiz(oqish(f)).match(/#[0-9a-fA-F]{6}\b/g) ?? []).length }))
+  // 6 ham, 8 ham: `#00000080` kabi shaffoflik bilan yozilgan rang
+  // ilgari TEKSHIRUVDAN O‘TIB KETARDI, chunki `\b` sakkizinchi
+  // raqamdan keyin ishlamaydi. Kalkulator modalini yozganda shu
+  // tasodifan ma’lum bo‘ldi.
+  .map((f) => ({ f, soni: (izohsiz(oqish(f)).match(/#[0-9a-fA-F]{6}(?:[0-9a-fA-F]{2})?/g) ?? []).length }))
   .filter((x) => x.soni > 0);
 
 // ISTISNOLAR va sababi. Ro‘yxat QISQA bo‘lishi kerak — har yozuv
@@ -167,7 +171,9 @@ const rangliEkranlar = hammasi
 //
 // KirishEkrani ro‘yxatdan CHIQARILDI — u 23.09 da temaga to‘liq
 // o‘tkazildi va endi istisnoga muhtoj emas.
-const ruxsat = ['BiznesEkrani.tsx', 'Biriktirma.tsx'];
+//   Kalkulator   — modal ortidagi qorayish. Panel HAR IKKI temada
+//                  to‘q fon ustida chiqadi.
+const ruxsat = ['BiznesEkrani.tsx', 'Biriktirma.tsx', 'Kalkulator.tsx'];
 const qoidabuzganlar = rangliEkranlar.filter((x) => !ruxsat.some((r) => x.f.endsWith(r)));
 tekshir(
   'ranglar tema faylida (ekranlarda qattiq yozilmagan)',

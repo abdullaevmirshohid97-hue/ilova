@@ -408,6 +408,8 @@ const RU: Record<string, string> = {
   'Til': 'Язык',
   'Yorug‘': 'Светлое',
   'Tungi': 'Тёмное',
+  'Hisoblash': 'Вычисление',
+  'OK': 'OK',
   'Dalil (ixtiyoriy)': 'Подтверждение (необязательно)',
   'Qayerdan olamiz?': 'Откуда взять?',
   'Galereya': 'Галерея',

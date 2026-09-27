@@ -19,6 +19,7 @@ import type { BitimYonalish } from '@ilova/kassa-yadro';
 import { tolovQosh } from '../lib/baza';
 import { biriktir } from '../lib/biriktirma';
 import { Biriktirma } from '../ui/Biriktirma';
+import { Kalkulator } from '../ui/Kalkulator';
 import { sanaQisqa } from '../lib/davr';
 import { useHolat } from '../lib/holat';
 import { xatoMatn } from '../lib/supabase';
@@ -56,6 +57,7 @@ export default function TolovOynasi({
   const [bitimId, setBitimId] = useState<string | null>(boshBitim ?? null);
   const [qidiruv, setQidiruv] = useState('');
   const [summa, setSumma] = useState('');
+  const [kalkulator, setKalkulator] = useState(false);
   const [hisobId, setHisobId] = useState(faolHisoblar[0]?.id ?? '');
   const [usuli, setUsuli] = useState<'naqd' | 'karta' | 'bank' | 'tovar'>('naqd');
   const [izoh, setIzoh] = useState('');
@@ -264,9 +266,11 @@ export default function TolovOynasi({
 
             <Yorliq matn={tr('Summa')} />
             <View style={{ paddingHorizontal: O.chekka }}>
+              <View style={{ flexDirection: 'row', gap: 8 }}>
               <TextInput
                 style={{
                   ...maydon,
+                  flex: 1,
                   minHeight: 58,
                   fontSize: 26,
                   fontWeight: '800',
@@ -281,6 +285,34 @@ export default function TolovOynasi({
                 keyboardType="numeric"
                 placeholder="0"
                 placeholderTextColor={C.xira}
+              />
+
+              <TouchableOpacity
+                onPress={() => setKalkulator(true)}
+                style={{
+                  width: 58,
+                  minHeight: 58,
+                  borderRadius: O.radiusKichik,
+                  borderWidth: 1,
+                  borderColor: C.chegara,
+                  backgroundColor: C.karta2,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <Text style={{ color: C.matn2, fontSize: 20, fontWeight: '700' }}>=</Text>
+              </TouchableOpacity>
+              </View>
+
+              <Kalkulator
+                korinsin={kalkulator}
+                boshlangich={summa}
+                valyuta={valyuta}
+                yop={() => setKalkulator(false)}
+                tasdiq={(m) => {
+                  setXato(null);
+                  setSumma(m);
+                }}
               />
             </View>
 

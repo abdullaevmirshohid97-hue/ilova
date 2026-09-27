@@ -23,6 +23,7 @@ import type { BitimNima, BitimYonalish } from '@ilova/kassa-yadro';
 import { bitimQosh } from '../lib/baza';
 import { biriktir } from '../lib/biriktirma';
 import { Biriktirma } from '../ui/Biriktirma';
+import { Kalkulator } from '../ui/Kalkulator';
 import { useHolat } from '../lib/holat';
 import { xatoMatn } from '../lib/supabase';
 import { O, useTema } from '../lib/tema';
@@ -62,6 +63,7 @@ export default function BitimOynasi({
   const [narx, setNarx] = useState('');
   const [jami, setJami] = useState('');
   const [jamiQolda, setJamiQolda] = useState(false);
+  const [kalkulator, setKalkulator] = useState(false);
   const [hisobId, setHisobId] = useState(faolHisoblar[0]?.id ?? '');
   const [izoh, setIzoh] = useState('');
   const [rasm, setRasm] = useState<string | null>(null);
@@ -348,9 +350,11 @@ export default function BitimOynasi({
             {/* ---------- Jami ---------- */}
             <Yorliq matn={tr('Jami')} />
             <View style={{ paddingHorizontal: O.chekka }}>
+              <View style={{ flexDirection: 'row', gap: 8 }}>
               <TextInput
                 style={{
                   ...maydon,
+                  flex: 1,
                   minHeight: 58,
                   fontSize: 26,
                   fontWeight: '800',
@@ -367,6 +371,27 @@ export default function BitimOynasi({
                 placeholder="0"
                 placeholderTextColor={C.xira}
               />
+
+              {/* Bozorda summa tayyor son bo‘lmaydi: «12 qop ×
+                  145 ming». Ilgari odam telefon kalkulyatorini
+                  ochib, natijani eslab, qaytib kelib yozardi. */}
+              <TouchableOpacity
+                onPress={() => setKalkulator(true)}
+                style={{
+                  width: 58,
+                  minHeight: 58,
+                  borderRadius: O.radiusKichik,
+                  borderWidth: 1,
+                  borderColor: C.chegara,
+                  backgroundColor: C.karta2,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <Text style={{ color: C.matn2, fontSize: 20, fontWeight: '700' }}>=</Text>
+              </TouchableOpacity>
+              </View>
+
               {!jamiQolda && hisoblangan !== null && (
                 <Text style={{ color: C.xira, fontSize: 12, marginTop: 6 }}>
                   {miqdor} × {narx} = {formatla(hisoblangan, valyuta)}
@@ -436,6 +461,18 @@ export default function BitimOynasi({
               {/* Dalil izohning DAVOMI: tovar rasmi, tarozi
                   ko‘rsatkichi, qo‘lda yozilgan qog‘oz. */}
               <Biriktirma rasm={rasm} video={video} rasmQoy={setRasm} videoQoy={setVideo} />
+
+              <Kalkulator
+                korinsin={kalkulator}
+                boshlangich={jami}
+                valyuta={valyuta}
+                yop={() => setKalkulator(false)}
+                tasdiq={(m) => {
+                  setXato(null);
+                  setJamiQolda(true);
+                  setJami(m);
+                }}
+              />
             </View>
 
             {/* Muddat — tovar va qarzda. Pul harakatida ham
