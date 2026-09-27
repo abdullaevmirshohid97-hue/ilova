@@ -34,7 +34,9 @@ import { Ogoh } from '../lib/ogoh';
 
 export default function Turkumlar() {
   const { C } = useTema();
-  const { turkumlar, yozuvlar, yangila } = useHolat();
+  // HAMMASI kerak: pastdagi «O‘chirilganlar» faqat shundan to‘ladi.
+  // `turkumlar` faqat faollarni beradi va bo‘lim abadiy bo‘sh edi.
+  const { barchaTurkumlar: turkumlar, yozuvlar, yangila } = useHolat();
   const [turi, setTuri] = useState<Turkum['turi']>('chiqim');
   const [yangiNom, setYangiNom] = useState('');
   const [kutmoqda, setKutmoqda] = useState(false);

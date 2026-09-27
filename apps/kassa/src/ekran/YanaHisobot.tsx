@@ -21,7 +21,9 @@ import { Ogoh } from '../lib/ogoh';
 
 export default function Hisobot() {
   const { C } = useTema();
-  const { men, yozuvlar, turkumlar, hisoblar, klientlar, bitimlar, tolovlar } = useHolat();
+  // Nom IZLANADI, ro‘yxat emas — o‘chirilganlar ham kerak (holat.tsx)
+  const { men, yozuvlar, barchaTurkumlar: turkumlar, hisoblar, barchaKlientlar: klientlar, bitimlar, tolovlar } =
+    useHolat();
   const [davr, setDavr] = useState<DavrTuri>('oy');
   const [siljish, setSiljish] = useState(0);
   const [chiqarmoqda, setChiqarmoqda] = useState<'xlsx' | 'pdf' | null>(null);

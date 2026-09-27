@@ -191,21 +191,43 @@ function hamkorQoldiq(
   return q;
 }
 
+/**
+ * O‘CHIRILGAN hamkor va turkum (`faol = false`) — ilova bilan bir xil
+ * qoida (`apps/kassa/src/lib/holat.tsx`):
+ *   · NOM qidirish — hammadan: eski yozuvi nomsiz qolmasin
+ *   · RO‘YXAT va YOZISH — faqat faollardan: aks holda AI aytgan
+ *     «bizga qarzdor» jami ilova bosh sahifasidagidan boshqa chiqardi,
+ *     yangi bitim esa ilovada ko‘rinmaydigan hamkorga yozilardi.
+ */
 async function nomlar(org: string) {
   const [{ data: turkumlar }, { data: klientlar }, h] = await Promise.all([
-    admin.from('kassa_turkumlar').select('id, nom, turi').eq('org_id', org),
-    admin.from('kassa_klientlar').select('id, ism, turi, valyuta').eq('org_id', org),
+    admin.from('kassa_turkumlar').select('id, nom, turi, faol').eq('org_id', org),
+    admin.from('kassa_klientlar').select('id, ism, turi, valyuta, faol').eq('org_id', org),
     hisoblar(org),
   ]);
+  const faol = (x: { faol?: boolean | null }) => x.faol !== false;
   return {
     turkum: new Map((turkumlar ?? []).map((x) => [x.id, x.nom])),
     klient: new Map((klientlar ?? []).map((x) => [x.id, x.ism])),
     hisob: new Map(h.map((x) => [x.id, x.nom])),
-    turkumRoyxat: turkumlar ?? [],
-    klientRoyxat: klientlar ?? [],
+    turkumRoyxat: (turkumlar ?? []).filter(faol),
+    klientRoyxat: (klientlar ?? []).filter(faol),
+    /** Tarixni o‘qish uchun — o‘chirilganlar bilan */
+    klientHammasi: klientlar ?? [],
     hisobRoyxat: h,
   };
 }
+
+/** O‘chirilgan hamkor — ismi AYNAN mos kelsa */
+function ochirilganHamkor(n: Awaited<ReturnType<typeof nomlar>>, kontakt: unknown) {
+  const q = String(kontakt ?? '').trim().toLowerCase();
+  if (!q) return undefined;
+  return n.klientHammasi.find((x) => x.faol === false && x.ism.toLowerCase() === q);
+}
+
+const ochirilganMatn = (ism: string) =>
+  `«${ism}» ilovada o‘chirilgan — unga yozib bo‘lmaydi. ` +
+  'Qaytarish: ilovada bosh sahifa → pastdagi «O‘chirilganlar» → «Qaytarish».';
 
 // =============================================================
 //  Asboblar
@@ -378,6 +400,10 @@ async function asbobniBajar(e: Egasi, nom: string, arg: Record<string, unknown>)
     const klient = arg.kontakt
       ? n.klientRoyxat.find((x) => x.ism.toLowerCase() === String(arg.kontakt).toLowerCase())
       : null;
+    if (arg.kontakt && !klient) {
+      const o = ochirilganHamkor(n, arg.kontakt);
+      if (o) return xatoJavob(ochirilganMatn(o.ism));
+    }
 
     const korinish =
       `${turi === 'kirim' ? 'KIRIM' : 'CHIQIM'}\n` +
@@ -419,7 +445,8 @@ async function asbobniBajar(e: Egasi, nom: string, arg: Record<string, unknown>)
 
   if (nom === 'bitimlar_ol') {
     const n = await nomlar(org);
-    const k = hamkorTop(n.klientRoyxat, arg.kontakt);
+    // O‘QISH — o‘chirilgan hamkorning tarixi ham kerak bo‘lishi mumkin
+    const k = hamkorTop(n.klientRoyxat, arg.kontakt) ?? hamkorTop(n.klientHammasi, arg.kontakt);
     if (!k) return xatoJavob('Hamkor topilmadi: ' + String(arg.kontakt ?? ''));
     const chegara = Math.min(Number(arg.chegara ?? 40), 200);
     const [y, bits, tols] = await Promise.all([
@@ -491,6 +518,12 @@ async function asbobniBajar(e: Egasi, nom: string, arg: Record<string, unknown>)
 
     const n = await nomlar(org);
     const k = hamkorTop(n.klientRoyxat, arg.kontakt);
+    // Topilmasa yangi hamkor ochiladi — o‘chirilgan bilan bir xil
+    // ismda IKKINCHI nusxa yaratilmasin, odamga aytilsin
+    if (!k) {
+      const o = ochirilganHamkor(n, arg.kontakt);
+      if (o) return xatoJavob(ochirilganMatn(o.ism));
+    }
     const ism = String(arg.kontakt ?? '').trim().slice(0, 120);
     if (!k && !ism) return xatoJavob('Hamkor ismi kerak');
     const valyuta = String(arg.valyuta ?? k?.valyuta ?? 'UZS');
@@ -545,7 +578,10 @@ async function asbobniBajar(e: Egasi, nom: string, arg: Record<string, unknown>)
 
     const n = await nomlar(org);
     const k = hamkorTop(n.klientRoyxat, arg.kontakt);
-    if (!k) return xatoJavob('Hamkor topilmadi: ' + String(arg.kontakt ?? ''));
+    if (!k) {
+      const o = ochirilganHamkor(n, arg.kontakt);
+      return xatoJavob(o ? ochirilganMatn(o.ism) : 'Hamkor topilmadi: ' + String(arg.kontakt ?? ''));
+    }
 
     const [y, bits, tols] = await Promise.all([
       yozuvlar(org, new Date(2000, 0, 1), new Date(2999, 0, 1), 5000),

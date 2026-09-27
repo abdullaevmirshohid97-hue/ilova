@@ -329,7 +329,7 @@ const ICHKI = (b: Bolim) => b !== 'bosh';
 
 function Qobiq({ qaytaYukla }: { qaytaYukla: () => void }) {
   const { C } = useTema();
-  const { men, yangila, yuklanmoqda, xato, bitimlar, tolovlar, klientlar } = useHolat();
+  const { men, yangila, yuklanmoqda, xato, bitimlar, tolovlar, klientlar, barchaKlientlar } = useHolat();
   // Pastdagi tizim paneli balandligi: Samsung‘larda 3 ta tugma,
   // boshqalarida ishora chizig‘i — ikkalasi ham joy egallaydi.
   const chekka = useSafeAreaInsets();
@@ -724,7 +724,9 @@ function Qobiq({ qaytaYukla }: { qaytaYukla: () => void }) {
         yop={() => setBildirishnoma(false)}
         kechikkanlar={kechikkanlar}
         tolovlar={tolovlar}
-        klientlar={klientlar}
+        // Faqat nom izlanadi — o‘chirilgan hamkorning kechikkan
+        // bitimi ham nomi bilan ko‘rinsin
+        klientlar={barchaKlientlar}
         // Bildirishnomadan mijozga o‘tish: bosh ekran endi
         // aynan mijozlar ro‘yxati, ya’ni boshqa joyga borish
         // shart emas.

@@ -48,7 +48,8 @@ export default function KalendarEkrani({
 }) {
   const { C } = useTema();
   const s = uslublar(C);
-  const { yozuvlar, turkumlar, klientlar, hisoblar } = useHolat();
+  // Nom IZLANADI, ro‘yxat emas — o‘chirilganlar ham kerak (holat.tsx)
+  const { yozuvlar, barchaTurkumlar: turkumlar, barchaKlientlar: klientlar, hisoblar } = useHolat();
 
   const bugun = new Date();
   const [yil, setYil] = useState(bugun.getFullYear());

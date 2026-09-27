@@ -52,8 +52,18 @@ const SINX_ORALIG = 60_000;
 type Holat = {
   men: Men;
   hisoblar: Hisob[];
+  /** Faqat FAOL turkumlar — ro‘yxat va tanlagichlar uchun */
   turkumlar: Turkum[];
+  /** Faqat FAOL hamkorlar — bosh sahifa ro‘yxati va tanlagichlar uchun */
   klientlar: Klient[];
+  /**
+   * O‘CHIRILGANLAR BILAN. Nom qidiradigan joylar shundan oladi:
+   * o‘chirilgan hamkorning ESKI yozuvlari hisobotda, kalendarda
+   * va ro‘yxatda nomi bilan ko‘rinishi kerak. `klientlar` dan
+   * olinsa ular nomsiz qolardi — pul bor, kimniki ekani yo‘q.
+   */
+  barchaKlientlar: Klient[];
+  barchaTurkumlar: Turkum[];
   yozuvlar: Yozuv[];
   bitimlar: Bitim[];
   tolovlar: Tolov[];
@@ -102,8 +112,10 @@ async function qurilmaId(): Promise<string> {
 export function HolatProvider({ men, children }: { men: Men; children: ReactNode }) {
   const [biznes, setBiznes] = useState(men.biznes);
   const [hisoblar, setHisoblar] = useState<Hisob[]>([]);
-  const [turkumlar, setTurkumlar] = useState<Turkum[]>([]);
-  const [klientlar, setKlientlar] = useState<Klient[]>([]);
+  const [barchaTurkumlar, setTurkumlar] = useState<Turkum[]>([]);
+  const [barchaKlientlar, setKlientlar] = useState<Klient[]>([]);
+  const turkumlar = useMemo(() => barchaTurkumlar.filter((t) => t.faol !== false), [barchaTurkumlar]);
+  const klientlar = useMemo(() => barchaKlientlar.filter((k) => k.faol !== false), [barchaKlientlar]);
   const [yozuvlar, setYozuvlar] = useState<Yozuv[]>([]);
   const [bitimlar, setBitimlar] = useState<Bitim[]>([]);
   const [tolovlar, setTolovlar] = useState<Tolov[]>([]);
@@ -231,6 +243,8 @@ export function HolatProvider({ men, children }: { men: Men; children: ReactNode
       hisoblar,
       turkumlar,
       klientlar,
+      barchaKlientlar,
+      barchaTurkumlar,
       yozuvlar,
       bitimlar,
       tolovlar,
@@ -248,7 +262,7 @@ export function HolatProvider({ men, children }: { men: Men; children: ReactNode
       nomniQoy: setBiznes,
     }),
     [
-      men, biznes, hisoblar, turkumlar, klientlar, yozuvlar, bitimlar, tolovlar, valyutalar, yuklanmoqda, xato,
+      men, biznes, hisoblar, turkumlar, klientlar, barchaKlientlar, barchaTurkumlar, yozuvlar, bitimlar, tolovlar, valyutalar, yuklanmoqda, xato,
       natija, sinxlanmoqda, ziddiyatlar, doimiy, yangila, sinxlash, ziddiyatniYop,
     ],
   );

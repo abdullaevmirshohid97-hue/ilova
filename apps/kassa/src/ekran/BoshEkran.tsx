@@ -47,6 +47,8 @@ import XabarOynasi from './XabarOynasi';
 import { xabarMatni } from '../lib/xabar';
 import type { XabarTil } from '../lib/xabar-til';
 import { Ogoh } from '../lib/ogoh';
+import { klientTahrirla } from '../lib/baza';
+import { xatoMatn } from '../lib/supabase';
 
 type Filtr = 'hammasi' | 'qarzlarim' | 'haqlarim' | 'muddat';
 
@@ -75,8 +77,18 @@ export default function BoshEkran({
   tahrirYozuv: (y: Yozuv) => void;
 }) {
   const { C } = useTema();
-  const { men, klientlar, yozuvlar, bitimlar, tolovlar, valyutalar, yangila, yuklanmoqda } =
-    useHolat();
+  const {
+    men,
+    klientlar,
+    barchaKlientlar,
+    yozuvlar,
+    bitimlar,
+    tolovlar,
+    valyutalar,
+    yangila,
+    yuklanmoqda,
+  } = useHolat();
+  const [ochirilganlarOchiq, setOchirilganlarOchiq] = useState(false);
   const [filtr, setFiltr] = useState<Filtr>('hammasi');
   const [tanlangan, setTanlangan] = useState<Klient | null>(null);
   // Xabar oynasi kartochkaning USTIDAN ochiladi: odam xabarni
@@ -129,6 +141,71 @@ export default function BoshEkran({
       // Kattaroq qarz tepada: odam ertalab aynan shuni qidiradi.
       .sort((a, b) => Math.abs(qoldiqlar.get(b.id) ?? 0) - Math.abs(qoldiqlar.get(a.id) ?? 0));
   }, [klientlar, qoldiqlar, kechikkanlar, filtr, qidiruv]);
+
+  // O‘chirilgan hamkorlar — pastdagi bo‘lim uchun. Qoldig‘i ham
+  // ko‘rsatiladi: pul qolgan hamkorni adashib o‘chirgan odam uni
+  // shu raqamdan taniydi.
+  const ochirilganlar = useMemo(
+    () => barchaKlientlar.filter((k) => k.faol === false),
+    [barchaKlientlar],
+  );
+
+  /**
+   * Uzoq bosilganda — menyu. Ilgari uzoq bosish TO‘G‘RIDAN tahrir
+   * oynasini ochardi va hamkorni o‘chirishning umuman yo‘li yo‘q edi.
+   * Tahrirlash menyuning birinchi bandi bo‘lib qoldi — eski odat
+   * buzilmaydi, faqat bir bosish qo‘shiladi.
+   */
+  function mijozAmallari(k: Klient) {
+    Ogoh.alert(k.ism, k.telefon ?? undefined, [
+      { text: tr('Tahrirlash'), onPress: () => ochMijoz(k) },
+      { text: tr('O‘chirish'), style: 'destructive', onPress: () => mijozniOchir(k) },
+      { text: tr('Bekor'), style: 'cancel' },
+    ]);
+  }
+
+  /**
+   * O‘CHIRISH = `faol: false`. Bazadan olinmaydi: sinxda o‘chirish
+   * amali yo‘q (boshqa telefonlarda qolib ketardi) va hamkorning
+   * bitim, to‘lov, yozuvlari unga bog‘langan — ular hisobotda uning
+   * NOMI bilan ko‘rinishi kerak (`barchaKlientlar`).
+   *
+   * Qoldiq bor bo‘lsa ANIQ aytiladi: hamkor o‘chsa u bosh sahifadagi
+   * jamidan chiqadi. Jimgina chiqib ketsa, odam «qarzlar kamaydi»
+   * deb o‘ylardi.
+   */
+  function mijozniOchir(k: Klient) {
+    const qoldiq = qoldiqlar.get(k.id) ?? 0;
+    const summa = formatla(Math.abs(qoldiq), k.valyuta ?? 'UZS');
+    const qarz =
+      qoldiq > 0
+        ? `${tr('Bu hamkor sizga qarzdor:')} ${summa}. `
+        : qoldiq < 0
+          ? `${tr('Siz bu hamkorga qarzdorsiz:')} ${summa}. `
+          : '';
+    const izoh =
+      qarz +
+      (qarz ? tr('O‘chirilsa, bosh sahifadagi jamidan chiqadi.') + ' ' : '') +
+      tr('Yozuvlari o‘chmaydi — pastdagi «O‘chirilganlar» dan qaytarish mumkin.');
+    Ogoh.alert(`«${k.ism}» ${tr('o‘chirilsinmi?')}`, izoh, [
+      { text: tr('Yo‘q'), style: 'cancel' },
+      {
+        text: tr('O‘chirish'),
+        style: 'destructive',
+        onPress: () => void faolQoy(k, false),
+      },
+    ]);
+  }
+
+  async function faolQoy(k: Klient, faol: boolean) {
+    try {
+      await klientTahrirla(k.id, { faol });
+      if (!faol && tanlangan?.id === k.id) setTanlangan(null);
+      await yangila();
+    } catch (e) {
+      Ogoh.alert(tr('Xatolik'), xatoMatn(e));
+    }
+  }
 
   /**
    * Qator bosilganda.
@@ -262,9 +339,56 @@ export default function BoshEkran({
               qoldiq={qoldiqlar.get(k.id) ?? 0}
               kechikkan={kechikkanlar.has(k.id)}
               bos={() => setTanlangan(k)}
-              uzoqBos={() => ochMijoz(k)}
+              uzoqBos={() => mijozAmallari(k)}
             />
           ))
+        )}
+
+        {/* Filtr yoki qidiruv paytida ko‘rsatilmaydi: u yerda odam
+            aniq narsani qidiryapti, o‘chirilganlar esa chalg‘itadi. */}
+        {ochirilganlar.length > 0 && filtr === 'hammasi' && !qidiruv.trim() && (
+          <View style={{ marginTop: 8, marginBottom: 16 }}>
+            <TouchableOpacity
+              onPress={() => setOchirilganlarOchiq((x) => !x)}
+              style={{ paddingHorizontal: O.chekka, paddingVertical: 14 }}
+            >
+              <Text style={{ color: C.xira, fontSize: 13, fontWeight: '600' }}>
+                {ochirilganlarOchiq ? '▾' : '▸'} {tr('O‘chirilganlar')} · {ochirilganlar.length}
+              </Text>
+            </TouchableOpacity>
+            {ochirilganlarOchiq &&
+              ochirilganlar.map((k) => {
+                const q = hamkorQoldiq(k.id, bitimlar, tolovlar, yozuvlar);
+                return (
+                  <View
+                    key={k.id}
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      paddingLeft: O.chekka,
+                      paddingRight: O.chekka - 8,
+                      paddingVertical: 10,
+                      backgroundColor: C.karta,
+                      borderBottomWidth: 1,
+                      borderBottomColor: C.ajratgich,
+                      opacity: 0.7,
+                    }}
+                  >
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ color: C.matn, fontSize: 15, fontWeight: '600' }} numberOfLines={1}>
+                        {k.ism}
+                      </Text>
+                      <Text style={{ color: q === 0 ? C.xira : q > 0 ? C.kirim : C.chiqim, fontSize: 12, marginTop: 3 }}>
+                        {q === 0 ? tr('Hisob teng') : (q > 0 ? '+' : '−') + formatla(Math.abs(q), k.valyuta ?? 'UZS')}
+                      </Text>
+                    </View>
+                    <TouchableOpacity onPress={() => void faolQoy(k, true)} hitSlop={8} style={{ padding: 8 }}>
+                      <Text style={{ color: C.faol, fontSize: 14, fontWeight: '700' }}>{tr('Qaytarish')}</Text>
+                    </TouchableOpacity>
+                  </View>
+                );
+              })}
+          </View>
         )}
       </ScrollView>
 

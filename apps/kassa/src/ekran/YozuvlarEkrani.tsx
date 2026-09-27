@@ -51,8 +51,17 @@ export default function YozuvlarEkrani({
 }) {
   const { C } = useTema();
   const s = uslublar(C);
-  const { hisoblar, turkumlar, klientlar, yozuvlar, bitimlar, tolovlar, yangila, yuklanmoqda } =
-    useHolat();
+  // Nom IZLANADI, ro‘yxat emas — o‘chirilganlar ham kerak (holat.tsx)
+  const {
+    hisoblar,
+    barchaTurkumlar: turkumlar,
+    barchaKlientlar: klientlar,
+    yozuvlar,
+    bitimlar,
+    tolovlar,
+    yangila,
+    yuklanmoqda,
+  } = useHolat();
 
   const [davr, setDavr] = useState<DavrTuri>('oy');
   const [siljish, setSiljish] = useState(0);

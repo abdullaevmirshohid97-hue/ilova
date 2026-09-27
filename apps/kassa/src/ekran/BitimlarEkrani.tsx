@@ -39,7 +39,8 @@ type Qator =
 export default function BitimlarEkrani({ yopish }: { yopish: () => void }) {
   const { C } = useTema();
   const chekka = useSafeAreaInsets();
-  const { klientlar, bitimlar, tolovlar } = useHolat();
+  // Nom IZLANADI, ro‘yxat emas — o‘chirilganlar ham kerak (holat.tsx)
+  const { barchaKlientlar: klientlar, bitimlar, tolovlar } = useHolat();
   const [qidiruv, setQidiruv] = useState('');
 
   const ismlar = useMemo(() => {

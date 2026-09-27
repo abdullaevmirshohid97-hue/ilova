@@ -665,6 +665,14 @@ const RU: Record<string, string> = {
   'Sizga «Naqd» va «Karta» hisoblari hamda odatiy turkumlar tayyor holda ochiladi.':
     'Для вас сразу откроются счета «Наличные» и «Карта» и обычные категории.',
 
+  // ---------- Hamkorni o‘chirish ----------
+  'Bu hamkor sizga qarzdor:': 'Этот партнёр должен вам:',
+  'Siz bu hamkorga qarzdorsiz:': 'Вы должны этому партнёру:',
+  'O‘chirilsa, bosh sahifadagi jamidan chiqadi.': 'После удаления он не войдёт в итог на главной.',
+  'Yozuvlari o‘chmaydi — pastdagi «O‘chirilganlar» dan qaytarish mumkin.':
+    'Записи не удаляются — вернуть можно из «Удалённые» внизу.',
+  'Hisob teng': 'Расчёт закрыт',
+
   // ---------- Turkumni o‘chirish ----------
   'o‘chirilsinmi?': 'удалить?',
   'O‘chirilganlar': 'Удалённые',

@@ -101,7 +101,10 @@ export async function turkumlarOl(): Promise<Turkum[]> {
   const qatorlar = await ombor().royxat<Record<string, unknown>>('turkumlar');
   return qatorlar
     .map((t) => ({ ...(t as unknown as Turkum), tartib: Number(t.tartib ?? 0) }))
-    .filter((t) => t.faol !== false)
+    // O‘CHIRILGANLAR HAM qaytadi — ajratish `holat.tsx` da. Ilgari
+    // shu yerda tashlab yuborilardi va natijada «O‘chirilganlar →
+    // Qaytarish» bo‘limi hech qachon to‘lmasdi, eski yozuvlar esa
+    // hisobotda «Turkumsiz» bo‘lib chiqardi.
     .sort((a, b) => a.tartib - b.tartib);
 }
 
@@ -117,7 +120,7 @@ export async function klientlarOl(): Promise<Klient[]> {
       lat: k.lat == null ? null : Number(k.lat),
       lng: k.lng == null ? null : Number(k.lng),
     }))
-    .filter((k) => k.faol !== false)
+    // O‘chirilganlar ham — `turkumlarOl` dagi bilan bir xil sabab.
     .sort((a, b) => a.ism.localeCompare(b.ism));
 }
 
