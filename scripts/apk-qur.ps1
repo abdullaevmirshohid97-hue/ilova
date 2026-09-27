@@ -168,14 +168,26 @@ $yomon = $false
 if (-not $bfayl) {
   Write-Host "  JS to‘plami APK da topilmadi" -ForegroundColor Red; $yomon = $true
 } else {
-  $bm = [System.IO.File]::ReadAllText($bfayl.FullName)
+  # IKKI KODLASHDA izlanadi va bu SHART.
+  #
+  # Release bundle — Hermes BAYT-KODI (imzosi c6 1f bc 03), sof
+  # JS matni emas. Hermes ASCII satrlarni bir jadvalda, ASCII
+  # bo‘lmaganlarini esa UTF-16 da saqlaydi.
+  #
+  # O‘zbekcha matnlarning deyarli hammasida ‘ yoki — bor, ya’ni
+  # ular UTF-8 izlashda KO‘RINMAYDI. Bir marta shunday yolg‘on
+  # xato oldim: «Sverka — PDF» yo‘q deb o‘yladim, aslida bor edi.
+  $xb = [System.IO.File]::ReadAllBytes($bfayl.FullName)
+  $bm8 = [System.Text.Encoding]::UTF8.GetString($xb)
+  $bm16 = [System.Text.Encoding]::Unicode.GetString($xb)
+  $bm = $bm8
   if ($bm.Contains("process.env.EXPO_PUBLIC_")) {
     Write-Host "  EXPO_PUBLIC almashtirilmagan — ilova ochilishida yiqiladi" -ForegroundColor Red
     $yomon = $true
   }
   foreach ($nom in $kutilgan) {
     $q = [Environment]::GetEnvironmentVariable($nom, "Process")
-    if ($bm.Contains($q)) { Write-Host ("  OK  " + $nom) -ForegroundColor Green }
+    if ($bm8.Contains($q) -or $bm16.Contains($q)) { Write-Host ("  OK  " + $nom) -ForegroundColor Green }
     else { Write-Host ("  YO‘Q " + $nom + " — qiymat to‘plamda yo‘q") -ForegroundColor Red; $yomon = $true }
   }
 }
