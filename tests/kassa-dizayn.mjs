@@ -140,13 +140,34 @@ tekshir(
 // Ranglar faqat tema faylida. Ekranda `#RRGGBB` yozilsa, tungi
 // rejimda o'sha joy oq bo'lib qolardi.
 const temaFayl = join(APP, 'lib/tema.ts');
+// IZOHLAR SANALMAYDI. Bir marta shunday bo‘lgan: KirishEkrani
+// temaga to‘liq o‘tkazildi, lekin izohda ESKI xato tasvirlangan
+// edi («oq fonda #F2F4F7 edi») — sinov shuni qoidabuzarlik deb
+// ko‘rsatdi. Ya‘ni tuzatishni HUJJATLASH sinovni yiqitardi, bu
+// esa odamni izoh yozmaslikka undardi.
+const izohsiz = (t) =>
+  t
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .split('\n')
+    .map((q) => q.replace(/\/\/.*$/, ''))
+    .join('\n');
+
 const rangliEkranlar = hammasi
   .filter((f) => f !== temaFayl)
-  .map((f) => ({ f, soni: (oqish(f).match(/#[0-9a-fA-F]{6}\b/g) ?? []).length }))
+  .map((f) => ({ f, soni: (izohsiz(oqish(f)).match(/#[0-9a-fA-F]{6}\b/g) ?? []).length }))
   .filter((x) => x.soni > 0);
 
-// Kirish ekranlari bundan tashqari: ular login oldidan, doim to'q fonda
-const ruxsat = ['KirishEkrani.tsx', 'BiznesEkrani.tsx'];
+// ISTISNOLAR va sababi. Ro‘yxat QISQA bo‘lishi kerak — har yozuv
+// «bu joy temaga bo‘ysunmaydi» degan va‘da.
+//
+//   BiznesEkrani  — login oldidan, doim to‘q fonda
+//   Biriktirma    — rasm/video ko‘rish oynasi. Fon HAR IKKI temada
+//                   qora bo‘lishi kerak: rasmni oq fonda ko‘rish
+//                   uni buzadi. Ustidagi oq matn ham shundan.
+//
+// KirishEkrani ro‘yxatdan CHIQARILDI — u 23.09 da temaga to‘liq
+// o‘tkazildi va endi istisnoga muhtoj emas.
+const ruxsat = ['BiznesEkrani.tsx', 'Biriktirma.tsx'];
 const qoidabuzganlar = rangliEkranlar.filter((x) => !ruxsat.some((r) => x.f.endsWith(r)));
 tekshir(
   'ranglar tema faylida (ekranlarda qattiq yozilmagan)',

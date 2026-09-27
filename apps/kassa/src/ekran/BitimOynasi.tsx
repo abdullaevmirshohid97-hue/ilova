@@ -21,6 +21,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { cheklovTekshir, formatla, hamkorQoldiq, ifodaKorinish, tiyinga } from '@ilova/kassa-yadro';
 import type { BitimNima, BitimYonalish } from '@ilova/kassa-yadro';
 import { bitimQosh } from '../lib/baza';
+import { biriktir } from '../lib/biriktirma';
+import { Biriktirma } from '../ui/Biriktirma';
 import { useHolat } from '../lib/holat';
 import { xatoMatn } from '../lib/supabase';
 import { O, useTema } from '../lib/tema';
@@ -62,6 +64,8 @@ export default function BitimOynasi({
   const [jamiQolda, setJamiQolda] = useState(false);
   const [hisobId, setHisobId] = useState(faolHisoblar[0]?.id ?? '');
   const [izoh, setIzoh] = useState('');
+  const [rasm, setRasm] = useState<string | null>(null);
+  const [video, setVideo] = useState<string | null>(null);
   const [muddat, setMuddat] = useState<string | null>(null);
   const [saqlanmoqda, setSaqlanmoqda] = useState(false);
   const [xato, setXato] = useState<string | null>(null);
@@ -167,7 +171,7 @@ export default function BitimOynasi({
     if (!(await cheklovSora())) return;
     setSaqlanmoqda(true);
     try {
-      await bitimQosh({
+      const bitimId = await bitimQosh({
         klient_id: klientId,
         yonalish,
         nima,
@@ -182,6 +186,11 @@ export default function BitimOynasi({
         muddat,
         hisob_id: tovarmi ? null : hisobId,
       });
+
+      // BITIM SAQLANGANDAN KEYIN. Tartib ataylab shunday:
+      // saqlash yiqilsa, telefonda chiqindi fayl qolmaydi.
+      await biriktir(bitimId, { rasm: rasm ?? undefined, video: video ?? undefined });
+
       saqlandi();
       yopish();
     } catch (e) {
@@ -423,6 +432,10 @@ export default function BitimOynasi({
                 placeholder={tr('Nima uchun')}
                 placeholderTextColor={C.xira}
               />
+
+              {/* Dalil izohning DAVOMI: tovar rasmi, tarozi
+                  ko‘rsatkichi, qo‘lda yozilgan qog‘oz. */}
+              <Biriktirma rasm={rasm} video={video} rasmQoy={setRasm} videoQoy={setVideo} />
             </View>
 
             {/* Muddat — tovar va qarzda. Pul harakatida ham

@@ -17,6 +17,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { bitimQoldiq, formatla, hamkorQoldiq, ifodaKorinish, tiyinga } from '@ilova/kassa-yadro';
 import type { BitimYonalish } from '@ilova/kassa-yadro';
 import { tolovQosh } from '../lib/baza';
+import { biriktir } from '../lib/biriktirma';
+import { Biriktirma } from '../ui/Biriktirma';
 import { sanaQisqa } from '../lib/davr';
 import { useHolat } from '../lib/holat';
 import { xatoMatn } from '../lib/supabase';
@@ -57,6 +59,8 @@ export default function TolovOynasi({
   const [hisobId, setHisobId] = useState(faolHisoblar[0]?.id ?? '');
   const [usuli, setUsuli] = useState<'naqd' | 'karta' | 'bank' | 'tovar'>('naqd');
   const [izoh, setIzoh] = useState('');
+  const [rasm, setRasm] = useState<string | null>(null);
+  const [video, setVideo] = useState<string | null>(null);
   const [muddat, setMuddat] = useState<string | null>(null);
   const [saqlanmoqda, setSaqlanmoqda] = useState(false);
   const [xato, setXato] = useState<string | null>(null);
@@ -133,7 +137,7 @@ export default function TolovOynasi({
     setXato(null);
     setSaqlanmoqda(true);
     try {
-      await tolovQosh({
+      const tolovId = await tolovQosh({
         klient_id: klientId,
         yonalish,
         summa: tiyin,
@@ -145,6 +149,11 @@ export default function TolovOynasi({
         izoh,
         muddat,
       });
+
+      // TO‘LOV SAQLANGANDAN KEYIN — saqlash yiqilsa telefonda
+      // chiqindi fayl qolmaydi.
+      await biriktir(tolovId, { rasm: rasm ?? undefined, video: video ?? undefined });
+
       saqlandi();
       yopish();
     } catch (e) {
@@ -352,6 +361,8 @@ export default function TolovOynasi({
                 placeholder={tr('Nima uchun')}
                 placeholderTextColor={C.xira}
               />
+
+              <Biriktirma rasm={rasm} video={video} rasmQoy={setRasm} videoQoy={setVideo} />
             </View>
 
             {/* Muddat KIRIMDA HAM, CHIQIMDA HAM: do‘kondor

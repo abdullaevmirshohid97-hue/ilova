@@ -12,6 +12,7 @@ import { Chip, Qator, Sarlavha, Tugma } from '../ui/qismlar';
 import { tr, trn, useTil, type Til } from '../lib/til';
 import { Ogoh } from '../lib/ogoh';
 import { qulfYoqilganmi, qulfniQoy, qurilmaQulfiBormi } from '../lib/qulf';
+import { hammasiniOchir, jamiHajm } from '../lib/biriktirma';
 
 export default function Sozlama() {
   const { C, rejim, qoy } = useTema();
@@ -22,10 +23,17 @@ export default function Sozlama() {
   // Qurilmada qulf yo‘q bo‘lsa sozlama UMUMAN ko‘rsatilmaydi.
   // Aks holda odam uni yoqardi-yu, keyin ilova ochilmay
   // qolardi — eng yomon turdagi xato.
+  // Biriktirmalar TELEFONDA turadi, ya’ni ular o‘sib borishini
+  // odam KO‘RIB turishi kerak. Ko‘rsatmasak, bir kun xotira
+  // to‘lib qolardi va sababi topilmasdi.
+  const [hajm, setHajm] = useState<{ soni: number; bayt: number } | null>(null);
+  const hajmniYangila = () => void jamiHajm().then(setHajm);
+
   const [qulfBor, setQulfBor] = useState(false);
   const [qulfYoq, setQulfYoq] = useState(false);
 
   useEffect(() => {
+    hajmniYangila();
     void qurilmaQulfiBormi().then(setQulfBor);
     void qulfYoqilganmi().then(setQulfYoq);
   }, []);
@@ -153,6 +161,39 @@ export default function Sozlama() {
                 />
               ))}
             </View>
+          </View>
+        </>
+      )}
+
+      {hajm !== null && hajm.soni > 0 && (
+        <>
+          <Sarlavha matn={tr('Dalil fayllari')} />
+          <View style={{ paddingHorizontal: O.chekka }}>
+            <Text style={{ color: C.matn2, fontSize: 14 }}>
+              {trn('{n} ta fayl', hajm.soni)} · {(hajm.bayt / 1048576).toFixed(1)} MB
+            </Text>
+            <Text style={{ color: C.xira, fontSize: 12, marginTop: 6, lineHeight: 17 }}>
+              {tr('Bitim va to‘lovlarga qo‘shilgan rasm va videolar. Ular telefonda saqlanadi — serverga yuborilmaydi va boshqa qurilmada ko‘rinmaydi.')}
+            </Text>
+            <Tugma
+              matn={tr('Dalil fayllarini o‘chirish')}
+              ikkilamchi
+              uslub={{ marginTop: 10 }}
+              bos={() =>
+                Ogoh.alert(
+                  tr('Dalil fayllari'),
+                  tr('Hamma rasm va video o‘chiriladi. Bitimlar va to‘lovlar QOLADI.'),
+                  [
+                    { text: tr('Bekor'), style: 'cancel' },
+                    {
+                      text: tr('O‘chirish'),
+                      style: 'destructive',
+                      onPress: () => void hammasiniOchir().then(hajmniYangila),
+                    },
+                  ],
+                )
+              }
+            />
           </View>
         </>
       )}
