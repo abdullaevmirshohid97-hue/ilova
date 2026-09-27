@@ -28,6 +28,7 @@ import { tr } from '../lib/til';
 import { xatoYoz } from '../lib/xatolar';
 import { Chip, Karta, Tugma } from '../ui/qismlar';
 import { MuddatMaydoni } from '../ui/MuddatMaydoni';
+import { Klaviaturali } from '../ui/Klaviaturali';
 
 const USULLAR: { k: 'naqd' | 'karta' | 'bank' | 'tovar'; m: string }[] = [
   { k: 'naqd', m: 'Naqd' },
@@ -179,7 +180,7 @@ export default function TolovOynasi({
 
   return (
     <Modal visible animationType="slide" onRequestClose={yopish} transparent>
-      <View style={{ flex: 1, backgroundColor: 'rgba(11,18,26,0.5)', justifyContent: 'flex-end' }}>
+      <Klaviaturali uslub={{ backgroundColor: 'rgba(11,18,26,0.5)', justifyContent: 'flex-end' }}>
         <View
           style={{
             backgroundColor: C.fon,
@@ -440,7 +441,7 @@ export default function TolovOynasi({
             </View>
           </ScrollView>
         </View>
-      </View>
+      </Klaviaturali>
     </Modal>
   );
 }

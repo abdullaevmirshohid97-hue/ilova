@@ -32,6 +32,7 @@ import { xatoYoz } from '../lib/xatolar';
 import { Chip, Karta, Tugma } from '../ui/qismlar';
 import { MuddatMaydoni } from '../ui/MuddatMaydoni';
 import { Ogoh } from '../lib/ogoh';
+import { Klaviaturali } from '../ui/Klaviaturali';
 
 const BIRLIKLAR = ['dona', 'kg', 'metr', 'quti', 'litr'];
 
@@ -227,7 +228,7 @@ export default function BitimOynasi({
 
   return (
     <Modal visible animationType="slide" onRequestClose={yopish} transparent>
-      <View style={{ flex: 1, backgroundColor: 'rgba(11,18,26,0.5)', justifyContent: 'flex-end' }}>
+      <Klaviaturali uslub={{ backgroundColor: 'rgba(11,18,26,0.5)', justifyContent: 'flex-end' }}>
         <View
           style={{
             backgroundColor: C.fon,
@@ -516,7 +517,7 @@ export default function BitimOynasi({
             </View>
           </ScrollView>
         </View>
-      </View>
+      </Klaviaturali>
     </Modal>
   );
 }

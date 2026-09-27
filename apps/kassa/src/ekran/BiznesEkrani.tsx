@@ -5,13 +5,17 @@
 //  bo'ladi: (1) endigina ro'yxatdan o'tdi; (2) birinchi urinishda
 //  ilova yopilib qolgan. Ikkalasida ham yo'l bitta — nomni so'raymiz
 //  va `kassa_royxatdan_ot()` tashkilot ochadi.
+//
+//  KLAVIATURA. Maydonda `autoFocus` bor, ya'ni klaviatura ekran
+//  OCHILISHI BILAN chiqadi. Edge-to-edge Android'da esa u
+//  «Boshlash» tugmasini darhol bosib qoladi — odam ro'yxatdan
+//  o'tib, shu ekranda qotib qolardi. `KirishEkrani` dagi bilan
+//  bir xil xato, sababi `lib/klaviatura.ts` da.
 // =============================================================
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -20,6 +24,7 @@ import {
   View,
 } from 'react-native';
 import { biznesOch } from '../lib/baza';
+import { useKlaviaturaBalandligi } from '../lib/klaviatura';
 import { supabase, xatoMatn } from '../lib/supabase';
 import { C, O } from '../lib/tema';
 import { tr } from '../lib/til';
@@ -28,6 +33,14 @@ export default function BiznesEkrani({ tayyor }: { tayyor: () => void }) {
   const [nom, setNom] = useState('');
   const [yuklanmoqda, setYuklanmoqda] = useState(false);
   const [xato, setXato] = useState<string | null>(null);
+  const klaviatura = useKlaviaturaBalandligi();
+  const varaq = useRef<ScrollView | null>(null);
+
+  useEffect(() => {
+    if (klaviatura === 0) return;
+    const t = setTimeout(() => varaq.current?.scrollToEnd({ animated: true }), 80);
+    return () => clearTimeout(t);
+  }, [klaviatura]);
 
   async function och() {
     setXato(null);
@@ -44,8 +57,12 @@ export default function BiznesEkrani({ tayyor }: { tayyor: () => void }) {
   }
 
   return (
-    <KeyboardAvoidingView style={s.tashqi} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <ScrollView contentContainerStyle={s.ichki} keyboardShouldPersistTaps="handled">
+    <View style={s.tashqi}>
+      <ScrollView
+        ref={varaq}
+        contentContainerStyle={[s.ichki, { paddingBottom: O.chekka + klaviatura }]}
+        keyboardShouldPersistTaps="handled"
+      >
         <Text style={s.sarlavha}>{tr('Biznesingiz nomi')}</Text>
         <Text style={s.izoh}>
           Bu nom hisobotlarda va hujjatlarda ko‘rinadi. Keyin o‘zgartirsa bo‘ladi.
@@ -59,6 +76,10 @@ export default function BiznesEkrani({ tayyor }: { tayyor: () => void }) {
             placeholder={tr('Masalan: Anvar do‘koni')}
             placeholderTextColor={C.xira}
             autoFocus
+            // Klaviaturadan ham yuborilsin — tugma ko'rinmasa ham
+            // odam bu ekranda qotib qolmaydi.
+            returnKeyType="go"
+            onSubmitEditing={() => void och()}
           />
           {xato && <Text style={s.xato}>{xato}</Text>}
 
@@ -75,7 +96,7 @@ export default function BiznesEkrani({ tayyor }: { tayyor: () => void }) {
           <Text style={s.chiqish}>{tr('Boshqa hisob bilan kirish')}</Text>
         </TouchableOpacity>
       </ScrollView>
-    </KeyboardAvoidingView>
+    </View>
   );
 }
 

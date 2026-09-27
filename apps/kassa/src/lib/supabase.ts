@@ -57,5 +57,7 @@ export function xatoMatn(e: unknown): string {
   if (/HISOB_BOR/.test(xabar)) return tr('Bu hisobda allaqachon biznes ochilgan.');
   if (/NOM_QISQA/.test(xabar)) return tr('Biznes nomi kamida 2 ta belgi bo‘lsin.');
   if (/KIRISH_YOQ/.test(xabar)) return tr('Avval tizimga kiring.');
+  if (/TASDIQLANGAN_OZGARMAYDI/.test(xabar))
+    return tr('Tasdiqlangan operatsiyaning summasi va sanasi o‘zgarmaydi. Izoh va muddatni o‘zgartirsangiz bo‘ladi.');
   return xabar || tr('Noma’lum xatolik');
 }

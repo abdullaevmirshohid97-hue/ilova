@@ -3,6 +3,26 @@
 > Sana: 2026-09-21. Asos: foydalanuvchining 20–21.09 dagi topshirig'i.
 > Hozirgi holat: `KontaktlarEkrani.tsx` → `KontaktOynasi` (kichik oyna).
 
+> **BAJARILDI — 2026-09-27, v2.14.0.** Oltita bosqich ham yopildi.
+> Ikki joyda reja o‘zgardi va sabab shu yerda qoladi:
+>
+> 1. **Rasm va video serverga EMAS, telefonga saqlanadi.** Reja
+>    4-bosqichda uch jadvalga `rasm_path` qo‘shishni aytgan edi.
+>    Foydalanuvchi to‘xtatdi: har bitimga rasm va 10 soniyalik
+>    video tushsa, saqlash joyi tez to‘ladi va uning puliga
+>    tushadi. Shuning uchun `biriktirma.ts` — faqat qurilma
+>    ichki xotirasi, migratsiya yo‘q. Buning narxi bor:
+>    telefon almashsa biriktirmalar ko‘chmaydi, va ekranda
+>    shu rostgo‘ylik bilan yozilgan.
+>
+> 2. **Tasdiqlangan operatsiyaning puli qotib qoladi.** Reja
+>    5-bosqichda shunchaki «tahrirlash» deb yozilgan edi. Lekin
+>    hamkor Telegram orqali aynan bir summani tasdiqlaydi — keyin
+>    uni o‘zgartirish tasdiqni ma’nosiz qiladi. Cheklov EKRANDA
+>    emas, BAZADA (`20260927000001_kassa_tahrir_cheklovi.sql`),
+>    chunki sinx PostgREST orqali to‘g‘ridan-to‘g‘ri `update`
+>    yuboradi va ekranni chetlab o‘tadi.
+
 ---
 
 ## 0. Bir jumlada

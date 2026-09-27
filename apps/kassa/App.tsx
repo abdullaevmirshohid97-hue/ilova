@@ -65,6 +65,7 @@ import MijozOynasi from './src/ekran/MijozOynasi';
 import BitimlarEkrani from './src/ekran/BitimlarEkrani';
 import ValyutaSozlama from './src/ekran/ValyutaSozlama';
 import YozuvOynasi, { type OynaRejimi } from './src/ekran/YozuvOynasi';
+import { Klaviaturali } from './src/ui/Klaviaturali';
 import BitimOynasi from './src/ekran/BitimOynasi';
 import TolovOynasi from './src/ekran/TolovOynasi';
 import SinxBelgi from './src/ui/SinxBelgi';
@@ -433,7 +434,7 @@ function Qobiq({ qaytaYukla }: { qaytaYukla: () => void }) {
     // yozuvlar ro'yxati o'qib bo'lmas darajada cho'zilib ketardi.
     // Shuning uchun hamma narsa markazdagi 640 px ustunda turadi —
     // telefonda hech narsa o'zgarmaydi.
-    <View style={{ flex: 1, backgroundColor: C.fon, alignItems: 'center' }}>
+    <Klaviaturali uslub={{ backgroundColor: C.fon, alignItems: 'center' }}>
       <View style={{ flex: 1, width: '100%', maxWidth: 640 }}>
       {/* Yuqori qator — HAMMA bo‘limda bir xil. Pastki qator
           olib tashlangani uchun ☰ yo‘qolsa odam ilovada qamalib
@@ -511,6 +512,7 @@ function Qobiq({ qaytaYukla }: { qaytaYukla: () => void }) {
               setTanlov(true);
             }}
             ochTolov={(klientId) => setTolovOyna({ yonalish: 'oldim', klient: klientId })}
+            tahrirYozuv={(y) => setOyna({ rejim: y.turi, tahrir: y })}
           />
         )}
         {bolim === 'yozuvlar' && (
@@ -753,6 +755,6 @@ function Qobiq({ qaytaYukla }: { qaytaYukla: () => void }) {
           saqlandi={yangila}
         />
       )}
-    </View>
+    </Klaviaturali>
   );
 }

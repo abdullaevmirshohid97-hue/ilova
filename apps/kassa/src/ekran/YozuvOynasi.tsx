@@ -34,6 +34,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { O, useTema } from '../lib/tema';
 import { Chip } from '../ui/qismlar';
 import { tr } from '../lib/til';
+import { Klaviaturali } from '../ui/Klaviaturali';
 
 const TUGMALAR = ['7', '8', '9', '÷', '4', '5', '6', '×', '1', '2', '3', '−', '0', '000', '.', '+'];
 
@@ -226,7 +227,7 @@ export default function YozuvOynasi({
 
   return (
     <Modal visible animationType="slide" onRequestClose={yopish} transparent>
-      <View style={{ flex: 1, backgroundColor: 'rgba(11,18,26,0.5)', justifyContent: 'flex-end' }}>
+      <Klaviaturali uslub={{ backgroundColor: 'rgba(11,18,26,0.5)', justifyContent: 'flex-end' }}>
         <View
           style={{
             backgroundColor: C.fon,
@@ -475,7 +476,7 @@ export default function YozuvOynasi({
             </View>
           </ScrollView>
         </View>
-      </View>
+      </Klaviaturali>
     </Modal>
   );
 }

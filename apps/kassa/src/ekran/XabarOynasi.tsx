@@ -25,6 +25,7 @@ import { O, useTema } from '../lib/tema';
 import { tr } from '../lib/til';
 import { Orqaga } from '../ui/ikonka';
 import { Ogoh } from '../lib/ogoh';
+import { Klaviaturali } from '../ui/Klaviaturali';
 
 export default function XabarOynasi({
   klient,
@@ -72,7 +73,7 @@ export default function XabarOynasi({
 
   return (
     <Modal animationType="slide" onRequestClose={yopish}>
-      <View style={{ flex: 1, backgroundColor: C.fon }}>
+      <Klaviaturali uslub={{ backgroundColor: C.fon }}>
         <View
           style={{
             backgroundColor: C.tun,
@@ -215,7 +216,7 @@ export default function XabarOynasi({
             </Text>
           )}
         </View>
-      </View>
+      </Klaviaturali>
     </Modal>
   );
 }

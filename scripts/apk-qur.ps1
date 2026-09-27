@@ -209,8 +209,34 @@ if ($imzo -match "debug") {
   Write-Host "  haqiqiy kalit bilan imzolangan" -ForegroundColor Green
 }
 
-# --- 7. Chiqishga ko'chirish ---
-$versiya = (Get-Content (Join-Path $KASSA "app.json") -Raw | ConvertFrom-Json).expo.version
+# --- 7. VERSIYANI TEKSHIRISH ---
+#
+# 2026-09-27 da shu jimgina aldadi: `expo prebuild` mavjud
+# `android/` ni qayta yozmaydi, shuning uchun `app.json` da
+# versiyani ko'tarsak ham `build.gradle` da eskisi qolib ketardi.
+# APK nomi app.json dan olinib `clary-2.14.0.apk` bo'lardi, ichida
+# esa 2.12.0 turardi va `versionCode` o'smaganidan telefonga
+# O'RNATILMASDI (INSTALL_FAILED_VERSION_DOWNGRADE).
+#
+# `android-imzo.mjs` buni tuzatadi, lekin tekshiruv shu yerda
+# turadi: tuzatma ishlamay qolsa, APK ni "tayyor" deb aytmasin.
+Bosqich "versiya tekshiruvi"
+$app = Get-Content (Join-Path $KASSA "app.json") -Raw | ConvertFrom-Json
+$versiya = $app.expo.version
+$kod = $app.expo.android.versionCode
+$aapt = Get-ChildItem "$SDK\build-tools\*\aapt2.exe" | Select-Object -Last 1
+$manifest = cmd /c "`"$($aapt.FullName)`" dump badging `"$apk`" 2>&1" | Out-String
+$vNom = if ($manifest -match "versionName='([^']+)'") { $Matches[1] } else { "?" }
+$vKod = if ($manifest -match "versionCode='([^']+)'") { $Matches[1] } else { "?" }
+if ($vNom -eq $versiya -and $vKod -eq [string]$kod) {
+  Write-Host "  APK ichida $vNom / $vKod  — app.json bilan mos" -ForegroundColor Green
+} else {
+  Write-Host "  XATO: app.json $versiya / $kod, APK ichida $vNom / $vKod" -ForegroundColor Red
+  Write-Host "  Sabab: build.gradle eski qolgan. `node scripts/android-imzo.mjs` ni yuritib qayta quring." -ForegroundColor Red
+  exit 1
+}
+
+# --- 8. Chiqishga ko'chirish ---
 $chiqish = Join-Path $ILDIZ "chiqish"
 New-Item -ItemType Directory -Force -Path $chiqish | Out-Null
 $nishon = Join-Path $chiqish "clary-$versiya.apk"

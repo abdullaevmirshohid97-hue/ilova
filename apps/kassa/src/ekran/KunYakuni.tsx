@@ -29,6 +29,7 @@ import { O, useTema } from '../lib/tema';
 import { tr, trn } from '../lib/til';
 import { xatoYoz } from '../lib/xatolar';
 import { Chip, Karta, Tugma } from '../ui/qismlar';
+import { Klaviaturali } from '../ui/Klaviaturali';
 
 export default function KunYakuni({
   yopish,
@@ -101,7 +102,7 @@ export default function KunYakuni({
 
   return (
     <Modal visible animationType="slide" onRequestClose={yopish} transparent>
-      <View style={{ flex: 1, backgroundColor: 'rgba(11,18,26,0.5)', justifyContent: 'flex-end' }}>
+      <Klaviaturali uslub={{ backgroundColor: 'rgba(11,18,26,0.5)', justifyContent: 'flex-end' }}>
         <View
           style={{
             backgroundColor: C.fon,
@@ -258,7 +259,7 @@ export default function KunYakuni({
             </View>
           </ScrollView>
         </View>
-      </View>
+      </Klaviaturali>
     </Modal>
   );
 }

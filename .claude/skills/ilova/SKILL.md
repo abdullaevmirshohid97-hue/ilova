@@ -552,6 +552,62 @@ tushib qoladi va faktura kam chiqadi (`order_usd_total` shunday edi).
 `text-gray-400` oq fonda 2.54:1 — WCAG talabi 4.5. `tests/dizayn.mjs`
 kontrastni **hisoblaydi**.
 
+### Edge-to-edge Android'da klaviatura oynani QAYTA O'LCHAMAYDI
+
+`apps/kassa` da eng qimmat turgan xato (2026-09-27). Foydalanuvchi:
+«APK da login-parol tergandan keyin KIRISH tugmasi yo'q». Webda bor.
+Ya'ni ilovaga umuman kirib bo'lmagan.
+
+Tugma o'z joyida edi. Sabab — `app.json` dagi
+`edgeToEdgeEnabled: true` (Expo SDK 54; Android 15 buni talab
+qiladi). Edge-to-edge da klaviatura chiqqanda Android oynani qayta
+o'lchamaydi: manifestdagi `adjustResize` ish ko'rmaydi va
+klaviatura ekran **ustiga** tushadi.
+
+Shu sababdan quyidagi shakl **xato**, garchi hamma joyda shunday
+yozilsa ham:
+
+```tsx
+// ISHLAMAYDI: Android'da `undefined` = "tizim o'zi hal qiladi",
+// edge-to-edge da esa tizim hech narsa qilmaydi
+<KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+```
+
+Yechim: balandlikni hodisadan olib, bo'shliqni **qo'lda** qo'yish —
+`src/lib/klaviatura.ts` (`useKlaviaturaBalandligi`) va uni o'raydigan
+`src/ui/Klaviaturali.tsx`. iOS da `keyboardWillShow`, Android'da
+`keyboardDidShow`: Android'da `Will` hodisalari **yo'q**, ularga
+yozilsa xato jimgina qaytadi.
+
+Uch narsani unutmang:
+
+1. **`Modal` — Android'da ALOHIDA oyna.** App ildizidagi bo'shliq
+   unga tushmaydi, har oyna o'zi hal qiladi. `tests/kassa-klaviatura.mjs`
+   ichida `<Modal>` va `<TextInput>` bor har faylni sanaydi.
+2. **Kirish yo'lida bitta himoya kam.** `KirishEkrani` va
+   `BiznesEkrani` yopilsa odam ilovaga umuman kira olmaydi, shuning
+   uchun uchtasi bor: bo'shliq, avtomatik aylantirish
+   (`scrollToEnd`) va `onSubmitEditing` (klaviaturadagi Enter).
+3. **Ko'z bilan tekshirib bo'lmaydi.** Xato faqat haqiqiy
+   telefonda, klaviatura chiqqanda ko'rinadi — shuning uchun qoida
+   fayldan tekshiriladi.
+
+### `expo prebuild` versiyani KO'CHIRMAYDI
+
+`app.json` da `version` va `versionCode` ko'tarilsa, `prebuild`
+mavjud `android/app/build.gradle` ni **qayta yozmaydi** (`--clean`
+bo'lmasa). APK nomi `app.json` dan olinadi — `clary-2.14.0.apk`
+bo'ladi, ichida esa 2.12.0 turadi.
+
+Zarari: `versionCode` o'smaydi va yangi APK mavjudining ustiga
+**o'rnatilmaydi** (`INSTALL_FAILED_VERSION_DOWNGRADE`). Odam «ilova
+buzuq» deydi, ayb esa qurish skriptida.
+
+`scripts/android-imzo.mjs` versiyani ko'chiradi, `scripts/apk-qur.ps1`
+esa `aapt2 dump badging` bilan APK ichidagi raqamni `app.json` bilan
+solishtiradi va mos kelmasa **to'xtaydi**. APK «tayyor» deyilishidan
+oldin shu tekshiruv o'tishi kerak.
+
 ---
 
 ## 6. Sinov usullari

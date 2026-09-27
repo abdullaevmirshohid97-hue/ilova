@@ -659,6 +659,18 @@ const RU: Record<string, string> = {
   'Yozuvlaringiz joyida — ular telefonda saqlangan va yo‘qolmaydi. Nosozlik haqida bizga xabar ketdi.':
     'Ваши записи на месте — они сохранены в телефоне и не потеряются. Сообщение о сбое отправлено нам.',
   'TEXNIK MA’LUMOT': 'ТЕХНИЧЕСКИЕ ДАННЫЕ',
+
+  // ---------- Operatsiyani tahrirlash ----------
+  'Sana va vaqt': 'Дата и время',
+  'Hozir:': 'Сейчас:',
+  'O‘zgarish yo‘q': 'Изменений нет',
+  'Summani to‘g‘ri kiriting.': 'Введите сумму правильно.',
+  'Sana yoki vaqt noto‘g‘ri. Namuna: 2026-10-05 va 14:30':
+    'Дата или время неверны. Пример: 2026-10-05 и 14:30',
+  'Bu operatsiya tasdiqlangan. Summa va sana o‘zgarmaydi — faqat izoh va muddat.':
+    'Эта операция подтверждена. Сумма и дата не меняются — только примечание и срок.',
+  'Tasdiqlangan operatsiyaning summasi va sanasi o‘zgarmaydi. Izoh va muddatni o‘zgartirsangiz bo‘ladi.':
+    'У подтверждённой операции сумма и дата не меняются. Примечание и срок изменить можно.',
 };
 
 // Oy va hafta nomlari — `Intl` ishlatilmaydi (Telegram WebView'da

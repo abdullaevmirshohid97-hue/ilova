@@ -17,6 +17,7 @@ import { O, useTema } from '../lib/tema';
 import { BoshHolat, Chip, Qator, Tugma } from '../ui/qismlar';
 import { tr } from '../lib/til';
 import { Ogoh } from '../lib/ogoh';
+import { Klaviaturali } from '../ui/Klaviaturali';
 
 export default function Hisoblar({ kochirma }: { kochirma: () => void }) {
   const { C } = useTema();
@@ -127,7 +128,7 @@ function HisobOynasi({
 
   return (
     <Modal visible animationType="slide" onRequestClose={yopish} transparent>
-      <View style={{ flex: 1, backgroundColor: 'rgba(11,18,26,0.5)', justifyContent: 'flex-end' }}>
+      <Klaviaturali uslub={{ backgroundColor: 'rgba(11,18,26,0.5)', justifyContent: 'flex-end' }}>
         <View
           style={{
             backgroundColor: C.karta,
@@ -195,7 +196,7 @@ function HisobOynasi({
             </TouchableOpacity>
           )}
         </View>
-      </View>
+      </Klaviaturali>
     </Modal>
   );
 }

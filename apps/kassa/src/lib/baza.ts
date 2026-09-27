@@ -746,6 +746,60 @@ export async function tolovQosh(t: YangiTolov): Promise<string> {
   return id;
 }
 
+
+/**
+ * Bitimni tahrirlash.
+ *
+ * NIMA MUMKIN, NIMA YO'Q — bazadagi trigger belgilaydi
+ * (`20260927000001_kassa_tahrir_cheklovi.sql`):
+ *
+ *   holat = 'kutilmoqda'  -> hammasi
+ *   boshqa holatlarda     -> faqat `izoh` va `muddat`
+ *
+ * Cheklov ekranda EMAS, bazada. Sabab: sinx PostgREST orqali
+ * to'g'ridan-to'g'ri `update` yuboradi va ekranni chetlab o'tish
+ * mumkin. Ekran faqat tugmani o'chirib qo'yadi — bu qulaylik,
+ * himoya emas.
+ *
+ * Tasdiqlangan bitimning pulini o'zgartirishga urinilsa, server
+ * `TASDIQLANGAN_OZGARMAYDI` beradi va `xatoMatn` uni tushunarli
+ * matnga aylantiradi.
+ */
+export async function bitimTahrirla(
+  id: string,
+  p: Partial<Pick<YangiBitim, 'summa' | 'sana' | 'izoh' | 'muddat' | 'tovar_nom' | 'miqdor' | 'narx'>>,
+): Promise<void> {
+  const patch: Record<string, unknown> = {};
+  if (p.summa !== undefined) patch.summa = bazaga(p.summa);
+  if (p.sana !== undefined) patch.sana = p.sana;
+  if (p.izoh !== undefined) patch.izoh = p.izoh?.trim() || null;
+  if (p.muddat !== undefined) patch.muddat = p.muddat;
+  if (p.tovar_nom !== undefined) patch.tovar_nom = p.tovar_nom?.trim() || null;
+  if (p.miqdor !== undefined) patch.miqdor = p.miqdor;
+  if (p.narx !== undefined) patch.narx = p.narx === null ? null : bazaga(p.narx);
+
+  // Bo'sh patch YUBORILMAYDI: `versiya` bekorga o'sardi va sinx
+  // bo'sh ish qilardi (rejaning 5.4 bandi).
+  if (Object.keys(patch).length === 0) return;
+  await mahalliyTahrir('bitimlar', id, patch);
+}
+
+/** To'lovni tahrirlash — cheklov bitim bilan bir xil. */
+export async function tolovTahrirla(
+  id: string,
+  p: Partial<Pick<YangiTolov, 'summa' | 'sana' | 'izoh' | 'muddat' | 'usuli'>>,
+): Promise<void> {
+  const patch: Record<string, unknown> = {};
+  if (p.summa !== undefined) patch.summa = bazaga(p.summa);
+  if (p.sana !== undefined) patch.sana = p.sana;
+  if (p.izoh !== undefined) patch.izoh = p.izoh?.trim() || null;
+  if (p.muddat !== undefined) patch.muddat = p.muddat;
+  if (p.usuli !== undefined) patch.usuli = p.usuli;
+
+  if (Object.keys(patch).length === 0) return;
+  await mahalliyTahrir('tolovlar', id, patch);
+}
+
 /** Bitim bekor qilinadi — o‘chirilmaydi, tarix qoladi */
 export async function bitimBekorQil(id: string, sabab: string): Promise<void> {
   await mahalliyTahrir('bitimlar', id, { holat: 'bekor', bekor_sabab: sabab });

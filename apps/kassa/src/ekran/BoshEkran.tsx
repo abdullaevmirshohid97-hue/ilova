@@ -30,9 +30,10 @@ import {
   formatla,
   hamkorQoldiq,
   muddatiOtgan,
+  operatsiyaNomi,
   type HamkorQator,
 } from '@ilova/kassa-yadro';
-import type { Klient } from '@ilova/kassa-yadro';
+import type { Klient, Yozuv } from '@ilova/kassa-yadro';
 import { boshHarflar } from '../lib/rasm';
 import { useHolat } from '../lib/holat';
 import { O, useTema } from '../lib/tema';
@@ -40,6 +41,7 @@ import { tr } from '../lib/til';
 import { BoshHolat } from '../ui/qismlar';
 import { MijozRasmi } from '../ui/MijozRasmi';
 import MijozKartochka from './MijozKartochka';
+import OperatsiyaOynasi from './OperatsiyaOynasi';
 import { bitimHujjati, tasdiqYubor } from '../lib/bitim-amallar';
 import XabarOynasi from './XabarOynasi';
 import { xabarMatni } from '../lib/xabar';
@@ -61,6 +63,7 @@ export default function BoshEkran({
   ochBitimlar,
   ochOperatsiya,
   ochTolov,
+  tahrirYozuv,
 }: {
   /** Yuqoridagi lupa shu matnni to'ldiradi */
   qidiruv: string;
@@ -68,6 +71,8 @@ export default function BoshEkran({
   ochBitimlar: () => void;
   ochOperatsiya: (klientId: string) => void;
   ochTolov: (klientId: string) => void;
+  /** Daftar yozuvini tahrirlash — App dagi `YozuvOynasi` ga */
+  tahrirYozuv: (y: Yozuv) => void;
 }) {
   const { C } = useTema();
   const { men, klientlar, yozuvlar, bitimlar, tolovlar, valyutalar, yangila, yuklanmoqda } =
@@ -133,15 +138,37 @@ export default function BoshEkran({
    * bo‘lmasligi eng yomon variant edi: odam ikki-uch marta
    * bosib, ilova qotib qoldi deb o‘ylardi.
    */
+  const [tahrirQator, setTahrirQator] = useState<HamkorQator | null>(null);
+
   function amallarKorsat(q: HamkorQator) {
-    if (q.tur !== 'bitim' || !tanlangan) return;
-    const b = q.bitim;
+    if (!tanlangan) return;
+
+    // Daftar yozuvi O‘Z oynasida ochiladi: u hisob, turkum va
+    // o‘tkazmani ham biladi, boshqa amali esa yo‘q. Menyu
+    // ko‘rsatish bir bosishni bekorga qo‘shardi.
+    if (q.tur === 'yozuv') {
+      tahrirYozuv(q.yozuv);
+      return;
+    }
+
+    // TO‘LOV uchun ham menyu ochiladi. Ilgari faqat bitim
+    // ishlardi va to'lov qatorini bosgan odam hech narsa
+    // ko‘rmasdi — tugma buzuq deb o‘ylardi.
     const tugmalar: { text: string; onPress?: () => void; style?: 'cancel' }[] = [
-      {
-        text: tr('Hujjat (PDF)'),
-        onPress: () => bitimHujjati(b, tolovlar, tanlangan, men.biznes),
-      },
+      { text: tr('Tahrirlash'), onPress: () => setTahrirQator(q) },
     ];
+
+    if (q.tur === 'tolov') {
+      tugmalar.push({ text: tr('Bekor'), style: 'cancel' });
+      Ogoh.alert(tr(operatsiyaNomi(q)), formatla(q.tolov.summa, q.tolov.valyuta), tugmalar);
+      return;
+    }
+
+    const b = q.bitim;
+    tugmalar.push({
+      text: tr('Hujjat (PDF)'),
+      onPress: () => bitimHujjati(b, tolovlar, tanlangan, men.biznes),
+    });
     if (b.holat === 'kutilmoqda') {
       tugmalar.push({
         text: tr('Tasdiqlash havolasi'),
@@ -149,7 +176,7 @@ export default function BoshEkran({
       });
     }
     tugmalar.push({ text: tr('Bekor'), style: 'cancel' });
-    Ogoh.alert(b.tovar_nom || tr('Bitim'), formatla(b.summa, b.valyuta), tugmalar);
+    Ogoh.alert(b.tovar_nom || tr(operatsiyaNomi(q)), formatla(b.summa, b.valyuta), tugmalar);
   }
 
   const jami = useMemo(() => {
@@ -302,6 +329,14 @@ export default function BoshEkran({
           ishorali
         />
       </View>
+
+      {/* Oyna O‘Z ko‘rinishini "qator" propi bilan boshqaradi —
+          shuning uchun "tanlangan" shartidan TASHQARIDA turadi. */}
+      <OperatsiyaOynasi
+        qator={tahrirQator}
+        yop={() => setTahrirQator(null)}
+        saqlandi={() => void yangila()}
+      />
 
       {tanlangan && (
         <MijozKartochka

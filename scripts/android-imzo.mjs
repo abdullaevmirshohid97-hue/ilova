@@ -23,6 +23,11 @@
 //  `apps/kassa/credentials.json` dan (gitignore'dagi `kodchi/`
 //  kalitiga ishora qiladi) bir marta ko'chiradi.
 //
+//  Skript TO‘RTTA tuzatma qiladi: imzo kaliti, arxitekturalar,
+//  Metro ildizi va VERSIYA (app.json -> build.gradle). Oxirgisi
+//  shart, chunki prebuild mavjud build.gradle ni qayta yozmaydi
+//  va versiya jimgina eski qolib ketadi.
+//
 //  Ishga tushirish:  node scripts/android-imzo.mjs
 // =============================================================
 
@@ -191,4 +196,39 @@ if (g.includes('clarySigning')) {
 
   writeFileSync(GRADLE, g);
   ayt('build.gradle: release endi clarySigning bilan imzolanadi');
+}
+
+// ---------- 4. VERSIYA: app.json -> build.gradle ----------
+//
+// Bu eng jim aldagan joy. `expo prebuild` mavjud `android/` ni
+// QAYTA YOZMAYDI (`--clean` bo'lmasa), shuning uchun
+// `app.json` da versiyani ko'tarsak ham `build.gradle` da eski
+// raqam qolib ketadi. APK nomi app.json dan olinadi va
+// `clary-2.14.0.apk` bo'ladi, ICHIDA esa 2.12.0 turadi.
+//
+// Zarari shu: `versionCode` o'smaydi, va telefonda yangi APK
+// mavjudining ustiga O'RNATILMAYDI —
+// INSTALL_FAILED_VERSION_DOWNGRADE. Odam "ilova buzuq" deb
+// o'ylaydi, ayb esa qurish skriptida.
+//
+// 2026-09-27 da shu aniqlandi: build.gradle 2.12.0/29 da qotib
+// qolgan edi, app.json esa 2.14.0/31 da.
+{
+  const app = JSON.parse(readFileSync(join(KASSA, 'app.json'), 'utf8'));
+  const nom = app.expo?.version;
+  const kod = app.expo?.android?.versionCode;
+  if (!nom || !kod) throw new Error('app.json da version yoki versionCode yo‘q');
+
+  let g1 = readFileSync(GRADLE, 'utf8');
+  const kodM = g1.match(/versionCode (\d+)/);
+  const nomM = g1.match(/versionName "([^"]+)"/);
+  if (!kodM || !nomM) throw new Error('build.gradle da versiya qatorlari topilmadi');
+
+  if (kodM[1] === String(kod) && nomM[1] === nom) {
+    ayt(`versiya: allaqachon ${nom} / ${kod}`);
+  } else {
+    g1 = g1.replace(kodM[0], 'versionCode ' + kod).replace(nomM[0], `versionName "${nom}"`);
+    writeFileSync(GRADLE, g1);
+    ayt(`versiya: ${nomM[1]} / ${kodM[1]}  ->  ${nom} / ${kod}`);
+  }
 }

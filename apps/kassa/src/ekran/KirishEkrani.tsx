@@ -25,13 +25,25 @@
 //    · sessiya yo'q   → pochtani tasdiqlash kerak, shuni aytamiz
 //  Ikkinchi holat jimgina qoldirilsa, odam "tugma ishlamadi" deb
 //  o'ylab ilovani o'chirib tashlardi.
+//
+//  KLAVIATURA — 2026-09-27 dagi eng og'ir xato. Foydalanuvchi:
+//  «APK da login-parol tergandan keyin kirish tugmasi yo'q».
+//  Tugma o'z joyida edi, uni KLAVIATURA bosib qolgan: ilovada
+//  `edgeToEdgeEnabled: true` va edge-to-edge Android'da oyna
+//  qayta o'lchanmaydi, `KeyboardAvoidingView` ning Android yo'li
+//  esa aynan shunga tayanardi. Sababi `lib/klaviatura.ts` da.
+//
+//  Endi UCH himoya bor, chunki bu ekran YOPILSA odam ilovaga
+//  umuman kira olmaydi:
+//    1. pastdan klaviatura balandligicha bo'shliq
+//    2. klaviatura chiqqanda tugmaga o'zi aylantiradi
+//    3. parol maydonida Enter ham yuboradi
+//  Bittasi ishlamay qolsa qolgani ushlab qoladi.
 // =============================================================
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -39,6 +51,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { useKlaviaturaBalandligi } from '../lib/klaviatura';
 import { supabase, xatoMatn } from '../lib/supabase';
 import { O, useTema, type Ranglar } from '../lib/tema';
 import { tr } from '../lib/til';
@@ -46,6 +59,18 @@ import { tr } from '../lib/til';
 export default function KirishEkrani() {
   const { C } = useTema();
   const s = useMemo(() => uslublar(C), [C]);
+  const klaviatura = useKlaviaturaBalandligi();
+  const varaq = useRef<ScrollView | null>(null);
+  const parolMaydoni = useRef<TextInput | null>(null);
+
+  // Klaviatura chiqqanda tugmaga O'ZI aylantiradi. Bo'shliqning
+  // o'zi kamlik qiladi: odam aylantirish kerakligini bilmaydi va
+  // «tugma yo'q» deb o'ylaydi — aynan shunday bo'lgan.
+  useEffect(() => {
+    if (klaviatura === 0) return;
+    const t = setTimeout(() => varaq.current?.scrollToEnd({ animated: true }), 80);
+    return () => clearTimeout(t);
+  }, [klaviatura]);
 
   // Yangi odam uchun standart — RO'YXATDAN O'TISH.
   const [royxat, setRoyxat] = useState(true);
@@ -99,8 +124,12 @@ export default function KirishEkrani() {
   }
 
   return (
-    <KeyboardAvoidingView style={s.tashqi} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <ScrollView contentContainerStyle={s.ichki} keyboardShouldPersistTaps="handled">
+    <View style={s.tashqi}>
+      <ScrollView
+        ref={varaq}
+        contentContainerStyle={[s.ichki, { paddingBottom: O.chekka + klaviatura }]}
+        keyboardShouldPersistTaps="handled"
+      >
         <View style={s.belgi}>
           <Text style={s.belgiYuqori}>↑</Text>
           <Text style={s.belgiPast}>↓</Text>
@@ -145,6 +174,11 @@ export default function KirishEkrani() {
             // yozishga majbur bo‘ladi.
             autoComplete="email"
             textContentType="emailAddress"
+            // «Keyingi» TO'G'RIDAN parolga o'tadi. Ro'yxatda
+            // o'rtada «Ism» bor, lekin u ixtiyoriy — shuning
+            // uchun uni chetlab o'tish to'g'ri yo'l.
+            returnKeyType="next"
+            onSubmitEditing={() => parolMaydoni.current?.focus()}
             placeholder={tr('ism@pochta.com')}
             placeholderTextColor={C.xira}
           />
@@ -166,6 +200,7 @@ export default function KirishEkrani() {
 
           <Text style={s.yorliq}>{tr('Parol')}</Text>
           <TextInput
+            ref={parolMaydoni}
             style={s.maydon}
             value={parol}
             onChangeText={setParol}
@@ -174,6 +209,11 @@ export default function KirishEkrani() {
             // parol saqlagichi shu belgiga qarab to'g'ri taklif beradi.
             autoComplete={royxat ? 'password-new' : 'password'}
             textContentType={royxat ? 'newPassword' : 'password'}
+            // Klaviaturaning o'zidan yuborish — uchinchi himoya.
+            // Tugma qandaydir sababdan ko'rinmasa ham odam
+            // ilovaga kira oladi.
+            returnKeyType="go"
+            onSubmitEditing={() => void yubor()}
             placeholder={tr('kamida 6 ta belgi')}
             placeholderTextColor={C.xira}
           />
@@ -198,7 +238,7 @@ export default function KirishEkrani() {
 
         <Text style={s.tag}>{tr('Yukchibolla platformasi · yukchibolla.com')}</Text>
       </ScrollView>
-    </KeyboardAvoidingView>
+    </View>
   );
 }
 

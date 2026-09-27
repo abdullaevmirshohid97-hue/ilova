@@ -37,6 +37,7 @@ import { uuid } from '../lib/sinx';
 import { Kitob, Orqaga } from '../ui/ikonka';
 import { Tugma } from '../ui/qismlar';
 import { Ogoh } from '../lib/ogoh';
+import { Klaviaturali } from '../ui/Klaviaturali';
 
 export default function MijozOynasi({
   tahrir,
@@ -231,7 +232,7 @@ export default function MijozOynasi({
 
   return (
     <Modal animationType="slide" onRequestClose={yopish}>
-      <View style={{ flex: 1, backgroundColor: C.fon }}>
+      <Klaviaturali uslub={{ backgroundColor: C.fon }}>
         <View
           style={{
             backgroundColor: C.tun,
@@ -430,7 +431,7 @@ export default function MijozOynasi({
             uslub={{ marginTop: 20 }}
           />
         </ScrollView>
-      </View>
+      </Klaviaturali>
     </Modal>
   );
 }

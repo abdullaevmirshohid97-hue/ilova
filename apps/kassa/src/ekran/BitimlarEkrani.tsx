@@ -26,6 +26,7 @@ import { boshHarflar } from '../lib/rasm';
 import { useHolat } from '../lib/holat';
 import { O, useTema } from '../lib/tema';
 import { tr } from '../lib/til';
+import { Klaviaturali } from '../ui/Klaviaturali';
 import { sanaVaqtToliq } from '../lib/davr';
 import { Lupa, Orqaga } from '../ui/ikonka';
 import { MijozRasmi } from '../ui/MijozRasmi';
@@ -98,7 +99,7 @@ export default function BitimlarEkrani({ yopish }: { yopish: () => void }) {
 
   return (
     <Modal animationType="slide" onRequestClose={yopish}>
-      <View style={{ flex: 1, backgroundColor: C.fon }}>
+      <Klaviaturali uslub={{ backgroundColor: C.fon }}>
         <View
           style={{
             backgroundColor: C.tun,
@@ -195,7 +196,7 @@ export default function BitimlarEkrani({ yopish }: { yopish: () => void }) {
             valyuta={valyuta}
           />
         </View>
-      </View>
+      </Klaviaturali>
     </Modal>
   );
 }

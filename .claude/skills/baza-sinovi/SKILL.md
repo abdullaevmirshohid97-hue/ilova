@@ -139,6 +139,32 @@ avval sinab ko'radi va faqat ishlagandagina yozadi.
 Tokensiz ishlash kerak bo'lsa — `--sql` bilan fayl yaratib, odamdan uni
 SQL Editor'da yuritishni so'rang va natijani qaytarishini kuting.
 
+## Jonli triggerni mutatsiya qilish — MUTATSIYANI QAYTARISH
+
+Trigger yoki funksiyani mutatsiya bilan sinash foydali: u cheklov
+rostdan ishlayotganini isbotlaydi. Lekin bitta operatsion tuzoq bor.
+
+`migratsiya-qollash.ps1` allaqachon qo'llangan versiyani **o'tkazib
+yuboradi** — «bu versiya bor» deb chiqib ketadi. Ya'ni buzilgan
+funksiyani o'sha skript bilan **qaytarib bo'lmaydi** va mutatsiya
+JONLI BAZADA qolib ketadi.
+
+Qaytarish uchun migratsiya faylini Management API ga to'g'ridan-to'g'ri
+yuborish kerak — migratsiya `create or replace` bo'lgani uchun u
+funksiyani ustiga yozadi.
+
+Tartib qat'iy:
+
+1. mutatsiya qo'yiladi
+2. sinov yuritiladi va aynan kutilgan tekshiruv yiqilishi ko'riladi
+3. **darhol** tiklanadi
+4. sinov qayta yuritilib yashil ekani tasdiqlanadi
+
+To'rtinchi qadam tushib qolmasin. Buzilgan trigger darhol xato
+bermaydi — u faqat cheklov kerak bo'lgan paytda, ya'ni bir necha
+kundan keyin bilinadi, va o'shanda sababini topish qiyin.
+
+
 ## Yozib bo'lgach
 
 - `CLAUDE.md` dagi sinovlar ro'yxatiga nomni qo'shing

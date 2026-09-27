@@ -33,6 +33,7 @@ import { O, useTema } from '../lib/tema';
 import { tr, trn } from '../lib/til';
 import { Chiqindi, Dokon, Lupa, Orqaga, Ruchka } from '../ui/ikonka';
 import { BoshHolat, Tugma } from '../ui/qismlar';
+import { Klaviaturali } from '../ui/Klaviaturali';
 import { Ogoh } from '../lib/ogoh';
 
 export default function BiznesRoyxati({
@@ -407,9 +408,8 @@ function NomOynasi({
   const { C } = useTema();
   return (
     <Modal transparent animationType="fade" onRequestClose={yop}>
-      <View
-        style={{
-          flex: 1,
+      <Klaviaturali
+        uslub={{
           backgroundColor: 'rgba(0,0,0,0.4)',
           justifyContent: 'center',
           paddingHorizontal: 24,
@@ -448,7 +448,7 @@ function NomOynasi({
             />
           </View>
         </View>
-      </View>
+      </Klaviaturali>
     </Modal>
   );
 }

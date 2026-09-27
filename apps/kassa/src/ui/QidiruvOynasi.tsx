@@ -19,6 +19,7 @@ import { O, useTema } from '../lib/tema';
 import { tr } from '../lib/til';
 import { BOSH_QIDIRUV, type MiqdorTuri, type Qidiruv } from '../lib/qidiruv';
 import { MuddatMaydoni } from './MuddatMaydoni';
+import { useKlaviaturaBalandligi } from '../lib/klaviatura';
 
 const MIQDOR_TURLARI: { k: MiqdorTuri; m: string }[] = [
   { k: 'yoq', m: 'Hammasi' },
@@ -39,6 +40,7 @@ export function QidiruvOynasi({
   yop: () => void;
 }) {
   const { C } = useTema();
+  const klaviatura = useKlaviaturaBalandligi();
 
   const maydon = {
     borderWidth: 1,
@@ -60,6 +62,10 @@ export function QidiruvOynasi({
           borderTopLeftRadius: O.radius,
           borderTopRightRadius: O.radius,
           maxHeight: '80%',
+          // Varaq klaviaturaning USTIGA ko‘tariladi. Edge-to-edge
+          // Android'da oyna qayta o‘lchanmaydi, ya‘ni klaviatura
+          // varaqni bosib qolardi — `lib/klaviatura.ts` dagi izoh.
+          paddingBottom: klaviatura,
         }}
       >
         <ScrollView contentContainerStyle={{ padding: O.chekka }} keyboardShouldPersistTaps="handled">
