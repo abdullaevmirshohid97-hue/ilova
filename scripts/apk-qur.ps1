@@ -84,7 +84,57 @@ Pop-Location
 
 "sdk.dir=" + $SDK.Replace('\', '\\') | Out-File (Join-Path $ANDROID "local.properties") -Encoding ascii
 
-# --- 3. Qurish ---
+# --- 3. EXPO_PUBLIC ni MUHITGA qo‘yish ---
+#
+# BU QADAM JIMGINA BUZUQ APK NI TO‘XTATADI.
+#
+# Metro uchun Gradle `root` i monorepo ildiziga qo‘yilgan
+# (android-imzo.mjs, 3-bo‘lim). Natijada bundler ILDIZDAN
+# yuritiladi va Expo `D:\ilova\.env` ni o‘qiydi —
+# `apps\kassa\.env` esa umuman yuklanmaydi.
+#
+# Oqibati: `process.env.EXPO_PUBLIC_SUPABASE_URL` bundle‘da
+# ALMASHTIRILMAGAN qoladi, `supabase.ts` esa import paytida
+# `throw` qiladi — ilova ochilishida yiqiladi. Qurish esa
+# YASHIL bo‘ladi. Aynan shunday to‘rtta APK chiqarilgan edi.
+#
+# Yechim: qiymatlarni HAQIQIY muhit o‘zgaruvchisi qilamiz.
+# Babel `process.env.EXPO_PUBLIC_*` ni muhitdan ham inline
+# qiladi, ya’ni ish papkasi ahamiyatsiz bo‘lib qoladi.
+$envFayl = Join-Path $KASSA ".env"
+if (-not (Test-Path $envFayl)) {
+  Write-Host "apps\kassa\.env yo‘q — ilova bazaga ulanmaydi" -ForegroundColor Red; exit 1
+}
+$kutilgan = @()
+foreach ($q in Get-Content $envFayl) {
+  if ($q -match '^\s*(EXPO_PUBLIC_[A-Z0-9_]+)\s*=\s*(.*)$') {
+    $nom = $Matches[1]; $qiymat = $Matches[2].Trim().Trim('"')
+    if ($qiymat) {
+      [Environment]::SetEnvironmentVariable($nom, $qiymat, "Process")
+      $kutilgan += $nom
+    }
+  }
+}
+Bosqich ("muhitga qo‘yildi: " + ($kutilgan -join ", "))
+
+# --- 4. JS to‘plamini MAJBURAN qayta yig‘ish ---
+#
+# Gradle `.env` ni kirish sifatida KUZATMAYDI. Shuning uchun
+# `EXPO_PUBLIC_*` o‘zgarsa ham to‘plam vazifasi UP-TO-DATE
+# bo‘lib o‘tib ketadi va eski qiymat APK da qoladi.
+#
+# Aynan shunday bo‘ldi: bot nomi .env ga yozildi, APK qayta
+# qurildi, lekin bundle ichida bot nomi YO‘Q edi — Gradle uni
+# keshdan olgandi. Xato jimgina: qurish yashil, natija eski.
+#
+# Yig‘ish ~8 soniya, shuning uchun har safar qilinadi.
+$toplam = Join-Path $ANDROID "app\build\generated\assets\createBundleReleaseJsAndAssets"
+if (Test-Path $toplam) {
+  Remove-Item $toplam -Recurse -Force
+  Bosqich "eski JS toplami ochirildi (.env ozgarishi uchun)"
+}
+
+# --- 5. Qurish ---
 Bosqich "gradle assembleRelease"
 $sw = [Diagnostics.Stopwatch]::StartNew()
 Push-Location $ANDROID
@@ -99,7 +149,40 @@ if (-not (Test-Path $apk)) {
   Write-Host "`nAPK chiqmadi (gradle kodi $kod)" -ForegroundColor Red; exit 1
 }
 
-# --- 4. Imzoni TEKSHIRISH ---
+# --- BUNDLE TEKSHIRUVI ---
+#
+# Imzo to‘g‘ri bo‘lishi APK ISHLASHINI bildirmaydi. Agar
+# `EXPO_PUBLIC_*` inline bo‘lmagan bo‘lsa, ilova ochilishida
+# yiqiladi — va buni faqat telefonda bilardik.
+#
+# Shuning uchun APK ichidagi to‘plam OCHIB tekshiriladi:
+# almashtirilmagan `process.env.EXPO_PUBLIC_` qolsa, qurish
+# MUVAFFAQIYATSIZ hisoblanadi.
+Bosqich "bundle tekshiruvi"
+$tk = Join-Path $env:TEMP ("clary-bundle-" + [guid]::NewGuid().ToString("N").Substring(0,8))
+New-Item -ItemType Directory -Force -Path $tk | Out-Null
+Copy-Item $apk (Join-Path $tk "a.zip") -Force
+Expand-Archive (Join-Path $tk "a.zip") -DestinationPath (Join-Path $tk "ichi") -Force
+$bfayl = Get-ChildItem (Join-Path $tk "ichi\assets") -Filter "index.android.bundle" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
+$yomon = $false
+if (-not $bfayl) {
+  Write-Host "  JS to‘plami APK da topilmadi" -ForegroundColor Red; $yomon = $true
+} else {
+  $bm = [System.IO.File]::ReadAllText($bfayl.FullName)
+  if ($bm.Contains("process.env.EXPO_PUBLIC_")) {
+    Write-Host "  EXPO_PUBLIC almashtirilmagan — ilova ochilishida yiqiladi" -ForegroundColor Red
+    $yomon = $true
+  }
+  foreach ($nom in $kutilgan) {
+    $q = [Environment]::GetEnvironmentVariable($nom, "Process")
+    if ($bm.Contains($q)) { Write-Host ("  OK  " + $nom) -ForegroundColor Green }
+    else { Write-Host ("  YO‘Q " + $nom + " — qiymat to‘plamda yo‘q") -ForegroundColor Red; $yomon = $true }
+  }
+}
+Remove-Item $tk -Recurse -Force -ErrorAction SilentlyContinue
+if ($yomon) { Write-Host "`nAPK ISHLAMAYDI — chiqarilmadi." -ForegroundColor Red; exit 1 }
+
+# --- 6. Imzoni TEKSHIRISH ---
 #
 # Eng muhim tekshiruv. Debug kaliti bilan imzolangan APK mavjud
 # ilovaning ustiga O'RNATILMAYDI va buni faqat telefonda,
@@ -114,7 +197,7 @@ if ($imzo -match "debug") {
   Write-Host "  haqiqiy kalit bilan imzolangan" -ForegroundColor Green
 }
 
-# --- 5. Chiqishga ko'chirish ---
+# --- 7. Chiqishga ko'chirish ---
 $versiya = (Get-Content (Join-Path $KASSA "app.json") -Raw | ConvertFrom-Json).expo.version
 $chiqish = Join-Path $ILDIZ "chiqish"
 New-Item -ItemType Directory -Force -Path $chiqish | Out-Null
