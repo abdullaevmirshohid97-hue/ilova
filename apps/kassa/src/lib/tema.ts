@@ -45,6 +45,24 @@ export type Ranglar = {
   /** Tanlangan element (chip, tab) */
   faol: string;
   faolMatn: string;
+
+  // ---------- OVERLAY: ATAYLAB TEMAGA BOG‘LIQ EMAS ----------
+  //
+  // Modal ortidagi qorayish va rasm ko‘rish oynasi HAR IKKI
+  // temada to‘q bo‘lishi kerak: oq parda modalni ajratmaydi,
+  // rasmni esa oq fonda ko‘rish uni buzadi.
+  //
+  // Ilgari bu ranglar ekranlarda QOTIRIB yozilardi va
+  // `kassa-dizayn` sinovida uchta istisno paydo bo‘lgandi —
+  // uchalasining sababi bir xil edi. Token qilib qo‘yilsa,
+  // istisno umuman kerak bo‘lmaydi va sinov qattiq qoladi.
+
+  /** Modal ortidagi yengil qorayish */
+  parda: string;
+  /** Rasm/video ko‘rish oynasi — quyuqroq */
+  pardaQuyuq: string;
+  /** Parda USTIDAGI matn — har ikki temada oq */
+  pardaMatn: string;
 };
 
 // OQ VARIANT (20.09). Fon ham, karta ham sof oq: ular endi
@@ -83,6 +101,9 @@ export const YORUG: Ranglar = {
 
   faol: '#000000',
   faolMatn: '#FFFFFF',
+  parda: '#00000080',
+  pardaQuyuq: '#000000E6',
+  pardaMatn: '#FFFFFF',
 };
 
 export const QORONGI: Ranglar = {
@@ -115,6 +136,9 @@ export const QORONGI: Ranglar = {
 
   faol: '#ECF1F6',
   faolMatn: '#16202E',
+  parda: '#00000080',
+  pardaQuyuq: '#000000E6',
+  pardaMatn: '#FFFFFF',
 };
 
 // =============================================================
@@ -171,6 +195,9 @@ export const SHIFO: Ranglar = {
 
   faol: '#0F6E63',
   faolMatn: '#FFFFFF',
+  parda: '#00000080',
+  pardaQuyuq: '#000000E6',
+  pardaMatn: '#FFFFFF',
 };
 
 export const SHIFO_TUN: Ranglar = {
@@ -198,6 +225,9 @@ export const SHIFO_TUN: Ranglar = {
 
   faol: '#4EAE9E',
   faolMatn: '#0C1614',
+  parda: '#00000080',
+  pardaQuyuq: '#000000E6',
+  pardaMatn: '#FFFFFF',
 };
 
 export const O = {

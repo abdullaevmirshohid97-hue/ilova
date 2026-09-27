@@ -161,19 +161,12 @@ const rangliEkranlar = hammasi
   .map((f) => ({ f, soni: (izohsiz(oqish(f)).match(/#[0-9a-fA-F]{6}(?:[0-9a-fA-F]{2})?/g) ?? []).length }))
   .filter((x) => x.soni > 0);
 
-// ISTISNOLAR va sababi. Ro‘yxat QISQA bo‘lishi kerak — har yozuv
-// «bu joy temaga bo‘ysunmaydi» degan va‘da.
+// ISTISNOLAR — faqat login oldidagi ekran.
 //
-//   BiznesEkrani  — login oldidan, doim to‘q fonda
-//   Biriktirma    — rasm/video ko‘rish oynasi. Fon HAR IKKI temada
-//                   qora bo‘lishi kerak: rasmni oq fonda ko‘rish
-//                   uni buzadi. Ustidagi oq matn ham shundan.
-//
-// KirishEkrani ro‘yxatdan CHIQARILDI — u 23.09 da temaga to‘liq
-// o‘tkazildi va endi istisnoga muhtoj emas.
-//   Kalkulator   — modal ortidagi qorayish. Panel HAR IKKI temada
-//                  to‘q fon ustida chiqadi.
-const ruxsat = ['BiznesEkrani.tsx', 'Biriktirma.tsx', 'Kalkulator.tsx'];
+// Ro‘yxat ilgari uchta edi: modal pardalari uchun. Ular endi
+// temada token (`parda`, `pardaQuyuq`, `pardaMatn`) bo‘lib,
+// istisno kerak emas. Sinov shu bilan QATTIQROQ bo‘ldi.
+const ruxsat = ['BiznesEkrani.tsx'];
 const qoidabuzganlar = rangliEkranlar.filter((x) => !ruxsat.some((r) => x.f.endsWith(r)));
 tekshir(
   'ranglar tema faylida (ekranlarda qattiq yozilmagan)',

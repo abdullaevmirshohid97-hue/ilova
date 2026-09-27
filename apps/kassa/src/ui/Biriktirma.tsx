@@ -105,14 +105,14 @@ export function Biriktirma({
 
       <Modal visible={korish !== null} transparent animationType="fade">
         <Pressable
-          style={{ flex: 1, backgroundColor: '#000000E6', alignItems: 'center', justifyContent: 'center' }}
+          style={{ flex: 1, backgroundColor: C.pardaQuyuq, alignItems: 'center', justifyContent: 'center' }}
           onPress={() => setKorish(null)}
         >
           {korish === 'rasm' && rasm && (
             <Image source={{ uri: rasm }} style={{ width: '92%', height: '70%' }} resizeMode="contain" />
           )}
           {korish === 'video' && video && <VideoOyna manba={video} />}
-          <Text style={{ color: '#FFFFFF', fontSize: 14, marginTop: 18 }}>{tr('Yopish')}</Text>
+          <Text style={{ color: C.pardaMatn, fontSize: 14, marginTop: 18 }}>{tr('Yopish')}</Text>
         </Pressable>
       </Modal>
     </View>
@@ -176,7 +176,7 @@ function Nishoncha({
           justifyContent: 'center',
         }}
       >
-        <Text style={{ color: '#FFFFFF', fontSize: 13, fontWeight: '700', marginTop: -1 }}>×</Text>
+        <Text style={{ color: C.pardaMatn, fontSize: 13, fontWeight: '700', marginTop: -1 }}>×</Text>
       </TouchableOpacity>
     </View>
   );

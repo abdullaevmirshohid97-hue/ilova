@@ -45,6 +45,8 @@ import { Ogoh } from '../lib/ogoh';
 import { xatoMatn } from '../lib/supabase';
 import { sverkaPdf, sverkaXlsx } from '../lib/hisobot';
 import { chopEt, ulash } from '../lib/ulash';
+import { BOSH_QIDIRUV, qidiruvBormi, qidiruvMos, type Qidiruv } from '../lib/qidiruv';
+import { QidiruvOynasi } from '../ui/QidiruvOynasi';
 
 type Saralash = 'yangi' | 'eski' | 'qabul' | 'tolangan';
 
@@ -82,6 +84,8 @@ export default function MijozKartochka({
   const [saralash, setSaralash] = useState<Saralash>('yangi');
   const [ochirilganlar, setOchirilganlar] = useState(false);
   const [menyu, setMenyu] = useState(false);
+  const [qidiruvOchiq, setQidiruvOchiq] = useState(false);
+  const [qidiruv, setQidiruv] = useState<Qidiruv>({ ...BOSH_QIDIRUV });
   const [amallar, setAmallar] = useState(false);
 
   const valyuta = klient.valyuta ?? 'UZS';
@@ -162,7 +166,12 @@ export default function MijozKartochka({
 
   const korinadigan = useMemo(() => {
     const oraliq = davrOraligi(filtr, 0);
-    const royxat = hammasi.filter((x) => filtr === 'hammasi' || oraliqdami(x.qator.sana, oraliq));
+    // Qidiruv davr filtridan KEYIN qo‘llanadi: ikkalasi ham
+    // kesadi, lekin davr — keng, qidiruv — aniq.
+    const davrda = hammasi.filter((x) => filtr === 'hammasi' || oraliqdami(x.qator.sana, oraliq));
+    const royxat = qidiruvBormi(qidiruv)
+      ? davrda.filter((x) => qidiruvMos(x.qator, x.ozgarish, qidiruv))
+      : davrda;
 
     const nusxa = [...royxat];
     if (saralash === 'yangi') nusxa.reverse();
@@ -173,7 +182,7 @@ export default function MijozKartochka({
       nusxa.sort((a, b) => a.ozgarish - b.ozgarish);
     }
     return nusxa;
-  }, [hammasi, filtr, saralash]);
+  }, [hammasi, filtr, saralash, qidiruv]);
 
   const jami = useMemo(() => {
     let kirim = 0;
@@ -437,10 +446,21 @@ export default function MijozKartochka({
               bos: () => setOchirilganlar((x) => !x),
             },
             { matn: tr('Xabar yuborish'), bos: () => ochXabar(korinadigan, jamiQoldiq) },
+            {
+              matn: qidiruvBormi(qidiruv) ? tr('Qidiruv ✓') : tr('Qidiruv'),
+              bos: () => setQidiruvOchiq(true),
+            },
             { matn: tr('Sverka — PDF'), bos: () => void sverkaUlash('pdf') },
             { matn: tr('Sverka — Excel'), bos: () => void sverkaUlash('xlsx') },
             { matn: tr('Chop etish'), bos: () => void sverkaChop() },
           ]}
+        />
+
+        <QidiruvOynasi
+          ochiq={qidiruvOchiq}
+          qidiruv={qidiruv}
+          qoy={setQidiruv}
+          yop={() => setQidiruvOchiq(false)}
         />
 
         {/* ⋮ — amallar va saralash */}

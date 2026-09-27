@@ -74,7 +74,7 @@ export function Kalkulator({
 
   return (
     <Modal visible={korinsin} transparent animationType="slide" onRequestClose={yop}>
-      <Pressable style={{ flex: 1, backgroundColor: '#00000080' }} onPress={yop} />
+      <Pressable style={{ flex: 1, backgroundColor: C.parda }} onPress={yop} />
       <View style={{ backgroundColor: C.karta, borderTopLeftRadius: O.radius, borderTopRightRadius: O.radius }}>
         {/* Ifoda va natija */}
         <View style={{ padding: O.chekka, borderBottomWidth: 1, borderBottomColor: C.ajratgich }}>
