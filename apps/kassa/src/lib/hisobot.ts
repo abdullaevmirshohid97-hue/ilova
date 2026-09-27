@@ -28,6 +28,9 @@ import {
   type Hisob,
   type Katak,
   type Klient,
+  type HamkorQator,
+  operatsiyaNomi,
+  type Valyuta,
   type Tolov,
   type Turkum,
   valyutaBoyicha,
@@ -282,5 +285,129 @@ export function bitimPdf(m: BitimManba): Uint8Array {
       { nom: tr('Summa'), en: 16, ong: true },
     ],
     qatorlar: bitimQatorlari(m).map((q) => q.map(winansi)),
+  });
+}
+
+// =============================================================
+//  SVERKA — bitta hamkor bilan hisob-kitob
+//
+//  Qarzdorlik botidagi `sverkaPdf`/`sverkaXlsx` naqshi, lekin
+//  OLDI-BERDI modeliga moslangan: bu yerda «chiqim/kirim» emas,
+//  hamkor daftarining yuruvchi balansi.
+//
+//  Qatorlar `hamkorYuruvchi` dan keladi — ya'ni hujjatdagi
+//  qoldiq ekrandagi qoldiq bilan AYNAN bir manbadan. Ikki joyda
+//  alohida hisoblansa, mijoz hujjatni ko'rsatib «bu yerda
+//  boshqa raqam» deyishi mumkin edi va kim to'g'ri ekanini
+//  isbotlab bo'lmasdi.
+//
+//  IKKI SUMMA USTUNI, nol yozilmaydi. Har qatorda ikkita raqam
+//  turib qolsa, ko'z qaysi biri haqiqiy summa ekanini ajrata
+//  olmaydi — shuning uchun tegishli bo'lmagani BO'SH qoladi.
+// =============================================================
+
+export type SverkaManba = {
+  biznes: string;
+  klient: Klient;
+  /** `hamkorYuruvchi` natijasi — yuruvchi qoldiq bilan */
+  qatorlar: { qator: HamkorQator; ozgarish: number; qoldiq: number }[];
+  valyuta: Valyuta;
+  davr: string;
+};
+
+function sverkaTavsif(q: HamkorQator): string {
+  if (q.tur === 'bitim') {
+    const b = q.bitim;
+    const bolaklar = [
+      b.tovar_nom ?? '',
+      b.miqdor ? `${b.miqdor} ${b.birlik ?? ''}`.trim() : '',
+      b.izoh ?? '',
+    ];
+    return bolaklar.filter(Boolean).join(' · ');
+  }
+  if (q.tur === 'tolov') return q.tolov.izoh ?? '';
+  return q.yozuv.izoh ?? '';
+}
+
+function sverkaQatorlari(m: SverkaManba): string[][] {
+  return m.qatorlar.map((x, i) => {
+    // Musbat o'zgarish — hamkor menga ko'proq qarzdor bo'ldi.
+    const qarz = x.ozgarish > 0 ? formatla(x.ozgarish, m.valyuta, { belgisiz: true }) : '';
+    const tolov = x.ozgarish < 0 ? formatla(-x.ozgarish, m.valyuta, { belgisiz: true }) : '';
+    return [
+      String(i + 1),
+      sanaQisqa(x.qator.sana),
+      tr(operatsiyaNomi(x.qator)),
+      sverkaTavsif(x.qator),
+      qarz,
+      tolov,
+      formatla(x.qoldiq, m.valyuta, { belgisiz: true }),
+    ];
+  });
+}
+
+function sverkaXulosa(m: SverkaManba): [string, string][] {
+  let qarz = 0;
+  let tolov = 0;
+  for (const x of m.qatorlar) {
+    if (x.ozgarish > 0) qarz += x.ozgarish;
+    else tolov += -x.ozgarish;
+  }
+  const oxiri = m.qatorlar.length ? m.qatorlar[m.qatorlar.length - 1].qoldiq : 0;
+  return [
+    [tr('Operatsiyalar'), String(m.qatorlar.length)],
+    [tr('Jami qarz'), formatla(qarz, m.valyuta)],
+    [tr('Jami to‘lov'), formatla(tolov, m.valyuta)],
+    // Ishorani MATN bilan ham aytamiz: minus belgisi hujjatda
+    // ko'zdan qochadi va «kim kimga qarzdor» chalkashadi.
+    [
+      oxiri >= 0 ? tr('Sizga qarzdor') : tr('Siz qarzdorsiz'),
+      formatla(Math.abs(oxiri), m.valyuta),
+    ],
+  ];
+}
+
+const SVERKA_USTUNLAR: { nom: string; en: number; ong?: boolean }[] = [
+  { nom: '№', en: 4 },
+  { nom: 'Sana', en: 12 },
+  { nom: 'Amal', en: 15 },
+  { nom: 'Tavsif', en: 26 },
+  { nom: 'Qarz', en: 14, ong: true },
+  { nom: 'To‘lov', en: 14, ong: true },
+  { nom: 'Qoldiq', en: 14, ong: true },
+];
+
+export function sverkaXlsx(m: SverkaManba): Uint8Array {
+  const qatorlar: Katak[][] = [
+    [{ matn: m.biznes, qalin: true }],
+    [{ matn: tr('SVERKA') + ' — ' + m.klient.ism, qalin: true }],
+    [{ matn: m.davr + '   ·   ' + tr('Hujjat sanasi:') + ' ' + sanaYozuv(new Date()) }],
+  ];
+  if (m.klient.telefon) qatorlar.push([{ matn: tr('Tel:') + ' ' + m.klient.telefon }]);
+  qatorlar.push([]);
+
+  for (const [nom, qiy] of sverkaXulosa(m)) {
+    qatorlar.push([{ matn: nom }, { matn: qiy }]);
+  }
+  qatorlar.push([]);
+  qatorlar.push(SVERKA_USTUNLAR.map((u) => ({ matn: tr(u.nom), qalin: true })));
+  for (const q of sverkaQatorlari(m)) qatorlar.push(q.map((x) => ({ matn: x })));
+
+  return xlsx(tr('Sverka'), qatorlar, SVERKA_USTUNLAR.map((u) => u.en));
+}
+
+export function sverkaPdf(m: SverkaManba): Uint8Array {
+  return pdf({
+    sarlavha: winansi(tr('SVERKA') + ' — ' + m.klient.ism),
+    qator2: winansi(m.biznes + '   ·   ' + m.davr),
+    qator3: winansi(
+      (m.klient.telefon ? tr('Tel:') + ' ' + m.klient.telefon + '   ·   ' : '') +
+        tr('Hujjat sanasi:') +
+        ' ' +
+        sanaYozuv(new Date()),
+    ),
+    xulosa: sverkaXulosa(m).map(([a, b]) => [winansi(a), winansi(b)] as [string, string]),
+    ustunlar: SVERKA_USTUNLAR.map((u) => ({ nom: winansi(tr(u.nom)), en: u.en, ong: u.ong })),
+    qatorlar: sverkaQatorlari(m).map((q) => q.map(winansi)),
   });
 }

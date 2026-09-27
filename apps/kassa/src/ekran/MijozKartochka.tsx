@@ -42,6 +42,9 @@ import { MijozRasmi } from '../ui/MijozRasmi';
 import { AmallarMenyusi } from '../ui/YuqoriOynalar';
 import { BoshHolat } from '../ui/qismlar';
 import { Ogoh } from '../lib/ogoh';
+import { xatoMatn } from '../lib/supabase';
+import { sverkaPdf, sverkaXlsx } from '../lib/hisobot';
+import { chopEt, ulash } from '../lib/ulash';
 
 type Saralash = 'yangi' | 'eski' | 'qabul' | 'tolangan';
 
@@ -72,7 +75,7 @@ export default function MijozKartochka({
 }) {
   const { C } = useTema();
   const chekka = useSafeAreaInsets();
-  const { bitimlar, tolovlar, yozuvlar } = useHolat();
+  const { bitimlar, tolovlar, yozuvlar, men } = useHolat();
 
   const [filtr, setFiltr] = useState<DavrTuri>('hammasi');
   const [balansKorinsin, setBalansKorinsin] = useState(true);
@@ -111,6 +114,51 @@ export default function MijozKartochka({
       .map((x) => ({ tur: 'yozuv' as const, id: x.id, sana: x.sana, yozuv: x }));
     return [...b, ...t, ...y] as HamkorQator[];
   }, [ochirilganlar, klient.id, bitimlar, tolovlar, yozuvlar]);
+
+  // SVERKA XRONOLOGIK bo‘lishi SHART va shuning uchun u
+  // `korinadigan` dan EMAS, `hammasi` dan olinadi.
+  //
+  // `korinadigan` foydalanuvchi tanlagan saralash bilan keladi:
+  // «miqdor bo‘yicha» tanlangan bo‘lsa, yuruvchi qoldiq
+  // hujjatda tartibsiz sakrab, hisob-kitob buzuq ko‘rinardi —
+  // holbuki raqamlar to‘g‘ri. Davr filtri esa saqlanadi.
+  const sverkaQatorlari = useMemo(() => {
+    const oraliq = davrOraligi(filtr, 0);
+    return hammasi.filter((x) => filtr === 'hammasi' || oraliqdami(x.qator.sana, oraliq));
+  }, [hammasi, filtr]);
+
+  const sverkaDavri = useMemo(() => {
+    if (filtr === 'hammasi') return tr('Butun davr');
+    const o = davrOraligi(filtr, 0);
+    return sanaQisqa(o.bosh.toISOString()) + ' — ' + sanaQisqa(o.oxir.toISOString());
+  }, [filtr]);
+
+  async function sverkaChop() {
+    try {
+      await chopEt(
+        tr('Sverka') + ' ' + ism,
+        sverkaPdf({ biznes: men.biznes, klient, qatorlar: sverkaQatorlari, valyuta, davr: sverkaDavri }),
+      );
+    } catch (e) {
+      Ogoh.alert(tr('Chop etilmadi'), xatoMatn(e));
+    }
+  }
+
+  async function sverkaUlash(tur: 'pdf' | 'xlsx') {
+    const manba = {
+      biznes: men.biznes,
+      klient,
+      qatorlar: sverkaQatorlari,
+      valyuta,
+      davr: sverkaDavri,
+    };
+    try {
+      const bayt = tur === 'pdf' ? sverkaPdf(manba) : sverkaXlsx(manba);
+      await ulash(tr('Sverka') + ' ' + ism, bayt, tur);
+    } catch (e) {
+      Ogoh.alert(tr('Hujjat chiqmadi'), xatoMatn(e));
+    }
+  }
 
   const korinadigan = useMemo(() => {
     const oraliq = davrOraligi(filtr, 0);
@@ -389,6 +437,9 @@ export default function MijozKartochka({
               bos: () => setOchirilganlar((x) => !x),
             },
             { matn: tr('Xabar yuborish'), bos: () => ochXabar(korinadigan, jamiQoldiq) },
+            { matn: tr('Sverka — PDF'), bos: () => void sverkaUlash('pdf') },
+            { matn: tr('Sverka — Excel'), bos: () => void sverkaUlash('xlsx') },
+            { matn: tr('Chop etish'), bos: () => void sverkaChop() },
           ]}
         />
 

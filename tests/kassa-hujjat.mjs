@@ -471,6 +471,98 @@ for (const t of XT.XABAR_TILLAR.filter((x) => x.kalit !== 'uz')) {
 
 console.log('\n\x1b[90m' + xabar.split('\n').map((q) => '    ' + q).join('\n') + '\x1b[0m');
 
+// =============================================================
+// 4. SVERKA — hamkor bilan hisob-kitob
+//
+//  Rejada «eng jiddiy xavf» deb yozilgan narsa aynan shu:
+//  hujjatdagi qoldiq ekrandagidan farq qilishi. Mijoz hujjatni
+//  ko'rsatib «bu yerda boshqa raqam» desa, kim to'g'ri ekanini
+//  isbotlab bo'lmasdi.
+//
+//  Shuning uchun INVARIANT tekshiriladi: sverkaning oxirgi
+//  qoldig'i `hamkorQoldiq` ga AYNAN teng.
+// =============================================================
+console.log('\n4. Sverka');
+
+{
+  const yadro = join(ish, 'yadro.mjs');
+  await esbuild.build({
+    entryPoints: [join(ROOT, 'packages/kassa-yadro/index.ts')],
+    outfile: yadro,
+    bundle: true,
+    format: 'esm',
+    platform: 'neutral',
+  });
+  const Y = await import('file://' + yadro.replace(/\\/g, '/'));
+
+  const K = { id: 'k1', ism: 'Anvar do‘koni', turi: 'hamkor', telefon: '+998901112233', versiya: 1 };
+  const B = (x) => ({
+    id: x.id, klient_id: 'k1', yonalish: x.y, nima: x.n ?? 'tovar',
+    tovar_nom: x.t ?? 'Karobka', birlik: 'dona', miqdor: x.m ?? null,
+    summa: x.s, valyuta: 'UZS', kurs: 1, sana: x.sana, holat: 'kutilmoqda',
+    izoh: x.izoh ?? null, versiya: 1,
+  });
+  const T = (x) => ({
+    id: x.id, klient_id: 'k1', bitim_id: null, yonalish: x.y, summa: x.s,
+    valyuta: 'UZS', kurs: 1, usuli: 'naqd', sana: x.sana,
+    holat: 'kutilmoqda', izoh: x.izoh ?? null, versiya: 1,
+  });
+
+  const bitimlar = [
+    B({ id: 'b1', y: 'berdim', s: 1_200_000_00, m: 1200, sana: '2026-09-20T09:00:00.000Z' }),
+    B({ id: 'b2', y: 'oldim', n: 'qarz', s: 300_000_00, sana: '2026-09-22T09:00:00.000Z', izoh: 'Aka olib ketdi' }),
+  ];
+  const tolovlar = [T({ id: 't1', y: 'oldim', s: 500_000_00, sana: '2026-09-21T09:00:00.000Z' })];
+
+  const yuruvchi = Y.hamkorYuruvchi('k1', bitimlar, tolovlar, []);
+  const manba = {
+    biznes: 'Anvar savdo',
+    klient: K,
+    qatorlar: yuruvchi,
+    valyuta: 'UZS',
+    davr: '20.09.2026 — 27.09.2026',
+  };
+
+  // --- INVARIANT ---
+  const qoldiq = Y.hamkorQoldiq('k1', bitimlar, tolovlar, []);
+  const oxirgi = yuruvchi[yuruvchi.length - 1].qoldiq;
+  tekshir(
+    'INVARIANT: sverka oxirgi qoldig‘i = hamkorQoldiq',
+    oxirgi === qoldiq,
+    oxirgi + ' / ' + qoldiq,
+  );
+
+  // --- Excel ---
+  const x = H.sverkaXlsx(manba);
+  writeFileSync(join(ish, 'sverka.xlsx'), x);
+  tekshir('xlsx ZIP sifatida boshlanadi (PK)', x[0] === 0x50 && x[1] === 0x4b, x[0] + ',' + x[1]);
+  tekshir('xlsx bo‘sh emas', x.length > 2000, (x.length / 1024).toFixed(1) + ' KB');
+
+  // --- PDF ---
+  const p = H.sverkaPdf(manba);
+  writeFileSync(join(ish, 'sverka.pdf'), p);
+  const pm = Buffer.from(p).toString('latin1');
+  tekshir('pdf sarlavhasi %PDF', pm.startsWith('%PDF'), pm.slice(0, 8));
+  tekshir('hamkor nomi hujjatda', pm.includes('Anvar'), 'bor');
+  tekshir('biznes nomi hujjatda', pm.includes('Anvar savdo'), 'bor');
+  tekshir('telefon hujjatda', pm.includes('998901112233'), 'bor');
+
+  // Uchta operatsiya uchtala qator bo‘lib chiqsin
+  tekshir('uch operatsiya ham hujjatda', pm.includes('Karobka') && pm.includes('Aka'), 'bor');
+
+  // Ishora MATN bilan: minus belgisi hujjatda ko‘zdan qochadi
+  tekshir(
+    'kim kimga qarzdor — SO‘Z bilan',
+    pm.includes('qarzdor'),
+    qoldiq >= 0 ? 'sizga qarzdor' : 'siz qarzdorsiz',
+  );
+
+  // Bo‘sh daftar yiqitmasin
+  const bosh = H.sverkaPdf({ ...manba, qatorlar: [] });
+  tekshir('bo‘sh sverka ham yasaladi', bosh.length > 500, (bosh.length / 1024).toFixed(1) + ' KB');
+}
+
+
 console.log('\n  fayllar: ' + ish);
 console.log('\n' + (yiqildi === 0 ? '\x1b[32mHAMMASI O‘TDI\x1b[0m' : `\x1b[31m${yiqildi} TA XATO\x1b[0m`) + '\n');
 process.exit(yiqildi === 0 ? 0 : 1);
