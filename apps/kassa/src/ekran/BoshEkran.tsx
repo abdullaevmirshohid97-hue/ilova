@@ -72,7 +72,8 @@ export default function BoshEkran({
   ochMijoz: (k?: Klient) => void;
   ochBitimlar: () => void;
   ochOperatsiya: (klientId: string) => void;
-  ochTolov: (klientId: string) => void;
+  /** Kirim — `oldim`, chiqim — `berdim`. Ikkalasi ham bir xil sodda oyna. */
+  ochTolov: (klientId: string, yonalish: 'oldim' | 'berdim') => void;
   /** Daftar yozuvini tahrirlash — App dagi `YozuvOynasi` ga */
   tahrirYozuv: (y: Yozuv) => void;
 }) {
@@ -217,43 +218,35 @@ export default function BoshEkran({
    */
   const [tahrirQator, setTahrirQator] = useState<HamkorQator | null>(null);
 
+  /**
+   * Operatsiya qatori bosilganda — TO‘G‘RIDAN operatsiya oynasi.
+   * Ilgari avval menyu chiqardi (Tahrirlash / Hujjat / Bekor) va
+   * operatsiyani o‘chirish uchun tugma umuman yo‘q edi. Endi oyna
+   * tepasida 🗑 turadi, bitimning hujjat va tasdiq havolasi esa
+   * oyna pastida (2026-09-28, foydalanuvchi talabi).
+   */
   function amallarKorsat(q: HamkorQator) {
     if (!tanlangan) return;
 
     // Daftar yozuvi O‘Z oynasida ochiladi: u hisob, turkum va
-    // o‘tkazmani ham biladi, boshqa amali esa yo‘q. Menyu
-    // ko‘rsatish bir bosishni bekorga qo‘shardi.
+    // o‘tkazmani ham biladi.
     if (q.tur === 'yozuv') {
       tahrirYozuv(q.yozuv);
       return;
     }
+    setTahrirQator(q);
+  }
 
-    // TO‘LOV uchun ham menyu ochiladi. Ilgari faqat bitim
-    // ishlardi va to'lov qatorini bosgan odam hech narsa
-    // ko‘rmasdi — tugma buzuq deb o‘ylardi.
-    const tugmalar: { text: string; onPress?: () => void; style?: 'cancel' }[] = [
-      { text: tr('Tahrirlash'), onPress: () => setTahrirQator(q) },
-    ];
-
-    if (q.tur === 'tolov') {
-      tugmalar.push({ text: tr('Bekor'), style: 'cancel' });
-      Ogoh.alert(tr(operatsiyaNomi(q)), formatla(q.tolov.summa, q.tolov.valyuta), tugmalar);
-      return;
-    }
-
+  /** Bitim oynasining pastidagi qo‘shimcha amallar */
+  function bitimAmallari(q: HamkorQator | null): { matn: string; bos: () => void }[] {
+    if (!q || q.tur !== 'bitim' || !tanlangan) return [];
     const b = q.bitim;
-    tugmalar.push({
-      text: tr('Hujjat (PDF)'),
-      onPress: () => bitimHujjati(b, tolovlar, tanlangan, men.biznes),
-    });
+    const k = tanlangan;
+    const royxat = [{ matn: tr('Hujjat (PDF)'), bos: () => void bitimHujjati(b, tolovlar, k, men.biznes) }];
     if (b.holat === 'kutilmoqda') {
-      tugmalar.push({
-        text: tr('Tasdiqlash havolasi'),
-        onPress: () => tasdiqYubor(b, tanlangan, men.biznes),
-      });
+      royxat.push({ matn: tr('Tasdiqlash havolasi'), bos: () => void tasdiqYubor(b, k, men.biznes) });
     }
-    tugmalar.push({ text: tr('Bekor'), style: 'cancel' });
-    Ogoh.alert(b.tovar_nom || tr(operatsiyaNomi(q)), formatla(b.summa, b.valyuta), tugmalar);
+    return royxat;
   }
 
   const jami = useMemo(() => {
@@ -460,14 +453,18 @@ export default function BoshEkran({
         qator={tahrirQator}
         yop={() => setTahrirQator(null)}
         saqlandi={() => void yangila()}
+        amallar={bitimAmallari(tahrirQator)}
       />
 
       {tanlangan && (
         <MijozKartochka
           klient={tanlangan}
           yopish={() => setTanlangan(null)}
-          ochKirim={() => ochTolov(tanlangan.id)}
-          ochChiqim={() => ochOperatsiya(tanlangan.id)}
+          ochKirim={() => ochTolov(tanlangan.id, 'oldim')}
+          // Chiqim ham TO‘G‘RIDAN oynani ochadi. Ilgari avval oltita
+          // tanlovli ro‘yxat chiqardi (tovar / qarz / pul / kassa) —
+          // foydalanuvchi uni ortiqcha deb topdi (2026-09-28).
+          ochChiqim={() => ochTolov(tanlangan.id, 'berdim')}
           ochOperatsiya={(q: HamkorQator) => amallarKorsat(q)}
           ochProfil={() => {
             const k = tanlangan;

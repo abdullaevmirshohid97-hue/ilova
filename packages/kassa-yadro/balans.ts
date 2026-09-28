@@ -173,6 +173,13 @@ const ishora = (y: 'oldim' | 'berdim') => (y === 'berdim' ? 1 : -1);
  * shunday yozilardi. Bitimga BOG‘LANGANI olinmaydi — u bitim va
  * to‘lov orqali allaqachon sanalgan, ikki marta sanalsa qarz
  * ikki barobar ko‘rinardi.
+ *
+ * TO‘LOV YARATGAN yozuv ham olinmaydi (2026-09-28). Bitimga
+ * bog‘lanmagan («Umumiy qarzga») to‘lov kassaga yozuv tushiradi va
+ * u yozuvda ham `klient_id` bor, `bitim_id` esa yo‘q — ya’ni u
+ * «eski qarz» ga o‘xshab ko‘rinadi. Natijada to‘lov IKKI MARTA
+ * sanalardi: Najmiddinga kiritilgan 51 458 000 so‘m ilovada
+ * 102 916 000 bo‘lib ko‘ringan. Bog‘lanish `tolov.yozuv_id` da.
  */
 export function hamkorQoldiq(
   klientId: string,
@@ -189,7 +196,7 @@ export function hamkorQoldiq(
     if (t.klient_id !== klientId || !hisobga(t.holat)) continue;
     q += ishora(t.yonalish) * t.summa;
   }
-  q += eskiQarz(klientId, yozuvlar);
+  q += eskiQarz(klientId, yozuvlar, tolovYozuvlari(tolovlar));
   return q;
 }
 
@@ -199,14 +206,27 @@ export function hamkorQoldiq(
  * Ishora `klientQoldiq` dagi bilan bir xil: chiqim = tovar/pul
  * berildi = u menga qarzdor (+).
  */
-function eskiQarz(klientId: string, yozuvlar: Yozuv[]): number {
+function eskiQarz(klientId: string, yozuvlar: Yozuv[], tolovniki: Set<string>): number {
   let q = 0;
   for (const y of yozuvlar) {
     if (y.klient_id !== klientId || y.bitim_id) continue;
     if (!hisobga_kiradi(y) || y.kochirma_id) continue;
+    if (tolovniki.has(y.id)) continue;
     q += y.turi === 'chiqim' ? y.summa : -y.summa;
   }
   return q;
+}
+
+/**
+ * To‘lovlar yaratgan kassa yozuvlari — hamkor qoldig‘ida SANALMAYDI,
+ * chunki to‘lovning o‘zi sanalgan. BEKOR qilingan to‘lovniki ham:
+ * aks holda to‘lov bekor qilinganda uning yozuvi «eski qarz» bo‘lib
+ * qayta tirilardi.
+ */
+function tolovYozuvlari(tolovlar: Tolov[]): Set<string> {
+  const s = new Set<string>();
+  for (const t of tolovlar) if (t.yozuv_id) s.add(t.yozuv_id);
+  return s;
 }
 
 /** Bitta bitimning to‘lanmagan qoldig‘i (manfiy bo‘lmaydi) */
@@ -405,9 +425,13 @@ export function hamkorYuruvchi(
   }
   // Bitimga BOG'LANGAN yozuv olinmaydi: u bitim va to'lov orqali
   // allaqachon sanalgan. `eskiQarz` dagi o'sha shart.
+  // To‘lov yaratgan yozuv ham olinmaydi — `hamkorQoldiq` dagi sabab.
+  // Olinsa ro‘yxatda bitta to‘lov IKKI qator bo‘lib chiqardi.
+  const tolovniki = tolovYozuvlari(tolovlar);
   for (const y of yozuvlar) {
     if (y.klient_id !== klientId || y.bitim_id) continue;
     if (!hisobga_kiradi(y) || y.kochirma_id) continue;
+    if (tolovniki.has(y.id)) continue;
     qatorlar.push({ tur: 'yozuv', id: y.id, sana: y.sana, o_raqam: y.o_raqam, yozuv: y });
   }
 

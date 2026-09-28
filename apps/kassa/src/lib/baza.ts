@@ -670,7 +670,12 @@ export type YangiTolov = {
   yonalish: 'oldim' | 'berdim';
   /** Tiyinda */
   summa: number;
-  hisob_id: string;
+  /**
+   * Qaysi kassa hisobidan. Berilmasa KASSAGA YOZUV TUSHMAYDI — faqat
+   * hamkor bilan hisob-kitob (2026-09-28: hamkor kartochkasidagi
+   * kirim/chiqimda «Naqd / Karta» tanlovi olib tashlandi).
+   */
+  hisob_id?: string | null;
   bitim_id?: string | null;
   usuli?: 'naqd' | 'karta' | 'bank' | 'tovar';
   valyuta?: string;
@@ -701,7 +706,9 @@ export async function tolovQosh(t: YangiTolov): Promise<string> {
     }
   }
 
-  const yozuvId = await yozuvQosh({
+  // Hisob tanlanmagan bo‘lsa kassaga yozuv YO‘Q. Bu hamkor qoldig‘iga
+  // ta’sir qilmaydi: qoldiq to‘lovning o‘zidan hisoblanadi.
+  const yozuvId = !t.hisob_id ? null : await yozuvQosh({
     hisob_id: t.hisob_id,
     turi: t.yonalish === 'berdim' ? 'chiqim' : 'kirim',
     summa: t.summa,
@@ -804,6 +811,20 @@ export async function tolovTahrirla(
 }
 
 /** Bitim bekor qilinadi — o‘chirilmaydi, tarix qoladi */
+/**
+ * To‘lovni o‘chirish = `holat: bekor`. Bazadan olinmaydi (sinxda
+ * o‘chirish amali yo‘q) va qoldiqdan chiqadi.
+ *
+ * Kassaga yozuv tushirgan bo‘lsa, u ham BEKOR qilinadi — aks holda
+ * «Naqd» hisobida pul yolg‘ondan turib qolardi.
+ */
+export async function tolovBekorQil(id: string, sabab: string): Promise<void> {
+  const t = await ombor().bitta<Record<string, unknown>>('tolovlar', id);
+  if (!t) throw new Error(tr('Yozuv topilmadi'));
+  await mahalliyTahrir('tolovlar', id, { holat: 'bekor', bekor_sabab: sabab || 'sababsiz' });
+  if (t.yozuv_id) await yozuvBekorQil(String(t.yozuv_id), sabab);
+}
+
 export async function bitimBekorQil(id: string, sabab: string): Promise<void> {
   await mahalliyTahrir('bitimlar', id, { holat: 'bekor', bekor_sabab: sabab });
 }

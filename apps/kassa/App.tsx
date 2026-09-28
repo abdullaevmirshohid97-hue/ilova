@@ -512,7 +512,7 @@ function Qobiq({ qaytaYukla }: { qaytaYukla: () => void }) {
               setTanlovKlient(klientId);
               setTanlov(true);
             }}
-            ochTolov={(klientId) => setTolovOyna({ yonalish: 'oldim', klient: klientId })}
+            ochTolov={(klientId, yonalish) => setTolovOyna({ yonalish, klient: klientId })}
             tahrirYozuv={(y) => setOyna({ rejim: y.turi, tahrir: y })}
           />
         )}

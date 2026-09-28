@@ -5,8 +5,13 @@
 //
 //  NIMA TAHRIRLANADI — bazadagi trigger belgilaydi:
 //
-//    holat = 'kutilmoqda'  -> summa, sana, vaqt, izoh, muddat
-//    boshqa holatlarda     -> faqat izoh va muddat
+//    holat = 'kutilmoqda'  -> summa, sana, vaqt, izoh
+//    boshqa holatlarda     -> faqat izoh
+//
+//  MUDDAT OLIB TASHLANDI va tepaga 🗑 qo‘shildi (2026-09-28,
+//  foydalanuvchi talabi). O‘chirish = `holat: bekor` — qator
+//  bazadan olinmaydi va kartochkadagi «O‘chirilgan operatsiyalar»
+//  da ko‘rinib turadi.
 //
 //  Ekran summa maydonini o'chirib qo'yadi, LEKIN bu himoya emas —
 //  qulaylik. Haqiqiy cheklov bazada, chunki sinx PostgREST orqali
@@ -31,12 +36,13 @@
 import { useMemo, useState } from 'react';
 import { Modal, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { formatla, ifodaKorinish, operatsiyaNomi, tiyinga, type HamkorQator } from '@ilova/kassa-yadro';
-import { bitimTahrirla, tolovTahrirla } from '../lib/baza';
+import { bitimBekorQil, bitimTahrirla, tolovBekorQil, tolovTahrirla } from '../lib/baza';
+import { Ogoh } from '../lib/ogoh';
+import { Chiqindi } from '../ui/ikonka';
 import { xatoMatn } from '../lib/supabase';
 import { O, useTema } from '../lib/tema';
 import { tr } from '../lib/til';
 import { Kalkulator } from '../ui/Kalkulator';
-import { MuddatMaydoni } from '../ui/MuddatMaydoni';
 import { Tugma } from '../ui/qismlar';
 import { xatoYoz } from '../lib/xatolar';
 import { Klaviaturali } from '../ui/Klaviaturali';
@@ -70,10 +76,13 @@ export default function OperatsiyaOynasi({
   qator,
   yop,
   saqlandi,
+  amallar = [],
 }: {
   qator: HamkorQator | null;
   yop: () => void;
   saqlandi: () => void;
+  /** Pastdagi qo‘shimcha tugmalar — bitim uchun hujjat va tasdiq havolasi */
+  amallar?: { matn: string; bos: () => void }[];
 }) {
   const { C } = useTema();
 
@@ -116,7 +125,6 @@ export default function OperatsiyaOynasi({
   const [sana, setSana] = useState('');
   const [vaqt, setVaqt] = useState('');
   const [izoh, setIzoh] = useState('');
-  const [muddat, setMuddat] = useState<string | null>(null);
   const [kalkulator, setKalkulator] = useState(false);
   const [xato, setXato] = useState<string | null>(null);
   const [band, setBand] = useState(false);
@@ -129,7 +137,6 @@ export default function OperatsiyaOynasi({
     setSana(boshlangich.sana);
     setVaqt(boshlangich.vaqt);
     setIzoh(boshlangich.izoh);
-    setMuddat(boshlangich.muddat);
     setXato(null);
   }
 
@@ -138,9 +145,42 @@ export default function OperatsiyaOynasi({
   const ozgardi =
     boshlangich !== null &&
     (izoh !== boshlangich.izoh ||
-      muddat !== boshlangich.muddat ||
       (kutilmoqda &&
         (summa !== boshlangich.summa || sana !== boshlangich.sana || vaqt !== boshlangich.vaqt)));
+
+  /**
+   * Shu operatsiyani o‘chirish. So‘raladi — tugma tepada turadi va
+   * adashib bosilishi oson. Tasdiqlangan operatsiya ham o‘chiriladi:
+   * bazadagi cheklov `holat` o‘zgarishiga ruxsat beradi (summaga emas).
+   */
+  function ochir() {
+    if (!qator || !boshlangich) return;
+    const q = qator;
+    const nom = tr(operatsiyaNomi(q));
+    const summaMatn = formatla(boshlangich.tiyin, boshlangich.valyuta);
+    Ogoh.alert(tr('Operatsiya o‘chirilsinmi?'), `${nom} · ${summaMatn}\n\n${tr('Qoldiqdan chiqadi. Kartochkadagi «O‘chirilgan operatsiyalar» da ko‘rinib turadi.')}`, [
+      { text: tr('Yo‘q'), style: 'cancel' },
+      {
+        text: tr('O‘chirish'),
+        style: 'destructive',
+        onPress: async () => {
+          setBand(true);
+          try {
+            const sabab = tr('Foydalanuvchi o‘chirdi');
+            if (q.tur === 'bitim') await bitimBekorQil(q.id, sabab);
+            else await tolovBekorQil(q.id, sabab);
+            saqlandi();
+            yop();
+          } catch (e) {
+            void xatoYoz('OperatsiyaOynasi.ochir', e);
+            setXato(xatoMatn(e));
+          } finally {
+            setBand(false);
+          }
+        },
+      },
+    ]);
+  }
 
   async function saqla() {
     if (!qator || !boshlangich || !ozgardi) return;
@@ -148,7 +188,6 @@ export default function OperatsiyaOynasi({
 
     const patch: Record<string, unknown> = {};
     if (izoh !== boshlangich.izoh) patch.izoh = izoh;
-    if (muddat !== boshlangich.muddat) patch.muddat = muddat;
 
     if (kutilmoqda) {
       if (summa !== boshlangich.summa) {
@@ -208,6 +247,15 @@ export default function OperatsiyaOynasi({
           <Text style={{ flex: 1, color: C.tunMatn, fontSize: 16, fontWeight: '700', marginLeft: 12 }}>
             {qator ? tr(operatsiyaNomi(qator)) : ''}
           </Text>
+          <TouchableOpacity
+            onPress={ochir}
+            disabled={band}
+            hitSlop={10}
+            style={{ padding: 6 }}
+            accessibilityLabel={tr('O‘chirish')}
+          >
+            <Chiqindi rang={C.chiqim} olcham={20} />
+          </TouchableOpacity>
         </View>
 
         <ScrollView contentContainerStyle={{ paddingBottom: 28 }} keyboardShouldPersistTaps="handled">
@@ -221,7 +269,7 @@ export default function OperatsiyaOynasi({
               }}
             >
               <Text style={{ color: C.ogoh, fontSize: 13, lineHeight: 19 }}>
-                {tr('Bu operatsiya tasdiqlangan. Summa va sana o‘zgarmaydi — faqat izoh va muddat.')}
+                {tr('Bu operatsiya tasdiqlangan. Summa va sana o‘zgarmaydi — faqat izoh.')}
               </Text>
             </View>
           )}
@@ -301,10 +349,6 @@ export default function OperatsiyaOynasi({
             />
           </View>
 
-          <View style={{ paddingHorizontal: O.chekka, marginTop: 14 }}>
-            <MuddatMaydoni qiymat={muddat} setQiymat={setMuddat} izoh={tr('Qachonga kelishdingiz')} />
-          </View>
-
           {xato && (
             <Text style={{ color: C.chiqim, fontSize: 13, paddingHorizontal: O.chekka, marginTop: 8 }}>
               {xato}
@@ -326,6 +370,9 @@ export default function OperatsiyaOynasi({
                 {tr('O‘zgarish yo‘q')}
               </Text>
             )}
+            {amallar.map((a) => (
+              <Tugma key={a.matn} matn={a.matn} bos={a.bos} ikkilamchi uslub={{ marginTop: 10 }} />
+            ))}
           </View>
         </ScrollView>
 

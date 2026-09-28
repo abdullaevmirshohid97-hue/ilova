@@ -9,6 +9,14 @@
 //  Tepada hamkorning JORIY QOLDIG'I turadi va to'lovdan keyin
 //  qancha qolishi ko'rsatiladi. Odam raqamni saqlashdan oldin
 //  ko'rsa, noto'g'ri summa kamdan-kam o'tadi.
+//
+//  SODDA (2026-09-28, foydalanuvchi talabi). Olib tashlandi:
+//    · «Qaysi hisobdan» (Naqd / Karta) — kassaga yozuv endi tushmaydi,
+//      faqat hamkor bilan hisob-kitob yuritiladi
+//    · «Usuli» (Naqd / Karta / Bank)
+//    · Muddat
+//    · «Qaysi bitimga» — faqat aniq bitimdan ochilganda qoladi
+//  Qoldiq bundan o'zgarmaydi: u to'lovning o'zidan hisoblanadi.
 // =============================================================
 
 import { useEffect, useMemo, useState } from 'react';
@@ -27,14 +35,7 @@ import { O, useTema } from '../lib/tema';
 import { tr } from '../lib/til';
 import { xatoYoz } from '../lib/xatolar';
 import { Chip, Karta, Tugma } from '../ui/qismlar';
-import { MuddatMaydoni } from '../ui/MuddatMaydoni';
 import { Klaviaturali } from '../ui/Klaviaturali';
-
-const USULLAR: { k: 'naqd' | 'karta' | 'bank' | 'tovar'; m: string }[] = [
-  { k: 'naqd', m: 'Naqd' },
-  { k: 'karta', m: 'Karta' },
-  { k: 'bank', m: 'Bank' },
-];
 
 export default function TolovOynasi({
   yonalish,
@@ -50,21 +51,17 @@ export default function TolovOynasi({
   saqlandi: () => void;
 }) {
   const { C } = useTema();
-  const { hisoblar, klientlar, bitimlar, tolovlar, valyutalar } = useHolat();
+  const { hisoblar, klientlar, bitimlar, tolovlar, yozuvlar, valyutalar } = useHolat();
   const chekka = useSafeAreaInsets();
 
-  const faolHisoblar = hisoblar.filter((h) => h.faol);
   const [klientId, setKlientId] = useState<string | null>(boshKlient ?? null);
   const [bitimId, setBitimId] = useState<string | null>(boshBitim ?? null);
   const [qidiruv, setQidiruv] = useState('');
   const [summa, setSumma] = useState('');
   const [kalkulator, setKalkulator] = useState(false);
-  const [hisobId, setHisobId] = useState(faolHisoblar[0]?.id ?? '');
-  const [usuli, setUsuli] = useState<'naqd' | 'karta' | 'bank' | 'tovar'>('naqd');
   const [izoh, setIzoh] = useState('');
   const [rasm, setRasm] = useState<string | null>(null);
   const [video, setVideo] = useState<string | null>(null);
-  const [muddat, setMuddat] = useState<string | null>(null);
   const [saqlanmoqda, setSaqlanmoqda] = useState(false);
   const [xato, setXato] = useState<string | null>(null);
 
@@ -104,8 +101,10 @@ export default function TolovOynasi({
   const tiyin = tiyinga(summa);
 
   const joriy = useMemo(
-    () => (klientId ? hamkorQoldiq(klientId, bitimlar, tolovlar) : 0),
-    [klientId, bitimlar, tolovlar],
+    // Yozuvlar HAM beriladi: kartochkadagi qoldiq ularni sanaydi va
+    // bu yerda bermasak «Hozir» boshqa raqam ko‘rsatardi.
+    () => (klientId ? hamkorQoldiq(klientId, bitimlar, tolovlar, yozuvlar) : 0),
+    [klientId, bitimlar, tolovlar, yozuvlar],
   );
 
   // To'lov shu hamkorning YOPILMAGAN va TESKARI yo'nalishdagi
@@ -134,7 +133,6 @@ export default function TolovOynasi({
 
   async function yubor() {
     if (!klientId) return setXato(tr('Hamkorni tanlang.'));
-    if (!hisobId) return setXato(tr('Hisobni tanlang.'));
     if (!tiyin || tiyin <= 0) return setXato(tr('Summani kiriting.'));
 
     setXato(null);
@@ -144,13 +142,12 @@ export default function TolovOynasi({
         klient_id: klientId,
         yonalish,
         summa: tiyin,
-        hisob_id: hisobId,
+        // Hisob YO‘Q — kassaga yozuv tushmaydi (yuqoridagi izoh)
+        hisob_id: null,
         bitim_id: bitimId,
-        usuli,
         valyuta,
         kurs,
         izoh,
-        muddat,
       });
 
       // TO‘LOV SAQLANGANDAN KEYIN — saqlash yiqilsa telefonda
@@ -209,7 +206,7 @@ export default function TolovOynasi({
               <Text style={{ color: '#fff', fontSize: 18, fontWeight: '700' }}>✕</Text>
             </TouchableOpacity>
             <Text style={{ color: '#fff', fontSize: 17, fontWeight: '700' }}>
-              {yonalish === 'oldim' ? tr('Pul oldim') : tr('Pul berdim')}
+              {yonalish === 'oldim' ? tr('Kirim') : tr('Chiqim')}
             </Text>
             <View style={{ width: 20 }} />
           </View>
@@ -317,8 +314,10 @@ export default function TolovOynasi({
               />
             </View>
 
-            {/* Qaysi bitimga — ixtiyoriy */}
-            {ochiqBitimlar.length > 0 && (
+            {/* Qaysi bitimga — FAQAT aniq bitimdan ochilganda. Oddiy
+                kirim/chiqimda bu ro‘yxat ortiqcha: qoldiq hamkor
+                bo‘yicha hisoblanadi, bitimga bog‘lash shart emas. */}
+            {!!boshBitim && ochiqBitimlar.length > 0 && (
               <>
                 <Yorliq matn={tr('Qaysi bitimga (ixtiyoriy)')} />
                 <View style={{ paddingHorizontal: O.chekka }}>
@@ -348,12 +347,6 @@ export default function TolovOynasi({
               </>
             )}
 
-            <Yorliq matn={tr('Qaysi hisobdan')} />
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ paddingLeft: O.chekka }}>
-              {faolHisoblar.map((h) => (
-                <Chip key={h.id} matn={h.nom} tanlangan={h.id === hisobId} bos={() => setHisobId(h.id)} />
-              ))}
-            </ScrollView>
 
             {/* Valyuta BITTA bo‘lsa ham ko‘rinadi: u shu yozuv qaysi
                 valyutada ekanini aytadi va boshqasi ham bo‘lishi
@@ -378,12 +371,6 @@ export default function TolovOynasi({
                 </ScrollView>
               </>
             )}
-            <Yorliq matn={tr('Usuli')} />
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ paddingLeft: O.chekka }}>
-              {USULLAR.map((u) => (
-                <Chip key={u.k} matn={tr(u.m)} tanlangan={u.k === usuli} bos={() => setUsuli(u.k)} />
-              ))}
-            </ScrollView>
 
             <Yorliq matn={tr('Izoh')} />
             <View style={{ paddingHorizontal: O.chekka }}>
@@ -398,16 +385,6 @@ export default function TolovOynasi({
               <Biriktirma rasm={rasm} video={video} rasmQoy={setRasm} videoQoy={setVideo} />
             </View>
 
-            {/* Muddat KIRIMDA HAM, CHIQIMDA HAM: do‘kondor
-                kelishuvni ikkala tomonda yozadi — «500 mingni
-                oldim, qolganini 5-oktabrga kelishdik». */}
-            <View style={{ paddingHorizontal: O.chekka, marginTop: 14 }}>
-              <MuddatMaydoni
-                qiymat={muddat}
-                setQiymat={setMuddat}
-                izoh={tr('Qolganini qachonga kelishdingiz')}
-              />
-            </View>
 
             {klient && tiyin > 0 && (
               <View style={{ paddingHorizontal: O.chekka, marginTop: 16 }}>

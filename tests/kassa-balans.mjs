@@ -303,6 +303,21 @@ begin
   v_n := v_n || jsonb_build_object('nom', 'bekor qilingan 999 999 qoldiqda yo''q',
     'ok', v_q = 1200.65, 'izoh', v_q::text);
 
+  -- ---------- To'lov yaratgan yozuv IKKI MARTA sanalmasin ----------
+  declare
+    v_k uuid; v_y uuid;
+  begin
+    insert into public.kassa_klientlar (org_id, ism, turi) values (v_org, 'SINOV hamkor', 'hamkor')
+      returning id into v_k;
+    insert into public.kassa_yozuvlar (org_id, hisob_id, turi, summa, klient_id)
+      values (v_org, v_hisob, 'chiqim', 51458000, v_k) returning id into v_y;
+    insert into public.kassa_bitim_tolovlar (org_id, klient_id, yonalish, summa, yozuv_id)
+      values (v_org, v_k, 'berdim', 51458000, v_y);
+    select public.kassa_hamkor_qoldiq(v_k) into v_q;
+    v_n := v_n || jsonb_build_object('nom', 'baza: to''lov yaratgan yozuv ikki marta sanalmaydi',
+      'ok', v_q = 51458000, 'izoh', v_q::text);
+  end;
+
   raise exception 'SINOV_NATIJA: %', v_n::text;
 end $$;
 `;
@@ -425,6 +440,27 @@ tekshir('bekor qilingan eski yozuv sanalmaydi',
 
 tekshir('hisoblararo o‘tkazma qarz emas',
   Y.hamkorQoldiq('tonirok', [b1], [], [eskiY({ id: 'e5', k: 'tonirok', turi: 'chiqim', s: 9999, koch: 'k1' })]) === -12000);
+
+// TO‘LOV YARATGAN YOZUV (2026-09-28). Bitimga bog‘lanmagan to‘lov
+// kassaga yozuv tushiradi — unda `klient_id` bor, `bitim_id` yo‘q, ya’ni
+// u «eski yozuv» ga o‘xshaydi. Ilgari u IKKI MARTA sanalardi:
+// 51 458 000 so‘m ilovada 102 916 000 bo‘lib ko‘ringan. Parity sinovi
+// (6d) buni ushlamagan, chunki ilova ham, MCP ham BIR XIL xato
+// qilardi — shuning uchun bu yerda ANIQ qiymat tekshiriladi.
+{
+  const tu = { ...T({ id: 'tu1', k: 'najm', y: 'berdim', s: 51_458_000_00 }), yozuv_id: 'yu1' };
+  const yu = eskiY({ id: 'yu1', k: 'najm', turi: 'chiqim', s: 51_458_000_00 });
+  const q = Y.hamkorQoldiq('najm', [], [tu], [yu]);
+  tekshir('to‘lov yaratgan yozuv IKKI MARTA sanalmaydi', q === 51_458_000_00, String(q / 100));
+  const r = Y.hamkorYuruvchi('najm', [], [tu], [yu]);
+  tekshir('ro‘yxatda bitta to‘lov — bitta qator', r.length === 1 && r[0].qator.tur === 'tolov', r.length + ' qator');
+  // Bekor qilingan to‘lovning yozuvi «eski qarz» bo‘lib TIRILMAYDI
+  const tb = { ...tu, holat: 'bekor' };
+  tekshir('bekor to‘lovning yozuvi qaytib sanalmaydi', Y.hamkorQoldiq('najm', [], [tb], [yu]) === 0);
+  // To‘lovga bog‘lanmagan eski yozuv esa AVVALGIDEK sanaladi
+  const eski = eskiY({ id: 'yu2', k: 'najm', turi: 'chiqim', s: 700_00 });
+  tekshir('to‘lovsiz eski yozuv sanalishda davom etadi', Y.hamkorQoldiq('najm', [], [tu], [yu, eski]) === 51_458_700_00);
+}
 
 // Bosh ekrandagi ikki raqam hamkorlar kartochkalari yig'indisiga
 // TENG bo'lishi shart — aks holda bosh ekranda bir son, hamkorlar
@@ -763,6 +799,16 @@ console.log('\n6d. MCP ilova bilan bir xil hisoblaydi');
       ],
     },
     {
+      nom: 'to‘lov yaratgan yozuv IKKI MARTA sanalmaydi',
+      // ANIQ qiymat: ikkalasi bir xil xato qilsa ham ushlansin
+      kutilgan: 51_458_000_00,
+      bitimlar: [],
+      tolovlar: [{ ...T({ id: 'mt9', k: 'anvar', y: 'berdim', s: 51_458_000_00 }), yozuv_id: 'y9' }],
+      yozuvlar: [
+        { id: 'y9', klient_id: 'anvar', turi: 'chiqim', summa: 51_458_000_00, bitim_id: null, kochirma_id: null },
+      ],
+    },
+    {
       nom: 'ko‘chirma qarz emas',
       bitimlar: [],
       tolovlar: [],
@@ -780,10 +826,15 @@ console.log('\n6d. MCP ilova bilan bir xil hisoblaydi');
       h.tolovlar.map((x) => ({ ...x, summa: som(x.summa) })),
       h.yozuvlar.map((x) => ({ ...x, summa: som(x.summa) })),
     );
+    const kutilganMos = h.kutilgan === undefined || (ilova === h.kutilgan && mcp === h.kutilgan);
     tekshir(
       h.nom,
-      ilova === mcp,
-      ilova === mcp ? som(ilova) : 'ilova ' + som(ilova) + ' ≠ MCP ' + som(mcp),
+      ilova === mcp && kutilganMos,
+      ilova !== mcp
+        ? 'ilova ' + som(ilova) + ' ≠ MCP ' + som(mcp)
+        : kutilganMos
+          ? som(ilova)
+          : 'ikkalasi ' + som(ilova) + ', kerak ' + som(h.kutilgan),
     );
   }
 }

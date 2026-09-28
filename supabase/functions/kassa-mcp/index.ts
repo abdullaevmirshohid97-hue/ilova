@@ -149,7 +149,7 @@ async function bitimlar(org: string, chegara = 2000) {
 async function tolovlar(org: string, chegara = 2000) {
   const { data } = await admin
     .from('kassa_bitim_tolovlar')
-    .select('id, klient_id, bitim_id, yonalish, summa, valyuta, usuli, izoh, sana, holat')
+    .select('id, klient_id, bitim_id, yozuv_id, yonalish, summa, valyuta, usuli, izoh, sana, holat')
     .eq('org_id', org)
     .order('sana', { ascending: false })
     .limit(chegara);
@@ -183,9 +183,12 @@ function hamkorQoldiq(
     q += ishora(String(x.yonalish)) * t(x.summa);
   }
   // Bitimdan tug‘ilgan yozuv IKKI MARTA sanalmasin, ko‘chirma esa
-  // qarz emas — hisobdan hisobga o‘tkazma.
+  // qarz emas — hisobdan hisobga o‘tkazma. TO‘LOV yaratgan yozuv
+  // ham olinmaydi (`balans.ts` dagi `tolovYozuvlari` izohi).
+  const tolovniki = new Set(tols.map((x) => x.yozuv_id).filter(Boolean));
   for (const y of yozs) {
     if (y.klient_id !== klientId || y.bitim_id || y.kochirma_id) continue;
+    if (tolovniki.has(y.id)) continue;
     q += y.turi === 'chiqim' ? t(y.summa) : -t(y.summa);
   }
   return q;

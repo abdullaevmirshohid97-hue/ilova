@@ -321,13 +321,42 @@ tekshir(
   'BoshEkran → tahrirYozuv',
 );
 
-// To'lov qatori ham menyu ochishi kerak: ilgari faqat bitim
-// ishlardi va to'lovni bosgan odam hech narsa ko'rmasdi.
-tekshir(
-  'to‘lov qatori ham menyu ochadi',
-  /if \(q\.tur === 'tolov'\) \{/.test(BOSH) && /q\.tolov\.summa/.test(BOSH),
-  'amallarKorsat',
-);
+// Operatsiya qatori bosilganda TO'G'RIDAN oyna ochiladi (2026-09-28).
+// Ilgari avval menyu chiqardi va operatsiyani o'chirishning yo'li
+// yo'q edi; to'lov qatori esa undan ham oldin umuman javob bermasdi.
+{
+  const amallar = BOSH.slice(BOSH.indexOf('function amallarKorsat'), BOSH.indexOf('function bitimAmallari'));
+  tekshir(
+    'operatsiya qatori oynani to‘g‘ridan ochadi',
+    /setTahrirQator\(q\);/.test(amallar) && !/Ogoh\.alert/.test(amallar),
+    'menyusiz',
+  );
+  tekshir(
+    'bitimning hujjat va tasdiq havolasi oynada qoldi',
+    /amallar=\{bitimAmallari\(tahrirQator\)\}/.test(BOSH) &&
+      /tr\('Hujjat \(PDF\)'\)/.test(BOSH) &&
+      /tr\('Tasdiqlash havolasi'\)/.test(BOSH),
+  );
+}
+
+// 🗑 — shu operatsiyani o'chirish (holat: bekor). Tepada turadi,
+// shuning uchun ALBATTA so'raladi.
+{
+  const ochir = OYNA.slice(OYNA.indexOf('function ochir()'), OYNA.indexOf('async function saqla()'));
+  tekshir('oyna tepasida 🗑 bor', /onPress=\{ochir\}/.test(OYNA) && /<Chiqindi/.test(OYNA));
+  tekshir('o‘chirishdan oldin so‘raladi', /Ogoh\.alert\(/.test(ochir) && /tr\('Yo‘q'\), style: 'cancel'/.test(ochir));
+  tekshir(
+    'to‘lov ham, bitim ham o‘chadi',
+    /bitimBekorQil\(q\.id, sabab\)/.test(ochir) && /tolovBekorQil\(q\.id, sabab\)/.test(ochir),
+  );
+  tekshir('xato yutilmaydi', /catch \(e\)[\s\S]*setXato\(xatoMatn\(e\)\)/.test(ochir));
+  const baza = readFileSync(join(ROOT, 'apps/kassa/src/lib/baza.ts'), 'utf8');
+  const tb = baza.slice(baza.indexOf('export async function tolovBekorQil'), baza.indexOf('export async function bitimBekorQil'));
+  // Kassa yozuvi qolib ketsa «Naqd» hisobida pul yolg'ondan turardi
+  tekshir('to‘lovning kassa yozuvi ham bekor qilinadi', /if \(t\.yozuv_id\) await yozuvBekorQil/.test(tb));
+  // Izohda MuddatMaydoni haqida gap bor — shuning uchun faqat KOD tekshiriladi
+  tekshir('muddat oynadan olib tashlandi', !/<MuddatMaydoni|ui\/MuddatMaydoni'/.test(OYNA));
+}
 
 // Yo'q kun rad etilsin: «new Date(2026, 1, 31)» 3-martga siljiydi
 // va odam yozgan sanadan boshqasini olardi.

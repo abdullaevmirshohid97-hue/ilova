@@ -185,7 +185,182 @@ function xmlEsc(x: unknown): string {
     .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '');
 }
 
-export type Katak = string | number | null | { matn: string; qalin?: boolean };
+// ---------------------------------------------------------------------------
+// XLSX — USLUBLAR
+//
+// 2026-09-28: «barcha ma'lumot uchun kataklar yetarli bo'lsin, ranglar
+// ham alohida e'tiborga olinsin». Ilgari faqat qalin/oddiy bor edi:
+// rang yo'q, chegara yo'q, matn o'ralmasdi va ustun eni qo'lda
+// berilgan son edi — uzun izoh ko'rinmas, katta summa «####» bo'lardi.
+//
+// ESKI CHAQIRUVLAR O'ZGARMAYDI. Oddiy matn, son va `{ matn, qalin }`
+// avvalgidek birinchi to'rtta uslubga tushadi — qarzdorlik boti
+// (`supabase/functions/telegram-qarz`) shu dvigatelni ishlatadi va
+// uning hujjati o'z-o'zidan buzilmasligi kerak. Yangi imkoniyatlar
+// faqat so'ralganda ishlaydi.
+//
+// RANGLAR — ilova temasi bilan BIR XIL (Telegram ranglari,
+// `apps/kassa/src/lib/tema.ts`): kirim ko'k, chiqim qizil, sarlavha
+// Telegram ko'ki. Hujjat ilovadan chiqqanini ko'z darhol taniydi.
+// ---------------------------------------------------------------------------
+
+export type KatakRang = 'kirim' | 'chiqim' | 'xira' | 'oq' | 'urgu';
+export type KatakFon = 'sarlavha' | 'jami' | 'zebra' | 'kirim' | 'chiqim';
+
+export type KatakStil = {
+  qalin?: boolean;
+  rang?: KatakRang;
+  fon?: KatakFon;
+  /** Ingichka chegara — jadval kataklari uchun */
+  chegara?: boolean;
+  /** Uzun matn keyingi qatorga o'raladi */
+  orash?: boolean;
+  /** Son ikki kasr xonasi bilan */
+  kasr?: boolean;
+  /** Matnni o'ngga tekislash */
+  ong?: boolean;
+  /** Shrift o'lchami (standart 11) */
+  olcham?: number;
+};
+
+export type Katak =
+  | string
+  | number
+  | null
+  | ({ matn: string } & KatakStil)
+  | ({ son: number } & KatakStil);
+
+export type XlsxSozlama = {
+  /** Shuncha qator tepada muzlatiladi (odatda jadval sarlavhasigacha) */
+  muzlat?: number;
+  /** Ustun eni KONTENTGA QARAB hisoblanadi; `enlar` — eng kam en */
+  avtoEn?: boolean;
+  /** Filtr qo'yiladigan sarlavha qatori (1 dan). Ustun eni shu qatordan
+   *  boshlab hisoblanadi: tepadagi sarlavha va xulosa uni kengaytirmasin. */
+  filtr?: number;
+};
+
+const XLSX_RANG: Record<KatakRang, string> = {
+  kirim: 'FF2479B6',
+  chiqim: 'FFCC2929',
+  xira: 'FF808384',
+  oq: 'FFFFFFFF',
+  urgu: 'FF229AF0',
+};
+const XLSX_FON: Record<KatakFon, string> = {
+  sarlavha: 'FF229AF0',
+  jami: 'FFE9F5FE',
+  zebra: 'FFF7F7F9',
+  kirim: 'FFE9F5FE',
+  chiqim: 'FFFAECEC',
+};
+
+/** Katakdagi uslub so'ralganmi (eski `{ matn, qalin }` dan tashqari) */
+function yangiUslub(k: Record<string, unknown>): boolean {
+  return (
+    'son' in k ||
+    k.rang !== undefined ||
+    k.fon !== undefined ||
+    k.chegara !== undefined ||
+    k.orash !== undefined ||
+    k.kasr !== undefined ||
+    k.ong !== undefined ||
+    k.olcham !== undefined
+  );
+}
+
+/** Uslublar ro'yxati — faylda faqat ISHLATILGANLARI yoziladi */
+class Uslublar {
+  private shriftlar = ['<font><sz val="11"/><name val="Calibri"/></font>', '<font><b/><sz val="11"/><name val="Calibri"/></font>'];
+  private fonlar = ['<fill><patternFill patternType="none"/></fill>', '<fill><patternFill patternType="gray125"/></fill>'];
+  private chegaralar = [
+    '<border><left/><right/><top/><bottom/><diagonal/></border>',
+    '<border><left style="thin"><color rgb="FFD9D9D9"/></left><right style="thin"><color rgb="FFD9D9D9"/></right>' +
+      '<top style="thin"><color rgb="FFD9D9D9"/></top><bottom style="thin"><color rgb="FFD9D9D9"/></bottom><diagonal/></border>',
+  ];
+  // Birinchi to'rttasi ESKI tartibda — eski chaqiruvlar shu indekslarni oladi
+  private xflar = [
+    '<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>',
+    '<xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/>',
+    '<xf numFmtId="164" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>',
+    '<xf numFmtId="164" fontId="1" fillId="0" borderId="0" xfId="0" applyNumberFormat="1" applyFont="1"/>',
+  ];
+  private kesh = new Map<string, number>();
+
+  private qosh(royxat: string[], xml: string): number {
+    const i = royxat.indexOf(xml);
+    if (i >= 0) return i;
+    royxat.push(xml);
+    return royxat.length - 1;
+  }
+
+  indeks(s: KatakStil, son: boolean): number {
+    const kalit = JSON.stringify([son, s.qalin, s.rang, s.fon, s.chegara, s.orash, s.kasr, s.ong, s.olcham]);
+    const bor = this.kesh.get(kalit);
+    if (bor !== undefined) return bor;
+
+    const rang = s.rang ? `<color rgb="${XLSX_RANG[s.rang]}"/>` : '';
+    const shrift = this.qosh(
+      this.shriftlar,
+      `<font>${s.qalin ? '<b/>' : ''}<sz val="${s.olcham ?? 11}"/>${rang}<name val="Calibri"/></font>`,
+    );
+    const fon = s.fon
+      ? this.qosh(
+          this.fonlar,
+          `<fill><patternFill patternType="solid"><fgColor rgb="${XLSX_FON[s.fon]}"/><bgColor indexed="64"/></patternFill></fill>`,
+        )
+      : 0;
+    const chegara = s.chegara ? 1 : 0;
+    const format = son ? (s.kasr ? 165 : 164) : 0;
+    const tekis = [
+      s.orash ? 'wrapText="1"' : '',
+      'vertical="top"',
+      s.ong || son ? 'horizontal="right"' : '',
+    ]
+      .filter(Boolean)
+      .join(' ');
+    const xf =
+      `<xf numFmtId="${format}" fontId="${shrift}" fillId="${fon}" borderId="${chegara}" xfId="0"` +
+      `${format ? ' applyNumberFormat="1"' : ''} applyFont="1"${fon ? ' applyFill="1"' : ''}` +
+      `${chegara ? ' applyBorder="1"' : ''} applyAlignment="1"><alignment ${tekis}/></xf>`;
+    const i = this.qosh(this.xflar, xf);
+    this.kesh.set(kalit, i);
+    return i;
+  }
+
+  xml(): string {
+    return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
+<numFmts count="2"><numFmt numFmtId="164" formatCode="#,##0"/><numFmt numFmtId="165" formatCode="#,##0.00"/></numFmts>
+<fonts count="${this.shriftlar.length}">${this.shriftlar.join('')}</fonts>
+<fills count="${this.fonlar.length}">${this.fonlar.join('')}</fills>
+<borders count="${this.chegaralar.length}">${this.chegaralar.join('')}</borders>
+<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>
+<cellXfs count="${this.xflar.length}">${this.xflar.join('')}</cellXfs>
+<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>
+</styleSheet>`;
+  }
+}
+
+/** Katak ekranda qancha belgi egallaydi — ustun enini hisoblash uchun */
+function katakUzunligi(k: Katak): number {
+  if (k === null || k === undefined || k === '') return 0;
+  if (typeof k === 'number') return sonUzunligi(k, false);
+  if (typeof k === 'string') return engUzunQator(k);
+  if ('son' in k) return sonUzunligi(k.son, !!k.kasr);
+  return engUzunQator(k.matn) * (k.qalin ? 1.1 : 1);
+}
+function sonUzunligi(n: number, kasr: boolean): number {
+  if (!Number.isFinite(n)) return 0;
+  const butun = String(Math.trunc(Math.abs(n))).length;
+  return butun + Math.floor((butun - 1) / 3) + (kasr ? 3 : 0) + (n < 0 ? 1 : 0);
+}
+function engUzunQator(s: string): number {
+  return Math.max(0, ...String(s).split('\n').map((q) => q.length));
+}
+
+const EN_KAM = 6;
+const EN_KOP = 48;
 
 function ustunHarfi(n: number): string {
   let s = '';
@@ -198,37 +373,43 @@ function ustunHarfi(n: number): string {
   return s;
 }
 
-const STILLAR = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
-<numFmts count="1"><numFmt numFmtId="164" formatCode="#,##0"/></numFmts>
-<fonts count="2"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font></fonts>
-<fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills>
-<borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders>
-<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>
-<cellXfs count="4">
-<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>
-<xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/>
-<xf numFmtId="164" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>
-<xf numFmtId="164" fontId="1" fillId="0" borderId="0" xfId="0" applyNumberFormat="1" applyFont="1"/>
-</cellXfs>
-<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>
-</styleSheet>`;
-
 /** Bir varaqli XLSX yasaydi */
-export function xlsx(varaq: string, qatorlar: Katak[][], enlar: number[] = []): Uint8Array {
+export function xlsx(varaq: string, qatorlar: Katak[][], enlar: number[] = [], sozlama: XlsxSozlama = {}): Uint8Array {
   const kod = { encode: matnBayt };
+  const uslub = new Uslublar();
 
-  const cols = enlar.length
+  // ---- Ustun enlari ----
+  const ustunSoni = Math.max(enlar.length, ...qatorlar.map((q) => q.length));
+  const en: number[] = [];
+  for (let i = 0; i < ustunSoni; i++) {
+    let w = enlar[i] ?? 0;
+    if (sozlama.avtoEn) {
+      // Faqat JADVAL qatorlari: bitta katakli qator — sarlavha, u
+      // qo'shni bo'sh kataklarga o'zi yoyiladi va ustunni kengaytirmasin.
+      let eng = 0;
+      const boshi = Math.max(0, (sozlama.filtr ?? 1) - 1);
+      for (const q of qatorlar.slice(boshi)) {
+        const band = q.filter((k) => k !== null && k !== undefined && k !== '').length;
+        if (band < 2) continue;
+        eng = Math.max(eng, katakUzunligi(q[i] ?? null));
+      }
+      w = Math.min(EN_KOP, Math.max(w, EN_KAM, Math.ceil(eng) + 2));
+    }
+    en.push(w);
+  }
+  const cols = en.some((w) => w > 0)
     ? '<cols>' +
-      enlar
-        .map((w, i) => `<col min="${i + 1}" max="${i + 1}" width="${w}" customWidth="1"/>`)
+      en
+        .map((w, i) => (w > 0 ? `<col min="${i + 1}" max="${i + 1}" width="${w}" customWidth="1"/>` : ''))
         .join('') +
       '</cols>'
     : '';
 
+  // ---- Qatorlar ----
   const satrlar = qatorlar
     .map((q, ri) => {
       const r = ri + 1;
+      let qatorSoni = 1; // o'ralgan matn nechta qator egallaydi
       const kataklar = q
         .map((k, ci) => {
           if (k === null || k === undefined || k === '') return '';
@@ -237,18 +418,49 @@ export function xlsx(varaq: string, qatorlar: Katak[][], enlar: number[] = []): 
             if (!Number.isFinite(k)) return '';
             return `<c r="${ref}" s="2"><v>${k}</v></c>`;
           }
-          const obyekt = typeof k === 'object';
-          const matn = obyekt ? (k as any).matn : k;
-          const qalin = obyekt && (k as any).qalin;
-          return `<c r="${ref}" s="${qalin ? 1 : 0}" t="inlineStr"><is><t xml:space="preserve">${xmlEsc(matn)}</t></is></c>`;
+          if (typeof k === 'string') {
+            return `<c r="${ref}" s="0" t="inlineStr"><is><t xml:space="preserve">${xmlEsc(k)}</t></is></c>`;
+          }
+          const o = k as Record<string, unknown>;
+          if (!yangiUslub(o)) {
+            // ESKI shakl: { matn, qalin }
+            return `<c r="${ref}" s="${o.qalin ? 1 : 0}" t="inlineStr"><is><t xml:space="preserve">${xmlEsc(String(o.matn ?? ''))}</t></is></c>`;
+          }
+          const stil = k as KatakStil;
+          if ('son' in k) {
+            if (!Number.isFinite(k.son)) return '';
+            return `<c r="${ref}" s="${uslub.indeks(stil, true)}"><v>${k.son}</v></c>`;
+          }
+          const matn = String((k as { matn: string }).matn ?? '');
+          // Qator ichida \n bo'lsa, o'ramasdan ko'rsatib bo'lmaydi
+          const orash = stil.orash || matn.includes('\n');
+          if (orash) {
+            const w = Math.max(1, (en[ci] || 10) - 1);
+            const n = matn.split('\n').reduce((s, bolak) => s + Math.max(1, Math.ceil(bolak.length / w)), 0);
+            qatorSoni = Math.max(qatorSoni, n);
+          }
+          return `<c r="${ref}" s="${uslub.indeks({ ...stil, orash }, false)}" t="inlineStr"><is><t xml:space="preserve">${xmlEsc(matn)}</t></is></c>`;
         })
         .join('');
-      return `<row r="${r}">${kataklar}</row>`;
+      // O'ralgan qatorning BALANDLIGI qo'lda: Excel faylni ochganda uni
+      // har doim ham o'zi moslamaydi va matnning pastki qismi yashirinib
+      // qolardi.
+      const ht = qatorSoni > 1 ? ` ht="${Math.min(409, qatorSoni * 15)}" customHeight="1"` : '';
+      return `<row r="${r}"${ht}>${kataklar}</row>`;
     })
     .join('');
 
+  const muzlat =
+    sozlama.muzlat && sozlama.muzlat > 0
+      ? `<sheetViews><sheetView workbookViewId="0"><pane ySplit="${sozlama.muzlat}" topLeftCell="A${sozlama.muzlat + 1}" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>`
+      : '';
+  const filtr =
+    sozlama.filtr && qatorlar.length > sozlama.filtr
+      ? `<autoFilter ref="A${sozlama.filtr}:${ustunHarfi(Math.max(1, (qatorlar[sozlama.filtr - 1] ?? []).length))}${qatorlar.length}"/>`
+      : '';
+
   const sheet = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">${cols}<sheetData>${satrlar}</sheetData></worksheet>`;
+<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">${muzlat}${cols}<sheetData>${satrlar}</sheetData>${filtr}</worksheet>`;
 
   const workbook = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="${xmlEsc(varaq).slice(0, 31)}" sheetId="1" r:id="rId1"/></sheets></workbook>`;
@@ -270,7 +482,7 @@ export function xlsx(varaq: string, qatorlar: Katak[][], enlar: number[] = []): 
       bayt: kod.encode(`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`),
     },
-    { nom: 'xl/styles.xml', bayt: kod.encode(STILLAR) },
+    { nom: 'xl/styles.xml', bayt: kod.encode(uslub.xml()) },
     { nom: 'xl/worksheets/sheet1.xml', bayt: kod.encode(sheet) },
   ]);
 }
@@ -303,6 +515,8 @@ export function winansi(x: unknown): string {
     .replace(/[ʻʼ‘’']/g, '’')
     .replace(/[“”]/g, '"')
     .replace(/[–—−]/g, '-')
+    // WinAnsi'da strelka yo'q: tashlansa «Biznes → Hamkor» dan «Biznes  Hamkor» qolardi
+    .replace(/→/g, '->')
     .replace(/•/g, '-');
   let n = '';
   for (const c of s) {
@@ -311,6 +525,9 @@ export function winansi(x: unknown): string {
     else if (k === 0x201c || k === 0x201d) n += '"';
     else if (k >= 0x20 && k <= 0x7e) n += c;
     else if (k >= 0xa0 && k <= 0xff) n += c;
+    // Allaqachon o‘girilgan apostrof. Ilgari u IKKINCHI chaqiruvda
+    // tashlanardi va hujjatda «To‘lov» — «Tolov» bo‘lib chiqardi.
+    else if (k === 0x92) n += c;
     else if (k === 0x9) n += ' ';
     // qolgani tashlanadi
   }
@@ -321,9 +538,42 @@ function pdfMatn(x: string): string {
   return winansi(x).replace(/\\/g, '\\\\').replace(/\(/g, '\\(').replace(/\)/g, '\\)');
 }
 
-/** Helvetica kengligi — taxminiy, faqat qirqish uchun kerak */
+// ---------------------------------------------------------------------------
+// PDF — HARF ENI, O'RASH VA RANG
+//
+// Ilgari: har harf bir xil enli deb hisoblanardi (`uzunlik × 0.52`) va
+// sig'magan matn «..» bilan KESILARDI — uzun izohning oxiri hujjatda
+// umuman yo'q edi. Rang ham yo'q edi.
+//
+// Endi:
+//   · harf eni Helvetica'ning HAQIQIY o'lchovidan (AFM, 1000 birlikda)
+//   · matn ustunlari QATORGA O'RALADI, qator balandligi matnga moslashadi
+//   · son ustuni hech qachon kesilmaydi: sig'masa, matn ustunlaridan
+//     joy olinadi; baribir sig'masa shrift kichrayadi
+//   · sarlavha tasmasi, ranglangan summalar, yo'l-yo'l qatorlar
+//
+// API ESKISIGA MOS: `qatorlar` da oddiy satr ham, `{ matn, rang }` ham
+// bo'lishi mumkin; `xulosa` ga uchinchi element (rang) ixtiyoriy.
+// ---------------------------------------------------------------------------
+
+/** Helvetica, 32..126 belgilar eni (1000 birlikda) */
+const HELV = [
+  278, 278, 355, 556, 556, 889, 667, 191, 333, 333, 389, 584, 278, 333, 278, 278,
+  556, 556, 556, 556, 556, 556, 556, 556, 556, 556, 278, 278, 584, 584, 584, 556,
+  1015, 667, 667, 722, 722, 667, 611, 778, 722, 278, 500, 667, 556, 833, 722, 778,
+  667, 778, 722, 667, 611, 722, 667, 944, 667, 667, 611, 278, 278, 278, 469, 556,
+  333, 556, 556, 500, 556, 556, 278, 556, 556, 222, 222, 500, 222, 833, 556, 556,
+  556, 556, 333, 500, 278, 556, 500, 722, 500, 500, 500, 334, 260, 334, 584,
+];
+
+/** Helvetica kengligi (pt). Qalin shrift ~6% kengroq — ehtiyot uchun ortig'i bilan. */
 function eni(s: string, olcham: number, qalin: boolean): number {
-  return s.length * olcham * (qalin ? 0.56 : 0.52);
+  let w = 0;
+  for (const c of s) {
+    const k = c.charCodeAt(0);
+    w += k >= 32 && k <= 126 ? HELV[k - 32] : k === 0x92 ? 222 : 556;
+  }
+  return (w / 1000) * olcham * (qalin ? 1.06 : 1);
 }
 
 function qirq(s: string, kenglik: number, olcham: number, qalin = false): string {
@@ -334,32 +584,135 @@ function qirq(s: string, kenglik: number, olcham: number, qalin = false): string
   return x + '..';
 }
 
-export type PdfUstun = { nom: string; en: number; ong?: boolean };
+/**
+ * Matnni berilgan enga O'RAYDI. So'z bo'yicha bo'linadi; bitta so'z
+ * enidan uzun bo'lsa (masalan telefon yoki uzun raqam) harf bo'yicha.
+ * `\n` — majburiy yangi qator.
+ */
+function ora(s: string, kenglik: number, olcham: number, qalin = false, engKop = 30): string[] {
+  const natija: string[] = [];
+  // AVVAL bo'linadi, KEYIN o'giriladi: `winansi` `\n` ni tashlab yuboradi
+  // va teskari tartibda izohning qatorlari bir-biriga yopishib qolardi
+  // («13440000» + «350somdan» → «13440000350somdan»).
+  for (const abzas of String(s ?? '').replace(/\r/g, '').split('\n').map(winansi)) {
+    let joriy = '';
+    for (const soz of abzas.split(/ +/)) {
+      if (!soz) continue;
+      const sinov = joriy ? joriy + ' ' + soz : soz;
+      if (eni(sinov, olcham, qalin) <= kenglik) {
+        joriy = sinov;
+        continue;
+      }
+      if (joriy) natija.push(joriy);
+      // So'zning o'zi sig'masa — bo'lib yuboriladi
+      let qoldi = soz;
+      while (eni(qoldi, olcham, qalin) > kenglik && qoldi.length > 1) {
+        let n = qoldi.length - 1;
+        while (n > 1 && eni(qoldi.slice(0, n), olcham, qalin) > kenglik) n--;
+        natija.push(qoldi.slice(0, n));
+        qoldi = qoldi.slice(n);
+      }
+      joriy = qoldi;
+    }
+    natija.push(joriy);
+  }
+  // Chegara 30 qator (~300pt): amalda hamma izoh sig‘adi, lekin bitta
+  // katak sahifadan balandroq bo‘lib sahifalashni buzmaydi
+  if (natija.length > engKop) {
+    const kesilgan = natija.slice(0, engKop);
+    kesilgan[engKop - 1] = qirq(kesilgan[engKop - 1] + ' ...', kenglik, olcham, qalin);
+    return kesilgan;
+  }
+  return natija.length ? natija : [''];
+}
+
+export type PdfRang = 'kirim' | 'chiqim' | 'xira' | 'urgu';
+export type PdfKatak = string | { matn: string; rang?: PdfRang; qalin?: boolean };
+export type PdfUstun = {
+  nom: string;
+  en: number;
+  /** Son ustuni: o'ngga tekislanadi va HECH QACHON kesilmaydi */
+  ong?: boolean;
+};
 
 export type PdfHujjat = {
   sarlavha: string;
   qator2?: string;
   qator3?: string;
-  xulosa?: [string, string][];
+  /** [yorliq, qiymat] yoki [yorliq, qiymat, rang] */
+  xulosa?: ([string, string] | [string, string, PdfRang])[];
   ustunlar: PdfUstun[];
-  qatorlar: string[][];
+  qatorlar: PdfKatak[][];
 };
+
+/** Ilova temasi bilan bir xil ranglar (PDF: 0..1 RGB) */
+const PDF_RANG: Record<PdfRang | 'matn' | 'tasma' | 'zebra' | 'quti' | 'chiziq', [number, number, number]> = {
+  matn: [0.102, 0.114, 0.129], //  #1A1D21
+  kirim: [0.141, 0.475, 0.714], // #2479B6
+  chiqim: [0.8, 0.161, 0.161], //  #CC2929
+  xira: [0.502, 0.514, 0.518], //  #808384
+  urgu: [0.133, 0.604, 0.941], //  #229AF0 — Telegram
+  tasma: [0.133, 0.604, 0.941], // jadval sarlavhasi
+  zebra: [0.969, 0.969, 0.976], // #F7F7F9
+  quti: [0.945, 0.945, 0.953], //  #F1F1F3
+  chiziq: [0.851, 0.851, 0.851], // #D9D9D9
+};
+const rgb = (r: [number, number, number]) => r.map((x) => x.toFixed(3)).join(' ');
 
 const EN = 595;
 const BOY = 842;
 const CHAP = 40;
 const KENGLIK = EN - CHAP * 2;
+const SHRIFT = 8;
+const QATOR_ORALIQ = 10; // o'ralgan matnning bir qatori
+const KATAK_ICHI = 5; // katak ichidagi tepa-past bo'shliq
+
+const katakMatn = (k: PdfKatak | undefined) => (k === undefined || k === null ? '' : typeof k === 'string' ? k : k.matn);
+const katakRang = (k: PdfKatak | undefined): PdfRang | undefined => (k && typeof k === 'object' ? k.rang : undefined);
+const katakQalin = (k: PdfKatak | undefined) => !!(k && typeof k === 'object' && k.qalin);
 
 /**
- * Sodda, bir jadvalli PDF.
+ * Ustun enlari. Avval `en` ulushlari bo'yicha, keyin SON ustunlariga
+ * eng uzun qiymati sig'adigan joy beriladi — u joy matn ustunlaridan
+ * (ular baribir o'raladi) olinadi.
+ */
+function ustunEnlari(h: PdfHujjat): number[] {
+  const jami = h.ustunlar.reduce((s, u) => s + u.en, 0) || 1;
+  const enlar = h.ustunlar.map((u) => (u.en / jami) * KENGLIK);
+  let kamomad = 0;
+  h.ustunlar.forEach((u, i) => {
+    if (!u.ong) return;
+    let kerak = eni(winansi(u.nom), 8.5, true);
+    for (const q of h.qatorlar) kerak = Math.max(kerak, eni(winansi(katakMatn(q[i])), SHRIFT, katakQalin(q[i])));
+    kerak += 10;
+    if (kerak > enlar[i]) {
+      kamomad += kerak - enlar[i];
+      enlar[i] = kerak;
+    }
+  });
+  if (kamomad > 0) {
+    const ENG_KAM = 36;
+    const matnli = h.ustunlar.map((u, i) => (!u.ong ? Math.max(0, enlar[i] - ENG_KAM) : 0));
+    const bor = matnli.reduce((s, x) => s + x, 0);
+    if (bor > 0) {
+      const ulush = Math.min(1, kamomad / bor);
+      matnli.forEach((x, i) => {
+        enlar[i] -= x * ulush;
+      });
+    }
+  }
+  return enlar;
+}
+
+/**
+ * Bir jadvalli PDF.
  *
  * Sahifalash HAQIQIY: qatorlar sig'masa yangi sahifa ochiladi va
- * sarlavha qayta chiziladi. Aks holda uzun sverka varaqdan chiqib
- * ketardi va buni faqat chop etgandan keyin bilinardi.
+ * sarlavha qayta chiziladi. Qator balandligi endi o'zgaruvchan
+ * (o'ralgan matn), shuning uchun sahifa BALANDLIK bo'yicha to'ladi.
  */
 export function pdf(h: PdfHujjat): Uint8Array {
-  const jamiEn = h.ustunlar.reduce((s, u) => s + u.en, 0) || 1;
-  const enlar = h.ustunlar.map((u) => (u.en / jamiEn) * KENGLIK);
+  const enlar = ustunEnlari(h);
   const x0: number[] = [];
   let acc = CHAP;
   for (const e of enlar) {
@@ -367,84 +720,132 @@ export function pdf(h: PdfHujjat): Uint8Array {
     acc += e;
   }
 
-  const QATOR_BOY = 15;
-  const sahifalar: string[][] = [];
-  let joriy: string[][] = [];
+  // Har qatorning o'ralgan ko'rinishi va balandligi — oldindan
+  type Tayyor = { bolaklar: string[][]; olcham: number[]; boy: number };
+  const tayyor: Tayyor[] = h.qatorlar.map((q) => {
+    const bolaklar: string[][] = [];
+    const olcham: number[] = [];
+    h.ustunlar.forEach((u, i) => {
+      const matn = katakMatn(q[i]);
+      const qalin = katakQalin(q[i]);
+      const joy = enlar[i] - 8;
+      if (u.ong) {
+        const m = winansi(matn);
+        const w = eni(m, SHRIFT, qalin);
+        // Son KESILMAYDI: sig'masa shrift kichrayadi
+        olcham.push(w > joy && w > 0 ? Math.max(5.5, (SHRIFT * joy) / w) : SHRIFT);
+        bolaklar.push([m]);
+      } else {
+        olcham.push(SHRIFT);
+        bolaklar.push(ora(matn, joy, SHRIFT, qalin));
+      }
+    });
+    const qatorlarSoni = Math.max(1, ...bolaklar.map((b) => b.length));
+    return { bolaklar, olcham, boy: qatorlarSoni * QATOR_ORALIQ + KATAK_ICHI };
+  });
 
-  // Birinchi sahifada sarlavha va xulosa ham bor — unga kamroq qator sig'adi
-  const xulosaBoy = (h.xulosa?.length ?? 0) * 14;
-  const birinchiJoy = Math.max(1, Math.floor((BOY - 150 - xulosaBoy - 60) / QATOR_BOY));
-  const keyingiJoy = Math.max(1, Math.floor((BOY - 90 - 60) / QATOR_BOY));
-
-  let qoldi = [...h.qatorlar];
-  let birinchi = true;
-  do {
-    const n = birinchi ? birinchiJoy : keyingiJoy;
-    joriy = qoldi.slice(0, n);
-    qoldi = qoldi.slice(n);
-    sahifalar.push(joriy as any);
-    birinchi = false;
-  } while (qoldi.length > 0);
+  // ---- Sahifalash ----
+  const xulosaBoy = (h.xulosa?.length ?? 0) * 15 + (h.xulosa?.length ? 16 : 0);
+  const PAST = 50; // sahifa raqami uchun joy
+  const birinchiTepa = BOY - 50 - 20 - (h.qator2 ? 14 : 0) - (h.qator3 ? 14 : 0) - 14 - xulosaBoy - 22;
+  const keyingiTepa = BOY - 50 - 20 - 22;
+  const sahifalar: number[][] = [];
+  let joriy: number[] = [];
+  let joy = birinchiTepa - PAST;
+  tayyor.forEach((t, i) => {
+    if (joriy.length > 0 && t.boy > joy) {
+      sahifalar.push(joriy);
+      joriy = [];
+      joy = keyingiTepa - PAST;
+    }
+    joriy.push(i);
+    joy -= t.boy;
+  });
+  sahifalar.push(joriy);
 
   const oqimlar: string[] = [];
-  sahifalar.forEach((qatorlar, si) => {
+  sahifalar.forEach((indekslar, si) => {
     let s = '';
     let y = BOY - 50;
 
-    const yoz = (matn: string, x: number, yy: number, olcham: number, qalin = false) => {
-      s += `BT /${qalin ? 'F2' : 'F1'} ${olcham} Tf ${x.toFixed(1)} ${yy.toFixed(1)} Td (${pdfMatn(matn)}) Tj ET\n`;
+    const yoz = (matn: string, x: number, yy: number, olcham: number, qalin = false, rang = PDF_RANG.matn) => {
+      s += `BT ${rgb(rang)} rg /${qalin ? 'F2' : 'F1'} ${olcham.toFixed(1)} Tf ${x.toFixed(1)} ${yy.toFixed(1)} Td (${pdfMatn(matn)}) Tj ET\n`;
     };
-    const chiziq = (yy: number, qalinlik = 0.6) => {
-      s += `${qalinlik} w ${CHAP} ${yy.toFixed(1)} m ${(EN - CHAP).toFixed(1)} ${yy.toFixed(1)} l S\n`;
+    const tortburchak = (x: number, yy: number, w: number, hh: number, rang: [number, number, number]) => {
+      s += `${rgb(rang)} rg ${x.toFixed(1)} ${yy.toFixed(1)} ${w.toFixed(1)} ${hh.toFixed(1)} re f\n`;
+    };
+    const chiziq = (yy: number, qalinlik: number, rang: [number, number, number]) => {
+      s += `${rgb(rang)} RG ${qalinlik} w ${CHAP} ${yy.toFixed(1)} m ${(EN - CHAP).toFixed(1)} ${yy.toFixed(1)} l S\n`;
     };
 
     if (si === 0) {
       yoz(h.sarlavha, CHAP, y, 15, true);
-      y -= 20;
+      y -= 8;
+      // Sarlavha ostidagi urg'u chizig'i — Telegram ko'ki
+      chiziq(y, 1.5, PDF_RANG.urgu);
+      y -= 14;
       if (h.qator2) {
-        yoz(h.qator2, CHAP, y, 10);
+        yoz(h.qator2, CHAP, y, 10, false, PDF_RANG.matn);
         y -= 14;
       }
       if (h.qator3) {
-        yoz(h.qator3, CHAP, y, 10);
+        yoz(h.qator3, CHAP, y, 9, false, PDF_RANG.xira);
         y -= 14;
       }
-      y -= 6;
-      for (const [nom, qiy] of h.xulosa ?? []) {
-        yoz(nom, CHAP, y, 10, nom === nom.toUpperCase());
-        const q = winansi(qiy);
-        yoz(q, EN - CHAP - eni(q, 10, true), y, 10, true);
-        y -= 14;
+      if (h.xulosa?.length) {
+        y -= 4;
+        const boy = h.xulosa.length * 15 + 8;
+        tortburchak(CHAP, y - boy + 11, KENGLIK, boy, PDF_RANG.quti);
+        y -= 2;
+        for (const [nom, qiy, rang] of h.xulosa) {
+          const katta = nom === nom.toUpperCase() || !!rang;
+          yoz(nom, CHAP + 8, y, 10, katta);
+          const q = winansi(qiy);
+          yoz(q, EN - CHAP - 8 - eni(q, 10, true), y, 10, true, rang ? PDF_RANG[rang] : PDF_RANG.matn);
+          y -= 15;
+        }
+        y -= 12;
+      } else {
+        y -= 6;
       }
-      y -= 8;
     } else {
       yoz(h.sarlavha + ' (davomi)', CHAP, y, 11, true);
-      y -= 20;
+      y -= 8;
+      chiziq(y, 1, PDF_RANG.urgu);
+      y -= 14;
     }
 
-    // Jadval sarlavhasi
-    chiziq(y + 11, 0.8);
+    // ---- Jadval sarlavhasi: rangli tasma, oq matn ----
+    tortburchak(CHAP, y - 5, KENGLIK, 17, PDF_RANG.tasma);
     h.ustunlar.forEach((u, i) => {
       const nom = qirq(u.nom, enlar[i] - 6, 8.5, true);
-      const x = u.ong ? x0[i] + enlar[i] - 4 - eni(nom, 8.5, true) : x0[i] + 2;
-      yoz(nom, x, y, 8.5, true);
+      const x = u.ong ? x0[i] + enlar[i] - 4 - eni(nom, 8.5, true) : x0[i] + 3;
+      yoz(nom, x, y, 8.5, true, [1, 1, 1]);
     });
-    y -= 4;
-    chiziq(y, 0.8);
-    y -= 11;
+    y -= 17;
 
-    for (const q of qatorlar) {
+    // ---- Qatorlar ----
+    indekslar.forEach((qi, tartib) => {
+      const t = tayyor[qi];
+      const q = h.qatorlar[qi];
+      const tepasi = y + 11;
+      if (tartib % 2 === 1) tortburchak(CHAP, tepasi - t.boy, KENGLIK, t.boy, PDF_RANG.zebra);
       h.ustunlar.forEach((u, i) => {
-        const matn = qirq(q[i] ?? '', enlar[i] - 6, 8);
-        const x = u.ong ? x0[i] + enlar[i] - 4 - eni(matn, 8, false) : x0[i] + 2;
-        yoz(matn, x, y, 8);
+        const r = katakRang(q[i]);
+        const rang = r ? PDF_RANG[r] : PDF_RANG.matn;
+        const qalin = katakQalin(q[i]);
+        t.bolaklar[i].forEach((bolak, li) => {
+          const yy = y - li * QATOR_ORALIQ;
+          const x = u.ong ? x0[i] + enlar[i] - 4 - eni(bolak, t.olcham[i], qalin) : x0[i] + 3;
+          yoz(bolak, x, yy, t.olcham[i], qalin, rang);
+        });
       });
-      y -= QATOR_BOY;
-      s += `0.9 G 0.2 w ${CHAP} ${(y + 10).toFixed(1)} m ${(EN - CHAP).toFixed(1)} ${(y + 10).toFixed(1)} l S 0 G\n`;
-    }
+      y -= t.boy;
+      s += `${rgb(PDF_RANG.chiziq)} RG 0.3 w ${CHAP} ${(y + 10).toFixed(1)} m ${(EN - CHAP).toFixed(1)} ${(y + 10).toFixed(1)} l S\n`;
+    });
 
     const oyoq = `${si + 1} / ${sahifalar.length}`;
-    yoz(oyoq, EN / 2 - eni(oyoq, 8, false) / 2, 28, 8);
+    yoz(oyoq, EN / 2 - eni(oyoq, 8, false) / 2, 28, 8, false, PDF_RANG.xira);
     oqimlar.push(s);
   });
 

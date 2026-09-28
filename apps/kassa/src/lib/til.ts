@@ -665,6 +665,12 @@ const RU: Record<string, string> = {
   'Sizga «Naqd» va «Karta» hisoblari hamda odatiy turkumlar tayyor holda ochiladi.':
     'Для вас сразу откроются счета «Наличные» и «Карта» и обычные категории.',
 
+  // ---------- Sverka ustunlari (tr(u.nom) — sinov ularni ko‘rmaydi) ----------
+  'Berdim': 'Отдал',
+  'Oldim': 'Получил',
+  'Jami berdim': 'Всего отдал',
+  'Jami oldim': 'Всего получил',
+
   // ---------- Hamkorni o‘chirish ----------
   'Bu hamkor sizga qarzdor:': 'Этот партнёр должен вам:',
   'Siz bu hamkorga qarzdorsiz:': 'Вы должны этому партнёру:',
@@ -687,8 +693,12 @@ const RU: Record<string, string> = {
   'Summani to‘g‘ri kiriting.': 'Введите сумму правильно.',
   'Sana yoki vaqt noto‘g‘ri. Namuna: 2026-10-05 va 14:30':
     'Дата или время неверны. Пример: 2026-10-05 и 14:30',
-  'Bu operatsiya tasdiqlangan. Summa va sana o‘zgarmaydi — faqat izoh va muddat.':
-    'Эта операция подтверждена. Сумма и дата не меняются — только примечание и срок.',
+  'Bu operatsiya tasdiqlangan. Summa va sana o‘zgarmaydi — faqat izoh.':
+    'Эта операция подтверждена. Сумма и дата не меняются — только примечание.',
+  'Operatsiya o‘chirilsinmi?': 'Удалить операцию?',
+  'Qoldiqdan chiqadi. Kartochkadagi «O‘chirilgan operatsiyalar» da ko‘rinib turadi.':
+    'Она не войдёт в баланс и останется в «Удалённые операции» в карточке.',
+  'Foydalanuvchi o‘chirdi': 'Удалено пользователем',
   'Tasdiqlangan operatsiyaning summasi va sanasi o‘zgarmaydi. Izoh va muddatni o‘zgartirsangiz bo‘ladi.':
     'У подтверждённой операции сумма и дата не меняются. Примечание и срок изменить можно.',
 };

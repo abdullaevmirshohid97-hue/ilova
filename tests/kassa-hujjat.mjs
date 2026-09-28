@@ -155,9 +155,19 @@ const kirill = H.hisobotPdf({ ...manba, biznes: 'Дўкон Ахмад' });
 const kirillMatn = Buffer.from(kirill).toString('latin1');
 tekshir(
   'kirill matn lotinga o‘girilgan',
-  !/[Ѐ-ӿ]/.test(kirillMatn) && /D.kon|Dukon|Dwkon|Dkon/i.test(kirillMatn),
+  // «Дўкон» → «Do’kon»: apostrof (WinAnsi 0x92) endi SAQLANADI —
+  // ilgari u ikkinchi o'girishda tushib qolib «Dokon» chiqardi.
+  !/[Ѐ-ӿ]/.test(kirillMatn) && /Do\x92kon|D.kon|Dukon|Dkon/i.test(kirillMatn),
   kirillMatn.includes('kon') ? 'lotin harflari topildi' : 'TEKSHIRILSIN',
 );
+
+// O'zbekcha apostrof (o‘, g‘) PDF'da YO'QOLMASIN. Ilgari `winansi` ikki
+// marta chaqirilardi (katakda va yozishda) va ikkinchisi WinAnsi
+// apostrofini tashlab yuborardi: «To‘lov» → «Tolov», «Bo‘sh» → «Bosh».
+{
+  const ap = Buffer.from(H.hisobotPdf({ ...manba, biznes: 'To‘lov do‘koni' })).toString('latin1');
+  tekshir('o‘zbekcha apostrof saqlanadi', ap.includes('To\x92lov do\x92koni'), ap.includes('Tolov') ? 'TUSHIB QOLGAN' : 'bor');
+}
 
 // =============================================================
 // 3. Chegaraviy holatlar
@@ -562,6 +572,82 @@ console.log('\n4. Sverka');
   tekshir('bo‘sh sverka ham yasaladi', bosh.length > 500, (bosh.length / 1024).toFixed(1) + ' KB');
 }
 
+
+// =============================================================
+// 5. HUJJAT DIZAYNI (2026-09-28)
+//
+//  Foydalanuvchi: «barcha ma'lumotlar uchun kataklar yetarli
+//  bo'lsin, ranglar ham alohida e'tiborga olinsin». Ilgari:
+//    · PDF'da sig'magan matn «..» bilan KESILARDI
+//    · izohdagi qator bo'linishi yo'qolib, raqamlar yopishardi
+//    · Excel'da summa MATN edi, rang ham, chegara ham yo'q edi
+//    · o'zbekcha apostrof PDF'da tushib qolardi («To‘lov» → «Tolov»)
+//  Bu yerda HAMMASI qayta ochilgan fayldan tekshiriladi.
+// =============================================================
+console.log('\n5. Hujjat dizayni');
+
+{
+  const yadro2 = join(ish, 'yadro-dizayn.mjs');
+  await esbuild.build({
+    entryPoints: [join(ROOT, 'packages/kassa-yadro/index.ts')],
+    outfile: yadro2,
+    bundle: true,
+    format: 'esm',
+    platform: 'neutral',
+  });
+  const Y = await import('file://' + yadro2.replace(/\\/g, '/'));
+
+  const UZUN =
+    '240 somdan 2ml 56mingta 13440000\n350somdan 10ml 120mingta 42000000\n' +
+    '270 somdan 5ml 100mingta 27000000 — ishxonada Xusniddin aka oldida kelishildi, ' +
+    'qolgani oy oxirida to‘lanadi, Isroil aka orqali berib yuboriladi, OXIRGI_SOZ';
+  const KATTA = 102_916_000_50; // 102 916 000,50
+  const K = { id: 'kd', ism: 'Islom oka Ax Med', turi: 'hamkor', telefon: '998901112233', versiya: 1 };
+  const bitimlar = [
+    { id: 'd1', klient_id: 'kd', yonalish: 'berdim', nima: 'tovar', tovar_nom: 'Karobka', summa: KATTA, valyuta: 'UZS', kurs: 1, sana: '2026-09-01T09:00:00.000Z', holat: 'kutilmoqda', izoh: UZUN, versiya: 1 },
+  ];
+  const tolovlar = [
+    { id: 'd2', klient_id: 'kd', bitim_id: null, yonalish: 'oldim', summa: 600_000_00, valyuta: 'UZS', kurs: 1, usuli: 'naqd', sana: '2026-09-02T09:00:00.000Z', holat: 'kutilmoqda', izoh: 'klik', versiya: 1 },
+  ];
+  const manba = { biznes: 'Umumiy oldi berdi', klient: K, qatorlar: Y.hamkorYuruvchi('kd', bitimlar, tolovlar, []), valyuta: 'UZS', davr: '01.09.2026 — 28.09.2026' };
+
+  // ---------- PDF ----------
+  const pm = Buffer.from(H.sverkaPdf(manba)).toString('latin1');
+  const bolaklar = [...pm.matchAll(/([0-9.]+) ([0-9.]+) Td \((.*?)\) Tj/g)].map((m) => ({ x: Number(m[1]), y: Number(m[2]), t: m[3] }));
+  const matn = bolaklar.map((b) => b.t).join(' ');
+
+  tekshir('PDF: uzun izoh OXIRIGACHA bor (kesilmagan)', matn.includes('OXIRGI_SOZ'), matn.includes('OXIRGI_SOZ') ? 'oxirgi so‘z bor' : 'KESILGAN');
+  tekshir('PDF: izohdagi qator bo‘linishi saqlangan', !matn.includes('13440000350somdan') && bolaklar.some((b) => b.t.startsWith('350somdan')), 'raqamlar yopishmagan');
+  tekshir('PDF: katta summa to‘liq', matn.includes('102 916 000,50'), '102 916 000,50');
+  tekshir('PDF: hech narsa «..» bilan kesilmagan', !bolaklar.some((b) => /\.\.$/.test(b.t)), bolaklar.filter((b) => /\.\.$/.test(b.t)).map((b) => b.t).join(' | ') || 'toza');
+  tekshir('PDF: o‘zbekcha apostrof saqlangan', pm.includes('to\x92lanadi'), 'to’lanadi');
+  tekshir('PDF: chiqim qizil (#CC2929)', pm.includes('0.800 0.161 0.161 rg'));
+  tekshir('PDF: kirim ko‘k (#2479B6)', pm.includes('0.141 0.475 0.714 rg'));
+  tekshir('PDF: jadval sarlavhasi Telegram ko‘ki tasmasida', /0\.133 0\.604 0\.941 rg [0-9. ]+ re f/.test(pm));
+  const tashqarida = bolaklar.filter((b) => b.x < 38 || b.x > 556 || b.y < 20 || b.y > 812);
+  tekshir('PDF: hamma matn varaq ichida', tashqarida.length === 0, tashqarida.length + ' ta tashqarida');
+
+  // Son ustuni: eng uzun summa o'z ustunidan chiqib ketmasin — o'ng
+  // chetdan (555) oshmasligi va qo'shni ustunga kirmasligi kerak.
+  const summaBolagi = bolaklar.find((b) => b.t === '102 916 000,50');
+  tekshir('PDF: katta summa o‘ng chetdan oshmagan', summaBolagi && summaBolagi.x + 60 < 556, summaBolagi ? 'x=' + summaBolagi.x : 'topilmadi');
+
+  // ---------- Excel ----------
+  const xm = Buffer.from(H.sverkaXlsx(manba)).toString('utf8'); // ZIP «store» — XML ochiq turadi
+  tekshir('Excel: summa SON (matn emas)', /<c r="E\d+" s="\d+"><v>102916000\.5<\/v><\/c>/.test(xm), 'Berdim ustuni');
+  tekshir('Excel: kasrli son formati', xm.includes('formatCode="#,##0.00"'));
+  tekshir('Excel: chiqim qizil, kirim ko‘k', xm.includes('rgb="FFCC2929"') && xm.includes('rgb="FF2479B6"'));
+  tekshir('Excel: sarlavha Telegram ko‘ki fonida', xm.includes('<fgColor rgb="FF229AF0"/>'));
+  tekshir('Excel: chegara bor', xm.includes('<left style="thin">'));
+  tekshir('Excel: sarlavha qatori muzlatilgan', /<pane ySplit="\d+" topLeftCell="A\d+" activePane="bottomLeft" state="frozen"\/>/.test(xm));
+  tekshir('Excel: filtr qo‘yilgan', /<autoFilter ref="A\d+:G\d+"\/>/.test(xm));
+  tekshir('Excel: uzun matn o‘raladi', xm.includes('wrapText="1"'));
+  const baland = [...xm.matchAll(/<row r="\d+" ht="(\d+)" customHeight="1">/g)].map((m) => Number(m[1]));
+  tekshir('Excel: o‘ralgan qator balandligi oshirilgan', baland.some((h) => h >= 45), baland.join(', ') || 'yo‘q');
+  const enlar = [...xm.matchAll(/<col min="(\d+)" max="\d+" width="(\d+(?:\.\d+)?)"/g)].map((m) => Number(m[2]));
+  tekshir('Excel: summa ustunlari «####» bo‘lmaydi (en yetarli)', enlar[4] >= 15 && enlar[6] >= 15, enlar.join(', '));
+  tekshir('Excel: tavsif ustuni cheklangan — cheksiz cho‘zilmaydi', enlar[3] <= 48, 'Tavsif=' + enlar[3]);
+}
 
 console.log('\n  fayllar: ' + ish);
 console.log('\n' + (yiqildi === 0 ? '\x1b[32mHAMMASI O‘TDI\x1b[0m' : `\x1b[31m${yiqildi} TA XATO\x1b[0m`) + '\n');

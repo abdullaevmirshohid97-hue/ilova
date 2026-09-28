@@ -645,6 +645,28 @@ Kod o'qish "shunday yozilganmi" degan savolga javob beradi. Hujjat
 formulasi noto'g'ri katakka ishora qilsa, kod o'qish uni ushlamaydi.
 `tests/prays-hujjat.mjs` hujjatni yasab, qayta ochib tekshiradi.
 
+### «Ikki joy bir xil hisoblaydi» — bu to'g'ri hisoblaydi degani EMAS
+
+Hamkor qoldig'i UCH joyda hisoblanadi: ilova yadrosi (`balans.ts`),
+MCP (`kassa-mcp`) va bazadagi `kassa_hamkor_qoldiq`. `kassa-balans`
+dagi parity sinovi ilova va MCP ni **bir-biriga** solishtirardi — va
+uchalasi ham bir xil xato qilgani uchun u yashil turardi: bitimga
+bog'lanmagan to'lov IKKI MARTA sanalardi (to'lov + u kassaga tushirgan
+yozuv), 51 458 000 so'm 102 916 000 bo'lib ko'ringan.
+
+Qoida: parity sinoviga har doim **aniq kutilgan qiymat** ham qo'shing
+(`kutilgan:` maydoni). Nusxalar bir-biriga teng bo'lishi — faqat
+bir-biridan ko'chirilganini isbotlaydi.
+
+### PDF'da `winansi` bir marta, bo'lishdan KEYIN
+
+`winansi` WinAnsi'ga sig'magan belgilarni tashlaydi — `\n` ham. Shuning
+uchun matnni avval qatorlarga bo'lib, keyin o'girish kerak; aks holda
+izohdagi «13440000» va «350somdan» yopishib «13440000350somdan» bo'ladi.
+Ikki marta chaqirish ham xavfli edi: ikkinchisi WinAnsi apostrofini
+(0x92) tashlab, «To‘lov» dan «Tolov» qoldirardi. Dvigatelga (`pdf()`)
+XOM matn bering — o'rash va o'girishni o'zi qiladi.
+
 ### Sinovni mutatsiya bilan sinang
 
 Sinov yozgach, kodni **ataylab buzing** va yiqilishiga ishonch hosil
